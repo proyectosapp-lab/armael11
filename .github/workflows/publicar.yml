@@ -1,0 +1,78 @@
+# ══════════════════════════════════════════════════════════════════════════
+#  TSTE — traer todo y publicar
+#
+#  Corre cada tres horas. Hace lo mismo que CORRER.cmd en tu máquina, más
+#  bajar los datos del juego y subir el sitio.
+#
+#  Lo importante: la API key vive acá como SECRETO del repositorio. Se usa
+#  para bajar los datos y lo que se publica son las respuestas ya bajadas.
+#  Nunca llega al navegador de nadie.
+# ══════════════════════════════════════════════════════════════════════════
+name: Traer y publicar
+
+on:
+  schedule:
+    # Cada 3 horas. En UTC: Argentina es UTC-3, así que esto cae 21:10,
+    # 00:10, 03:10… hora de acá. El minuto 10 y no el 0 a propósito:
+    # a la hora en punto GitHub tiene cola y los trabajos arrancan tarde.
+    - cron: "10 */3 * * *"
+  workflow_dispatch:        # botón "Run workflow" para correrlo cuando quieras
+  push:
+    branches: [main]        # y también al subir un cambio
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Si ya hay una corrida publicando, esta espera en vez de pisarla.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # Primero las pruebas. Si el pipeline está roto, mejor no publicar
+      # treinta feeds mal armados encima de los que estaban bien.
+      - name: Probar el pipeline
+        run: |
+          node probar.mjs
+          node probar-clubes.mjs
+
+      - name: Resolver los canales de YouTube
+        run: node resolver-youtube.mjs
+        continue-on-error: true   # si YouTube no contesta, el feed sale igual
+
+      - name: Traer las fuentes y armar los 30 feeds
+        run: node todos.mjs
+
+      # Los datos del juego cuestan pedidos a la API, así que si falta el
+      # secreto se saltea y el sitio sale igual: la pestaña del juego vuelve
+      # a pedirle la key al usuario, como antes.
+      - name: Bajar los datos del juego
+        env:
+          API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
+        run: node datos-juego.mjs
+        continue-on-error: true
+
+      - name: Armar el sitio
+        run: node construir-sitio.mjs
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./sitio
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
