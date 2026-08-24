@@ -109,6 +109,23 @@ srv.listen(8099, async () => {
   caso("el feed entra por <script src> y se pinta",
        (await pg.locator('#resumen').textContent() || '').includes('historias'));
 
+  /* La pestaña Números: tiene que ofrecer las tablas que haya y arrancar en
+     la que contiene a este club. Mostrábamos la del torneo ya terminado. */
+  await pg.click('#barra button[data-tab="numeros"]');
+  await pg.waitForTimeout(400);
+  const nTablas = await pg.evaluate(() => (window.STATS?.tablas || []).length);
+  if (nTablas > 1) {
+    caso("ofrece elegir entre las tablas",
+         await pg.locator('[data-tab-tabla]').count() === nTablas);
+    const antes = await pg.locator('table tr').count();
+    await pg.locator('[data-tab-tabla="' + (nTablas - 1) + '"]').click();
+    await pg.waitForTimeout(300);
+    caso("cambiar de tabla repinta", (await pg.locator('table tr').count()) > 0 && antes > 0);
+  } else {
+    caso("con una sola tabla no hay selector",
+         await pg.locator('[data-tab-tabla]').count() === 0);
+  }
+
   await pg.click('#barra button[data-tab="juego"]');
   await pg.waitForTimeout(900);
   caso("NO pide la API key", await pg.locator('#k').count() === 0);

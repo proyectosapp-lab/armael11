@@ -72,11 +72,15 @@ const top = (arr, f, n = 5, desc = true) =>
    da otra cosa. La fase regular y los playoffs son torneos distintos, y
    sumarlos le da 25 partidos al que llegó a la final y 21 al que quedó
    afuera en la primera ronda. Eso no es la tabla de nadie.               */
-export function calcular(P, { oficial = null, notaXG = "", nota = "", generado = null } = {}) {
+export function calcular(P, { tablas = null, notaXG = "", nota = "", generado = null } = {}) {
   if (!P.length) throw new Error("no hay partidos para calcular");
   const eq = equipos(P);
 
-  let tabla = [...eq.values()].map(t => ({
+  /* La base: todos los equipos con lo que sale de los partidos. Sirve para
+     dos cosas distintas y conviene no confundirlas — de acá salen las
+     rachas, los récords y el xG, que son de TODA la temporada, y de acá
+     sale también la tabla anual cuando la liga no publica una.          */
+  const base = [...eq.values()].map(t => ({
     ...t, dg: t.gf - t.gc,
     ppp: +(t.pts / Math.max(1, t.pj)).toFixed(2),
     pppLocal: +(t.localPts / Math.max(1, t.localPj)).toFixed(2),
@@ -87,34 +91,40 @@ export function calcular(P, { oficial = null, notaXG = "", nota = "", generado =
     rachas: rachasDe(t.hist),
     forma: t.hist.slice(-5).map(x => x.r),
   }));
+  const porId = new Map(base.map(t => [t.id, t]));
 
-  if (oficial && oficial.length) {
-    const porId = new Map(tabla.map(t => [t.id, t]));
-    tabla = oficial.map(o => {
-      const c = porId.get(o.id) || {};
-      /* Los números de la tabla los pone la liga; el resto lo ponemos
-         nosotros. Si un equipo no aparece en nuestros partidos, igual
-         entra en la tabla con lo que dice la liga.                   */
-      return { ...c, id: o.id, nom: o.nom || c.nom,
-        pj: o.pj, g: o.g, e: o.e, p: o.p, gf: o.gf, gc: o.gc, pts: o.pts,
-        dg: o.gf - o.gc, ppp: +(o.pts / Math.max(1, o.pj)).toFixed(2),
-        forma: o.forma || c.forma || [],
-        hist: c.hist || [], rachas: c.rachas || rachasDe(c.hist || []) };
-    });
-  } else {
-    tabla.sort((a, b) => b.pts - a.pts || b.dg - a.dg || b.gf - a.gf);
-  }
-  tabla.forEach((t, i) => t.pos = i + 1);
+  /* Cada tabla que publica la liga se muestra tal cual: los puntos y los
+     partidos son de ella. Lo nuestro —rachas, tiros, xG— se le pega al lado.
+     Se guardan TODAS: el Apertura terminado, el Clausura en curso, cada zona
+     y la anual son tablas distintas y todas son ciertas. Elegir una sola por
+     el equipo fue el error: mostramos la del torneo terminado.          */
+  const pegar = filas => filas.map((o, i) => {
+    const c = porId.get(o.id) || {};
+    return { ...c, id: o.id, nom: o.nom || c.nom,
+      pj: o.pj, g: o.g, e: o.e, p: o.p, gf: o.gf, gc: o.gc, pts: o.pts,
+      dg: o.gf - o.gc, ppp: +(o.pts / Math.max(1, o.pj)).toFixed(2),
+      forma: (o.forma && o.forma.length) ? o.forma : (c.forma || []),
+      hist: c.hist || [], rachas: c.rachas || rachasDe(c.hist || []),
+      pos: i + 1 };
+  });
 
-  const conXG = tabla.filter(t => t.xgDif != null);
+  /* La anual, calculada por nosotros sobre la fase regular de toda la
+     temporada. Va siempre: si la liga publica la suya, quedan las dos y se
+     pueden comparar; si no la publica, es la única que hay.             */
+  const anual = [...base].sort((a, b) => b.pts - a.pts || b.dg - a.dg || b.gf - a.gf)
+    .map((t, i) => ({ ...t, pos: i + 1 }));
+
+  const salida = [
+    ...(tablas || []).map(g => ({ nombre: g.nombre, oficial: true, filas: pegar(g.filas) })),
+    { nombre: "Anual", oficial: false, filas: anual },
+  ];
+
+  const conXG = base.filter(t => t.xgDif != null);
   const partidos = P.map(m => ({ ...m, total: m.gh + m.ga, dif: Math.abs(m.gh - m.ga) }));
 
   return {
     liga: "Liga Profesional Argentina", temporada: 2026,
-    /* Que el archivo diga si la tabla es la de la liga o una cuenta nuestra.
-       La pantalla cambia el título según esto: no es lo mismo y no se puede
-       dejar a criterio de quien mire.                                    */
-    oficial: !!(oficial && oficial.length),
+    oficial: !!(tablas && tablas.length),
     generado: generado || P[P.length - 1].fecha,
     notaXG, nota,
     partidosJugados: P.length,
@@ -125,26 +135,29 @@ export function calcular(P, { oficial = null, notaXG = "", nota = "", generado =
       visita:  +(P.filter(m => m.gh <  m.ga).length / P.length * 100).toFixed(1),
       ceroACero: P.filter(m => m.gh + m.ga === 0).length,
     },
-    tabla,
+    tablas: salida,
+    tabla: salida[0].filas,          // la de siempre, para lo que ya la leía
+    /* Las rachas, los récords y el xG salen de la BASE, no de una tabla:
+       son de toda la temporada y no cambian según qué zona estés mirando. */
     rachas: {
-      ganando:  top(tabla, t => t.rachas?.actual.tipo === "G" ? t.rachas.actual.n : 0, 5),
-      invictos: top(tabla, t => t.rachas?.invicto || 0, 5),
-      sinGanar: top(tabla, t => t.rachas?.actual.tipo !== "G" ? (t.rachas?.actual.n || 0) : 0, 5),
+      ganando:  top(base, t => t.rachas.actual.tipo === "G" ? t.rachas.actual.n : 0, 5),
+      invictos: top(base, t => t.rachas.invicto, 5),
+      sinGanar: top(base, t => t.rachas.actual.tipo !== "G" ? t.rachas.actual.n : 0, 5),
     },
     records: {
       goleadas: [...partidos].sort((a, b) => b.dif - a.dif || b.total - a.total).slice(0, 5),
       masGoles: [...partidos].sort((a, b) => b.total - a.total).slice(0, 5),
-      masGoleador:   top(tabla, t => t.gf, 5),
-      menosGoleador: top(tabla, t => t.gf, 5, false),
-      mejorDefensa:  top(tabla, t => t.gc, 5, false),
-      vallaInvicta:  top(tabla, t => t.vallaInv || 0, 5),
+      masGoleador:   top(base, t => t.gf, 5),
+      menosGoleador: top(base, t => t.gf, 5, false),
+      mejorDefensa:  top(base, t => t.gc, 5, false),
+      vallaInvicta:  top(base, t => t.vallaInv, 5),
     },
     avanzadas: {
       sobreRinden: top(conXG, t => t.xgDifPP, 5),
       bajoRinden:  top(conXG, t => t.xgDifPP, 5, false),
-      punteria:    top(tabla.filter(t => t.tiros > 40), t => t.golPorTiro, 5),
-      fortaleza:   top(tabla, t => t.pppLocal || 0, 5),
-      viajeros:    top(tabla, t => t.pppVis || 0, 5),
+      punteria:    top(base.filter(t => t.tiros > 40), t => t.golPorTiro, 5),
+      fortaleza:   top(base, t => t.pppLocal, 5),
+      viajeros:    top(base, t => t.pppVis, 5),
     },
     faltan: {
       jugadores: "goleadores, asistencias, situaciones de gol generadas y puntajes por partido",

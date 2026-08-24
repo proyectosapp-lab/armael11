@@ -54,10 +54,10 @@ resolver-youtube.mjs handle -> channelId, y mide si el canal publica
 probar.mjs           11 casos de Talleres contra datos reales guardados
 probar-clubes.mjs    22 casos de los clubes nuevos: titulares que entraron mal
 probar-once.mjs      22 casos del once automático
-probar-stats.mjs     17 casos de la tabla y los números
+probar-stats.mjs     23 casos de la tabla y los números
 stats-api.mjs        tabla y números frescos, con /standings
 stats-calc.mjs       la cuenta, sin red: la usan stats.mjs y stats-api.mjs
-probar-sitio.cjs     14 casos del sitio publicado, con la API bloqueada
+probar-sitio.cjs     15 casos del sitio publicado, con la API bloqueada
 construir-sitio.mjs  arma sitio/ : portada + una página por club
 datos-juego.mjs      baja lo que el juego pedía desde el navegador
 app.tpl.html         la app. Talleres.html se genera desde acá.
@@ -73,7 +73,7 @@ node probar-stats.mjs
 node probar-sitio.cjs
 ```
 
-Setenta y dos casos, en dos segundos y sin internet.
+Setenta y nueve casos, en dos segundos y sin internet.
 Correlos cada vez que toques `pipeline.mjs` o `clubes.json`. Ya van dentro de
 CORRER, así que si algo se rompe se ve arriba de todo en `salida.txt`.
 
@@ -185,3 +185,13 @@ regular.
 **Un archivo generado una vez y commiteado se queda viejo el mismo día.**
 `stats-liga.js` mostraba la foto del 18 de agosto una semana después. Ahora se
 rehace en cada corrida.
+
+**La liga publica varias tablas, y todas son ciertas.** El torneo terminado, el
+que está en curso, cada zona. Quedarnos con una sola y elegirla mal —agarramos
+la del que tenía más partidos jugados, que era el torneo YA TERMINADO— mostró
+algo cierto y viejo, que se ve igual de mal que algo falso. Ahora se guardan
+todas, se puede elegir, y la app arranca en la que tiene a tu equipo.
+
+**La anual la calculamos siempre nosotros**, sobre la fase regular de toda la
+temporada. Si la liga publica la suya quedan las dos y se comparan; si no la
+publica, es la única que hay.

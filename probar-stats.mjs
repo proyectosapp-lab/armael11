@@ -55,25 +55,51 @@ const final = [pt(7, 1, 3, 3, 0, "Final")];
        [...liga, ...final].filter(m => esFaseRegular(m.ronda)).length === 6);
 }
 
-/* ── 3. la tabla oficial manda ───────────────────────────────────────────
-   Aunque nuestros partidos digan otra cosa, si la liga publica su tabla,
-   los puntos y los partidos son los de ella. Lo nuestro va al lado.   */
+/* ── 3. TODAS las tablas, no una ─────────────────────────────────────────
+   La liga publica varias: el torneo terminado, el que está en curso, cada
+   zona. Quedarse con una y elegirla mal —agarramos la del torneo YA
+   TERMINADO— muestra algo cierto y viejo, que se ve igual de mal que algo
+   falso. Van todas, y la anual calculada por nosotros va siempre.      */
 {
-  const oficial = [
-    { id: 3, nom: "El tercero", pj: 3, g: 1, e: 1, p: 1, gf: 3, gc: 4, pts: 4, forma: ["E","P","G"] },
-    { id: 1, nom: "El primero", pj: 3, g: 2, e: 1, p: 0, gf: 5, gc: 2, pts: 7, forma: ["G","G","E"] },
-  ];
-  const out = calcular([...liga, ...final], { oficial });
-  caso("la tabla queda en el orden que dio la liga",
-       out.tabla.map(t => t.id).join(",") === "3,1", out.tabla.map(t => t.id).join(","));
-  caso("los puntos son los de la liga, no los nuestros",
-       out.tabla.find(t => t.id === 1).pts === 7);
-  caso("los partidos jugados también",
-       out.tabla.every(t => t.pj === 3));
-  caso("pero la racha la seguimos calculando nosotros",
-       out.tabla.find(t => t.id === 1).rachas?.actual.n > 0);
-  caso("y el nombre de la liga le gana al nuestro",
-       out.tabla.find(t => t.id === 1).nom === "El primero");
+  const apertura = { nombre: "Torneo Apertura", filas: [
+    { id: 1, nom: "El primero", pj: 16, g: 10, e: 2, p: 4, gf: 30, gc: 15, pts: 32, forma: ["G","G","E"] },
+    { id: 3, nom: "El tercero", pj: 16, g: 8,  e: 4, p: 4, gf: 22, gc: 18, pts: 28, forma: ["E","P","G"] },
+  ]};
+  const clausura = { nombre: "Clausura - Zona A", filas: [
+    { id: 3, nom: "El tercero", pj: 6, g: 4, e: 1, p: 1, gf: 9, gc: 4, pts: 13, forma: ["G","G","P"] },
+    { id: 1, nom: "El primero", pj: 6, g: 2, e: 2, p: 2, gf: 7, gc: 7, pts: 8,  forma: ["P","E","G"] },
+  ]};
+  /* Ojo con esto: `calcular` NO filtra por ronda. Cuenta lo que le dan. El
+     filtro es responsabilidad de quien trae los partidos, y así queda
+     escrito acá abajo para que nadie lo dé por hecho.                  */
+  const regular = [...liga, ...final].filter(m => esFaseRegular(m.ronda));
+  const out = calcular(regular, { tablas: [apertura, clausura] });
+
+  caso("guarda las dos de la liga más la anual", out.tablas.length === 3,
+       out.tablas.map(t => t.nombre).join(" · "));
+  caso("la última es la anual y está marcada como calculada",
+       out.tablas[2].nombre === "Anual" && out.tablas[2].oficial === false);
+  caso("las de la liga quedan marcadas como oficiales",
+       out.tablas[0].oficial === true && out.tablas[1].oficial === true);
+  caso("cada tabla conserva SUS propios puntos",
+       out.tablas[0].filas.find(f => f.id === 1).pts === 32 &&
+       out.tablas[1].filas.find(f => f.id === 1).pts === 8);
+  caso("y su propio orden", out.tablas[1].filas[0].id === 3);
+  caso("la anual, ya filtrada, no cuenta la final",
+       out.tablas[2].filas.every(f => f.pj === 3),
+       out.tablas[2].filas.map(f => f.pj).join(","));
+  caso("y si NO se filtra antes, la final se cuela: el filtro es del que trae",
+       calcular([...liga, ...final]).tablas[0].filas.some(f => f.pj === 4));
+  caso("las rachas salen de los partidos, no de la tabla elegida",
+       out.rachas.invictos.length > 0 && out.records.masGoleador.length > 0);
+}
+
+/* Sin tablas de la liga, queda la anual sola y no se rompe nada. */
+{
+  const out = calcular(liga);
+  caso("sin /standings queda solo la anual", out.tablas.length === 1 && out.tablas[0].nombre === "Anual");
+  caso("y el campo `oficial` dice que no lo es", out.oficial === false);
+  caso("`tabla` sigue existiendo para lo que ya la leía", Array.isArray(out.tabla) && out.tabla.length === 4);
 }
 
 /* ── 4. rachas ───────────────────────────────────────────────────────────── */

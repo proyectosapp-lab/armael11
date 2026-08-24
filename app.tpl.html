@@ -86,6 +86,8 @@ button.gh{background:transparent;color:var(--tinta-2);border:1px solid var(--bor
 .campo::before{content:"";position:absolute;inset:0;
   background:repeating-linear-gradient(180deg,rgba(255,255,255,.035) 0 8.33%,transparent 8.33% 16.66%)}
 .ln{position:absolute;border:2px solid rgba(255,255,255,.30);pointer-events:none}
+.tsel{display:inline-flex;flex-wrap:wrap;gap:5px;margin-left:8px;vertical-align:middle}
+.tsel .chip{font-size:11px;padding:3px 9px}
 .jug{position:absolute;width:44px;text-align:center;cursor:pointer;z-index:2;
   --dx:0px; --dy:0px;
   transform:translate(calc(-50% + var(--dx)), calc(-50% + var(--dy)));
@@ -305,6 +307,8 @@ const FILTROS=[
  {id:"hinchas",nom:"De hinchas",ok:c=>c.principal.fuenteTipo==="hinchas"},
  {id:"oficial",nom:"Oficial",ok:c=>c.principal.fuenteTipo==="oficial"}];
 let filtro="todo";
+/* null = todavía no eligió: se arranca en la tabla donde está su equipo. */
+let tablaSel=null;
 const tarjeta=c=>{const p=c.principal,g=c.nFuentes>1;return `
   <article class="tarjeta${g?" grupo":""}">
     <div class="meta">${p.tipo==="video"?'<span class="play">▶</span>'
@@ -333,7 +337,17 @@ const lista=(items,val,sub)=>`<div class="mini">${items.map((t,i)=>
 const caja=(titulo,cuerpo)=>`<h3 class="sec">${titulo}</h3><div class="tarjeta">${cuerpo}</div>`;
 
 function vistaNumeros(){
-  const T=ST.tabla, yo=CLUB.apiId;
+  const yo=CLUB.apiId;
+
+  /* La liga publica varias tablas —el torneo terminado, el que está en curso,
+     cada zona— y todas son ciertas. Elegir una sola por nosotros fue el error:
+     mostramos la del torneo YA TERMINADO. Ahora están todas y arranca en la
+     que tiene a tu equipo, que es la que un hincha va a buscar.          */
+  const TS = ST.tablas?.length ? ST.tablas : [{nombre:"Tabla", filas:ST.tabla||[]}];
+  if(tablaSel >= TS.length) tablaSel = 0;
+  if(tablaSel === null)
+    tablaSel = Math.max(0, TS.findIndex(t => t.filas.some(f => f.id === yo)));
+  const T = TS[tablaSel].filas;
   const P=ST.promedios;
   const tablaHTML=`<div class="wrap"><table>
     <tr><th class="l">#</th><th class="l">Equipo</th><th>PJ</th><th>Pts</th><th>DG</th><th>GF</th><th>GC</th><th class="l">Forma</th></tr>
@@ -362,7 +376,12 @@ function vistaNumeros(){
     <div><b>${P.empate}%</b><span>empate</span></div>
   </div>
 
-  ${caja(ST.oficial ? "Tabla de la liga" : "Tabla acumulada", tablaHTML +
+  ${caja(TS.length > 1
+    ? `Tablas <span class="tsel">${TS.map((t,i)=>
+        `<button class="chip" aria-pressed="${i===tablaSel}" data-tab-tabla="${i}">${esc(t.nombre)}</button>`
+      ).join("")}</span>`
+    : (TS[0].oficial ? "Tabla de la liga" : "Tabla acumulada"),
+    tablaHTML +
     `<p class="aviso">${esc(ST.nota)}</p>
      <p class="aviso">Datos al ${fechaCorta(ST.generado)}.${
        vieja(ST.generado) ? " <b>Hace más de tres días que no se actualizan.</b>" : ""}</p>`)}
@@ -975,7 +994,9 @@ $("nombre").textContent=CLUB.nom;
 const fuentes=new Set(F.clusters.flatMap(c=>[c.principal,...c.tambien].map(x=>x.fuente)));
 $("resumen").textContent=F.clusters.length+" historias · "+fuentes.size+" fuentes · actualizado "+hace(F.clusters[0].horas);
 $("vista").addEventListener("click",e=>{
-  const b=e.target.closest(".chip"); if(!b)return; filtro=b.dataset.f; pintar();});
+  const b=e.target.closest(".chip"); if(!b)return;
+  if(b.dataset.tabTabla!==undefined){ tablaSel=+b.dataset.tabTabla; pintar(); return; }
+  if(b.dataset.f!==undefined){ filtro=b.dataset.f; pintar(); }});
 $("barra").addEventListener("click",e=>{
   const b=e.target.closest("button"); if(!b)return; tab=b.dataset.tab; pintar(); scrollTo(0,0);});
 $("btema").onclick=()=>{ tema=temaReal()==="oscuro"?"claro":"oscuro"; pintar(); };

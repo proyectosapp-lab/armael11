@@ -101,40 +101,38 @@ for (const m of recientes) {
 }
 console.log("  " + conXG + " de " + recientes.length + " traen xG");
 
-/* ─── 3. la tabla que publica la liga ────────────────────────────────────── */
+/* ─── 3. las tablas que publica la liga ──────────────────────────────────
+   Devuelve varias: el torneo terminado, el que está en curso, cada zona. Las
+   guardamos TODAS. Quedarse con una sola y elegirla mal —nos pasó: elegimos
+   la del que tenía más partidos jugados, que era el torneo YA TERMINADO— es
+   mostrar algo cierto y viejo, que se ve igual de mal que algo falso.    */
 const st = await api("/standings", { league: LEAGUE, season: TEMPORADA });
 const grupos = st?.[0]?.league?.standings || [];
-console.log("\n  /standings devolvió " + grupos.length + " tabla(s): " +
-  (grupos.map(g => g?.[0]?.group || "sin nombre").join(" · ") || "ninguna"));
 
 const fila = r => ({ id: r.team?.id, nom: r.team?.name,
   pj: r.all?.played ?? 0, g: r.all?.win ?? 0, e: r.all?.draw ?? 0, p: r.all?.lose ?? 0,
   gf: r.all?.goals?.for ?? 0, gc: r.all?.goals?.against ?? 0, pts: r.points ?? 0,
   forma: (r.form || "").split("").map(c => ({ W:"G", D:"E", L:"P" }[c] || c)).slice(-5) });
 
-/* Si la liga publica una tabla anual, esa es la que el hincha conoce. Si no,
-   se juntan todas las zonas: un equipo aparece una sola vez.            */
-const anual = grupos.find(g => /anual|general|acumulad/i.test(g?.[0]?.group || ""));
-let oficial = null;
-if (anual) { oficial = anual.map(fila); console.log("  uso la tabla \"" + anual[0].group + "\""); }
-else if (grupos.length) {
-  const porId = new Map();
-  for (const g of grupos) for (const r of g.map(fila))
-    if (!porId.has(r.id) || porId.get(r.id).pj < r.pj) porId.set(r.id, r);
-  oficial = [...porId.values()].sort((a, b) => b.pts - a.pts || (b.gf - b.gc) - (a.gf - a.gc));
-  console.log("  junté las zonas en una sola tabla");
-}
-if (!oficial) console.log("  ⚠ sin tabla oficial: se calcula desde los partidos de fase regular");
+const tablas = grupos
+  .filter(g => Array.isArray(g) && g.length)
+  .map(g => ({ nombre: g[0].group || "Tabla", filas: g.map(fila) }));
+
+console.log("\n  /standings devolvió " + tablas.length + " tabla(s):");
+for (const t of tablas)
+  console.log("    · " + t.nombre.padEnd(34) + t.filas.length + " equipos · " +
+              [...new Set(t.filas.map(f => f.pj))].sort((a,b)=>a-b).join("/") + " partidos");
+if (!tablas.length) console.log("    ninguna. Queda solo la anual que calculamos nosotros.");
 
 /* ─── 4. la cuenta ───────────────────────────────────────────────────────── */
 const out = calcular(P, {
-  oficial,
+  tablas,
   generado: new Date().toISOString(),
   notaXG: "El xG y los tiros salen de los últimos " + recientes.length +
           " partidos (" + conXG + " con xG). Las columnas de xG comparan solo esos, y van por partido.",
-  nota: oficial
-    ? "La tabla es la que publica la Liga Profesional. Las rachas, los tiros y el xG se calculan sobre los partidos de FASE REGULAR: los playoffs son otra competencia y sumarlos deformaba todo."
-    : "Tabla calculada sobre los partidos de fase regular. No se pudo leer la tabla oficial en esta corrida.",
+  nota: tablas.length
+    ? "Las tablas marcadas son las que publica la Liga Profesional. La Anual la calculamos nosotros sobre los partidos de FASE REGULAR de toda la temporada: los playoffs son otra competencia y sumarlos deformaba todo."
+    : "No se pudo leer ninguna tabla oficial en esta corrida. La Anual está calculada sobre los partidos de fase regular.",
 });
 
 writeFileSync(aca("./stats-liga.js"), "window.STATS = " + JSON.stringify(out) + ";");
@@ -143,13 +141,13 @@ writeFileSync(aca("./stats-liga.json"), JSON.stringify(out, null, 1));
 console.log("\n" + "─".repeat(70));
 console.log("  " + out.tabla.length + " equipos · " + pedidos + " pedidos a la API");
 console.log("─".repeat(70));
-console.log("  " + "#".padStart(3) + "  " + "EQUIPO".padEnd(24) + "PJ".padStart(3) +
-            "  PTS   DG   forma");
-out.tabla.slice(0, 8).forEach(t => console.log(
-  "  " + String(t.pos).padStart(3) + "  " + (t.nom || "?").padEnd(24) +
-  String(t.pj).padStart(3) + "  " + String(t.pts).padStart(3) + "  " +
-  String((t.dg > 0 ? "+" : "") + t.dg).padStart(4) + "   " + (t.forma || []).join("")));
-const pj = [...new Set(out.tabla.map(t => t.pj))].sort((a, b) => a - b);
-console.log("\n  partidos jugados en la tabla: " + pj.join(", ") +
-            (pj.length > 2 ? "  ← si esto abre mucho, algo sigue mezclado" : ""));
+for (const t of out.tablas) {
+  const pj = [...new Set(t.filas.map(f => f.pj))].sort((a, b) => a - b);
+  console.log("\n  " + t.nombre.toUpperCase() + (t.oficial ? "  (de la liga)" : "  (calculada)") +
+              " · " + t.filas.length + " equipos · " + pj.join("/") + " partidos");
+  t.filas.slice(0, 5).forEach(f => console.log(
+    "    " + String(f.pos).padStart(2) + ". " + (f.nom || "?").padEnd(24) +
+    String(f.pj).padStart(3) + " pj  " + String(f.pts).padStart(3) + " pts  " +
+    String((f.dg > 0 ? "+" : "") + f.dg).padStart(4) + "  " + (f.forma || []).join("")));
+}
 console.log();
