@@ -126,6 +126,14 @@ srv.listen(8099, async () => {
          await pg.locator('[data-tab-tabla]').count() === 0);
   }
 
+  const hayJug = await pg.evaluate(() => !!window.STATS?.jugadores);
+  const secciones = await pg.locator('h3.sec').allInnerTexts();
+  const tieneSeccion = n => secciones.some(t => t.trim().toUpperCase().startsWith(n));
+  caso(hayJug ? "con datos de jugadores, aparece la sección"
+              : "sin datos de jugadores, queda el cartel de pendiente",
+       hayJug ? tieneSeccion("JUGADORES") : tieneSeccion("LO QUE FALTA"),
+       secciones.map(t => t.split("\n")[0]).join(" | "));
+
   await pg.click('#barra button[data-tab="juego"]');
   await pg.waitForTimeout(900);
   caso("NO pide la API key", await pg.locator('#k').count() === 0);

@@ -27325,9 +27325,10 @@
    }
   ]
  },
+ "jugadores": null,
  "faltan": {
-  "jugadores": "goleadores, asistencias, situaciones de gol generadas y puntajes por partido",
-  "porque": "son datos de JUGADOR y esto son datos de PARTIDO. Salen de /players y /fixtures/players.",
-  "comoSeArregla": "está pendiente: es el próximo paso del proyecto"
+  "jugadores": "goleadores, asistencias, situaciones de gol generadas y puntajes",
+  "porque": "son datos de JUGADOR y esto son datos de PARTIDO. Salen de /players.",
+  "comoSeArregla": "los trae stats-api.mjs; si no aparecen, ese paso falló"
  }
 }

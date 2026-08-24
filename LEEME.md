@@ -54,10 +54,10 @@ resolver-youtube.mjs handle -> channelId, y mide si el canal publica
 probar.mjs           11 casos de Talleres contra datos reales guardados
 probar-clubes.mjs    22 casos de los clubes nuevos: titulares que entraron mal
 probar-once.mjs      22 casos del once automático
-probar-stats.mjs     23 casos de la tabla y los números
+probar-stats.mjs     30 casos de la tabla y los números
 stats-api.mjs        tabla y números frescos, con /standings
 stats-calc.mjs       la cuenta, sin red: la usan stats.mjs y stats-api.mjs
-probar-sitio.cjs     15 casos del sitio publicado, con la API bloqueada
+probar-sitio.cjs     16 casos del sitio publicado, con la API bloqueada
 construir-sitio.mjs  arma sitio/ : portada + una página por club
 datos-juego.mjs      baja lo que el juego pedía desde el navegador
 app.tpl.html         la app. Talleres.html se genera desde acá.
@@ -73,7 +73,7 @@ node probar-stats.mjs
 node probar-sitio.cjs
 ```
 
-Setenta y nueve casos, en dos segundos y sin internet.
+Noventa casos, en dos segundos y sin internet.
 Correlos cada vez que toques `pipeline.mjs` o `clubes.json`. Ya van dentro de
 CORRER, así que si algo se rompe se ve arriba de todo en `salida.txt`.
 
@@ -195,3 +195,20 @@ todas, se puede elegir, y la app arranca en la que tiene a tu equipo.
 **La anual la calculamos siempre nosotros**, sobre la fase regular de toda la
 temporada. Si la liga publica la suya quedan las dos y se comparan; si no la
 publica, es la única que hay.
+
+**Que la liga publique una tabla no quiere decir que publique LA tabla.**
+`/standings` devolvió las dos zonas del **Apertura**, que ya terminó, y del
+Clausura —el que se está jugando— no devolvió nada. Cierto y viejo. La tabla
+del torneo en curso se arma con los partidos, que sí los tenemos: se agrupan
+por el nombre del torneo que viene en la ronda ("Clausura - 6" → Clausura), y
+adelante va el que se está jugando.
+
+**Los goleadores no salían de ningún lado porque nunca se pidieron.** Estuvieron
+desde el principio en "lo que falta" con la explicación de por qué: son datos
+de JUGADOR y todo lo demás son datos de PARTIDO. La explicación era correcta y
+sirvió de excusa demasiado tiempo. `/players` los trae de a veinte por página,
+unas cuarenta páginas para toda la liga, y es el pedido más caro de la corrida.
+Entra sobrado en la cuota.
+
+**Un promedio de puntaje sin mínimo de minutos no es un ranking.** El que entró
+diez minutos y le pusieron 8 encabeza la liga. Van 450 minutos de piso.

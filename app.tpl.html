@@ -143,6 +143,7 @@ th{text-align:right;font-size:10.5px;letter-spacing:.6px;text-transform:uppercas
   padding:6px 7px;font-weight:800;border-bottom:1px solid var(--borde);white-space:nowrap}
 td{padding:7px;border-bottom:1px solid var(--borde);text-align:right;white-space:nowrap}
 th.l,td.l{text-align:left}
+.it.yo{background:var(--acento-suave);border-radius:9px;font-weight:650}
 tr.yo td{background:var(--acento-suave);font-weight:700}
 tr.yo td:first-child{border-radius:9px 0 0 9px} tr.yo td:last-child{border-radius:0 9px 9px 0}
 .forma{display:inline-flex;gap:2px}
@@ -357,7 +358,14 @@ function vistaNumeros(){
   </table></div>`;
 
   const part=m=>`${esc(m.hn)} ${m.gh}-${m.ga} ${esc(m.an)}`;
-  const R=ST.records, A=ST.avanzadas;
+  const R=ST.records, A=ST.avanzadas, J=ST.jugadores;
+
+  /* Igual que la lista de equipos, pero para jugadores: el de tu club queda
+     resaltado, que es lo primero que un hincha busca en un ranking.     */
+  const listaJ=(arr,val,sub)=>`<div class="mini">${(arr||[]).map((p,i)=>
+    `<div class="it${p.equipoId===yo?" yo":""}"><span class="n">${i+1}</span>
+      <span>${esc(p.nombre)}<br><span class="sub">${esc(sub(p))}</span></span>
+      <span class="v">${val(p)}</span></div>`).join("")}</div>`;
 
   /* Cuándo se generó esto, a la vista. Estuvo una semana mostrando la foto
      de una noche vieja y nadie se enteró, porque el archivo no decía en
@@ -429,14 +437,24 @@ function vistaNumeros(){
   </div>
   <p class="aviso">${esc(ST.notaXG)}</p>
 
+  ${ST.jugadores ? `
+  <h3 class="sec">Jugadores</h3>
+  <div class="dosc">
+    <div class="tarjeta"><div class="meta"><b>Goleadores</b></div>
+      ${listaJ(J.goleadores, p=>p.goles, p=>p.equipo+" · "+p.pj+" partidos")}</div>
+    <div class="tarjeta"><div class="meta"><b>Asistencias</b></div>
+      ${listaJ(J.asistencias, p=>p.asist, p=>p.equipo)}</div>
+    <div class="tarjeta"><div class="meta"><b>Generan situaciones</b></div>
+      ${listaJ(J.generadores, p=>p.claves, p=>p.equipo+" · pases clave")}</div>
+    <div class="tarjeta"><div class="meta"><b>Mejores puntajes</b></div>
+      ${listaJ(J.puntajes, p=>p.nota, p=>p.equipo+" · "+Math.round(p.min/90)+" partidos completos")}</div>
+  </div>
+  <p class="aviso">${esc(J.nota)}</p>` : `
   <h3 class="sec">Lo que falta</h3>
   <div class="pendiente">
-    <b>Goleadores, asistencias, situaciones de gol generadas y puntajes por partido.</b><br>
-    Todo lo de arriba sale de datos de <b>partido</b> y por eso ya está calculado.
-    Eso otro es dato de <b>jugador</b> — otro endpoint, y hay que sincronizarlo una vez por fecha.
-    Es el mismo dato que usa "Armá el 11" para armar los planteles, así que en cuanto
-    corras el juego una vez, esta sección se puede llenar con lo mismo.
-  </div>`;
+    <b>${esc(ST.faltan?.jugadores || "Datos de jugador")}.</b><br>
+    ${esc(ST.faltan?.porque || "")}<br>${esc(ST.faltan?.comoSeArregla || "")}
+  </div>`}`;
 }
 
 /* ══════════════════ ARMÁ EL 11 ══════════════════ */

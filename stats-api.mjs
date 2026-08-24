@@ -124,9 +124,88 @@ for (const t of tablas)
               [...new Set(t.filas.map(f => f.pj))].sort((a,b)=>a-b).join("/") + " partidos");
 if (!tablas.length) console.log("    ninguna. Queda solo la anual que calculamos nosotros.");
 
+/* ─── 3b. los jugadores ──────────────────────────────────────────────────
+   Goleadores, asistencias y quién genera situaciones. Estuvo desde el
+   principio en la lista de "lo que falta" y nunca se hizo, porque son datos
+   de JUGADOR y todo lo demás son datos de PARTIDO.
+
+   /players trae a todos, de a veinte por página: unas cuarenta páginas para
+   una liga de treinta equipos. Es el pedido más caro de la corrida y aun así
+   entra sobrado en la cuota.
+
+   Un jugador puede aparecer con más de una estadística —si cambió de equipo
+   a mitad de año— así que se suman todas y se guarda el último club.     */
+async function traerJugadores() {
+  const bruto = [];
+  let pagina = 1, total = 1;
+  while (pagina <= total && pagina <= 60) {
+    const r = await fetch(BASE + "/players?" + new URLSearchParams(
+      { league: LEAGUE, season: TEMPORADA, page: pagina }),
+      { headers: { "x-apisports-key": KEY } }).then(x => x.json()).catch(() => null);
+    pedidos++;
+    if (!r || !r.response) break;
+    total = r.paging?.total || 1;
+    bruto.push(...r.response);
+    pagina++;
+    await dormir(120);
+  }
+  return bruto;
+}
+
+console.log("\n  Trayendo los jugadores…");
+const brutos = await traerJugadores();
+
+const porJugador = new Map();
+for (const j of brutos) {
+  const id = j.player?.id; if (!id) continue;
+  if (!porJugador.has(id)) porJugador.set(id, {
+    id, nombre: j.player?.name || "?", equipo: "", equipoId: null,
+    goles: 0, asist: 0, claves: 0, tiros: 0, min: 0, pj: 0, notas: [] });
+  const p = porJugador.get(id);
+  for (const st of (j.statistics || [])) {
+    if (st.league?.id && st.league.id !== LEAGUE) continue;   // solo esta liga
+    p.goles  += st.goals?.total   || 0;
+    p.asist  += st.goals?.assists || 0;
+    p.claves += st.passes?.key    || 0;
+    p.tiros  += st.shots?.total   || 0;
+    p.min    += st.games?.minutes  || 0;
+    p.pj     += st.games?.appearences || 0;
+    const n = parseFloat(st.games?.rating);
+    if (!isNaN(n)) p.notas.push(n);
+    if (st.team?.name) { p.equipo = st.team.name; p.equipoId = st.team.id; }
+  }
+}
+
+const listaJug = [...porJugador.values()].map(p => ({
+  ...p, nota: p.notas.length ? +(p.notas.reduce((a, b) => a + b, 0) / p.notas.length).toFixed(2) : null,
+}));
+const mejores = (f, n = 10, filtro = () => true) => listaJug.filter(filtro)
+  .filter(p => f(p) > 0).sort((a, b) => f(b) - f(a) || b.min - a.min).slice(0, n)
+  .map(p => ({ id: p.id, nombre: p.nombre, equipo: p.equipo, equipoId: p.equipoId,
+               goles: p.goles, asist: p.asist, claves: p.claves, tiros: p.tiros,
+               pj: p.pj, min: p.min, nota: p.nota }));
+
+/* Para el promedio de puntaje se pide un mínimo de minutos: si no, el que
+   entró diez minutos y le pusieron 8 encabeza la lista de la liga.     */
+const MIN_MINUTOS = 450;
+const jugadores = listaJug.length ? {
+  cuantos: listaJug.length,
+  goleadores:  mejores(p => p.goles),
+  asistencias: mejores(p => p.asist),
+  generadores: mejores(p => p.claves),
+  puntajes:    mejores(p => p.nota || 0, 10, p => p.min >= MIN_MINUTOS),
+  nota: "De " + listaJug.length + " jugadores de la liga. El promedio de puntaje pide " +
+        MIN_MINUTOS + " minutos jugados como mínimo.",
+} : null;
+
+if (jugadores) {
+  console.log("  " + listaJug.length + " jugadores · goleador: " +
+    (jugadores.goleadores[0] ? jugadores.goleadores[0].nombre + " (" + jugadores.goleadores[0].goles + ")" : "—"));
+} else console.log("  ⚠ no vino ningún jugador: la sección va a quedar como pendiente");
+
 /* ─── 4. la cuenta ───────────────────────────────────────────────────────── */
 const out = calcular(P, {
-  tablas,
+  tablas, jugadores,
   generado: new Date().toISOString(),
   notaXG: "El xG y los tiros salen de los últimos " + recientes.length +
           " partidos (" + conXG + " con xG). Las columnas de xG comparan solo esos, y van por partido.",

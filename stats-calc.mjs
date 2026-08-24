@@ -72,7 +72,12 @@ const top = (arr, f, n = 5, desc = true) =>
    da otra cosa. La fase regular y los playoffs son torneos distintos, y
    sumarlos le da 25 partidos al que llegó a la final y 21 al que quedó
    afuera en la primera ronda. Eso no es la tabla de nadie.               */
-export function calcular(P, { tablas = null, notaXG = "", nota = "", generado = null } = {}) {
+/* De "Clausura - 6" a "Clausura". Es el nombre del torneo dentro de la
+   temporada: en Argentina una temporada son dos torneos y cada uno tiene su
+   tabla. Sin esto, todo se suma en una sola bolsa.                       */
+export const torneoDe = ronda => (ronda || "").split(/\s+-\s+/)[0].trim() || "Torneo";
+
+export function calcular(P, { tablas = null, jugadores = null, notaXG = "", nota = "", generado = null } = {}) {
   if (!P.length) throw new Error("no hay partidos para calcular");
   const eq = equipos(P);
 
@@ -114,9 +119,31 @@ export function calcular(P, { tablas = null, notaXG = "", nota = "", generado = 
   const anual = [...base].sort((a, b) => b.pts - a.pts || b.dg - a.dg || b.gf - a.gf)
     .map((t, i) => ({ ...t, pos: i + 1 }));
 
+  /* Una tabla por torneo, calculada por nosotros. Hace falta porque
+     /standings devolvió las zonas del Apertura —que ya terminó— y del
+     Clausura, que es el que se está jugando, no devolvió nada. Los partidos
+     sí los tenemos: la tabla del torneo en curso sale de ahí.          */
+  const torneos = [...new Set(P.map(m => torneoDe(m.ronda)))];
+  const ultimaFecha = t => Math.max(...P.filter(m => torneoDe(m.ronda) === t)
+                                      .map(m => +new Date(m.fecha)));
+  const porTorneo = (torneos.length > 1 ? torneos : [])
+    .sort((a, b) => ultimaFecha(b) - ultimaFecha(a))
+    .map(t => {
+      const sub = P.filter(m => torneoDe(m.ronda) === t);
+      const filas = [...equipos(sub).values()]
+        .map(x => ({ ...x, dg: x.gf - x.gc, forma: x.hist.slice(-5).map(y => y.r),
+                     rachas: rachasDe(x.hist) }))
+        .sort((a, b) => b.pts - a.pts || b.dg - a.dg || b.gf - a.gf)
+        .map((x, i) => ({ ...x, pos: i + 1 }));
+      return { nombre: t, oficial: false, filas };
+    });
+
+  /* El orden importa: la app abre en la primera que tenga a tu equipo, así
+     que adelante va el torneo que se está jugando y no el que terminó. */
   const salida = [
-    ...(tablas || []).map(g => ({ nombre: g.nombre, oficial: true, filas: pegar(g.filas) })),
+    ...porTorneo,
     { nombre: "Anual", oficial: false, filas: anual },
+    ...(tablas || []).map(g => ({ nombre: g.nombre, oficial: true, filas: pegar(g.filas) })),
   ];
 
   const conXG = base.filter(t => t.xgDif != null);
@@ -159,10 +186,11 @@ export function calcular(P, { tablas = null, notaXG = "", nota = "", generado = 
       fortaleza:   top(base, t => t.pppLocal, 5),
       viajeros:    top(base, t => t.pppVis, 5),
     },
-    faltan: {
-      jugadores: "goleadores, asistencias, situaciones de gol generadas y puntajes por partido",
-      porque: "son datos de JUGADOR y esto son datos de PARTIDO. Salen de /players y /fixtures/players.",
-      comoSeArregla: "está pendiente: es el próximo paso del proyecto",
+    jugadores,
+    faltan: jugadores ? null : {
+      jugadores: "goleadores, asistencias, situaciones de gol generadas y puntajes",
+      porque: "son datos de JUGADOR y esto son datos de PARTIDO. Salen de /players.",
+      comoSeArregla: "los trae stats-api.mjs; si no aparecen, ese paso falló",
     },
   };
 }
