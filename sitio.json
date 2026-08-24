@@ -1,0 +1,9 @@
+{
+ "_nota": "Configuración del sitio publicado. Se lee al armar sitio/.",
+
+ "url": "https://proyectosapp-lab.github.io/armael11",
+ "_url": "Sin esto, el link compartido por WhatsApp no muestra tarjeta: og:url tiene que ser absoluta. Sin barra al final.",
+
+ "contador": "",
+ "_contador": "Código de GoatCounter para contar visitas. Vacío = no se carga ningún script de terceros, que es como está ahora. Si ponés 'tste', se carga https://tste.goatcounter.com/count.js. GoatCounter no usa cookies, no guarda IPs completas y no sigue a nadie entre sitios: cuenta páginas vistas y de dónde vinieron. Crear la cuenta es gratis en goatcounter.com y lleva dos minutos."
+}

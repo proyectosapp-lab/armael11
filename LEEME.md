@@ -25,6 +25,12 @@ verde de la izquierda — cerrá la ventana y volvé a hacer doble clic.
 
 Para un club solo: `node todos.mjs boca`.
 
+## Para mandárselo a alguien
+
+**COMPARTIR.md** tiene el link, un texto para pegar en WhatsApp, y qué mirar
+cuando lo usen. `sitio.json` configura la dirección del sitio y, si algún día
+querés, un contador de visitas.
+
 ## Para publicarlo
 
 **PUBLICAR.md** tiene los seis pasos para ponerlo en GitHub Pages. Todo desde
@@ -57,7 +63,7 @@ probar-once.mjs      22 casos del once automático
 probar-stats.mjs     30 casos de la tabla y los números
 stats-api.mjs        tabla y números frescos, con /standings
 stats-calc.mjs       la cuenta, sin red: la usan stats.mjs y stats-api.mjs
-probar-sitio.cjs     16 casos del sitio publicado, con la API bloqueada
+probar-sitio.cjs     23 casos del sitio publicado, con la API bloqueada
 construir-sitio.mjs  arma sitio/ : portada + una página por club
 datos-juego.mjs      baja lo que el juego pedía desde el navegador
 app.tpl.html         la app. Talleres.html se genera desde acá.
@@ -73,7 +79,7 @@ node probar-stats.mjs
 node probar-sitio.cjs
 ```
 
-Noventa casos, en dos segundos y sin internet.
+Noventa y siete casos, en dos segundos y sin internet.
 Correlos cada vez que toques `pipeline.mjs` o `clubes.json`. Ya van dentro de
 CORRER, así que si algo se rompe se ve arriba de todo en `salida.txt`.
 
@@ -212,3 +218,16 @@ Entra sobrado en la cuota.
 
 **Un promedio de puntaje sin mínimo de minutos no es un ranking.** El que entró
 diez minutos y le pusieron 8 encabeza la liga. Van 450 minutos de piso.
+
+**Un link que no muestra tarjeta muere en el primer reenvío.** Cada página
+lleva su `og:title`, su descripción y su dirección absoluta, así que WhatsApp
+muestra el nombre del club en vez de un renglón gris. Cuesta quince líneas y
+es la diferencia entre que algo circule y que no.
+
+**Copiar al portapapeles no es compartir.** Obliga a salir de la app, abrir el
+chat y pegar, y ahí se pierde la mitad de la gente. `navigator.share` abre
+WhatsApp directo; copiar quedó de respaldo para cuando no está.
+
+**"No espiamos a nadie" es una promesa que se puede probar.** Hay un caso que
+falla si la página carga un script de cualquier dominio que no sea el propio.
+Una promesa sin prueba dura hasta el próximo apuro.

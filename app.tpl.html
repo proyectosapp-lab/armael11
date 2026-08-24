@@ -995,10 +995,22 @@ function enganchar(){
   const bs=$("bsim"); if(bs) bs.onclick=simular11;
   const ba=$("bauto"); if(ba) ba.onclick=()=>{ J.xiA=autoXI(J.pool.A,J.formA); pintar(); };
   const br=$("brev"); if(br) br.onclick=revelar;
+  /* Compartir de verdad, no copiar. En el teléfono —que es donde esto se usa—
+     `navigator.share` abre WhatsApp directo; copiar al portapapeles obliga a
+     salir de la app, abrir el chat y pegar, y ahí se pierde la mitad de la
+     gente. Si el navegador no lo tiene, se copia como antes.            */
   const bg=$("bguardar");
   if(bg) bg.onclick=async()=>{
     const link=linkDelPronostico();
     location.hash = link.split("#")[1];
+    const texto = "Armé mi once de " + CLUB.nom + " para " +
+      (J.nom.A||"") + " vs " + (J.nom.B||"") + ". A ver si le pegás mejor que yo:";
+    if(navigator.share){
+      try{ await navigator.share({ title:"Armá el 11 · "+CLUB.nom, text:texto, url:link });
+        $("avisoLink").textContent="Listo. Cuando termine el partido, ese link te muestra la comparación.";
+        return;
+      }catch(e){ if(e && e.name==="AbortError") return; }   // lo cerró a propósito
+    }
     try{ await navigator.clipboard.writeText(link);
       $("avisoLink").textContent="Copiado. Guardalo o mandátelo: cuando termine el partido, ese link te muestra la comparación.";
     }catch(e){

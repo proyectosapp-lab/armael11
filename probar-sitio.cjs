@@ -92,8 +92,12 @@ const caso = (n, ok) => casos.push([n, ok]);
 srv.listen(8099, async () => {
   const b = await chromium.launch();
   const pg = await b.newPage({ viewport: { width: 430, height: 920 } });
-  const errs = [], apiTocada = [];
+  const errs = [], apiTocada = [], ajenos = [];
   pg.on('pageerror', e => errs.push(e.message));
+  pg.on('request', r => {
+    const h = new URL(r.url()).host;
+    if (h && h !== 'localhost:8099' && r.resourceType() === 'script') ajenos.push(h);
+  });
 
   /* EL CORAZÓN DE LA PRUEBA: la API no existe. */
   await pg.route('**/v3.football.api-sports.io/**', r => {
@@ -111,6 +115,27 @@ srv.listen(8099, async () => {
 
   /* La pestaña Números: tiene que ofrecer las tablas que haya y arrancar en
      la que contiene a este club. Mostrábamos la del torneo ya terminado. */
+  /* Que el link se pueda mandar. Sin estas etiquetas, pegar la dirección en
+     WhatsApp muestra un renglón gris y el link muere en el primer reenvío. */
+  const meta = n => pg.locator('meta[property="' + n + '"]').getAttribute('content');
+  caso("el link compartido lleva título", (await meta('og:title') || '').includes('Talleres'));
+  caso("y una descripción", ((await meta('og:description')) || '').length > 40);
+  caso("y su dirección absoluta", /^https?:\/\//.test(await meta('og:url') || ''));
+  caso("tiene icono propio", await pg.locator('link[rel="icon"]').count() === 1);
+  caso("y se puede agregar a la pantalla de inicio",
+       await pg.locator('link[rel="manifest"]').count() === 1);
+  const manif = await pg.evaluate(async () => {
+    const h = document.querySelector('link[rel=manifest]').getAttribute('href');
+    try { return await (await fetch(h)).json(); } catch (e) { return null; }
+  });
+  caso("el manifiesto existe y abre en este club",
+       !!manif && manif.start_url.includes(CLUB), manif ? manif.start_url : "no cargó");
+
+  /* La promesa fue contar visitas sin espiar a nadie. Mientras no haya un
+     código de contador configurado, no puede cargarse NINGÚN script de otro
+     dominio. Esto lo verifica en vez de confiar.                        */
+  caso("no carga ningún script de terceros", ajenos.length === 0, ajenos.join(", "));
+
   await pg.click('#barra button[data-tab="numeros"]');
   await pg.waitForTimeout(400);
   const nTablas = await pg.evaluate(() => (window.STATS?.tablas || []).length);

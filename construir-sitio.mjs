@@ -40,6 +40,54 @@ writeFileSync(new URL("juego.js", DATOS),
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
 
+/* ─── lo que hace falta para que un link se pueda mandar ─────────────────
+   Sin esto, pegar la dirección en WhatsApp muestra un renglón gris. Con
+   esto muestra el nombre del club y una línea. La diferencia entre que un
+   link circule y que muera en el primer reenvío es más o menos esa.
+
+   También va acá lo que hace falta para agregarlo a la pantalla de inicio:
+   en el teléfono esto es una app, aunque sea una página.                */
+const CFG = existsSync(aca("./sitio.json")) ? JSON.parse(readFileSync(aca("./sitio.json"))) : {};
+const RAIZ = (CFG.url || "").replace(/\/+$/, "");
+
+/* El icono es el mismo monograma de la app: la inicial sobre el color del
+   club. Sin escudos, que no son nuestros. Va como SVG embebido, así no hay
+   que generar treinta imágenes ni tener un navegador para armarlas.    */
+const icono = c => "data:image/svg+xml," + encodeURIComponent(
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">` +
+  `<rect width="64" height="64" rx="14" fill="${c.color}"/>` +
+  `<text x="32" y="44" font-family="system-ui,sans-serif" font-size="36" font-weight="800" ` +
+  `text-anchor="middle" fill="${tintaSobre(c.color)}">${c.ini}</text></svg>`);
+
+const contador = CFG.contador
+  ? `\n<script data-goatcounter="https://${CFG.contador}.goatcounter.com/count"` +
+    ` async src="//gc.zgo.at/count.js"></script>` : "";
+
+function cabeza(club) {
+  const titulo = club.nom + " · TSTE";
+  const desc = "Todo lo que se dice de " + club.nom + " en un solo lugar: noticias, " +
+    "videos y números. Y armá el once para el próximo partido.";
+  const url = RAIZ ? RAIZ + "/" + club.id + ".html" : "";
+  const ic = icono(club);
+  return [
+    `<title>${esc(titulo)}</title>`,
+    `<meta name="description" content="${esc(desc)}">`,
+    `<meta name="theme-color" content="${esc(club.color)}">`,
+    `<meta property="og:type" content="website">`,
+    `<meta property="og:site_name" content="TSTE">`,
+    `<meta property="og:locale" content="es_AR">`,
+    `<meta property="og:title" content="${esc(titulo)}">`,
+    `<meta property="og:description" content="${esc(desc)}">`,
+    url ? `<meta property="og:url" content="${esc(url)}">` : "",
+    url ? `<link rel="canonical" href="${esc(url)}">` : "",
+    `<meta name="twitter:card" content="summary">`,
+    `<link rel="icon" href="${ic}">`,
+    `<link rel="apple-touch-icon" href="${ic}">`,
+    `<link rel="manifest" href="datos/app-${club.id}.webmanifest">`,
+    `<meta name="mobile-web-app-capable" content="yes">`,
+  ].filter(Boolean).join("\n");
+}
+
 let hechos = 0, sinFeed = [], conJuego = 0;
 
 for (const club of CLUBES) {
@@ -62,8 +110,17 @@ for (const club of CLUBES) {
   let html = TPL.replace("<script>\n/*DATOS*/", tags + "\n<script>");
   if (html === TPL) { console.log("  ✗ no encontré dónde meter los datos"); process.exit(1); }
 
-  html = html.replace(/<title>[\s\S]*?<\/title>/i, "<title>" + esc(club.nom) + " · TSTE</title>");
+  html = html.replace(/<title>[\s\S]*?<\/title>/i, cabeza(club));
+  html = html.replace("</body>", contador + "\n</body>");
   writeFileSync(new URL(club.id + ".html", SITIO), html);
+
+  /* Agregado a la pantalla de inicio, abre en su club y con sus colores. */
+  writeFileSync(new URL("app-" + club.id + ".webmanifest", DATOS), JSON.stringify({
+    name: club.nom + " · TSTE", short_name: club.nom,
+    start_url: "../" + club.id + ".html", scope: "../", display: "standalone",
+    background_color: club.color, theme_color: club.color,
+    icons: [{ src: icono(club), sizes: "any", type: "image/svg+xml", purpose: "any" }],
+  }, null, 1));
   hechos++;
 }
 
@@ -95,7 +152,16 @@ writeFileSync(new URL("index.html", SITIO), `<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>TSTE · elegí tu equipo</title>
-<meta name="description" content="Todo lo que se dice de tu equipo, en un solo lugar.">
+<meta name="description" content="Todo lo que se dice de tu equipo del fútbol argentino, en un solo lugar: noticias, videos y números de los 30 clubes.">
+<meta name="theme-color" content="#101418">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="TSTE">
+<meta property="og:locale" content="es_AR">
+<meta property="og:title" content="TSTE · elegí tu equipo">
+<meta property="og:description" content="Todo lo que se dice de tu equipo del fútbol argentino, en un solo lugar. 30 clubes.">
+${RAIZ ? `<meta property="og:url" content="${RAIZ}/">\n<link rel="canonical" href="${RAIZ}/">` : ""}
+<meta name="twitter:card" content="summary">
+<link rel="icon" href="${icono({color:"#101418", ini:"T"})}">
 <style>
   :root{ --fondo:#F7F8FA; --papel:#FFFFFF; --texto:#101418; --suave:#57606E; --borde:#E3E6EC; }
   @media (prefers-color-scheme: dark){
@@ -128,7 +194,7 @@ writeFileSync(new URL("index.html", SITIO), `<!doctype html>
     ni con la Liga Profesional. Los nombres se usan para identificar a los equipos.
     Los videos se enlazan a sus reproductores originales; acá no se aloja ninguno.
   </footer>
-</div></body></html>
+</div></body>${contador}</html>
 `);
 
 /* Pages sirve tal cual lo que hay: sin esto trata la carpeta como un sitio
