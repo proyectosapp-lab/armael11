@@ -54,6 +54,9 @@ resolver-youtube.mjs handle -> channelId, y mide si el canal publica
 probar.mjs           11 casos de Talleres contra datos reales guardados
 probar-clubes.mjs    22 casos de los clubes nuevos: titulares que entraron mal
 probar-once.mjs      22 casos del once automático
+probar-stats.mjs     17 casos de la tabla y los números
+stats-api.mjs        tabla y números frescos, con /standings
+stats-calc.mjs       la cuenta, sin red: la usan stats.mjs y stats-api.mjs
 probar-sitio.cjs     14 casos del sitio publicado, con la API bloqueada
 construir-sitio.mjs  arma sitio/ : portada + una página por club
 datos-juego.mjs      baja lo que el juego pedía desde el navegador
@@ -66,10 +69,11 @@ app.tpl.html         la app. Talleres.html se genera desde acá.
 node probar.mjs
 node probar-clubes.mjs
 node probar-once.mjs
+node probar-stats.mjs
 node probar-sitio.cjs
 ```
 
-Cincuenta y cinco casos, en dos segundos y sin internet.
+Setenta y dos casos, en dos segundos y sin internet.
 Correlos cada vez que toques `pipeline.mjs` o `clubes.json`. Ya van dentro de
 CORRER, así que si algo se rompe se ve arriba de todo en `salida.txt`.
 
@@ -166,3 +170,18 @@ partidos siguen mandando para el nivel, que es lo que el modelo necesita.
 el marcador más probable —0-1— justo debajo de un partido que había terminado
 0-2, con un párrafo explicando la diferencia. El párrafo estaba bien y la
 jerarquía mal.
+
+**La fase regular y los playoffs no son el mismo torneo.** Nuestra tabla daba
+24 y 25 partidos jugados donde la oficial dice 21 y 22, porque sumaba las dos
+cosas: al que llegó a la final le contaba tres partidos más que al que quedó
+afuera en la primera ronda. La cuenta estaba bien; lo que estaba mal era qué
+partidos entraban. La tabla anual oficial cuenta solo la fase regular.
+
+**Y para la tabla no hay que calcular nada: la publica la liga.** `/standings`
+devuelve la que ve cualquier hincha. Las rachas, los tiros y el xG sí los
+calculamos nosotros, porque esos no vienen — pero sobre los partidos de fase
+regular.
+
+**Un archivo generado una vez y commiteado se queda viejo el mismo día.**
+`stats-liga.js` mostraba la foto del 18 de agosto una semana después. Ahora se
+rehace en cada corrida.

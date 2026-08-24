@@ -29,6 +29,8 @@ echo.
   echo.
   node probar-once.mjs
   echo.
+  node probar-stats.mjs
+  echo.
   node resolver-youtube.mjs
   echo.
   node todos.mjs

@@ -2,8 +2,8 @@
  "liga": "Liga Profesional Argentina",
  "temporada": 2026,
  "generado": "2026-08-18T00:30:00+00:00",
- "notaXG": "El xG existe solo en el 27% de los partidos de 2026 (desde mayo). Las columnas de xG comparan únicamente esos partidos, y se muestran por partido, no acumuladas.",
- "nota": "Tabla acumulada sobre TODOS los partidos de 2026 en la base. No es la tabla oficial por zona ni por torneo: eso sale del endpoint /standings.",
+ "notaXG": "El xG existe solo en una parte de los partidos. Las columnas de xG comparan únicamente esos, y van por partido, no acumuladas.",
+ "nota": "Calculado sobre TODOS los partidos guardados de 2026, sin separar fase regular de playoffs. **No es la tabla oficial.** La tabla buena sale de stats-api.mjs, que la pide a /standings.",
  "partidosJugados": 330,
  "promedios": {
   "golesPorPartido": 2.06,
@@ -20700,7 +20700,7 @@
  },
  "faltan": {
   "jugadores": "goleadores, asistencias, situaciones de gol generadas y puntajes por partido",
-  "porque": "son datos de JUGADOR y esta base tiene datos de PARTIDO. Salen de /players y /fixtures/players.",
-  "comoSeArregla": "correr bajar-jugadores.html una vez por fecha"
+  "porque": "son datos de JUGADOR y esto son datos de PARTIDO. Salen de /players y /fixtures/players.",
+  "comoSeArregla": "está pendiente: es el próximo paso del proyecto"
  }
 }

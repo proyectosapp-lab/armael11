@@ -14,6 +14,7 @@ echo
 { node probar.mjs; echo
   node probar-clubes.mjs; echo
   node probar-once.mjs; echo
+  node probar-stats.mjs; echo
   node resolver-youtube.mjs; echo
   node todos.mjs; } > salida.txt 2>&1
 cat salida.txt
