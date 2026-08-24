@@ -1,0 +1,333 @@
+[
+ {
+  "club": "estudiantes-lp",
+  "nom": "Estudiantes LP Oficial",
+  "handle": "@edelpoficial",
+  "tipo": "club",
+  "ok": false,
+  "porque": "no se pudo abrir el canal (HTTP 403)"
+ },
+ {
+  "club": "gimnasia-lp",
+  "nom": "Gimnasia LP Oficial",
+  "channelId": "UCd27YrUjO-Te4o6569xpyJw",
+  "tipo": "club",
+  "ok": false,
+  "porque": "feed: HTTP 403"
+ },
+ {
+  "club": "newells",
+  "nom": "Newell's Oficial",
+  "handle": "@CANOBoficial",
+  "tipo": "club",
+  "ok": false,
+  "porque": "no se pudo abrir el canal (HTTP 403)"
+ },
+ {
+  "club": "rosario-central",
+  "nom": "Rosario Central Oficial",
+  "handle": "@RosarioCentral",
+  "tipo": "club",
+  "ok": false,
+  "porque": "no se pudo abrir el canal (HTTP 403)"
+ },
+ {
+  "ciudad": "Rosario",
+  "nom": "El Tres TV",
+  "handle": "@elTresTV",
+  "tipo": "medio",
+  "ok": false,
+  "porque": "no se pudo abrir el canal (HTTP 403)"
+ },
+ {
+  "club": "gimnasia-mza",
+  "nom": "Lobo TV",
+  "channelId": "UCiO4QPnKra8XBWubQSzf_QA",
+  "tipo": "club",
+  "ok": false,
+  "porque": "feed: HTTP 403"
+ },
+ {
+  "club": "independiente-rivadavia",
+  "nom": "Independiente Rivadavia Oficial",
+  "handle": "@CSIR.Oficial",
+  "channelId": "UCz4itFvhFg65tR6DA2E8CGA",
+  "tipo": "club",
+  "nota": "el club migró de canal: @csiroficial5524 es el viejo y su último video es de hace nueve años",
+  "ok": false,
+  "porque": "feed: HTTP 403"
+ },
+ {
+  "ciudad": "Mendoza",
+  "nom": "Juego Libre Radio",
+  "handle": "@juegolibreradio",
+  "tipo": "medio",
+  "ok": false,
+  "porque": "no se pudo abrir el canal (HTTP 403)"
+ },
+ {
+  "club": "atl-tucuman",
+  "nom": "Atlético Tucumán Oficial",
+  "handle": "@atleticotucuman",
+  "tipo": "club",
+  "ok": false,
+  "porque": "no se pudo abrir el canal (HTTP 403)"
+ },
+ {
+  "club": "union",
+  "nom": "Unión Oficial",
+  "handle": "@ClubaunionOficial",
+  "tipo": "club",
+  "ok": false,
+  "porque": "no se pudo abrir el canal (HTTP 403)"
+ },
+ {
+  "club": "central-cordoba-sde",
+  "nom": "Central Córdoba Oficial",
+  "handle": "@centralcordoba",
+  "channelId": "UCPwYGkAdCbPvTvslx8-uQbQ",
+  "tipo": "club",
+  "ok": false,
+  "porque": "feed: HTTP 403"
+ },
+ {
+  "club": "sarmiento",
+  "nom": "Sarmiento Oficial",
+  "handle": "@clubatleticosarmiento",
+  "channelId": "UCh-PFdEkFeGoLA6Y3iEZsiA",
+  "tipo": "club",
+  "ok": false,
+  "porque": "feed: HTTP 403"
+ },
+ {
+  "ciudad": "Río Cuarto",
+  "nom": "LV16 Multimedio",
+  "handle": "@LV16Multimedio16",
+  "channelId": "UC-NVOdmIXYZC-FW2L_U5PfA",
+  "tipo": "medio",
+  "nota": "la radio de Río Cuarto: transmite a Estudiantes en 'Saque de Arco'",
+  "ok": false,
+  "porque": "feed: HTTP 403"
+ },
+ {
+  "club": "estudiantes-rc",
+  "nom": "Estudiantes Río Cuarto",
+  "handle": "@Estudiantesriocuarto",
+  "channelId": "UCs78Q56j-OOmAoZulmgGeBQ",
+  "tipo": "medio",
+  "nota": "el canal existe; no está confirmado que sea del club",
+  "ok": false,
+  "porque": "feed: HTTP 403"
+ },
+ {
+  "club": "racing",
+  "nom": "La Comu de Racing",
+  "handle": "@LaComudeRacingClubOK",
+  "tipo": "medio",
+  "ok": false,
+  "porque": "no se pudo abrir el canal (HTTP 403)"
+ },
+ {
+  "club": "racing",
+  "nom": "Racing Online",
+  "handle": "@RacingOnlineok",
+  "tipo": "medio",
+  "ok": false,
+  "porque": "no se pudo abrir el canal (HTTP 403)"
+ },
+ {
+  "club": "racing",
+  "nom": "Glorioso Racing Club",
+  "handle": "@GLORIOSORACINGCLUB",
+  "tipo": "medio",
+  "ok": false,
+  "porque": "no se pudo abrir el canal (HTTP 403)"
+ },
+ {
+  "club": "independiente",
+  "nom": "Independiente Oficial",
+  "handle": "@Independiente",
+  "tipo": "club",
+  "ok": false,
+  "porque": "no se pudo abrir el canal (HTTP 403)"
+ },
+ {
+  "club": "independiente",
+  "nom": "De la Cuna al Infierno",
+  "handle": "@DelaCunaalInfierno7",
+  "tipo": "medio",
+  "ok": false,
+  "porque": "no se pudo abrir el canal (HTTP 403)"
+ },
+ {
+  "club": "boca",
+  "nom": "MundoBocaTV",
+  "handle": "@MundoBocaTV1",
+  "tipo": "medio",
+  "ok": false,
+  "porque": "no se pudo abrir el canal (HTTP 403)"
+ },
+ {
+  "club": "river",
+  "nom": "River Plate Videos",
+  "handle": "@RiverVideos",
+  "tipo": "medio",
+  "ok": false,
+  "porque": "no se pudo abrir el canal (HTTP 403)"
+ },
+ {
+  "club": "san-lorenzo",
+  "nom": "San Lorenzo Oficial",
+  "handle": "@sanlorenzo",
+  "channelId": "UCNhDco1_PVftR640EwklMAA",
+  "tipo": "club",
+  "ok": false,
+  "porque": "feed: HTTP 403"
+ },
+ {
+  "club": "san-lorenzo",
+  "nom": "La Cicloneta",
+  "handle": "@LaCicloneta",
+  "channelId": "UCP73-88JNWiYSaYBUmf__3A",
+  "tipo": "medio",
+  "ok": false,
+  "porque": "feed: HTTP 403"
+ },
+ {
+  "club": "huracan",
+  "nom": "Huracán Oficial",
+  "handle": "@cahuracan",
+  "tipo": "club",
+  "ok": false,
+  "porque": "no se pudo abrir el canal (HTTP 403)"
+ },
+ {
+  "club": "huracan",
+  "nom": "El canal del Pueblo Quemero",
+  "handle": "@elcanaldelpuebloquemero",
+  "tipo": "medio",
+  "ok": false,
+  "porque": "no se pudo abrir el canal (HTTP 403)"
+ },
+ {
+  "club": "velez",
+  "nom": "Noti Vélez",
+  "handle": "@NOTIVELEZ",
+  "tipo": "medio",
+  "nota": "para Vélez el video es casi todo lo que hay: no tiene sitio oficial legible",
+  "ok": false,
+  "porque": "no se pudo abrir el canal (HTTP 403)"
+ },
+ {
+  "club": "lanus",
+  "nom": "Mundo Granate",
+  "handle": "@MundoGranateOficial",
+  "tipo": "medio",
+  "ok": false,
+  "porque": "no se pudo abrir el canal (HTTP 403)"
+ },
+ {
+  "club": "lanus",
+  "nom": "Fortaleza Granate",
+  "handle": "@FGranaTV",
+  "tipo": "medio",
+  "ok": false,
+  "porque": "no se pudo abrir el canal (HTTP 403)"
+ },
+ {
+  "club": "banfield",
+  "nom": "Código Banfield",
+  "handle": "@CodigoBanfield",
+  "tipo": "medio",
+  "ok": false,
+  "porque": "no se pudo abrir el canal (HTTP 403)"
+ },
+ {
+  "club": "platense",
+  "nom": "Rincón Calamar",
+  "handle": "@RinconCalamar",
+  "tipo": "medio",
+  "ok": false,
+  "porque": "no se pudo abrir el canal (HTTP 403)"
+ },
+ {
+  "club": "tigre",
+  "nom": "Tigre Oficial",
+  "handle": "@ClubATigre",
+  "tipo": "club",
+  "ok": false,
+  "porque": "no se pudo abrir el canal (HTTP 403)"
+ },
+ {
+  "club": "tigre",
+  "nom": "Cachorros Matadores",
+  "handle": "@cachorrosmatadores6550",
+  "tipo": "medio",
+  "ok": false,
+  "porque": "no se pudo abrir el canal (HTTP 403)"
+ },
+ {
+  "club": "riestra",
+  "nom": "Prensa Riestra",
+  "handle": "@PrensaRiestra",
+  "channelId": "UCQmdYbyJ-iJfWn_jNELtZTA",
+  "tipo": "club",
+  "nota": "el club no tiene web: esto es su sala de prensa. El handle con guion que probamos antes no existe",
+  "ok": false,
+  "porque": "feed: HTTP 403"
+ },
+ {
+  "club": "barracas",
+  "nom": "Barracas Central Oficial",
+  "handle": "@barracascentral",
+  "tipo": "club",
+  "ok": false,
+  "porque": "no se pudo abrir el canal (HTTP 403)"
+ },
+ {
+  "club": "defensa",
+  "nom": "Defensa y Justicia Oficial",
+  "handle": "@DEFENSAOFICIAL1935",
+  "channelId": "UCX_njUpZVQzU-dyI7MpMruA",
+  "tipo": "club",
+  "nota": "es el que linkea la Liga Profesional; el @Defensayjusticiatv que probamos antes no tiene videos",
+  "ok": false,
+  "porque": "feed: HTTP 403"
+ },
+ {
+  "club": "defensa",
+  "nom": "Defensa y Justicia PLAY",
+  "handle": "@DefensayJusticiaPLAY",
+  "channelId": "UC3wMvjb8DHvhowi2f8bOAhA",
+  "tipo": "medio",
+  "ok": false,
+  "porque": "feed: HTTP 403"
+ },
+ {
+  "club": "argentinos",
+  "nom": "Argentinos Pasión",
+  "url": "https://www.youtube.com/AAAJPasion",
+  "tipo": "medio",
+  "ok": false,
+  "porque": "no se pudo abrir el canal (HTTP 403)"
+ },
+ {
+  "ciudad": "Mar del Plata",
+  "nom": "Noticias Canal 8 Mar del Plata",
+  "handle": "@noticiascanal8mdp",
+  "channelId": "UCY0QZk2M_ZZi95S-MN1Zndg",
+  "tipo": "medio",
+  "ok": false,
+  "porque": "feed: HTTP 403"
+ },
+ {
+  "ciudad": "Mar del Plata",
+  "nom": "Canal Diez Mar del Plata",
+  "handle": "@CanalDiezMDP",
+  "channelId": "UCUM1n1Cb_cbnYTY45GvtyJw",
+  "tipo": "medio",
+  "nota": "Aldosivi no tiene canal de hinchas puro y el oficial está muerto: se cubre con los dos canales de la ciudad, filtrando por texto",
+  "ok": false,
+  "porque": "feed: HTTP 403"
+ }
+]

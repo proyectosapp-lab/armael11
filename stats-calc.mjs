@@ -111,6 +111,10 @@ export function calcular(P, { oficial = null, notaXG = "", nota = "", generado =
 
   return {
     liga: "Liga Profesional Argentina", temporada: 2026,
+    /* Que el archivo diga si la tabla es la de la liga o una cuenta nuestra.
+       La pantalla cambia el título según esto: no es lo mismo y no se puede
+       dejar a criterio de quien mire.                                    */
+    oficial: !!(oficial && oficial.length),
     generado: generado || P[P.length - 1].fecha,
     notaXG, nota,
     partidosJugados: P.length,

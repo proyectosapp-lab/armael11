@@ -46,6 +46,19 @@ if (caidas.length) {
     console.log("    " + (c.fuente.nom || "?").padEnd(38) + c.error);
 }
 
+/* ─── el freno de mano ───────────────────────────────────────────────────
+   Sin esto, una corrida sin internet escribe treinta feeds vacíos y los
+   publica encima de los que estaban bien. Un feed vacío no es un feed nuevo:
+   es la pérdida del anterior. Si contestó menos de la mitad de las fuentes,
+   algo pasa de este lado y es mejor no tocar nada.                       */
+const MINIMO = 0.5;
+if (vivas.length < activas.length * MINIMO) {
+  console.log("\n  ✗ Solo contestaron " + vivas.length + " de " + activas.length +
+              " fuentes. Eso no es la red de los medios: es la nuestra.");
+  console.log("  NO escribo nada, para no pisar los feeds que ya estaban.\n");
+  process.exit(1);
+}
+
 /* ─── un feed por club, sin volver a tocar la red ───────────────────────── */
 const paraElClub = (c, club) => {
   const f = c.fuente;

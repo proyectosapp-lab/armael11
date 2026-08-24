@@ -1,7 +1,7 @@
 @echo off
 chcp 65001 >nul
 cd /d "%~dp0"
-title TSTE - correr el ingest
+title TSTE - correr todo
 
 where node >nul 2>nul
 if errorlevel 1 (
@@ -16,25 +16,16 @@ if errorlevel 1 (
 )
 
 echo.
-echo   Tres pasos. Tarda unos minutos, no cierres la ventana.
-echo     1. Probar el pipeline (dos segundos, sin internet)
-echo     2. Resolver los canales de YouTube
-echo     3. Bajar todas las fuentes y armar los 30 feeds
+echo   Corre lo mismo que corre en la nube: pruebas, fuentes, feeds y sitio.
+echo   Tarda unos minutos, no cierres la ventana.
+echo.
+echo   Si tenes la API key a mano y queres la tabla y el juego completos,
+echo   abri este archivo con el Bloc de notas y poné tu key abajo.
 echo.
 
-> salida.txt (
-  node probar.mjs
-  echo.
-  node probar-clubes.mjs
-  echo.
-  node probar-once.mjs
-  echo.
-  node probar-stats.mjs
-  echo.
-  node resolver-youtube.mjs
-  echo.
-  node todos.mjs
-) 2>&1
+rem set API_FOOTBALL_KEY=pegala_aca
+
+node publicar.mjs > salida.txt 2>&1
 
 type salida.txt
 echo.

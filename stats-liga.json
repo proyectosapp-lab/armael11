@@ -1,6 +1,7 @@
 {
  "liga": "Liga Profesional Argentina",
  "temporada": 2026,
+ "oficial": false,
  "generado": "2026-08-18T00:30:00+00:00",
  "notaXG": "El xG existe solo en una parte de los partidos. Las columnas de xG comparan únicamente esos, y van por partido, no acumuladas.",
  "nota": "Calculado sobre TODOS los partidos guardados de 2026, sin separar fase regular de playoffs. **No es la tabla oficial.** La tabla buena sale de stats-api.mjs, que la pide a /standings.",

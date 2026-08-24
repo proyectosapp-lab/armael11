@@ -6,17 +6,17 @@ if ! command -v node >/dev/null 2>&1; then
   read -n 1 -s -r -p "  Enter para cerrar"; exit 1
 fi
 echo
-echo "  Tres pasos. Tarda unos minutos, no cierres la ventana."
-echo "    1. Probar el pipeline (dos segundos, sin internet)"
-echo "    2. Resolver los canales de YouTube"
-echo "    3. Bajar todas las fuentes y armar los 30 feeds"
+echo "  Corre lo mismo que corre en la nube: pruebas, fuentes, feeds y sitio."
+echo "  Tarda unos minutos, no cierres la ventana."
 echo
-{ node probar.mjs; echo
-  node probar-clubes.mjs; echo
-  node probar-once.mjs; echo
-  node probar-stats.mjs; echo
-  node resolver-youtube.mjs; echo
-  node todos.mjs; } > salida.txt 2>&1
+echo "  Si tenés la API key a mano y querés la tabla y el juego completos,"
+echo "  abrí este archivo con un editor y poné tu key abajo."
+echo
+
+# export API_FOOTBALL_KEY=pegala_aca
+
+node publicar.mjs > salida.txt 2>&1
+
 cat salida.txt
 echo; echo "  ================================================================"
 echo "  Listo. Quedó guardado en  salida.txt , al lado de este archivo."

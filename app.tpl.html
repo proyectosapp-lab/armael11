@@ -345,6 +345,14 @@ function vistaNumeros(){
   const part=m=>`${esc(m.hn)} ${m.gh}-${m.ga} ${esc(m.an)}`;
   const R=ST.records, A=ST.avanzadas;
 
+  /* Cuándo se generó esto, a la vista. Estuvo una semana mostrando la foto
+     de una noche vieja y nadie se enteró, porque el archivo no decía en
+     ninguna parte visible de qué día era.                                */
+  const fechaCorta = f => { const d=new Date(f);
+    return isNaN(d) ? "?" : d.toLocaleDateString("es-AR",{day:"numeric",month:"long"}); };
+  const vieja = f => { const d=new Date(f);
+    return !isNaN(d) && (Date.now()-d) > 3*864e5; };
+
   return `
   <h3 class="sec">La liga en 2026</h3>
   <div class="kpi">
@@ -354,8 +362,10 @@ function vistaNumeros(){
     <div><b>${P.empate}%</b><span>empate</span></div>
   </div>
 
-  ${caja("Tabla acumulada", tablaHTML +
-    `<p class="aviso">${esc(ST.nota)}</p>`)}
+  ${caja(ST.oficial ? "Tabla de la liga" : "Tabla acumulada", tablaHTML +
+    `<p class="aviso">${esc(ST.nota)}</p>
+     <p class="aviso">Datos al ${fechaCorta(ST.generado)}.${
+       vieja(ST.generado) ? " <b>Hace más de tres días que no se actualizan.</b>" : ""}</p>`)}
 
   <h3 class="sec">Rachas</h3>
   <div class="dosc">
