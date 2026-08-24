@@ -143,14 +143,47 @@ export function simExpulsion(xgA, xgB, rojas){
 
 /* Arma el once más fuerte disponible respetando la formación. */
 export function autoXI(pool, form){
-  const slots=slotsDe(form), usados=new Set(), xi=[];
-  for(const linea of slots)
-    for(let i=0;i<linea.n;i++){
-      const cand = pool.filter(p=>!usados.has(p.id))
-        .map(p=>({p, v: fuerza(p).v - penalPuesto(p.pos, linea.cat)}))
-        .sort((a,b)=>b.v-a.v)[0];
-      if(cand){ usados.add(cand.p.id); xi.push({...cand.p, slotCat:linea.cat}); }
-      else xi.push(null);
-    }
+  /* Antes esto llenaba puesto por puesto con el mejor "nivel menos castigo".
+     Suena razonable y sale mal: el castigo por jugar de volante siendo
+     delantero es 0.15, y la diferencia de nivel entre dos jugadores es
+     tranquilamente 1.0. Así que el mejor delantero terminaba de volante, y
+     cuando le tocaba el turno a la delantera ya no quedaba ninguno. El once
+     salía entero fuera de puesto.
+
+     Los castigos no se tocan: pasaron el backtest y son del MODELO. Lo que
+     estaba mal era esta función, que es comodidad de pantalla: el puesto no
+     es una preferencia con precio, es una restricción. Primero cada uno en
+     el suyo; recién después, si falta gente, se improvisa.                */
+  const slots = slotsDe(form).flatMap(l => Array.from({length:l.n}, () => l.cat));
+  const xi = new Array(slots.length).fill(null);
+  const usados = new Set();
+  const libres = () => pool.filter(p => !usados.has(p.id));
+
+  /* El orden lo decide la escasez, no el dibujo. Si hay un solo arquero y
+     seis volantes para tres lugares, el arquero se reparte primero.      */
+  const demanda = {}; slots.forEach(c => demanda[c] = (demanda[c] || 0) + 1);
+  const oferta  = {}; pool.forEach(p => oferta[p.pos] = (oferta[p.pos] || 0) + 1);
+  const orden = [...new Set(slots)]
+    .sort((a, b) => (oferta[a] || 0) / demanda[a] - (oferta[b] || 0) / demanda[b]);
+
+  for (const cat of orden)
+    slots.forEach((c, i) => {
+      if (c !== cat || xi[i]) return;
+      /* Entre los del puesto, primero los que vienen jugando. Al plantel se
+         le suman los que no sumaron minutos —para que estén en la lista y se
+         puedan elegir a mano— pero de esos no sabemos nada, así que no
+         pueden entrar de arranque por delante de uno que sí jugó.       */
+      const cand = libres().filter(p => p.pos === cat)
+        .sort((a, b) => (b.mins > 0) - (a.mins > 0) || fuerza(b).v - fuerza(a).v)[0];
+      if (cand) { usados.add(cand.id); xi[i] = { ...cand, slotCat: cat }; }
+    });
+
+  /* Lo que quedó vacío se improvisa, y ahí sí paga el castigo. */
+  slots.forEach((c, i) => {
+    if (xi[i]) return;
+    const cand = libres().map(p => ({ p, v: fuerza(p).v - penalPuesto(p.pos, c) }))
+      .sort((a, b) => b.v - a.v)[0];
+    if (cand) { usados.add(cand.p.id); xi[i] = { ...cand.p, slotCat: c }; }
+  });
   return xi;
 }

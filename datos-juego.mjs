@@ -102,11 +102,19 @@ for (const club of conApi) {
     /* Los planteles se arman con los partidos ANTERIORES a este, nunca con
        este: si no, el juego sabría de antemano quién jugó.               */
     const susFx = guardar(await api("/fixtures", { team: rivalId, season: TEMPORADA, league: LEAGUE }));
-    const ultimos3 = lista => lista.filter(f => JUGADO(f) && antes(f))
-      .sort((a, b) => new Date(a.fixture.date) - new Date(b.fixture.date)).slice(-3);
+    /* Cinco partidos y no tres: con tres, el que se perdió una fecha por
+       molestia desaparece del plantel y el hincha lo nota enseguida.   */
+    const ultimos5 = lista => lista.filter(f => JUGADO(f) && antes(f))
+      .sort((a, b) => new Date(a.fixture.date) - new Date(b.fixture.date)).slice(-5);
 
-    for (const f of [...ultimos3(mios), ...ultimos3(susFx)])
+    for (const f of [...ultimos5(mios), ...ultimos5(susFx)])
       guardar(await api("/fixtures/players", { fixture: f.fixture.id }));
+
+    /* La lista oficial del plantel, con el puesto de cada uno. Un pedido por
+       equipo. Sin esto el puesto sale del último partido que jugó, y un
+       lateral que tapó un hueco en el medio queda de volante para siempre. */
+    guardar(await api("/players/squads", { team: club.apiId }));
+    guardar(await api("/players/squads", { team: rivalId }));
 
     /* Y para el que ya se jugó, lo que hace falta para revelar. */
     if (JUGADO(fx)) {

@@ -53,7 +53,8 @@ ingest.mjs           un club solo, volviendo a pedir sus fuentes
 resolver-youtube.mjs handle -> channelId, y mide si el canal publica
 probar.mjs           11 casos de Talleres contra datos reales guardados
 probar-clubes.mjs    22 casos de los clubes nuevos: titulares que entraron mal
-probar-sitio.cjs     9 casos del sitio publicado, con la API bloqueada
+probar-once.mjs      22 casos del once automático
+probar-sitio.cjs     14 casos del sitio publicado, con la API bloqueada
 construir-sitio.mjs  arma sitio/ : portada + una página por club
 datos-juego.mjs      baja lo que el juego pedía desde el navegador
 app.tpl.html         la app. Talleres.html se genera desde acá.
@@ -64,9 +65,11 @@ app.tpl.html         la app. Talleres.html se genera desde acá.
 ```
 node probar.mjs
 node probar-clubes.mjs
+node probar-once.mjs
+node probar-sitio.cjs
 ```
 
-Treinta y tres casos, todos con titulares reales, en dos segundos y sin internet.
+Cincuenta y cinco casos, en dos segundos y sin internet.
 Correlos cada vez que toques `pipeline.mjs` o `clubes.json`. Ya van dentro de
 CORRER, así que si algo se rompe se ve arriba de todo en `salida.txt`.
 
@@ -144,3 +147,22 @@ partido— y sin etiquetas todo eso caía junto con la primera. Cuando no hay
 etiquetas se mira el texto. Con dos cuidados: "División" sola no es reserva
 (*Primera* División es lo contrario) y "Piratas" es el club entero mientras
 que "las Piratas" es el femenino.
+
+**El puesto no es una preferencia con precio, es una restricción.** El once
+automático elegía por "nivel menos castigo por jugar fuera de puesto". El
+castigo de delantero a volante es 0.15 y la diferencia de nivel entre dos
+jugadores es tranquilamente 1.0, así que el mejor delantero terminaba de
+volante y para la delantera ya no quedaba ninguno: el once salía entero
+cambiado. Los castigos no se tocaron —pasaron el backtest, son del modelo—;
+lo que estaba mal era la función que arma el once, que es comodidad de
+pantalla. Ahora primero cada uno en el suyo y recién después se improvisa.
+
+**El puesto de un jugador no es el del último partido que jugó.** Un lateral
+que tapó un hueco en el medio quedaba de volante para siempre. La lista
+oficial del plantel cuesta un pedido por equipo y trae el puesto real; los
+partidos siguen mandando para el nivel, que es lo que el modelo necesita.
+
+**El número grande tiene que ser el que la persona acaba de ver.** Mostraba
+el marcador más probable —0-1— justo debajo de un partido que había terminado
+0-2, con un párrafo explicando la diferencia. El párrafo estaba bien y la
+jerarquía mal.

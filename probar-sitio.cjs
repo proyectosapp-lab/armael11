@@ -13,6 +13,25 @@ const http = require('http'), fs = require('fs'), path = require('path');
 const RAIZ = path.join(__dirname, 'sitio');
 const CLUB = process.argv[2] || 'talleres-cba';
 
+/* Que la prueba se pueda correr de cero, sin haber bajado nada de internet:
+   si no hay feed de este club, se arma uno con los ítems guardados. */
+if (!fs.existsSync(path.join(__dirname, 'feed-' + CLUB + '.js'))) {
+  require('child_process').execSync(
+    'node -e "' +
+    "import('./pipeline.mjs').then(({construirFeed})=>{" +
+    "const fs=require('fs');" +
+    "const FIX=JSON.parse(fs.readFileSync('fixtures.json'));" +
+    "const C=JSON.parse(fs.readFileSync('clubes.json')).find(c=>c.id==='" + CLUB + "');" +
+    "const P={nombre:C.nom,desambiguacion:{fuertes:[C.nombreCompleto].filter(Boolean)," +
+    "debiles:C.debiles||[C.nom,...C.apodos],corroboradores:[C.ciudad],bloqueadores:C.bloqueadores}};" +
+    "const f=construirFeed(FIX.lotes.map(l=>({fuente:l.fuente,items:l.items})),P);" +
+    "const {descartados,...l}=f;" +
+    "l.club={id:C.id,nom:C.nom,ini:C.ini,apiId:C.apiId,color:C.color,color2:C.color2,patron:C.patron,estrellas:C.estrellas};" +
+    "fs.writeFileSync('feed-'+C.id+'.js','window.FEED = '+JSON.stringify(l)+';\\nwindow.CLUB = '+JSON.stringify(l.club)+';');" +
+    '});"', { cwd: __dirname, stdio: 'inherit' });
+}
+fs.mkdirSync(path.join(RAIZ, 'datos'), { recursive: true });
+
 /* ─── un cache sintético con las MISMAS claves que pide la app ──────────── */
 const nombres = ["Unsaín","Riquelme","Galarza","Fernández","Cristaldo","Maidana","Chamorro",
   "Depietri","Martínez","Barticciotto","Rick","Portilla","Girotti","Herrera","Navarro","Bustos"];
@@ -37,6 +56,14 @@ cache[`/fixtures?team=${B}&season=2026&league=128`] = jugados;
 for (const f of jugados)
   cache[`/fixtures/players?fixture=${f.fixture.id}`] =
     [{ team: { id: A }, players: jug(1, 7.0) }, { team: { id: B }, players: jug(2, 6.6) }];
+/* La lista oficial del plantel: puestos de verdad, y uno que no jugó nunca. */
+const PUESTO = { G:"Goalkeeper", D:"Defender", M:"Midfielder", F:"Attacker" };
+const squad = pref => ({ team:{ id: pref===1?A:B }, players:
+  nombres.map((n,i)=>({ id: pref*100+i, name:(pref===1?"":"R ")+n, position: PUESTO[POS[i]] }))
+    .concat([{ id: pref*100+90, name:(pref===1?"":"R ")+"Refuerzo", position:"Attacker" }]) });
+cache[`/players/squads?team=${A}`] = [squad(1)];
+cache[`/players/squads?team=${B}`] = [squad(2)];
+
 cache[`/fixtures/lineups?fixture=904`] =
   [{ team: { id: A }, formation: "4-4-2", startXI: nombres.slice(0, 11).map(n => ({ player: { name: n, pos: "M" } })) }];
 cache[`/fixtures/events?fixture=904`] = [];
@@ -95,9 +122,37 @@ srv.listen(8099, async () => {
   await pg.waitForTimeout(900);
   caso("la cancha se arma con 22 jugadores", await pg.locator('.jug').count() === 22);
 
+  /* El once que trae tiene que respetar los puestos. Era la queja: "casi
+     todos los jugadores fuera de su puesto".                            */
+  const once = await pg.evaluate(() => J.xiA.filter(Boolean)
+    .map(p => ({ pos: p.pos, slot: p.slotCat, nombre: p.nombre })));
+  caso("nadie juega fuera de su puesto", once.every(p => p.pos === p.slot),
+       once.filter(p => p.pos !== p.slot).map(p => p.nombre + ": " + p.pos + " de " + p.slot).join(", "));
+  caso("el plantel incluye al que no sumó minutos",
+       await pg.evaluate(() => J.pool.A.some(p => /Refuerzo/.test(p.nombre))));
+  caso("pero ese no es titular",
+       !once.some(p => /Refuerzo/.test(p.nombre)));
+
+  /* Y los globitos tienen que moverse. Antes rebotaba la pelota sola. */
+  const antesDeJugar = await pg.evaluate(() =>
+    [...document.querySelectorAll('.jug')].map(e => e.style.getPropertyValue('--dx')));
   await pg.locator('#bsim').click();
-  await pg.waitForTimeout(10000);
+  await pg.waitForTimeout(2500);
+  const durante = await pg.evaluate(() =>
+    [...document.querySelectorAll('.jug')].map(e => e.style.getPropertyValue('--dx')));
+  caso("los jugadores se mueven durante el partido",
+       durante.some((v, i) => v && v !== antesDeJugar[i]),
+       "desplazamientos vistos: " + durante.filter(Boolean).length + " de " + durante.length);
+
+  await pg.waitForTimeout(8000);
   caso("el partido se juega y da resultado", await pg.locator('.res').count() > 0);
+
+  /* El número grande tiene que ser el partido que acaba de ver, no el
+     marcador más probable: mostraba 0-1 después de un 0-2 y confundía. */
+  const grande = (await pg.locator('.marcador').first().textContent() || '').trim();
+  const visto = await pg.evaluate(() => J.sim.estaVez.A + "-" + J.sim.estaVez.B);
+  caso("el número grande es el partido que se vio", grande === visto,
+       "en pantalla " + grande + " · jugado " + visto);
 
   caso("el navegador NUNCA llamó a api-sports.io", apiTocada.length === 0);
   caso("sin errores de JavaScript", errs.length === 0);

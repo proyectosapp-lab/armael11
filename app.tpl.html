@@ -86,9 +86,13 @@ button.gh{background:transparent;color:var(--tinta-2);border:1px solid var(--bor
 .campo::before{content:"";position:absolute;inset:0;
   background:repeating-linear-gradient(180deg,rgba(255,255,255,.035) 0 8.33%,transparent 8.33% 16.66%)}
 .ln{position:absolute;border:2px solid rgba(255,255,255,.30);pointer-events:none}
-.jug{position:absolute;transform:translate(-50%,-50%);width:44px;text-align:center;cursor:pointer;
-  z-index:2;transition:transform .12s}
-.jug:active{transform:translate(-50%,-50%) scale(1.14)}
+.jug{position:absolute;width:44px;text-align:center;cursor:pointer;z-index:2;
+  --dx:0px; --dy:0px;
+  transform:translate(calc(-50% + var(--dx)), calc(-50% + var(--dy)));
+  transition:transform .12s}
+.jug:active{transform:translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1.14)}
+/* Durante el partido el desplazamiento acompaña al reloj, que va a 235ms. */
+.campo.jugando .jug{transition:transform .24s linear}
 .jug .b{width:27px;height:27px;border-radius:50%;margin:0 auto;display:grid;place-items:center;
   font-size:10px;font-weight:800;border:2px solid rgba(255,255,255,.9);
   box-shadow:0 2px 6px rgba(0,0,0,.45)}
@@ -457,6 +461,41 @@ async function plantel(fids, teamId){
 
 const JUGADO = f => ["FT","AET","PEN"].includes(f.fixture.status.short);
 
+/* ── EL PLANTEL DE VERDAD ────────────────────────────────────────────────
+   Armar el plantel con los que sumaron minutos en los últimos partidos tiene
+   dos defectos que se ven a simple vista: falta el que estuvo lesionado o el
+   que acaba de llegar, y el puesto que le queda es el que jugó ese día, no
+   el suyo. Un lateral que tapó un hueco en el medio quedaba de volante.
+
+   API-Football tiene la lista oficial del plantel con el puesto de cada uno.
+   Es UN pedido por equipo. Eso manda para el puesto; los partidos siguen
+   mandando para el nivel, que es lo que el modelo necesita.
+
+   Si el pedido falla o viene raro, no pasa nada: se sigue con lo de antes. */
+const PUESTO = { Goalkeeper:"G", Defender:"D", Midfielder:"M", Attacker:"F" };
+
+async function plantilla(teamId){
+  try{
+    const r = await api("/players/squads",{team:teamId});
+    const eq = (r||[]).find(x=>x.team?.id===teamId) || (r||[])[0];
+    return (eq?.players||[])
+      .map(p=>({ id:p.id, nombre:p.name, pos:PUESTO[p.position] }))
+      .filter(p=>p.id && p.pos);
+  }catch(e){ return []; }
+}
+
+function fusionar(pool, lista){
+  if(!lista.length) return pool;
+  const porId = new Map(pool.map(p=>[p.id, p]));
+  for(const s of lista){
+    const p = porId.get(s.id);
+    if(p) p.pos = s.pos;      // el puesto oficial le gana al del último partido
+    else porId.set(s.id, { id:s.id, nombre:s.nombre, pos:s.pos,
+                           ratings:[], mins:0, apar:0 });
+  }
+  return [...porId.values()].sort((a,b)=>fuerza(b).v-fuerza(a).v);
+}
+
 async function cargarTemporada(){
   J.err=""; J.msg="Cargando la temporada…"; pintar();
   try{
@@ -513,15 +552,19 @@ async function elegirPartido(i){
   pintar();
   try{
     const antes = f => new Date(f.fixture.date) < new Date(J.fx.fixture.date);
-    const mios = J.fixtures.filter(antes).slice(-3);
+    /* Cinco partidos y no tres. Con tres, el que se perdió una fecha por
+       molestia desaparece del plantel, y el hincha lo nota enseguida. */
+    const mios = J.fixtures.filter(antes).slice(-5);
     let rivales=[];
     try{
       const all=await api("/fixtures",{team:J.id.B,season:J.temporada,league:LEAGUE});
       rivales=all.filter(f=>["FT","AET","PEN"].includes(f.fixture.status.short)&&antes(f))
-        .sort((a,b)=>new Date(a.fixture.date)-new Date(b.fixture.date)).slice(-3);
+        .sort((a,b)=>new Date(a.fixture.date)-new Date(b.fixture.date)).slice(-5);
     }catch(e){}
-    J.pool.A=await plantel(mios.map(f=>f.fixture.id), J.id.A);
-    J.pool.B=await plantel(rivales.map(f=>f.fixture.id), J.id.B);
+    J.pool.A=fusionar(await plantel(mios.map(f=>f.fixture.id), J.id.A),
+                      await plantilla(J.id.A));
+    J.pool.B=fusionar(await plantel(rivales.map(f=>f.fixture.id), J.id.B),
+                      await plantilla(J.id.B));
     if(J.pool.A.length<11||J.pool.B.length<11)
       throw new Error("No hay suficientes partidos previos. Elegí uno más avanzado en la temporada.");
     J.xiA=autoXI(J.pool.A,J.formA); J.xiB=autoXI(J.pool.B,J.formB);
@@ -614,19 +657,57 @@ function campoHTML(){
    se sortean con la misma Poisson que usa el modelo, así que lo que pasa en
    pantalla es una realización honesta del pronóstico — no una animación
    decorativa que después se contradice con el número.                     */
+/* ── LOS JUGADORES SE MUEVEN ─────────────────────────────────────────────
+   Antes rebotaba una pelota sola entre veintidós globitos clavados, y se
+   notaba: no parecía un partido, parecía un salvapantallas.
+
+   Esto no simula nada —la simulación ya está hecha, son 6.000 partidos— es
+   la puesta en escena. Cada jugador se corre hacia la pelota una fracción de
+   la distancia, y esa fracción cae con la distancia: el que está cerca va a
+   buscarla, el que está lejos apenas se acomoda. El arquero casi no se mueve
+   y no se despega del arco. Un temblor chico arriba de todo para que no
+   parezcan piezas de metegol moviéndose en bloque.
+
+   Se hace con una variable CSS y no tocando left/top, para no pelear con el
+   translate(-50%,-50%) que centra el globito.                            */
+function moverJugadores(campo, bx, by){
+  const r = campo.getBoundingClientRect();
+  campo.querySelectorAll(".jug").forEach(el => {
+    const x0 = parseFloat(el.style.left), y0 = parseFloat(el.style.top);
+    if(isNaN(x0) || isNaN(y0)) return;
+    const dx = bx - x0, dy = by - y0;
+    const lejos = Math.hypot(dx, dy);
+    const arquero = el.dataset.cat === "G";
+    const k = (arquero ? .04 : .40) * Math.max(0, 1 - lejos / 58);
+    const tope = arquero ? 3 : 9;
+    const px = Math.max(-tope, Math.min(tope, dx * k + (Math.random() - .5) * 1.8));
+    const py = Math.max(-tope, Math.min(tope, dy * k + (Math.random() - .5) * 1.8));
+    el.style.setProperty("--dx", (px / 100 * r.width ).toFixed(1) + "px");
+    el.style.setProperty("--dy", (py / 100 * r.height).toFixed(1) + "px");
+  });
+}
+
+function quietos(campo){
+  campo.classList.remove("jugando");
+  campo.querySelectorAll(".jug").forEach(el => {
+    el.style.setProperty("--dx", "0px"); el.style.setProperty("--dy", "0px"); });
+}
+
 function animarPartido(xgA, xgB, alTerminar){
   const gA=poissonUno(xgA), gB=poissonUno(xgB);
   const minutos = n => Array.from({length:n},()=>3+Math.floor(Math.random()*86)).sort((a,b)=>a-b);
   const eventos=[...minutos(gA).map(m=>({m,lado:"A"})), ...minutos(gB).map(m=>({m,lado:"B"}))]
     .sort((a,b)=>a.m-b.m);
   const posesion = xgA/(xgA+xgB);
-  const pel=$("pelota"), rel=$("reloj"), gol=$("golazo");
+  const pel=$("pelota"), rel=$("reloj"), gol=$("golazo"), campo=$("campo");
   if(!pel) return alTerminar({A:gA,B:gB});
   rel.hidden=false; rel.textContent="0'";
+  campo?.classList.add("jugando");
   let min=0, marc={A:0,B:0}, k=0;
   const reloj=setInterval(()=>{
     min+=3;
     if(min>90){ clearInterval(reloj); rel.textContent="90'  "+marc.A+"-"+marc.B;
+      if(campo) quietos(campo);
       setTimeout(()=>alTerminar(marc), 500); return; }
     let x=14+Math.random()*72;
     let y = Math.random()<posesion ? 12+Math.random()*36 : 52+Math.random()*36;
@@ -636,6 +717,7 @@ function animarPartido(xgA, xgB, alTerminar){
       x=50; y = e.lado==="A" ? 5 : 95;
     }
     pel.style.left=x+"%"; pel.style.top=y+"%";
+    if(campo) moverJugadores(campo, x, y);
     rel.textContent = min+"'  "+marc.A+"-"+marc.B;
     if(huboGol){ gol.classList.add("on"); setTimeout(()=>gol.classList.remove("on"), 550); }
   }, 235);
@@ -755,13 +837,15 @@ function vistaJuego(){
           <div style="flex:${s.loss};background:#D64550">${s.loss.toFixed(0)}%</div>
         </div>
         <div class="meta"><b>${veredicto}</b><span>·</span><span>ganás / empatás / perdés</span></div>
-        <div class="marcador">${esc(s.marcador)}</div>
-        <div class="meta" style="justify-content:center">marcador más probable · ${s.probMarcador.toFixed(0)}% ·
+        <div class="marcador">${s.estaVez ? s.estaVez.A+"-"+s.estaVez.B : esc(s.marcador)}</div>
+        <div class="meta" style="justify-content:center">${s.estaVez
+          ? "el partido que acabás de ver"
+          : "marcador más probable · "+s.probMarcador.toFixed(0)+"%"} ·
           xG ${s.xgA.toFixed(2)} a ${s.xgB.toFixed(2)}</div>
-        ${s.estaVez?`<p class="nota">El partido que acabás de ver terminó
-          <b>${s.estaVez.A}-${s.estaVez.B}</b>. Fue una sola de las 6.000 simulaciones:
-          por eso puede no coincidir con el marcador más probable. La barra de arriba
-          las junta a todas.</p>`:""}
+        ${s.estaVez?`<p class="nota">Ese fue <b>uno</b> de los 6.000 partidos simulados.
+          El resultado más repetido fue <b>${esc(s.marcador)}</b>, en el
+          ${s.probMarcador.toFixed(0)}% de las veces. La barra de arriba los junta a todos:
+          es la que hay que mirar.</p>`:""}
         ${s.notas.map(n=>`<p class="nota">${esc(n)}</p>`).join("")}
         ${J.paso!=="revelado" ? (J.jugado
           ? `<button class="acc" id="brev" style="width:100%;margin-top:12px">
