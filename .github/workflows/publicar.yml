@@ -1,31 +1,31 @@
 # ══════════════════════════════════════════════════════════════════════════
 #  TSTE — traer todo y publicar
 #
-#  Corre cada tres horas. Hace lo mismo que CORRER.cmd en tu máquina, más
-#  bajar los datos del juego y subir el sitio.
+#  ESTE ARCHIVO NO SE TOCA MÁS. Todo lo que haya que cambiar va en
+#  publicar.mjs, que vive en la raíz y sí se sube al arrastrar la carpeta.
+#  `.github` empieza con punto: el explorador la esconde y no se sube nunca.
+#  Aprendido dos veces, la segunda en silencio: la corrida salió verde con un
+#  paso que no existía en el archivo que GitHub leía.
 #
-#  Lo importante: la API key vive acá como SECRETO del repositorio. Se usa
-#  para bajar los datos y lo que se publica son las respuestas ya bajadas.
-#  Nunca llega al navegador de nadie.
+#  La API key vive como SECRETO del repositorio. Se usa para bajar datos y lo
+#  que se publica son las respuestas ya bajadas: nunca llega al navegador.
 # ══════════════════════════════════════════════════════════════════════════
 name: Traer y publicar
 
 on:
   schedule:
-    # Cada 3 horas. En UTC: Argentina es UTC-3, así que esto cae 21:10,
-    # 00:10, 03:10… hora de acá. El minuto 10 y no el 0 a propósito:
-    # a la hora en punto GitHub tiene cola y los trabajos arrancan tarde.
+    # Cada 3 horas, en UTC. Minuto 10 y no 0 a propósito: a la hora en punto
+    # GitHub tiene cola y los trabajos arrancan tarde.
     - cron: "10 */3 * * *"
-  workflow_dispatch:        # botón "Run workflow" para correrlo cuando quieras
+  workflow_dispatch:
   push:
-    branches: [main]        # y también al subir un cambio
+    branches: [main]
 
 permissions:
   contents: read
   pages: write
   id-token: write
 
-# Si ya hay una corrida publicando, esta espera en vez de pisarla.
 concurrency:
   group: pages
   cancel-in-progress: false
@@ -36,35 +36,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Al subir por la web es fácil que todo quede dentro de una carpeta
+      # en vez de suelto en la raíz. Se acomoda solo.
+      - name: Acomodar los archivos si quedaron dentro de una carpeta
+        shell: bash
+        run: |
+          if [ ! -f publicar.mjs ] && [ -f tste/publicar.mjs ]; then
+            echo "Los archivos están en tste/. Los subo un nivel."
+            cp -a tste/. . && rm -rf tste
+          fi
+          ls publicar.mjs todos.mjs construir-sitio.mjs clubes.json medios.json >/dev/null
+
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
 
-      # Primero las pruebas. Si el pipeline está roto, mejor no publicar
-      # treinta feeds mal armados encima de los que estaban bien.
-      - name: Probar el pipeline
-        run: |
-          node probar.mjs
-          node probar-clubes.mjs
-
-      - name: Resolver los canales de YouTube
-        run: node resolver-youtube.mjs
-        continue-on-error: true   # si YouTube no contesta, el feed sale igual
-
-      - name: Traer las fuentes y armar los 30 feeds
-        run: node todos.mjs
-
-      # Los datos del juego cuestan pedidos a la API, así que si falta el
-      # secreto se saltea y el sitio sale igual: la pestaña del juego vuelve
-      # a pedirle la key al usuario, como antes.
-      - name: Bajar los datos del juego
+      - name: Correr todo
         env:
           API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
-        run: node datos-juego.mjs
-        continue-on-error: true
-
-      - name: Armar el sitio
-        run: node construir-sitio.mjs
+        run: node publicar.mjs
 
       - uses: actions/upload-pages-artifact@v3
         with:
