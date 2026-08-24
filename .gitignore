@@ -1,0 +1,12 @@
+# Lo que se genera en cada corrida. Se rearma solo, no va al repositorio.
+sitio/
+feed-*.js
+feed-*.json
+descartados-*.json
+resumen.json
+salida.txt
+youtube-resueltos.json
+node_modules/
+
+# Pero estos SÍ van: son fuente, no resultado.
+!stats-liga.js

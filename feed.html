@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Talleres · el feed</title>
+<script src="feed-talleres.js"></script>
+<style>
+:root{
+  --azul:#1668D6; --azul-suave:#E8F0FD;
+  --tinta:#12161C; --tinta-2:#5A6472; --tinta-3:#8B94A3;
+  --papel:#FFFFFF; --fondo:#F4F6F9; --borde:#E4E8EE;
+  --oficial:#1668D6; --hinchas:#E4572E; --periodista:#7B4FD4;
+  --analista:#0E8F6E; --medio:#8B94A3;
+  --r:14px;
+}
+@media (prefers-color-scheme:dark){
+  :root{ --azul:#5C9BFF; --azul-suave:#16233A;
+    --tinta:#EDF1F6; --tinta-2:#9AA5B4; --tinta-3:#6C7686;
+    --papel:#151A21; --fondo:#0D1116; --borde:#232A34; }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--fondo);color:var(--tinta);
+  font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;
+  -webkit-font-smoothing:antialiased}
+.envase{max-width:680px;margin:0 auto;padding:0 16px 80px}
+
+/* ─ cabecera ─ */
+header{padding:32px 0 20px;display:flex;align-items:center;gap:14px}
+.mono{width:46px;height:46px;border-radius:12px;background:var(--azul);color:#fff;
+  display:grid;place-items:center;font-weight:800;font-size:22px;letter-spacing:-1px;
+  flex:none;box-shadow:0 4px 14px -4px var(--azul)}
+h1{margin:0;font-size:22px;font-weight:700;letter-spacing:-.4px}
+.sub{margin:2px 0 0;font-size:13px;color:var(--tinta-3)}
+
+/* ─ barra ─ */
+.barra{display:flex;gap:8px;overflow-x:auto;padding:4px 0 16px;
+  scrollbar-width:none} .barra::-webkit-scrollbar{display:none}
+.chip{border:1px solid var(--borde);background:var(--papel);color:var(--tinta-2);
+  padding:7px 14px;border-radius:999px;font-size:13px;font-weight:500;
+  cursor:pointer;white-space:nowrap;transition:.15s}
+.chip:hover{border-color:var(--tinta-3)}
+.chip[aria-pressed="true"]{background:var(--azul);border-color:var(--azul);color:#fff}
+
+/* ─ tarjetas ─ */
+.tarjeta{background:var(--papel);border:1px solid var(--borde);border-radius:var(--r);
+  padding:16px 18px;margin-bottom:10px;transition:.15s}
+.tarjeta:hover{border-color:var(--tinta-3);transform:translateY(-1px)}
+.meta{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--tinta-3);
+  margin-bottom:8px;flex-wrap:wrap}
+.punto{width:7px;height:7px;border-radius:50%;flex:none}
+.fuente{color:var(--tinta-2);font-weight:600}
+.tarjeta h2{margin:0;font-size:17px;line-height:1.38;font-weight:600;letter-spacing:-.2px}
+.tarjeta h2 a{color:inherit;text-decoration:none}
+.tarjeta h2 a:hover{color:var(--azul)}
+.bajada{margin:8px 0 0;font-size:14px;color:var(--tinta-2);line-height:1.5}
+
+/* ─ clúster ─ */
+.cluster{border-color:var(--azul);box-shadow:0 0 0 3px var(--azul-suave)}
+.sello{display:inline-flex;align-items:center;gap:5px;background:var(--azul-suave);
+  color:var(--azul);font-weight:700;font-size:11px;letter-spacing:.3px;
+  padding:4px 9px;border-radius:999px;text-transform:uppercase}
+.tambien{margin:12px 0 0;padding:12px 0 0;border-top:1px dashed var(--borde);
+  display:grid;gap:7px}
+.tambien a{display:flex;gap:8px;font-size:13px;color:var(--tinta-2);text-decoration:none;
+  line-height:1.4}
+.tambien a:hover{color:var(--azul)}
+.tambien b{color:var(--tinta-3);font-weight:600;flex:none}
+
+/* ─ video ─ */
+.play{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:5px;
+  background:var(--hinchas);color:#fff;font-size:9px;flex:none}
+
+/* ─ pie ─ */
+.porque{margin-top:10px;font-size:11px;color:var(--tinta-3);font-style:italic}
+.vacio{text-align:center;padding:60px 20px;color:var(--tinta-3)}
+footer{margin-top:28px;padding-top:18px;border-top:1px solid var(--borde);
+  font-size:12px;color:var(--tinta-3);line-height:1.6}
+.aviso{background:var(--azul-suave);color:var(--azul);border-radius:10px;
+  padding:10px 14px;font-size:12.5px;margin-bottom:14px;font-weight:500}
+</style>
+</head>
+<body>
+<div class="envase">
+
+  <header>
+    <div class="mono">T</div>
+    <div>
+      <h1>Talleres</h1>
+      <p class="sub" id="sub">—</p>
+    </div>
+  </header>
+
+  <div class="aviso" id="aviso" hidden></div>
+
+  <nav class="barra" id="barra"></nav>
+  <main id="feed"></main>
+
+  <footer>
+    App independiente, sin relación con el Club Atlético Talleres.
+    Los títulos y enlaces pertenecen a cada medio; se enlaza a la fuente original.
+  </footer>
+</div>
+
+<script>
+/* Si feed-talleres.js no está al lado de este archivo, no hay datos y la
+   página quedaría en blanco sin decir por qué. Mejor que lo diga.          */
+if (!window.FEED) {
+  document.getElementById("feed").innerHTML =
+    '<div class="vacio"><b>Falta el archivo de datos.</b><br><br>' +
+    'Este HTML necesita <code>feed-talleres.js</code> en la MISMA carpeta.<br>' +
+    'Si lo abriste desde adentro del zip, descomprimí primero la carpeta entera ' +
+    'y recién ahí hacé doble clic.</div>';
+  throw new Error("sin datos");
+}
+const F = window.FEED;
+const COLOR = { oficial:"var(--oficial)", hinchas:"var(--hinchas)",
+                periodista:"var(--periodista)", analista:"var(--analista)",
+                medio:"var(--medio)" };
+
+const hace = h => h < 1 ? "recién" : h < 24 ? Math.round(h) + " h"
+              : Math.round(h/24) === 1 ? "ayer" : Math.round(h/24) + " días";
+const esc = s => (s||"").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+const FILTROS = [
+  { id:"todo",   nom:"Todo",        ok:()=>true },
+  { id:"juntas", nom:"⧉ Lo que repiten varios", ok:c=>c.nFuentes>1 },
+  { id:"video",  nom:"Videos",      ok:c=>c.principal.tipo==="video" },
+  { id:"hinchas",nom:"De hinchas",  ok:c=>c.principal.fuenteTipo==="hinchas" },
+  { id:"oficial",nom:"Oficial",     ok:c=>c.principal.fuenteTipo==="oficial" },
+];
+let activo = "todo";
+
+function tarjeta(c){
+  const p = c.principal;
+  const col = COLOR[p.fuenteTipo] || COLOR.medio;
+  const grupo = c.nFuentes > 1;
+  return `
+  <article class="tarjeta${grupo ? " cluster" : ""}">
+    <div class="meta">
+      ${p.tipo==="video" ? '<span class="play">▶</span>' : `<span class="punto" style="background:${col}"></span>`}
+      <span class="fuente">${esc(p.fuente)}</span>
+      <span>·</span><span>${hace(c.horas)}</span>
+      ${grupo ? `<span class="sello">⧉ ${c.nFuentes} fuentes</span>` : ""}
+    </div>
+    <h2><a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.titulo)}</a></h2>
+    ${p.resumen ? `<p class="bajada">${esc(p.resumen.slice(0,170))}${p.resumen.length>170?"…":""}</p>` : ""}
+    ${grupo ? `<div class="tambien">${c.tambien.map(t =>
+        `<a href="${esc(t.url)}" target="_blank" rel="noopener"><b>${esc(t.fuente)}</b> ${esc(t.titulo)}</a>`
+      ).join("")}</div>` : ""}
+    ${p.fuenteFiltro !== "ninguno" ? `<p class="porque">entró por: ${esc(p.porque||"")}</p>` : ""}
+  </article>`;
+}
+
+function pintar(){
+  const f = FILTROS.find(x => x.id === activo);
+  const lista = F.clusters.filter(f.ok);
+  document.getElementById("feed").innerHTML = lista.length
+    ? lista.map(tarjeta).join("")
+    : `<div class="vacio">Nada acá todavía.</div>`;
+  document.querySelectorAll("#barra .chip").forEach(b =>
+    b.setAttribute("aria-pressed", b.dataset.id === activo));
+}
+
+document.getElementById("barra").innerHTML = FILTROS.map(f =>
+  `<button class="chip" data-id="${f.id}">${f.nom}</button>`).join("");
+document.getElementById("barra").onclick = e => {
+  const b = e.target.closest(".chip"); if(!b) return;
+  activo = b.dataset.id; pintar();
+};
+
+const fuentes = new Set(F.clusters.flatMap(c => [c.principal, ...c.tambien].map(x => x.fuente)));
+document.getElementById("sub").textContent =
+  F.clusters.length + " historias · " + fuentes.size + " fuentes · " +
+  new Date(F.generado).toLocaleString("es-AR",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"});
+
+if (F.esDemo){
+  const a = document.getElementById("aviso");
+  a.hidden = false;
+  a.textContent = "Datos de prueba capturados el 22/8. Corré  node ingest.mjs  para traer lo de ahora.";
+}
+
+pintar();
+</script>
+</body>
+</html>

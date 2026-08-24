@@ -1,0 +1,80 @@
+{
+ "_nota": "Actualizado con lo que devolvió la corrida del 2026-08-25. Los que quedaron vivos siguen acá para que el resolvedor los vuelva a chequear; los que se cayeron están abajo en _descartados, con el motivo, para que nadie los vuelva a probar.",
+ "_como": "handle o channelId. El resolvedor completa lo que falte, mide el último video y los carga solo en medios.json. tipo: club|medio. Si lleva ciudad en vez de club, entra como fuente de ciudad con filtro por texto.",
+
+ "candidatos": [
+  { "club": "estudiantes-lp", "nom": "Estudiantes LP Oficial", "handle": "@edelpoficial", "tipo": "club" },
+  { "club": "gimnasia-lp", "nom": "Gimnasia LP Oficial", "channelId": "UCd27YrUjO-Te4o6569xpyJw", "tipo": "club" },
+
+  { "club": "newells", "nom": "Newell's Oficial", "handle": "@CANOBoficial", "tipo": "club" },
+  { "club": "rosario-central", "nom": "Rosario Central Oficial", "handle": "@RosarioCentral", "tipo": "club" },
+  { "ciudad": "Rosario", "nom": "El Tres TV", "handle": "@elTresTV", "tipo": "medio" },
+
+  { "club": "gimnasia-mza", "nom": "Lobo TV", "channelId": "UCiO4QPnKra8XBWubQSzf_QA", "tipo": "club" },
+  { "club": "independiente-rivadavia", "nom": "Independiente Rivadavia Oficial", "handle": "@CSIR.Oficial", "channelId": "UCz4itFvhFg65tR6DA2E8CGA", "tipo": "club",
+    "nota": "el club migró de canal: @csiroficial5524 es el viejo y su último video es de hace nueve años" },
+  { "ciudad": "Mendoza", "nom": "Juego Libre Radio", "handle": "@juegolibreradio", "tipo": "medio" },
+
+  { "club": "atl-tucuman", "nom": "Atlético Tucumán Oficial", "handle": "@atleticotucuman", "tipo": "club" },
+  { "club": "union", "nom": "Unión Oficial", "handle": "@ClubaunionOficial", "tipo": "club" },
+  { "club": "central-cordoba-sde", "nom": "Central Córdoba Oficial", "handle": "@centralcordoba", "channelId": "UCPwYGkAdCbPvTvslx8-uQbQ", "tipo": "club" },
+  { "club": "sarmiento", "nom": "Sarmiento Oficial", "handle": "@clubatleticosarmiento", "channelId": "UCh-PFdEkFeGoLA6Y3iEZsiA", "tipo": "club" },
+  { "ciudad": "Río Cuarto", "nom": "LV16 Multimedio", "handle": "@LV16Multimedio16", "channelId": "UC-NVOdmIXYZC-FW2L_U5PfA", "tipo": "medio",
+    "nota": "la radio de Río Cuarto: transmite a Estudiantes en 'Saque de Arco'" },
+  { "club": "estudiantes-rc", "nom": "Estudiantes Río Cuarto", "handle": "@Estudiantesriocuarto", "channelId": "UCs78Q56j-OOmAoZulmgGeBQ", "tipo": "medio",
+    "nota": "el canal existe; no está confirmado que sea del club" },
+
+  { "club": "racing", "nom": "La Comu de Racing", "handle": "@LaComudeRacingClubOK", "tipo": "medio" },
+  { "club": "racing", "nom": "Racing Online", "handle": "@RacingOnlineok", "tipo": "medio" },
+  { "club": "racing", "nom": "Glorioso Racing Club", "handle": "@GLORIOSORACINGCLUB", "tipo": "medio" },
+  { "club": "independiente", "nom": "Independiente Oficial", "handle": "@Independiente", "tipo": "club" },
+  { "club": "independiente", "nom": "De la Cuna al Infierno", "handle": "@DelaCunaalInfierno7", "tipo": "medio" },
+
+  { "club": "boca", "nom": "MundoBocaTV", "handle": "@MundoBocaTV1", "tipo": "medio" },
+  { "club": "river", "nom": "River Plate Videos", "handle": "@RiverVideos", "tipo": "medio" },
+
+  { "club": "san-lorenzo", "nom": "San Lorenzo Oficial", "handle": "@sanlorenzo", "channelId": "UCNhDco1_PVftR640EwklMAA", "tipo": "club" },
+  { "club": "san-lorenzo", "nom": "La Cicloneta", "handle": "@LaCicloneta", "channelId": "UCP73-88JNWiYSaYBUmf__3A", "tipo": "medio" },
+  { "club": "huracan", "nom": "Huracán Oficial", "handle": "@cahuracan", "tipo": "club" },
+  { "club": "huracan", "nom": "El canal del Pueblo Quemero", "handle": "@elcanaldelpuebloquemero", "tipo": "medio" },
+
+  { "club": "velez", "nom": "Noti Vélez", "handle": "@NOTIVELEZ", "tipo": "medio",
+    "nota": "para Vélez el video es casi todo lo que hay: no tiene sitio oficial legible" },
+
+  { "club": "lanus", "nom": "Mundo Granate", "handle": "@MundoGranateOficial", "tipo": "medio" },
+  { "club": "lanus", "nom": "Fortaleza Granate", "handle": "@FGranaTV", "tipo": "medio" },
+  { "club": "banfield", "nom": "Código Banfield", "handle": "@CodigoBanfield", "tipo": "medio" },
+  { "club": "platense", "nom": "Rincón Calamar", "handle": "@RinconCalamar", "tipo": "medio" },
+  { "club": "tigre", "nom": "Tigre Oficial", "handle": "@ClubATigre", "tipo": "club" },
+  { "club": "tigre", "nom": "Cachorros Matadores", "handle": "@cachorrosmatadores6550", "tipo": "medio" },
+
+  { "club": "riestra", "nom": "Prensa Riestra", "handle": "@PrensaRiestra", "channelId": "UCQmdYbyJ-iJfWn_jNELtZTA", "tipo": "club",
+    "nota": "el club no tiene web: esto es su sala de prensa. El handle con guion que probamos antes no existe" },
+  { "club": "barracas", "nom": "Barracas Central Oficial", "handle": "@barracascentral", "tipo": "club" },
+  { "club": "defensa", "nom": "Defensa y Justicia Oficial", "handle": "@DEFENSAOFICIAL1935", "channelId": "UCX_njUpZVQzU-dyI7MpMruA", "tipo": "club",
+    "nota": "es el que linkea la Liga Profesional; el @Defensayjusticiatv que probamos antes no tiene videos" },
+  { "club": "defensa", "nom": "Defensa y Justicia PLAY", "handle": "@DefensayJusticiaPLAY", "channelId": "UC3wMvjb8DHvhowi2f8bOAhA", "tipo": "medio" },
+  { "club": "argentinos", "nom": "Argentinos Pasión", "url": "https://www.youtube.com/AAAJPasion", "tipo": "medio" },
+
+  { "ciudad": "Mar del Plata", "nom": "Noticias Canal 8 Mar del Plata", "handle": "@noticiascanal8mdp", "channelId": "UCY0QZk2M_ZZi95S-MN1Zndg", "tipo": "medio" },
+  { "ciudad": "Mar del Plata", "nom": "Canal Diez Mar del Plata", "handle": "@CanalDiezMDP", "channelId": "UCUM1n1Cb_cbnYTY45GvtyJw", "tipo": "medio",
+    "nota": "Aldosivi no tiene canal de hinchas puro y el oficial está muerto: se cubre con los dos canales de la ciudad, filtrando por texto" }
+ ],
+
+ "_descartados": [
+  { "handle": "@MuyCAI", "buscabamos": "Muy Independiente", "resolvio": "WanderWish - Joa Agente de Viajes",
+    "leccion": "un handle se puede reasignar. Este parecía perfecto y hoy es de una agencia de viajes. Por eso el resolvedor compara el nombre del canal con el que esperábamos." },
+  { "handle": "@BocaJrNEWS", "porque": "404, el handle no existe" },
+  { "handle": "@Deportivo-Riestra", "porque": "404. Es el handle que todavía linkea la Liga Profesional. El bueno es @PrensaRiestra" },
+  { "handle": "@Defensayjusticiatv", "porque": "resuelve a UCVgfUgIF8jK2kEt3_sFBVZg y su feed no devuelve un solo video" },
+  { "handle": "@csiroficial5524", "porque": "último video hace 3382 días — nueve años" },
+  { "handle": "@estudiantesderiocuarto4115", "porque": "último video hace 4294 días — once años" },
+  { "handle": "@lanus2000tv", "porque": "dormido hace 657 días y el canal se llama 'jsskskwk': quedó abandonado" },
+  { "handle": "@LaPreviadeBanfield", "porque": "dormido hace 665 días" },
+  { "handle": "@hinchada_velez", "porque": "dormido hace 572 días" },
+  { "handle": "@sangreazulgrana", "porque": "dormido hace 175 días" },
+  { "handle": "@riverhinchada", "porque": "dormido hace 131 días" },
+  { "handle": "@SanLorenzoVC", "porque": "dormido hace 128 días, aunque el sitio Vamos Ciclón publica todos los días" },
+  { "handle": "@mardevelezradio", "porque": "dormido hace 94 días" }
+ ]
+}

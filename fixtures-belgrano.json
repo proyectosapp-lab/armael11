@@ -1,0 +1,188 @@
+{
+ "_nota": "Feed oficial de Belgrano, pegado por Fausto el 2026-08-23. Trae categorías y un enclosure de video.",
+ "capturado": "2026-08-23T20:00:00.000Z",
+ "lotes": [
+  {
+   "fuente": {
+    "nom": "Belgrano · sitio oficial",
+    "tipo": "oficial",
+    "filtro": "ninguno",
+    "contexto": "deportes",
+    "peso": 0.9
+   },
+   "items": [
+    {
+     "titulo": "Las Piratas cayeron ante San Luis FC",
+     "url": "https://belgrano.com.ar/2026/08/22/femvssanluis/",
+     "fecha": "Sat, 22 Aug 2026 19:34:15 +0000",
+     "resumen": "Por la fecha 5 del Torneo Clausura, Belgrano cayó por 1 a 0 ante San Luis FC en la Villa Deportiva San Luis.",
+     "categorias": [
+      "Femenino",
+      "AFA",
+      "belgrano",
+      "femenino",
+      "liga profesional",
+      "primera división afa",
+      "san luis"
+     ],
+     "media": null
+    },
+    {
+     "titulo": "Fiesta de Piratitas en el Gigante",
+     "url": "https://belgrano.com.ar/2026/08/22/fiestapiratitas/",
+     "fecha": "Sat, 22 Aug 2026 19:04:31 +0000",
+     "resumen": "En el marco del Mes de las Infancias, el Club Atlético Belgrano invita a toda la familia pirata.",
+     "categorias": [
+      "Actividades",
+      "ALBERDI",
+      "belgrano",
+      "Cordoba",
+      "dia del niño",
+      "fiesta de infancias",
+      "infantil",
+      "piratitas"
+     ],
+     "media": null
+    },
+    {
+     "titulo": "¡Marcos Ortiz 2028!",
+     "url": "https://belgrano.com.ar/2026/08/21/ortiz2028/",
+     "fecha": "Fri, 21 Aug 2026 22:16:28 +0000",
+     "resumen": "El volante firmó su primer contrato profesional con Belgrano, hasta diciembre de 2028. Surgido del Club.",
+     "categorias": [
+      "Fútbol",
+      "belgrano",
+      "cantera pirata",
+      "Cordoba",
+      "MARCOS ORTIZ",
+      "primer contrato",
+      "selección sub 17"
+     ],
+     "media": null
+    },
+    {
+     "titulo": "La Reserva empató con Defensa y Justicia",
+     "url": "https://belgrano.com.ar/2026/08/21/resvsdyj/",
+     "fecha": "Fri, 21 Aug 2026 16:15:40 +0000",
+     "resumen": "El conjunto de Beto Fernández igualó por 1 a 1 con Defensa y Justicia, por la fecha 5 del Torneo Proyección.",
+     "categorias": [
+      "Torneo Proyección",
+      "AFA",
+      "belgrano",
+      "Cordoba",
+      "defensa y justicia",
+      "LPF",
+      "Pirata",
+      "Reserva Belgrano"
+     ],
+     "media": null
+    },
+    {
+     "titulo": "¡Activá tu chip vs Defensa y Justicia!",
+     "url": "https://belgrano.com.ar/2026/08/20/activavsdyj/",
+     "fecha": "Thu, 20 Aug 2026 22:32:55 +0000",
+     "resumen": "Los socios de Belgrano al día podrán habilitar su carnet para el partido ante Defensa y Justicia.",
+     "categorias": [
+      "Fútbol",
+      "AFA",
+      "ALBERDI",
+      "belgrano",
+      "Cordoba",
+      "liga profesional",
+      "LPF",
+      "Primera División",
+      "socios"
+     ],
+     "media": null
+    },
+    {
+     "titulo": "Nuevos valores de cuota social",
+     "url": "https://belgrano.com.ar/2026/08/20/cuotasep26/",
+     "fecha": "Thu, 20 Aug 2026 16:11:00 +0000",
+     "resumen": "Belgrano comunica los valores de la cuota social a partir de septiembre de 2026.",
+     "categorias": [
+      "Socios",
+      "ALBERDI",
+      "belgrano",
+      "club atlético belgrano",
+      "Cordoba",
+      "cuota social",
+      "Piratas",
+      "socios"
+     ],
+     "media": null
+    },
+    {
+     "titulo": "Belgrano cayó ante Racing",
+     "url": "https://belgrano.com.ar/2026/08/19/belgrano-cayo-ante-racing/",
+     "fecha": "Thu, 20 Aug 2026 01:14:54 +0000",
+     "resumen": "Por los Octavos de Final de la Copa Argentina, el conjunto del Ruso Zielinski cayó 0-1 en San Luis.",
+     "categorias": [
+      "Fútbol",
+      "belgrano",
+      "Copa Argentina",
+      "racing",
+      "san luis"
+     ],
+     "media": null
+    },
+    {
+     "titulo": "Info útil para viajar a Villa Mercedes vs Racing",
+     "url": "https://belgrano.com.ar/2026/08/18/infovsracing/",
+     "fecha": "Wed, 19 Aug 2026 01:19:34 +0000",
+     "resumen": "Compartimos este informe con lo que necesitás saber para viajar a Villa Mercedes, San Luis.",
+     "categorias": [
+      "Copa Argentina",
+      "ALBERDI",
+      "belgrano",
+      "CÓRDOBA",
+      "la pedrera",
+      "octavos de final",
+      "racing",
+      "san luis"
+     ],
+     "media": null
+    },
+    {
+     "titulo": "Las Piratas igualaron con Unión",
+     "url": "https://belgrano.com.ar/2026/08/16/femvsunion-2/",
+     "fecha": "Sun, 16 Aug 2026 20:16:04 +0000",
+     "resumen": "Belgrano empató 1-1 con Unión de Santa Fe en el Predio Armando Pérez, por la cuarta fecha del Clausura femenino.",
+     "categorias": [
+      "Femenino Primera División AFA",
+      "AFA",
+      "ALBERDI",
+      "belgrano",
+      "Cordoba",
+      "femenino",
+      "Fútbol Femenino",
+      "LAS PIRATAS",
+      "Unión"
+     ],
+     "media": null
+    },
+    {
+     "titulo": "La B le ganó a CSIR",
+     "url": "https://belgrano.com.ar/2026/08/15/cabvscsir/",
+     "fecha": "Sun, 16 Aug 2026 01:20:53 +0000",
+     "resumen": "Belgrano derrotó 2-0 a Independiente Rivadavia en el Estadio Julio César Villagra, por la quinta fecha del Torneo Clausura.",
+     "categorias": [
+      "Fútbol",
+      "belgrano",
+      "Cordoba",
+      "liga profesional",
+      "LPF",
+      "Primera División",
+      "primera división afa",
+      "socios"
+     ],
+     "media": {
+      "url": "https://belgrano.com.ar/wp-content/uploads/2026/08/GOL-EMI-RIGONI-1.mp4",
+      "tipo": "video/mp4",
+      "esVideo": true
+     }
+    }
+   ]
+  }
+ ]
+}

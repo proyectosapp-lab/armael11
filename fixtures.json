@@ -1,0 +1,295 @@
+{
+ "_nota": "Capturado el 2026-08-23 de las fuentes reales. Sirve para probar el pipeline sin red.",
+ "capturado": "2026-08-23T18:00:00.000Z",
+ "lotes": [
+  {
+   "fuente": {
+    "nom": "Canal Showsport · Talleres",
+    "tipo": "medio",
+    "filtro": "ninguno",
+    "contexto": "deportes",
+    "peso": 1.0
+   },
+   "items": [
+    {
+     "titulo": "Con dos golazos, Talleres derrotó a Newell's en La Boutique",
+     "url": "https://canalshowsport.com.ar/con-dos-golazos-talleres-derroto-a-newells-en-la-boutique/",
+     "fecha": "Sat, 22 Aug 2026 20:30:00 +0000",
+     "resumen": "Romina Núñez y Josefina Félix marcaron los goles albiazules."
+    },
+    {
+     "titulo": "Rodrigo Astudillo tras el encuentro con Fassi: \"Queremos ayudar al club a descomprimir esta situación\"",
+     "url": "https://canalshowsport.com.ar/rodrigo-astudillo-tras-el-encuentro-con-fassi/",
+     "fecha": "Sat, 22 Aug 2026 01:38:42 +0000",
+     "resumen": "El exjugador de Talleres habló tras la reunión con Andrés Fassi en el CARD"
+    },
+    {
+     "titulo": "Los exjugadores de Talleres que visitaron el CARD y respaldaron al plantel",
+     "url": "https://canalshowsport.com.ar/los-exjugadores-de-talleres-que-visitaron-el-card/",
+     "fecha": "Fri, 21 Aug 2026 20:58:51 +0000",
+     "resumen": "Daniel Albornos, Gustavo Lillo, Julián Maidana, Rodrigo Astudillo y Valentín Brasca"
+    },
+    {
+     "titulo": "Víctor Sotomayor negó la visita al CARD y marcó distancia de Talleres: \"No tengo relación con el club\"",
+     "url": "https://canalshowsport.com.ar/victor-sotomayor-nego-la-visita-al-card/",
+     "fecha": "Fri, 21 Aug 2026 19:10:03 +0000",
+     "resumen": "El exfutbolista desmintió las versiones que lo ubicaban en el predio albiazul"
+    },
+    {
+     "titulo": "Por cuántas fechas fue suspendido Román Riquelme tras la roja ante Gimnasia de Mendoza",
+     "url": "https://canalshowsport.com.ar/por-cuantas-fechas-fue-suspendido-roman-riquelme/",
+     "fecha": "Fri, 21 Aug 2026 12:57:52 +0000",
+     "resumen": "El defensor se perderá tres fechas del Torneo Clausura. Los detalles."
+    },
+    {
+     "titulo": "Talleres decidió el futuro de Matías Catalán y Juan Sforza: \"Poniendo por delante los intereses del club...\"",
+     "url": "https://canalshowsport.com.ar/talleres-decidio-el-futuro-de-matias-catalan-y-juan-sforza/",
+     "fecha": "Thu, 20 Aug 2026 22:50:33 +0000",
+     "resumen": "Los futbolistas estarán bajo las órdenes de Jorge Sampaoli."
+    },
+    {
+     "titulo": "La Reserva de Talleres dejó escapar la victoria y empató 2-2 ante Rosario Central",
+     "url": "https://canalshowsport.com.ar/la-reserva-de-talleres-empato-2-2-ante-rosario-central/",
+     "fecha": "Wed, 19 Aug 2026 23:00:00 +0000",
+     "resumen": "La \"T\" ganaba 2-0, pero el \"Canalla\" reaccionó y terminó igualando"
+    },
+    {
+     "titulo": "Talleres vendió a Rodrigo Guth: dónde jugará el brasilero",
+     "url": "https://canalshowsport.com.ar/talleres-vendio-a-rodrigo-guth/",
+     "fecha": "Wed, 19 Aug 2026 17:05:38 +0000",
+     "resumen": "El brasilero volverá al fútbol holandés."
+    },
+    {
+     "titulo": "Sampaoli sigue al frente de Talleres pese a la derrota en Mendoza",
+     "url": "https://canalshowsport.com.ar/sampaoli-sigue-al-frente-de-talleres/",
+     "fecha": "Wed, 19 Aug 2026 11:59:35 +0000",
+     "resumen": "En Pasión Albiazul analizaron la continuidad del entrenador y las reuniones"
+    },
+    {
+     "titulo": "Torneo Proyección: Talleres se presenta en La Boutique",
+     "url": "https://canalshowsport.com.ar/torneo-proyeccion-talleres-en-la-boutique/",
+     "fecha": "Tue, 18 Aug 2026 23:15:00 +0000",
+     "resumen": "La \"T\" recibirá a Rosario Central, este miércoles a las 19 horas"
+    }
+   ]
+  },
+  {
+   "fuente": {
+    "nom": "Talleres · sitio oficial",
+    "tipo": "oficial",
+    "filtro": "ninguno",
+    "contexto": "deportes",
+    "peso": 0.9
+   },
+   "items": [
+    {
+     "titulo": "Trabajo, unión y pasión por Talleres: Juntos Todo",
+     "url": "https://www.clubtalleres.com.ar/trabajo-union-y-pasion-por-talleres-juntos-todo/",
+     "fecha": "Sat, 22 Aug 2026 21:47:44 +0000",
+     "resumen": "Talleres sigue consolidando el trabajo en equipo en este tramo"
+    },
+    {
+     "titulo": "Las Matadoras vencieron a Newell's en La Boutique",
+     "url": "https://www.clubtalleres.com.ar/las-matadoras-vencieron-a-newells-en-la-boutique/",
+     "fecha": "Sat, 22 Aug 2026 21:29:23 +0000",
+     "resumen": "Por la Fecha 5 del Torneo Clausura 2026 Talleres venció"
+    },
+    {
+     "titulo": "Juveniles Liga Profesional: Talleres enfrentó a Quilmes",
+     "url": "https://www.clubtalleres.com.ar/juveniles-liga-profesional-talleres-enfrento-a-quilmes/",
+     "fecha": "Sat, 22 Aug 2026 19:27:19 +0000",
+     "resumen": "Por la 22° Fecha del Torneo de Juveniles"
+    },
+    {
+     "titulo": "Matadoras: La formación Albiazul para jugar ante Newell's Old Boys",
+     "url": "https://www.clubtalleres.com.ar/matadoras-la-formacion-albiazul/",
+     "fecha": "Sat, 22 Aug 2026 19:12:39 +0000",
+     "resumen": "Desde las 16.00 hs, Talleres recibe a la Lepra"
+    },
+    {
+     "titulo": "Matadoras: Convocadas para jugar ante Newell's Old Boys",
+     "url": "https://www.clubtalleres.com.ar/matadoras-convocadas-newells/",
+     "fecha": "Sat, 22 Aug 2026 01:20:12 +0000",
+     "resumen": "Talleres se prepara para una nueva fecha"
+    },
+    {
+     "titulo": "Juntos todo, separados nada: ex-jugadores de Talleres visitaron el CARD",
+     "url": "https://www.clubtalleres.com.ar/ex-jugadores-visitaron-el-card/",
+     "fecha": "Fri, 21 Aug 2026 20:21:29 +0000",
+     "resumen": "Daniel Albornos, Gustavo Lillo, Julián Maidana, Rodrigo Astudillo y Valentín"
+    },
+    {
+     "titulo": "Sebastián Martínez: el árbitro ante Rosario Central",
+     "url": "https://www.clubtalleres.com.ar/sebastian-martinez-el-arbitro/",
+     "fecha": "Fri, 21 Aug 2026 18:54:11 +0000",
+     "resumen": "La Liga Profesional confirmó los árbitros designados"
+    },
+    {
+     "titulo": "Romina Núñez sobre Talleres: \"Es la primera vez que realmente estoy disfrutando en un lugar\"",
+     "url": "https://www.clubtalleres.com.ar/romina-nunez-sobre-talleres/",
+     "fecha": "Fri, 21 Aug 2026 17:58:03 +0000",
+     "resumen": "La futbolista de Las Matadoras destacó el presente"
+    },
+    {
+     "titulo": "Romina Núñez reveló cómo convenció a Yami Rodríguez de venir a Talleres",
+     "url": "https://www.clubtalleres.com.ar/romina-nunez-convencio-a-yami-rodriguez/",
+     "fecha": "Fri, 21 Aug 2026 17:46:42 +0000",
+     "resumen": "La mediocampista contó cómo fue el proceso"
+    },
+    {
+     "titulo": "Juveniles LPF 2026: Talleres enfrenta a Quilmes",
+     "url": "https://www.clubtalleres.com.ar/juveniles-lpf-2026-quilmes/",
+     "fecha": "Fri, 21 Aug 2026 15:51:55 +0000",
+     "resumen": "El Albiazul se mide ante el Cervecero"
+    }
+   ]
+  },
+  {
+   "fuente": {
+    "nom": "Hoy Día Córdoba · Deportes",
+    "tipo": "medio",
+    "filtro": "texto",
+    "contexto": "deportes",
+    "peso": 0.6
+   },
+   "items": [
+    {
+     "titulo": "Las selecciones argentinas van por todo en el Mundial de hockey",
+     "url": "https://hoydia.com.ar/deportes/hockey/selecciones-mundial-hockey/",
+     "fecha": "Sun, 23 Aug 2026 15:00:33 +0000",
+     "resumen": "Las Leonas ya tienen asegurado su lugar en las semifinales"
+    },
+    {
+     "titulo": "Superdomingo de fútbol: horarios y TV de los partidos de hoy",
+     "url": "https://hoydia.com.ar/deportes/futbol/superdomingo-de-futbol/",
+     "fecha": "Sun, 23 Aug 2026 15:00:26 +0000",
+     "resumen": "River, Boca y Belgrano son algunos de los grandes protagonistas"
+    },
+    {
+     "titulo": "Belgrano recibe a Defensa y busca seguir arriba",
+     "url": "https://hoydia.com.ar/deportes/futbol/belgrano-recibe-a-defensa/",
+     "fecha": "Sun, 23 Aug 2026 14:40:19 +0000",
+     "resumen": "El Pirata recibe este domingo al Halcón desde las 17"
+    },
+    {
+     "titulo": "Verstappen perdió el control y provocó una bandera roja en el GP de Países Bajos",
+     "url": "https://hoydia.com.ar/deportes/automovilismo/verstappen-bandera-roja/",
+     "fecha": "Sun, 23 Aug 2026 14:37:47 +0000",
+     "resumen": "El piloto de Red Bull se despistó en la última curva"
+    },
+    {
+     "titulo": "Duro castigo de FIFA a Argentina: sanciones por la pelea y la bandera de Malvinas",
+     "url": "https://hoydia.com.ar/deportes/futbol/duras-sanciones-de-fifa/",
+     "fecha": "Sun, 23 Aug 2026 02:00:53 +0000",
+     "resumen": "El organismo sancionó a Paredes con 10 fechas"
+    },
+    {
+     "titulo": "Las Leonas vencieron a España y sellaron su clasificación a las semifinales",
+     "url": "https://hoydia.com.ar/deportes/hockey/las-leonas-vencieron-a-espana/",
+     "fecha": "Sat, 22 Aug 2026 22:02:04 +0000",
+     "resumen": "El seleccionado argentino femenino derrotó por 3 a 0"
+    },
+    {
+     "titulo": "Instituto empató 0-0 con Atlético Tucumán y sigue en lo más alto de la Zona A",
+     "url": "https://hoydia.com.ar/deportes/futbol/instituto-atletico-tucuman/",
+     "fecha": "Sat, 22 Aug 2026 18:35:56 +0000",
+     "resumen": "La Gloria igualó 0-0 como visitante por la sexta fecha"
+    },
+    {
+     "titulo": "Colapinto finalizó 12° en la Sprint de Países Bajos y no sumó puntos",
+     "url": "https://hoydia.com.ar/deportes/automovilismo/colapinto-sprint/",
+     "fecha": "Sat, 22 Aug 2026 11:57:19 +0000",
+     "resumen": "Colapinto largó 13° y le ganó la posición a Tsunoda"
+    },
+    {
+     "titulo": "Matías Catalán y Juan Sforza se reincorporan al plantel de Talleres",
+     "url": "https://hoydia.com.ar/deportes/futbol/matias-catalan-y-juan-sforza-se-reincorporan-al-plantel-talleres/",
+     "fecha": "Thu, 20 Aug 2026 20:05:11 +0000",
+     "resumen": "Los futbolistas habían sido marginados y se entrenaban a contraturno en el CARD"
+    },
+    {
+     "titulo": "Belgrano perdió 1-0 con Racing y quedó eliminado de la Copa Argentina",
+     "url": "https://hoydia.com.ar/deportes/futbol/belgrano-racing-copa-argentina/",
+     "fecha": "Wed, 19 Aug 2026 22:57:08 +0000",
+     "resumen": "El Pirata cayó frente a la Academia en San Luis"
+    }
+   ]
+  },
+  {
+   "fuente": {
+    "nom": "Doble Amarilla",
+    "tipo": "medio",
+    "filtro": "texto",
+    "contexto": "deportes",
+    "peso": 0.7
+   },
+   "items": [
+    {
+     "titulo": "Clima caliente: barras de Talleres visitaron a los jugadores en el predio",
+     "url": "https://www.dobleamarilla.com.ar/liga-/clima-caliente-barras-de-talleres-visitaron-a-los-jugadores-en-el-predio/",
+     "fecha": "2026-08-21T21:24:00.741Z",
+     "resumen": "La tensión en el CARD sigue escalando"
+    },
+    {
+     "titulo": "Con un hat-trick de Módica, Gimnasia de Mendoza derrotó a Gimnasia La Plata en un partidazo",
+     "url": "https://www.dobleamarilla.com.ar/liga-/hat-trick-de-modica-gimnasia-mendoza/",
+     "fecha": "2026-08-22T20:59:26.496Z",
+     "resumen": ""
+    },
+    {
+     "titulo": "Atlético Tucumán e Instituto repartieron unidades en el Jardín de la República",
+     "url": "https://www.dobleamarilla.com.ar/liga-/atletico-tucuman-e-instituto-repartieron-unidades/",
+     "fecha": "2026-08-22T20:55:00.000Z",
+     "resumen": ""
+    },
+    {
+     "titulo": "La está rompiendo en el equipo revelación del fútbol argentino y manifestó su deseo de volver a River",
+     "url": "https://www.dobleamarilla.com.ar/liga-/deseo-de-volver-a-river/",
+     "fecha": "2026-08-21T21:55:35.244Z",
+     "resumen": ""
+    }
+   ]
+  },
+  {
+   "fuente": {
+    "nom": "TRAMPAS (no es una fuente real)",
+    "tipo": "medio",
+    "filtro": "texto",
+    "contexto": "general",
+    "peso": 0.5
+   },
+   "items": [
+    {
+     "titulo": "Talleres de Remedios de Escalada goleó 3-0 en la Primera B",
+     "url": "https://ejemplo.com/talleres-re-goleo/",
+     "fecha": "2026-08-23T10:00:00-03:00",
+     "resumen": "El Albirrojo se impuso como local"
+    },
+    {
+     "titulo": "Talleres de Perico se prepara para el Regional Amateur",
+     "url": "https://ejemplo.com/talleres-perico/",
+     "fecha": "2026-08-23T09:00:00-03:00",
+     "resumen": "El equipo jujeño"
+    },
+    {
+     "titulo": "Abren la inscripción a los talleres municipales de cerámica",
+     "url": "https://ejemplo.com/talleres-municipales/",
+     "fecha": "2026-08-23T08:00:00-03:00",
+     "resumen": "Las clases empiezan en septiembre"
+    },
+    {
+     "titulo": "El Matador goleó y quedó puntero",
+     "url": "https://ejemplo.com/el-matador-goleo/",
+     "fecha": "2026-08-23T07:00:00-03:00",
+     "resumen": "El equipo de Victoria se impuso en su cancha ante Tigre"
+    },
+    {
+     "titulo": "Sampaoli habló del clásico y del Kempes",
+     "url": "https://ejemplo.com/sampaoli-clasico/",
+     "fecha": "2026-08-23T06:00:00-03:00",
+     "resumen": "El DT de la T se refirió al partido en Córdoba"
+    }
+   ]
+  }
+ ]
+}

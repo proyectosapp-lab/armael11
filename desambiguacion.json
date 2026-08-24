@@ -1,0 +1,28 @@
+{
+  "_nota": "Extracto del source pack en JSON para que lo lea cualquier lenguaje. La versión canónica sigue siendo source-pack-talleres.js.",
+  "id": "talleres-cba",
+  "nombre": "Talleres",
+  "desambiguacion": {
+    "fuertes": [
+      "Talleres de Córdoba", "Talleres Córdoba", "Talleres de Cba",
+      "Club Atlético Talleres", "CA Talleres", "VamosLaT", "TodoTalleres",
+      "clubtalleres.com.ar", "Las Matadoras"
+    ],
+    "debiles": ["Talleres", "la T", "el Matador", "Albiazul", "los Tallarines"],
+    "corroboradores": [
+      "Córdoba", "Kempes", "Mario Alberto Kempes", "La Boutique",
+      "Barrio Jardín", "Liga Profesional", "Belgrano", "Instituto",
+      "CARD", "Fassi", "Sampaoli",
+      "Catalán", "Sforza", "Guth", "Depietri", "Portilla", "Girotti",
+      "Herrera", "Rick", "Navarro", "Palacios", "Bustos"
+    ],
+    "bloqueadores": [
+      "Remedios de Escalada", "Talleres RE", "Talleres de Escalada",
+      "Perico",
+      "taller mecánico", "taller de chapa", "talleres protegidos",
+      "taller literario", "taller de escritura", "talleres municipales",
+      "talleres de cerámica", "talleres culturales",
+      "Tigre"
+    ]
+  }
+}

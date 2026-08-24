@@ -1,0 +1,633 @@
+[
+ {
+  "id": "talleres-cba",
+  "nom": "Talleres",
+  "nombreCompleto": "Club Atlético Talleres (Córdoba)",
+  "ciudad": "Córdoba",
+  "ini": "T",
+  "apiId": 456,
+  "color": "#0A3D91",
+  "color2": "#FFFFFF",
+  "patron": "bastones",
+  "estrellas": 2,
+  "apodos": [
+   "la T",
+   "el Matador",
+   "Albiazul",
+   "los Tallarines"
+  ],
+  "bloqueadores": [
+   "Remedios de Escalada",
+   "Talleres RE",
+   "Perico",
+   "taller mecánico",
+   "talleres municipales",
+   "Tigre"
+  ],
+  "_colorCrudo": "#0A3D91",
+  "_color2Crudo": "#FFFFFF"
+ },
+ {
+  "id": "aldosivi",
+  "nom": "Aldosivi",
+  "nombreCompleto": "Club Atlético Aldosivi",
+  "ciudad": "Mar del Plata",
+  "ini": "A",
+  "apiId": 463,
+  "color": "#0B7A3B",
+  "color2": "#FFC72C",
+  "patron": "bastones",
+  "estrellas": 0,
+  "apodos": [
+   "El Tiburón"
+  ],
+  "bloqueadores": [],
+  "_colorCrudo": "Verde",
+  "_color2Crudo": "Amarillo"
+ },
+ {
+  "id": "argentinos",
+  "nom": "Argentinos",
+  "nombreCompleto": "Asociación Atlética Argentinos Juniors",
+  "ciudad": "Buenos Aires",
+  "ini": "A",
+  "apiId": 458,
+  "color": "#D3202A",
+  "color2": "#FFFFFF",
+  "patron": "banda",
+  "estrellas": 5,
+  "apodos": [
+   "El bicho",
+   "el semillero del mundo"
+  ],
+  "bloqueadores": [],
+  "_colorCrudo": "Rojo",
+  "_color2Crudo": "Blanco",
+  "debiles": [
+   "Argentinos Juniors",
+   "el Bicho",
+   "Bichito",
+   "la Paternal",
+   "semillero del mundo"
+  ],
+  "_porqueDebiles": "sin el gentilicio: \"argentinos\" solo entra medio internet"
+ },
+ {
+  "id": "atl-tucuman",
+  "nom": "Atlético Tucumán",
+  "nombreCompleto": "Club Atlético Tucumán",
+  "ciudad": "Tucumán",
+  "ini": "A",
+  "apiId": 455,
+  "color": "#5FB3E4",
+  "color2": "#FFFFFF",
+  "patron": "bastones",
+  "estrellas": 1,
+  "apodos": [
+   "El decano"
+  ],
+  "bloqueadores": [],
+  "_colorCrudo": "Celeste",
+  "_color2Crudo": "Blanco"
+ },
+ {
+  "id": "banfield",
+  "nom": "Banfield",
+  "nombreCompleto": "Club Atlético Banfield",
+  "ciudad": "Buenos Aires",
+  "ini": "B",
+  "apiId": 449,
+  "color": "#0B7A3B",
+  "color2": "#FFFFFF",
+  "patron": "bastones",
+  "estrellas": 2,
+  "apodos": [
+   "El taladro"
+  ],
+  "bloqueadores": [],
+  "_colorCrudo": "Verde",
+  "_color2Crudo": "Blanco"
+ },
+ {
+  "id": "barracas",
+  "nom": "Barracas Central",
+  "nombreCompleto": "Club Atlético Barracas Central",
+  "ciudad": "Buenos Aires",
+  "ini": "B",
+  "apiId": 2432,
+  "color": "#D3202A",
+  "color2": "#FFFFFF",
+  "patron": "bastones",
+  "estrellas": 0,
+  "apodos": [
+   "El guapo"
+  ],
+  "bloqueadores": [
+   "Santiago del Estero",
+   "club Atlético Central Córdoba",
+   "Rosario",
+   "Club atlético rosario central"
+  ],
+  "_colorCrudo": "Rojo",
+  "_color2Crudo": "Blanco"
+ },
+ {
+  "id": "belgrano-cba",
+  "nom": "Belgrano",
+  "nombreCompleto": "Club Atlético Belgrano",
+  "ciudad": "Córdoba",
+  "ini": "B",
+  "apiId": 440,
+  "color": "#4AA5DC",
+  "color2": "#FFFFFF",
+  "patron": "liso",
+  "estrellas": 1,
+  "apodos": [
+   "Pirata"
+  ],
+  "bloqueadores": [],
+  "_colorCrudo": "Celeste",
+  "_color2Crudo": null
+ },
+ {
+  "id": "boca",
+  "nom": "Boca",
+  "nombreCompleto": "Club Atlético Boca Juniors",
+  "ciudad": "Buenos Aires",
+  "ini": "B",
+  "apiId": 451,
+  "color": "#0A2A5E",
+  "color2": "#FFC72C",
+  "patron": "franja",
+  "estrellas": 74,
+  "apodos": [
+   "Xeneixe",
+   "bostero",
+   "azul y oro"
+  ],
+  "bloqueadores": [],
+  "_colorCrudo": "Azul",
+  "_color2Crudo": "Amarillo"
+ },
+ {
+  "id": "central-cordoba-sde",
+  "nom": "Central Córdoba",
+  "nombreCompleto": "club Atlético Central Córdoba",
+  "ciudad": "Santiago del Estero",
+  "ini": "C",
+  "apiId": 1065,
+  "color": "#1A1A1A",
+  "color2": "#FFFFFF",
+  "patron": "bastones",
+  "estrellas": 1,
+  "apodos": [
+   "El ferroviario"
+  ],
+  "bloqueadores": [
+   "Club Atlético Barracas Central",
+   "Rosario",
+   "Club atlético rosario central"
+  ],
+  "_colorCrudo": "Negro",
+  "_color2Crudo": "Blanco"
+ },
+ {
+  "id": "defensa",
+  "nom": "Defensa y Justicia",
+  "nombreCompleto": "Club social y deportivo Defensa y justicia",
+  "ciudad": "Florencio Varela",
+  "ini": "D",
+  "apiId": 442,
+  "color": "#0B7A3B",
+  "color2": "#FFC72C",
+  "patron": "banda",
+  "estrellas": 2,
+  "apodos": [
+   "El halcón de Varela"
+  ],
+  "bloqueadores": [],
+  "_colorCrudo": "Verde",
+  "_color2Crudo": "Amarillo"
+ },
+ {
+  "id": "riestra",
+  "nom": "Riestra",
+  "nombreCompleto": "Deportivo Riestra Asociación de fomento Barrio Colón",
+  "ciudad": "Buenos Aires",
+  "ini": "R",
+  "apiId": 476,
+  "color": "#1A1A1A",
+  "color2": "#FFFFFF",
+  "patron": "liso",
+  "estrellas": 0,
+  "apodos": [
+   "El malevo"
+  ],
+  "bloqueadores": [],
+  "_colorCrudo": "Negro",
+  "_color2Crudo": "Blanco"
+ },
+ {
+  "id": "estudiantes-rc",
+  "nom": "Estudiantes (RC)",
+  "nombreCompleto": "Asociación Atlética Estudiantes",
+  "ciudad": "Río Cuarto",
+  "ini": "E",
+  "apiId": 2424,
+  "color": "#5FB3E4",
+  "color2": "#FFFFFF",
+  "patron": "liso",
+  "estrellas": 0,
+  "apodos": [
+   "Leones"
+  ],
+  "bloqueadores": [
+   "La Plata",
+   "Club estudiantes de La plata",
+   "hockey",
+   "Las Leonas",
+   "seleccionado argentino"
+  ],
+  "_colorCrudo": "Celeste",
+  "_color2Crudo": null,
+  "debiles": [
+   "Estudiantes de Río Cuarto",
+   "Estudiantes RC",
+   "el León de Río Cuarto"
+  ],
+  "_porqueDebiles": "el apodo \"Leones\" es el seleccionado de hockey"
+ },
+ {
+  "id": "estudiantes-lp",
+  "nom": "Estudiantes",
+  "nombreCompleto": "Club estudiantes de La plata",
+  "ciudad": "La Plata",
+  "ini": "E",
+  "apiId": 450,
+  "color": "#D3202A",
+  "color2": "#FFFFFF",
+  "patron": "bastones",
+  "estrellas": 1,
+  "apodos": [
+   "El pincha",
+   "Pincharrata"
+  ],
+  "bloqueadores": [
+   "Río Cuarto",
+   "Asociación Atlética Estudiantes"
+  ],
+  "_colorCrudo": "Rojo",
+  "_color2Crudo": "Blanco"
+ },
+ {
+  "id": "gimnasia-lp",
+  "nom": "Gimnasia (LP)",
+  "nombreCompleto": "Club de Gimnasia y esgrima La plata",
+  "ciudad": "La Plata",
+  "ini": "G",
+  "apiId": 434,
+  "color": "#123C8C",
+  "color2": "#FFFFFF",
+  "patron": "franja",
+  "estrellas": 0,
+  "apodos": [
+   "El lobo"
+  ],
+  "bloqueadores": [
+   "Mendoza",
+   "Club atlético Gimnasia y esgrima"
+  ],
+  "_colorCrudo": "Azul",
+  "_color2Crudo": "Blanco"
+ },
+ {
+  "id": "gimnasia-mza",
+  "nom": "Gimnasia (M)",
+  "nombreCompleto": "Club atlético Gimnasia y esgrima",
+  "ciudad": "Mendoza",
+  "ini": "G",
+  "apiId": 1066,
+  "color": "#1A1A1A",
+  "color2": "#FFFFFF",
+  "patron": "bastones",
+  "estrellas": 0,
+  "apodos": [
+   "Lobo mendocino"
+  ],
+  "bloqueadores": [
+   "La Plata",
+   "Club de Gimnasia y esgrima La plata"
+  ],
+  "_colorCrudo": "Negro",
+  "_color2Crudo": "BLanco"
+ },
+ {
+  "id": "huracan",
+  "nom": "Huracán",
+  "nombreCompleto": "Club Atlético Huracan",
+  "ciudad": "Buenos Aires",
+  "ini": "H",
+  "apiId": 445,
+  "color": "#FFFFFF",
+  "color2": "#D3202A",
+  "patron": "liso",
+  "estrellas": 0,
+  "apodos": [
+   "El globo",
+   "el quemero",
+   "la quema"
+  ],
+  "bloqueadores": [],
+  "_colorCrudo": "Blanco",
+  "_color2Crudo": "Rojo"
+ },
+ {
+  "id": "independiente-rivadavia",
+  "nom": "Independiente Rivadavia",
+  "nombreCompleto": "Club Sportivo Independiente Rivadavia",
+  "ciudad": "Mendoza",
+  "ini": "I",
+  "apiId": 473,
+  "color": "#123C8C",
+  "color2": "#FFFFFF",
+  "patron": "liso",
+  "estrellas": 1,
+  "apodos": [
+   "la lepra mendocina"
+  ],
+  "bloqueadores": [
+   "Club Atlético Independiente",
+   "Newell's"
+  ],
+  "_colorCrudo": "Azul",
+  "_color2Crudo": "Blanco"
+ },
+ {
+  "id": "independiente",
+  "nom": "Independiente",
+  "nombreCompleto": "Club Atlético Independiente",
+  "ciudad": "Avellaneda",
+  "ini": "I",
+  "apiId": 453,
+  "color": "#D6001C",
+  "color2": "#FFFFFF",
+  "patron": "liso",
+  "estrellas": 0,
+  "apodos": [
+   "El diablo"
+  ],
+  "bloqueadores": [
+   "Mendoza",
+   "Club Sportivo Independiente Rivadavia"
+  ],
+  "_colorCrudo": "Rojo",
+  "_color2Crudo": null
+ },
+ {
+  "id": "instituto-cba",
+  "nom": "Instituto",
+  "nombreCompleto": "Instituto Atlético Central Córdoba",
+  "ciudad": "Córdoba",
+  "ini": "I",
+  "apiId": 478,
+  "color": "#D3202A",
+  "color2": "#FFFFFF",
+  "patron": "bastones",
+  "estrellas": 0,
+  "apodos": [
+   "La gloria",
+   "el glorioso cordobés"
+  ],
+  "bloqueadores": [
+   "Instituto Nacional",
+   "Instituto Provincial",
+   "instituto de investigaciones",
+   "Instituto Malbrán"
+  ],
+  "_colorCrudo": "Rojo",
+  "_color2Crudo": "Blanco"
+ },
+ {
+  "id": "lanus",
+  "nom": "Lanús",
+  "nombreCompleto": "Club Atlético Lanus",
+  "ciudad": "Buenos Aires",
+  "ini": "L",
+  "apiId": 446,
+  "color": "#7A1F2B",
+  "color2": "#FFFFFF",
+  "patron": "liso",
+  "estrellas": 0,
+  "apodos": [
+   "El granate"
+  ],
+  "bloqueadores": [],
+  "_colorCrudo": "Bordó",
+  "_color2Crudo": null
+ },
+ {
+  "id": "newells",
+  "nom": "Newell's",
+  "nombreCompleto": "Club atlético newells old boys",
+  "ciudad": "Rosario",
+  "ini": "N",
+  "apiId": 457,
+  "color": "#1A1A1A",
+  "color2": "#D3202A",
+  "patron": "mitades",
+  "estrellas": 0,
+  "apodos": [
+   "La lepra"
+  ],
+  "bloqueadores": [
+   "Independiente Rivadavia"
+  ],
+  "_colorCrudo": "Negro",
+  "_color2Crudo": "Rojo"
+ },
+ {
+  "id": "platense",
+  "nom": "Platense",
+  "nombreCompleto": "Club Atlético Platense",
+  "ciudad": "Buenos Aires",
+  "ini": "P",
+  "apiId": 1064,
+  "color": "#6B4A2F",
+  "color2": "#FFFFFF",
+  "patron": "franja",
+  "estrellas": 0,
+  "apodos": [
+   "El calamar"
+  ],
+  "bloqueadores": [],
+  "_colorCrudo": "Marron",
+  "_color2Crudo": "Blanco"
+ },
+ {
+  "id": "racing",
+  "nom": "Racing",
+  "nombreCompleto": "Racing club",
+  "ciudad": "Avellaneda",
+  "ini": "R",
+  "apiId": 436,
+  "color": "#6CACE4",
+  "color2": "#FFFFFF",
+  "patron": "bastones",
+  "estrellas": 0,
+  "apodos": [
+   "La academia"
+  ],
+  "bloqueadores": [
+   "Racing de córdoba"
+  ],
+  "_colorCrudo": "Celeste",
+  "_color2Crudo": "Blanco"
+ },
+ {
+  "id": "river",
+  "nom": "River",
+  "nombreCompleto": "Club Atlético River Plate",
+  "ciudad": "Buenos Aires",
+  "ini": "R",
+  "apiId": 435,
+  "color": "#E4002B",
+  "color2": "#FFFFFF",
+  "patron": "banda",
+  "estrellas": 0,
+  "apodos": [
+   "El millonario"
+  ],
+  "bloqueadores": [
+   "River plate de uruguay"
+  ],
+  "_colorCrudo": "Rojo",
+  "_color2Crudo": "Blanco"
+ },
+ {
+  "id": "rosario-central",
+  "nom": "Rosario Central",
+  "nombreCompleto": "Club atlético rosario central",
+  "ciudad": "Rosario",
+  "ini": "R",
+  "apiId": 437,
+  "color": "#FFD200",
+  "color2": "#123C8C",
+  "patron": "bastones",
+  "estrellas": 8,
+  "apodos": [
+   "canalla"
+  ],
+  "bloqueadores": [
+   "Club Atlético Barracas Central",
+   "Santiago del Estero",
+   "club Atlético Central Córdoba"
+  ],
+  "_colorCrudo": "Amarillo",
+  "_color2Crudo": "Azul"
+ },
+ {
+  "id": "san-lorenzo",
+  "nom": "San Lorenzo",
+  "nombreCompleto": "Club Atlético San Lorenzo de Almagro",
+  "ciudad": "Buenos Aires",
+  "ini": "S",
+  "apiId": 460,
+  "color": "#7A1F2B",
+  "color2": "#123C8C",
+  "patron": "bastones",
+  "estrellas": 0,
+  "apodos": [
+   "El santo",
+   "El matador de Boedo",
+   "El cuervo"
+  ],
+  "bloqueadores": [],
+  "_colorCrudo": "Bordo",
+  "_color2Crudo": "Azul"
+ },
+ {
+  "id": "sarmiento",
+  "nom": "Sarmiento",
+  "nombreCompleto": "Club atletico Sarmiento",
+  "ciudad": "Junín",
+  "ini": "S",
+  "apiId": 474,
+  "color": "#0B7A3B",
+  "color2": "#FFFFFF",
+  "patron": "liso",
+  "estrellas": 0,
+  "apodos": [
+   "El verde",
+   "el verdolaga"
+  ],
+  "bloqueadores": [],
+  "_colorCrudo": "Verde",
+  "_color2Crudo": null
+ },
+ {
+  "id": "tigre",
+  "nom": "Tigre",
+  "nombreCompleto": "Club Atlético Tigre",
+  "ciudad": "Buenos Aires",
+  "ini": "T",
+  "apiId": 452,
+  "color": "#D3202A",
+  "color2": "#123C8C",
+  "patron": "franja",
+  "estrellas": 1,
+  "apodos": [
+   "El matador de Victoria"
+  ],
+  "bloqueadores": [],
+  "_colorCrudo": "Rojo",
+  "_color2Crudo": "Azul"
+ },
+ {
+  "id": "union",
+  "nom": "Unión",
+  "nombreCompleto": "Club Atlético Unión",
+  "ciudad": "Santa Fe",
+  "ini": "U",
+  "apiId": 441,
+  "color": "#D3202A",
+  "color2": "#FFFFFF",
+  "patron": "bastones",
+  "estrellas": 0,
+  "apodos": [
+   "El tatengue"
+  ],
+  "bloqueadores": [
+   "Unión Europea",
+   "UEFA",
+   "Unión Española",
+   "Unión de Sunchales",
+   "Unión Cívica"
+  ],
+  "_colorCrudo": "Rojo",
+  "_color2Crudo": "Blanco",
+  "debiles": [
+   "Unión de Santa Fe",
+   "el Tatengue",
+   "Tatengue"
+  ],
+  "_porqueDebiles": "sin \"Unión\" solo: traía la Unión Europea"
+ },
+ {
+  "id": "velez",
+  "nom": "Vélez",
+  "nombreCompleto": "Club Atlético Velez Sarsfield",
+  "ciudad": "Buenos Aires",
+  "ini": "V",
+  "apiId": 438,
+  "color": "#FFFFFF",
+  "color2": "#123C8C",
+  "patron": "uve",
+  "estrellas": 1,
+  "apodos": [
+   "El fortin"
+  ],
+  "bloqueadores": [],
+  "_colorCrudo": "Blanco",
+  "_color2Crudo": "Azul"
+ }
+]

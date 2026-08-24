@@ -1,0 +1,500 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>El feed · diseño, tema y seña</title>
+<style>
+*{box-sizing:border-box}
+html{background:var(--fondo)}
+body{margin:0;background:transparent;color:var(--tinta);
+  font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;
+  -webkit-font-smoothing:antialiased;transition:color .2s}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   LA SEÑA — el fondo del club, difuminado, cruzando toda la pantalla.
+   Va fija: no scrollea con el contenido, se queda quieta atrás como una luz.
+   No es una imagen: es un gradiente CSS con blur. Pesa cero.
+   ══════════════════════════════════════════════════════════════════════════ */
+#seña{position:fixed;inset:-12%;z-index:0;pointer-events:none;
+  background:var(--seña);opacity:var(--seña-op);
+  filter:blur(var(--seña-blur));transform:scale(1.15);
+  transition:opacity .35s}
+/* Las estrellas van en su propia capa: mismo fondo, MUCHO menos blur. Si se
+   difuminan igual que el color dejan de leerse como estrellas y quedan manchas. */
+#estrellas{position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:var(--estrellas) center top / cover no-repeat;
+  opacity:var(--estrellas-op);filter:blur(2.5px);transition:opacity .35s}
+.control,#lienzo,.nota{position:relative;z-index:1}
+
+/* ══ CONTROLES — no son parte del diseño, son para comparar ══ */
+.control{position:sticky;top:0;z-index:50;background:#0B0E13;color:#fff;
+  padding:9px 16px;display:flex;gap:14px;align-items:center;flex-wrap:wrap;font-size:12px;
+  box-shadow:0 1px 0 rgba(255,255,255,.08)}
+.control b{font-size:10px;letter-spacing:1.2px;text-transform:uppercase;color:#7A8596;
+  font-weight:700;margin-right:2px}
+.control .g{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.control button{border:1px solid #2A313D;background:#151A22;color:#C3CBD8;padding:6px 11px;
+  border-radius:8px;font-size:12px;cursor:pointer;font-weight:600;display:flex;
+  align-items:center;gap:7px;transition:.15s}
+.control button:hover{border-color:#48525F}
+.control button[aria-pressed="true"]{background:#fff;color:#0B0E13;border-color:#fff}
+.bolita{width:11px;height:11px;border-radius:50%;border:1px solid rgba(255,255,255,.35)}
+.nota{font-size:11.5px;padding:16px 20px 44px;text-align:center;color:var(--tinta-3);
+  max-width:640px;margin:0 auto;line-height:1.6}
+.estrellas{height:.82em;width:auto;fill:currentColor;vertical-align:-.02em;margin-left:.45em;opacity:.85}
+
+/* ── A · DENSA — el diario. Filas, no tarjetas.                            */
+body[data-d="a"] .lienzo{max-width:700px;margin:0 auto;padding:2px 28px 40px;
+  background:var(--hoja);border-radius:0 0 18px 18px}
+body[data-d="a"] .cabeza{display:flex;align-items:baseline;gap:10px;padding:30px 0 8px;
+  border-bottom:2px solid var(--tinta)}
+body[data-d="a"] .cabeza h1{margin:0;font-size:27px;font-weight:800;letter-spacing:-.7px;
+  display:flex;align-items:center}
+body[data-d="a"] .cabeza h1 i{font-style:normal;color:var(--acento-txt)}
+body[data-d="a"] .cabeza .estrellas{color:var(--acento-txt)}
+body[data-d="a"] .cabeza .fecha{margin-left:auto;font-size:11px;letter-spacing:.6px;
+  text-transform:uppercase;color:var(--tinta-3)}
+body[data-d="a"] .fila{display:flex;gap:14px;padding:13px 0;align-items:baseline;
+  border-bottom:1px solid var(--borde)}
+body[data-d="a"] .fila .hora{flex:none;width:52px;font-size:11px;color:var(--tinta-3);
+  font-variant-numeric:tabular-nums;letter-spacing:.3px}
+body[data-d="a"] .fila .cuerpo{flex:1;min-width:0}
+body[data-d="a"] .fila h2{margin:0;font-size:16px;line-height:1.35;font-weight:600;letter-spacing:-.15px}
+body[data-d="a"] .fila h2 a{color:inherit;text-decoration:none}
+body[data-d="a"] .fila h2 a:hover{text-decoration:underline;text-decoration-color:var(--acento)}
+body[data-d="a"] .fila .pie{margin-top:3px;font-size:11.5px;color:var(--tinta-3)}
+body[data-d="a"] .fila .pie b{color:var(--tinta-2);font-weight:600}
+body[data-d="a"] .fila.grupo{border-left:3px solid var(--acento);margin-left:-14px;padding-left:11px}
+body[data-d="a"] .fila .sello{color:var(--acento-txt);font-weight:800;font-size:11px}
+body[data-d="a"] .otras{margin-top:5px;font-size:12px;color:var(--tinta-3);display:grid;gap:2px}
+body[data-d="a"] .otras a{color:inherit;text-decoration:none}
+body[data-d="a"] .otras a:hover{color:var(--acento-txt)}
+
+/* ── B · EDITORIAL — la portada.                                           */
+body[data-d="b"] .banda{background:var(--acento);color:var(--sobre-acento);padding:34px 20px 30px}
+body[data-d="b"] .banda .caja{max-width:680px;margin:0 auto;display:flex;align-items:center;gap:16px}
+body[data-d="b"] .banda .mono{width:58px;height:58px;border-radius:50%;flex:none;
+  border:2.5px solid var(--sobre-acento);display:grid;place-items:center;
+  font:800 26px/1 Georgia,serif;letter-spacing:-1px}
+body[data-d="b"] .banda h1{margin:0;font:800 34px/1 Georgia,"Times New Roman",serif;
+  letter-spacing:-1.2px;display:flex;align-items:center}
+body[data-d="b"] .banda p{margin:5px 0 0;font-size:12px;opacity:.9;letter-spacing:.4px;
+  text-transform:uppercase}
+body[data-d="b"] .lienzo{max-width:670px;margin:0 auto;padding:20px 28px 44px;
+  background:var(--hoja);border-radius:0 0 18px 18px}
+body[data-d="b"] article{padding:22px 0;border-bottom:1px solid var(--borde)}
+body[data-d="b"] article h2{margin:0;font:600 22px/1.3 Georgia,"Times New Roman",serif;letter-spacing:-.4px}
+body[data-d="b"] article h2 a{color:inherit;text-decoration:none}
+body[data-d="b"] article h2 a:hover{color:var(--acento-txt)}
+body[data-d="b"] article .credito{font-size:11px;letter-spacing:1.1px;text-transform:uppercase;
+  color:var(--tinta-3);margin-bottom:8px;font-weight:700}
+body[data-d="b"] article .credito i{font-style:normal;color:var(--acento-txt)}
+body[data-d="b"] article p.bajada{margin:9px 0 0;font-size:15px;color:var(--tinta-2);line-height:1.55}
+body[data-d="b"] article.tapa{padding:26px;background:var(--acento-suave);border-radius:4px;
+  border-bottom:none;margin-bottom:8px;border-left:5px solid var(--acento)}
+body[data-d="b"] article.tapa h2{font-size:28px}
+body[data-d="b"] .otras{margin:14px 0 0;padding-top:12px;border-top:1px solid var(--borde);
+  display:grid;gap:6px;font-size:13px}
+body[data-d="b"] .otras a{color:var(--tinta-2);text-decoration:none}
+body[data-d="b"] .otras a:hover{color:var(--acento-txt)}
+body[data-d="b"] .otras b{color:var(--acento-txt);font-weight:700}
+
+/* ── C · TARJETAS — la app. Las tarjetas son casi opacas, así la seña se ve
+      entre ellas y por los bordes, y el texto nunca queda sobre el lavado.  */
+body[data-d="c"] .lienzo{max-width:660px;margin:0 auto;padding:0 16px 60px}
+body[data-d="c"] .cabeza{display:flex;align-items:center;gap:14px;padding:18px 18px;
+  margin:14px 0 12px;background:var(--hoja);border-radius:18px}
+body[data-d="c"] .cabeza .mono{width:50px;height:50px;border-radius:15px;flex:none;
+  background:var(--acento);color:var(--sobre-acento);display:grid;place-items:center;
+  font-weight:800;font-size:23px;letter-spacing:-1px;box-shadow:0 6px 26px -8px var(--acento)}
+body[data-d="c"] .cabeza h1{margin:0;font-size:23px;font-weight:700;letter-spacing:-.5px;
+  display:flex;align-items:center}
+body[data-d="c"] .cabeza .estrellas{color:var(--acento-txt)}
+body[data-d="c"] .cabeza p{margin:3px 0 0;font-size:12px;color:var(--tinta-3)}
+body[data-d="c"] .tarjeta{background:var(--hoja);border:1px solid var(--borde);
+  border-radius:16px;padding:16px 18px;margin-bottom:9px;transition:.18s}
+body[data-d="c"] .tarjeta:hover{border-color:var(--tinta-3);transform:translateY(-1px)}
+body[data-d="c"] .tarjeta .meta{display:flex;align-items:center;gap:8px;font-size:11.5px;
+  color:var(--tinta-3);margin-bottom:8px;flex-wrap:wrap}
+body[data-d="c"] .tarjeta .meta b{color:var(--tinta-2);font-weight:600}
+body[data-d="c"] .tarjeta h2{margin:0;font-size:17px;line-height:1.4;font-weight:600;letter-spacing:-.2px}
+body[data-d="c"] .tarjeta h2 a{color:inherit;text-decoration:none}
+body[data-d="c"] .tarjeta h2 a:hover{color:var(--acento-txt)}
+body[data-d="c"] .tarjeta p.bajada{margin:8px 0 0;font-size:14px;color:var(--tinta-2);line-height:1.5}
+body[data-d="c"] .tarjeta.grupo{border-color:var(--acento);
+  box-shadow:0 0 0 1px var(--acento),0 0 30px -14px var(--acento)}
+body[data-d="c"] .sello{background:var(--acento);color:var(--sobre-acento);font-size:10px;
+  font-weight:800;letter-spacing:.7px;padding:3px 8px;border-radius:99px;text-transform:uppercase}
+body[data-d="c"] .otras{margin-top:13px;padding-top:12px;border-top:1px solid var(--borde);
+  display:grid;gap:8px;font-size:13px}
+body[data-d="c"] .otras a{color:var(--tinta-2);text-decoration:none;display:flex;gap:8px}
+body[data-d="c"] .otras a:hover{color:var(--acento-txt)}
+body[data-d="c"] .otras b{color:var(--tinta-3);font-weight:600;flex:none}
+body[data-d="c"] .punto{width:7px;height:7px;border-radius:50%;flex:none}
+</style>
+</head>
+<body data-d="a">
+
+<div id="seña"></div>
+<div id="estrellas"></div>
+
+<div class="control">
+  <div class="g"><b>Diseño</b>
+    <button data-set="d" data-v="a">A · Densa</button>
+    <button data-set="d" data-v="b">B · Editorial</button>
+    <button data-set="d" data-v="c">C · Tarjetas</button>
+  </div>
+  <div class="g"><b>Tema</b>
+    <button data-set="t" data-v="auto">Auto</button>
+    <button data-set="t" data-v="claro">☀ Claro</button>
+    <button data-set="t" data-v="oscuro">☾ Noche</button>
+  </div>
+  <div class="g"><b>Seña</b>
+    <button data-set="s" data-v="off">Sin seña</button>
+    <button data-set="s" data-v="suave">Suave</button>
+    <button data-set="s" data-v="marcada">Marcada</button>
+  </div>
+  <div class="g" id="equipos"><b>Equipo</b></div>
+</div>
+
+<div id="lienzo"></div>
+<p class="nota" id="nota"></p>
+
+<script>
+window.FEED = {"equipo":"Talleres","generado":"2026-08-22T17:00:00.000Z","entraron":20,"clusters":[{"principal":{"id":"https://canalshowsport.com.ar/las-matadoras-buscaran-volver-a-sumar-de-a-tres-en-casa/","titulo":"Las Matadoras buscarán volver a sumar de a tres en casa","url":"https://canalshowsport.com.ar/las-matadoras-buscaran-volver-a-sumar-de-a-tres-en-casa/","resumen":"Talleres recibe a Newell's en La Boutique con entrada libre para el público","fecha":"2026-08-22T14:52:12.000Z","ts":1787410332000,"videoId":null,"tipo":"nota","fuente":"Canal Showsport · Talleres","fuenteTipo":"medio","fuenteFiltro":"ninguno","fuenteContexto":"deportes","peso":1,"confianza":1,"porque":"fuente monotemática"},"tambien":[],"fuentes":["Canal Showsport · Talleres"],"nFuentes":1,"ts":1787410332000,"horas":2.13,"frescura":0.9212513073581621,"mult":1,"score":0.9212513073581621},{"principal":{"id":"https://canalshowsport.com.ar/los-exjugadores-de-talleres-que-visitaron-el-card/","titulo":"Los exjugadores de Talleres que visitaron el CARD y respaldaron al plantel","url":"https://canalshowsport.com.ar/los-exjugadores-de-talleres-que-visitaron-el-card/","resumen":"Daniel Albornos, Gustavo Lillo, Julián Maidana, Rodrigo Astudillo y Valentín Brasca","fecha":"2026-08-21T20:58:51.000Z","ts":1787345931000,"videoId":null,"tipo":"nota","fuente":"Canal Showsport · Talleres","fuenteTipo":"medio","fuenteFiltro":"ninguno","fuenteContexto":"deportes","peso":1,"confianza":1,"porque":"fuente monotemática"},"tambien":[{"id":"https://www.clubtalleres.com.ar/ex-jugadores-visitaron-el-card/","titulo":"Juntos todo, separados nada: ex-jugadores de Talleres visitaron el CARD para apoyar al primer equipo","url":"https://www.clubtalleres.com.ar/ex-jugadores-visitaron-el-card/","resumen":"","fecha":"2026-08-21T20:21:29.000Z","ts":1787343689000,"videoId":null,"tipo":"nota","fuente":"Talleres · sitio oficial","fuenteTipo":"oficial","fuenteFiltro":"ninguno","fuenteContexto":"deportes","peso":0.9,"confianza":1,"porque":"fuente monotemática"}],"fuentes":["Canal Showsport · Talleres","Talleres · sitio oficial"],"nFuentes":2,"ts":1787345931000,"horas":20.019166666666667,"frescura":0.46259580046344706,"mult":1.2,"score":0.5551149605561364},{"principal":{"id":"https://canalshowsport.com.ar/rodrigo-astudillo-tras-el-encuentro-con-fassi/","titulo":"Rodrigo Astudillo tras el encuentro con Fassi: \"Queremos ayudar al club a descomprimir esta situación\"","url":"https://canalshowsport.com.ar/rodrigo-astudillo-tras-el-encuentro-con-fassi/","resumen":"El ex jugador habló tras reunirse con Andrés Fassi en el CARD","fecha":"2026-08-22T01:38:42.000Z","ts":1787362722000,"videoId":null,"tipo":"nota","fuente":"Canal Showsport · Talleres","fuenteTipo":"medio","fuenteFiltro":"ninguno","fuenteContexto":"deportes","peso":1,"confianza":1,"porque":"fuente monotemática"},"tambien":[],"fuentes":["Canal Showsport · Talleres"],"nFuentes":1,"ts":1787362722000,"horas":15.355,"frescura":0.553610973282487,"mult":1,"score":0.553610973282487},{"principal":{"id":"https://www.clubtalleres.com.ar/matadoras-convocadas-newells/","titulo":"Matadoras: Convocadas para jugar ante Newell's Old Boys","url":"https://www.clubtalleres.com.ar/matadoras-convocadas-newells/","resumen":"","fecha":"2026-08-22T01:20:12.000Z","ts":1787361612000,"videoId":null,"tipo":"nota","fuente":"Talleres · sitio oficial","fuenteTipo":"oficial","fuenteFiltro":"ninguno","fuenteContexto":"deportes","peso":0.9,"confianza":1,"porque":"fuente monotemática"},"tambien":[],"fuentes":["Talleres · sitio oficial"],"nFuentes":1,"ts":1787361612000,"horas":15.663333333333334,"frescura":0.5470766230456809,"mult":1,"score":0.49236896074111286},{"principal":{"id":"https://canalshowsport.com.ar/victor-sotomayor-nego-la-visita-al-card/","titulo":"Víctor Sotomayor negó la visita al CARD y marcó distancia de Talleres: \"No tengo relación con el club\"","url":"https://canalshowsport.com.ar/victor-sotomayor-nego-la-visita-al-card/","resumen":"El ex jugador desmintió las versiones que lo ubicaban en el predio junto a otros históricos","fecha":"2026-08-21T19:10:03.000Z","ts":1787339403000,"videoId":null,"tipo":"nota","fuente":"Canal Showsport · Talleres","fuenteTipo":"medio","fuenteFiltro":"ninguno","fuenteContexto":"deportes","peso":1,"confianza":1,"porque":"fuente monotemática"},"tambien":[],"fuentes":["Canal Showsport · Talleres"],"nFuentes":1,"ts":1787339403000,"horas":21.8325,"frescura":0.4313955899380766,"mult":1,"score":0.4313955899380766},{"principal":{"id":"https://www.clubtalleres.com.ar/sebastian-martinez-el-arbitro/","titulo":"Sebastián Martínez: el árbitro ante Rosario Central","url":"https://www.clubtalleres.com.ar/sebastian-martinez-el-arbitro/","resumen":"","fecha":"2026-08-21T18:54:11.000Z","ts":1787338451000,"videoId":null,"tipo":"nota","fuente":"Talleres · sitio oficial","fuenteTipo":"oficial","fuenteFiltro":"ninguno","fuenteContexto":"deportes","peso":0.9,"confianza":1,"porque":"fuente monotemática"},"tambien":[],"fuentes":["Talleres · sitio oficial"],"nFuentes":1,"ts":1787338451000,"horas":22.096944444444443,"frescura":0.42702486263053524,"mult":1,"score":0.38432237636748173},{"principal":{"id":"https://www.clubtalleres.com.ar/romina-nunez-sobre-talleres/","titulo":"Romina Núñez sobre Talleres: \"Es la primera vez que realmente estoy disfrutando en un lugar\"","url":"https://www.clubtalleres.com.ar/romina-nunez-sobre-talleres/","resumen":"","fecha":"2026-08-21T17:58:03.000Z","ts":1787335083000,"videoId":null,"tipo":"nota","fuente":"Talleres · sitio oficial","fuenteTipo":"oficial","fuenteFiltro":"ninguno","fuenteContexto":"deportes","peso":0.9,"confianza":1,"porque":"fuente monotemática"},"tambien":[],"fuentes":["Talleres · sitio oficial"],"nFuentes":1,"ts":1787335083000,"horas":23.0325,"frescura":0.41191445701635343,"mult":1,"score":0.3707230113147181},{"principal":{"id":"https://www.clubtalleres.com.ar/romina-nunez-convencio-a-yami-rodriguez/","titulo":"Romina Núñez reveló cómo convenció a Yami Rodríguez de venir a Talleres","url":"https://www.clubtalleres.com.ar/romina-nunez-convencio-a-yami-rodriguez/","resumen":"Me quedé realmente impresionada con este Club","fecha":"2026-08-21T17:46:42.000Z","ts":1787334402000,"videoId":null,"tipo":"nota","fuente":"Talleres · sitio oficial","fuenteTipo":"oficial","fuenteFiltro":"ninguno","fuenteContexto":"deportes","peso":0.9,"confianza":1,"porque":"fuente monotemática"},"tambien":[],"fuentes":["Talleres · sitio oficial"],"nFuentes":1,"ts":1787334402000,"horas":23.221666666666668,"frescura":0.40892478352363604,"mult":1,"score":0.36803230517127244},{"principal":{"id":"https://ejemplo.com/sampaoli-clasico/","titulo":"Sampaoli habló del clásico y del Kempes","url":"https://ejemplo.com/sampaoli-clasico/","resumen":"El DT de la T se refirió al partido en Córdoba","fecha":"2026-08-22T09:00:00.000Z","ts":1787389200000,"videoId":null,"tipo":"nota","fuente":"TRAMPAS (no es una fuente real)","fuenteTipo":"medio","fuenteFiltro":"texto","fuenteContexto":"general","peso":0.5,"confianza":0.7,"porque":"débil (la T) + corroborador (Córdoba)"},"tambien":[],"fuentes":["TRAMPAS (no es una fuente real)"],"nFuentes":1,"ts":1787389200000,"horas":8,"frescura":0.7348672461377994,"mult":1,"score":0.3674336230688997},{"principal":{"id":"https://www.clubtalleres.com.ar/juveniles-lpf-2026-quilmes/","titulo":"Juveniles LPF 2026: Talleres enfrenta a Quilmes","url":"https://www.clubtalleres.com.ar/juveniles-lpf-2026-quilmes/","resumen":"","fecha":"2026-08-21T15:51:55.000Z","ts":1787327515000,"videoId":null,"tipo":"nota","fuente":"Talleres · sitio oficial","fuenteTipo":"oficial","fuenteFiltro":"ninguno","fuenteContexto":"deportes","peso":0.9,"confianza":1,"porque":"fuente monotemática"},"tambien":[],"fuentes":["Talleres · sitio oficial"],"nFuentes":1,"ts":1787327515000,"horas":25.134722222222223,"frescura":0.3798828646952137,"mult":1,"score":0.34189457822569236},{"principal":{"id":"https://canalshowsport.com.ar/por-cuantas-fechas-fue-suspendido-roman-riquelme/","titulo":"Por cuántas fechas fue suspendido Román Riquelme tras la roja ante Gimnasia de Mendoza","url":"https://canalshowsport.com.ar/por-cuantas-fechas-fue-suspendido-roman-riquelme/","resumen":"El defensor se perderá tres fechas del Torneo Clausura por la tarjeta roja","fecha":"2026-08-21T12:57:52.000Z","ts":1787317072000,"videoId":null,"tipo":"nota","fuente":"Canal Showsport · Talleres","fuenteTipo":"medio","fuenteFiltro":"ninguno","fuenteContexto":"deportes","peso":1,"confianza":1,"porque":"fuente monotemática"},"tambien":[],"fuentes":["Canal Showsport · Talleres"],"nFuentes":1,"ts":1787317072000,"horas":28.035555555555554,"frescura":0.33973202729176577,"mult":1,"score":0.33973202729176577},{"principal":{"id":"https://www.clubtalleres.com.ar/el-festejo-de-la-reserva-danza-kuduro/","titulo":"El festejo de la Reserva de Talleres al ritmo de Danza Kuduro que ya es marca registrada","url":"https://www.clubtalleres.com.ar/el-festejo-de-la-reserva-danza-kuduro/","resumen":"","fecha":"2026-08-21T13:11:52.000Z","ts":1787317912000,"videoId":null,"tipo":"nota","fuente":"Talleres · sitio oficial","fuenteTipo":"oficial","fuenteFiltro":"ninguno","fuenteContexto":"deportes","peso":0.9,"confianza":1,"porque":"fuente monotemática"},"tambien":[],"fuentes":["Talleres · sitio oficial"],"nFuentes":1,"ts":1787317912000,"horas":27.802222222222223,"frescura":0.34279835673536396,"mult":1,"score":0.3085185210618276},{"principal":{"id":"https://canalshowsport.com.ar/talleres-decidio-el-futuro-de-matias-catalan-y-juan-sforza/","titulo":"Talleres decidió el futuro de Matías Catalán y Juan Sforza: \"Poniendo por delante los intereses del club...\"","url":"https://canalshowsport.com.ar/talleres-decidio-el-futuro-de-matias-catalan-y-juan-sforza/","resumen":"Los futbolistas quedarán a las órdenes de Jorge Sampaoli retomando los entrenamientos habituales","fecha":"2026-08-20T22:50:33.000Z","ts":1787266233000,"videoId":null,"tipo":"nota","fuente":"Canal Showsport · Talleres","fuenteTipo":"medio","fuenteFiltro":"ninguno","fuenteContexto":"deportes","peso":1,"confianza":1,"porque":"fuente monotemática"},"tambien":[{"id":"https://hoydia.com.ar/deportes/futbol/matias-catalan-y-juan-sforza-se-reincorporan-al-plantel-talleres/","titulo":"Matías Catalán y Juan Sforza se reincorporan al plantel de Talleres","url":"https://hoydia.com.ar/deportes/futbol/matias-catalan-y-juan-sforza-se-reincorporan-al-plantel-talleres/","resumen":"Los futbolistas habían sido marginados y se entrenaban a contraturno en el CARD","fecha":"2026-08-20T20:05:11.000Z","ts":1787256311000,"videoId":null,"tipo":"nota","fuente":"Hoy Día Córdoba · Deportes","fuenteTipo":"medio","fuenteFiltro":"texto","fuenteContexto":"deportes","peso":0.6,"confianza":0.8,"porque":"señal débil (Talleres) en fuente deportiva"}],"fuentes":["Canal Showsport · Talleres","Hoy Día Córdoba · Deportes"],"nFuentes":2,"ts":1787266233000,"horas":42.1575,"frescura":0.19722531770301585,"mult":1.2,"score":0.236670381243619},{"principal":{"id":"https://www.clubtalleres.com.ar/como-reservar-mi-lugar-en-el-kempes/","titulo":"Cómo reservar mi lugar en el Kempes si soy Socio T para el partido ante Rosario Central","url":"https://www.clubtalleres.com.ar/como-reservar-mi-lugar-en-el-kempes/","resumen":"","fecha":"2026-08-20T17:28:21.000Z","ts":1787246901000,"videoId":null,"tipo":"nota","fuente":"Talleres · sitio oficial","fuenteTipo":"oficial","fuenteFiltro":"ninguno","fuenteContexto":"deportes","peso":0.9,"confianza":1,"porque":"fuente monotemática"},"tambien":[],"fuentes":["Talleres · sitio oficial"],"nFuentes":1,"ts":1787246901000,"horas":47.5275,"frescura":0.16038191039374827,"mult":1,"score":0.14434371935437346},{"principal":{"id":"https://canalshowsport.com.ar/la-reserva-de-talleres-empato-2-2-ante-rosario-central/","titulo":"La Reserva de Talleres dejó escapar la victoria y empató 2-2 ante Rosario Central","url":"https://canalshowsport.com.ar/la-reserva-de-talleres-empato-2-2-ante-rosario-central/","resumen":"La T ganaba 2-0, pero el Canalla reaccionó y terminó en empate","fecha":"2026-08-19T23:00:00.000Z","ts":1787180400000,"videoId":null,"tipo":"nota","fuente":"Canal Showsport · Talleres","fuenteTipo":"medio","fuenteFiltro":"ninguno","fuenteContexto":"deportes","peso":1,"confianza":1,"porque":"fuente monotemática"},"tambien":[],"fuentes":["Canal Showsport · Talleres"],"nFuentes":1,"ts":1787180400000,"horas":66,"frescura":0.07874506561842959,"mult":1,"score":0.07874506561842959},{"principal":{"id":"https://canalshowsport.com.ar/talleres-vendio-a-rodrigo-guth/","titulo":"Talleres vendió a Rodrigo Guth: dónde jugará el brasilero","url":"https://canalshowsport.com.ar/talleres-vendio-a-rodrigo-guth/","resumen":"El brasileño vuelve al fútbol holandés para sumarse a Fortuna Sittard a préstamo con opción","fecha":"2026-08-19T17:05:38.000Z","ts":1787159138000,"videoId":null,"tipo":"nota","fuente":"Canal Showsport · Talleres","fuenteTipo":"medio","fuenteFiltro":"ninguno","fuenteContexto":"deportes","peso":1,"confianza":1,"porque":"fuente monotemática"},"tambien":[],"fuentes":["Canal Showsport · Talleres"],"nFuentes":1,"ts":1787159138000,"horas":71.90611111111112,"frescura":0.06272637710568221,"mult":1,"score":0.06272637710568221},{"principal":{"id":"https://canalshowsport.com.ar/sampaoli-sigue-al-frente-de-talleres/","titulo":"Sampaoli sigue al frente de Talleres pese a la derrota en Mendoza","url":"https://canalshowsport.com.ar/sampaoli-sigue-al-frente-de-talleres/","resumen":"En Pasión Albiazul analizaron la continuidad del entrenador tras la caída en Mendoza","fecha":"2026-08-19T11:59:35.000Z","ts":1787140775000,"videoId":null,"tipo":"nota","fuente":"Canal Showsport · Talleres","fuenteTipo":"medio","fuenteFiltro":"ninguno","fuenteContexto":"deportes","peso":1,"confianza":1,"porque":"fuente monotemática"},"tambien":[],"fuentes":["Canal Showsport · Talleres"],"nFuentes":1,"ts":1787140775000,"horas":77.00694444444444,"frescura":0.0515400025839852,"mult":1,"score":0.0515400025839852},{"principal":{"id":"https://canalshowsport.com.ar/torneo-proyeccion-talleres-en-la-boutique/","titulo":"Torneo Proyección: Talleres se presenta en La Boutique","url":"https://canalshowsport.com.ar/torneo-proyeccion-talleres-en-la-boutique/","resumen":"La T recibe a Rosario Central este miércoles a las 19:00 por la fecha 5","fecha":"2026-08-18T23:15:00.000Z","ts":1787094900000,"videoId":null,"tipo":"nota","fuente":"Canal Showsport · Talleres","fuenteTipo":"medio","fuenteFiltro":"ninguno","fuenteContexto":"deportes","peso":1,"confianza":1,"porque":"fuente monotemática"},"tambien":[],"fuentes":["Canal Showsport · Talleres"],"nFuentes":1,"ts":1787094900000,"horas":89.75,"frescura":0.031552297913390974,"mult":1,"score":0.031552297913390974}],"esDemo":true};
+
+/* ══════════════════════════════════════════════════════════════════════════
+   MOTOR DE COLOR
+   El color de marca no se puede usar tal cual y esperar que salga bien: el
+   amarillo de Boca sobre blanco es ilegible. Nunca se usa directo como texto —
+   se le ajusta la luminosidad, conservando tono y saturación, hasta pasar
+   4.5:1 contra el fondo real del tema activo.
+   ══════════════════════════════════════════════════════════════════════════ */
+const aRGB = h => { h = h.replace("#",""); if(h.length===3) h=[...h].map(c=>c+c).join("");
+  return [0,2,4].map(i => parseInt(h.slice(i,i+2),16)); };
+const aHEX = ([r,g,b]) => "#" + [r,g,b].map(v =>
+  Math.round(Math.max(0,Math.min(255,v))).toString(16).padStart(2,"0")).join("");
+const luminancia = ([r,g,b]) => { const f = v => { v/=255;
+  return v<=.03928 ? v/12.92 : Math.pow((v+.055)/1.055, 2.4); };
+  return .2126*f(r) + .7152*f(g) + .0722*f(b); };
+const contraste = (a,b) => { const x=luminancia(a), y=luminancia(b);
+  return (Math.max(x,y)+.05) / (Math.min(x,y)+.05); };
+const C = (h1,h2) => contraste(aRGB(h1), aRGB(h2));
+const mezclar = (hex, conHex, p) => aHEX(aRGB(hex).map((v,i) => v*(1-p) + aRGB(conHex)[i]*p));
+
+function aHSL([r,g,b]){ r/=255;g/=255;b/=255;
+  const mx=Math.max(r,g,b), mn=Math.min(r,g,b), l=(mx+mn)/2, d=mx-mn;
+  if(!d) return [0,0,l];
+  const s = l>.5 ? d/(2-mx-mn) : d/(mx+mn);
+  const h = mx===r ? ((g-b)/d + (g<b?6:0)) : mx===g ? (b-r)/d+2 : (r-g)/d+4;
+  return [h*60, s, l]; }
+function deHSL([h,s,l]){ h=((h%360)+360)%360;
+  if(!s){ const v=Math.round(l*255); return [v,v,v]; }
+  const c=(1-Math.abs(2*l-1))*s, x=c*(1-Math.abs((h/60)%2-1)), m=l-c/2;
+  const t = h<60?[c,x,0]:h<120?[x,c,0]:h<180?[0,c,x]:h<240?[0,x,c]:h<300?[x,0,c]:[c,0,x];
+  return t.map(v => Math.round((v+m)*255)); }
+
+function legible(hex, fondoHex, minimo = 4.5){
+  const fondo = aRGB(fondoHex), oscurecer = luminancia(fondo) > .5;
+  let [h,s,l] = aHSL(aRGB(hex));
+  for(let i=0;i<70;i++){
+    const c = deHSL([h,s,l]);
+    if(contraste(c, fondo) >= minimo) return aHEX(c);
+    l += oscurecer ? -.015 : .015;
+    if(l<=0 || l>=1) break;
+  }
+  return oscurecer ? "#000000" : "#FFFFFF";
+}
+/* Qué tinta va ARRIBA del color. Elegir por umbral de luminosidad es lo que se
+   hace siempre y está mal: el celeste de Racing cae del lado equivocado y
+   termina con letras blancas ilegibles. Se prueban las dos y gana la mejor. */
+const tintaSobre = hex => C("#101418", hex) >= C("#FFFFFF", hex) ? "#101418" : "#FFFFFF";
+
+/* ══════════════════════════════════════════════════════════════════════════
+   LA SEÑA DE FONDO
+   ──────────────────────────────────────────────────────────────────────────
+   Un lavado difuminado que cruza toda la pantalla. Los patrones son gradientes
+   CSS a escala de viewport, con blur grande encima: los bastones se vuelven
+   bandas suaves de luz, la banda cruzada una diagonal difusa.
+
+   Las franjas son ANCHAS a propósito (9vw, no 26px). Con rayas finas el blur
+   las promedia y queda un color plano: se pierde la geometría, que es
+   justamente lo único que hace reconocible al club. Ancho de franja mayor que
+   el radio del blur, o no se ve nada.
+
+   Y la opacidad NO se elige a ojo. El blur solo puede mezclar entre los dos
+   colores del patrón, nunca salirse de ese rango — así que si los dos extremos
+   compuestos contra el fondo pasan el contraste, todo lo intermedio también.
+   Entonces se baja la opacidad hasta que el peor de los dos pasa 4.5:1 y se usa
+   la más alta que cumple. La seña queda tan fuerte como la legibilidad permita.
+   ══════════════════════════════════════════════════════════════════════════ */
+function patron(tipo, c1, c2){
+  switch(tipo){
+    case "bastones": return `repeating-linear-gradient(90deg,${c1} 0 6.5vw,${c2} 6.5vw 13vw)`;
+    case "franja":   return `linear-gradient(180deg,${c1} 0 30%,${c2} 30% 62%,${c1} 62% 100%)`;
+    case "banda":    return `linear-gradient(114deg,${c1} 0 30%,${c2} 30% 56%,${c1} 56% 100%)`;
+    case "mitades":  return `linear-gradient(100deg,${c1} 0 48%,${c2} 52% 100%)`;
+    default:         return `radial-gradient(120% 90% at 50% 0%,${c2} 0%,${c1} 70%)`;
+  }
+}
+
+/* ── LA HOJA ────────────────────────────────────────────────────────────────
+   Un lavado fuerte y un texto apoyado encima no pueden convivir: o el fondo se
+   ve o el texto se lee. Lo probé bajando la opacidad hasta que todo pasara el
+   contraste y terminé en 4%: invisible. La salida no era ceder, era cambiar
+   dónde se apoya el texto.
+
+   Entonces el lavado queda FUERTE, y la columna de lectura se apoya en una
+   hoja semitransparente. El fondo del club se ve entero por los márgenes, por
+   arriba y entre las tarjetas; abajo del texto llega filtrado por la hoja.
+
+   Lo que se calcula ahora es cuánto se puede TRANSPARENTAR esa hoja: se prueba
+   de más transparente a más opaca y se usa la primera que deja leer todo. Así
+   la seña se cuela lo máximo que la legibilidad permita.
+
+   (De paso: la primera versión de esta prueba medía solo la tinta principal y
+   daba verde con un amarillo ilegible en pantalla. El que se rompe primero no
+   es el titular negro, es el gris chico de las fechas. Y ese gris tampoco
+   llegaba a 4.5 ni sobre el fondo pelado — había que arreglar la paleta antes
+   que el lavado. Una prueba que no mide el caso más débil no mide nada.)      */
+function hojaMinima(fondosLavados, tintas, papelA, papelB, min = 4.5){
+  for(let b = .45; b <= 1.001; b += .03){
+    let peor = Infinity;
+    for(const f of fondosLavados) for(const pp of [papelA, papelB]){
+      const eff = mezclar(f, pp, b);
+      for(const t of tintas) peor = Math.min(peor, C(t, eff)); }
+    if(peor >= min) return +Math.min(1, b).toFixed(2);
+  }
+  return 1;
+}
+
+/* Mezclar un color hacia el fondo lo desaturas: el azul de Talleres al 30%
+   sobre blanco deja de leerse como azul y queda un gris celestoide. Se le
+   sube la saturación ANTES de mezclar para que llegue con el tono entero.  */
+function saturar(hex, k){
+  const [h,s,l] = aHSL(aRGB(hex));
+  return aHEX(deHSL([h, Math.min(1, s * k), l]));
+}
+
+/* ── LAS ESTRELLAS, TAMBIÉN DE FONDO ──────────────────────────────────────
+   No van en el encabezado: van en la misma capa de atrás, en arco, como las
+   lleva un escudo. El arco tiene que escalar de 1 (Belgrano) a 50 (Boca) sin
+   tocar el código: cuantas más son, más chicas y en más filas concéntricas. */
+const puntosEstrella = (cx, cy, r) => {
+  const p = [];
+  for(let i=0;i<10;i++){ const a = -Math.PI/2 + i*Math.PI/5, rad = i%2 ? r*.42 : r;
+    p.push((cx + rad*Math.cos(a)).toFixed(1) + "," + (cy + rad*Math.sin(a)).toFixed(1)); }
+  return p.join(" ");
+};
+
+function estrellasFondo(n, color){
+  if(!n) return "none";
+  const W = 1000, H = 620, porFila = n <= 6 ? n : 14;
+  const filas = Math.ceil(n / porFila);
+  const tam = n <= 3 ? 30 : n <= 8 ? 26 : Math.max(11, 26 - n * .24);
+  let g = "", hechas = 0;
+  for(let f = 0; f < filas && hechas < n; f++){
+    const enFila = Math.min(porFila, n - hechas);
+    const R = 560 + f * 78;
+    const arco = Math.min(1.5, .16 * enFila);
+    for(let k = 0; k < enFila; k++, hechas++){
+      const t = enFila === 1 ? 0 : -arco/2 + (arco * k) / (enFila - 1);
+      g += `<polygon points='${puntosEstrella(W/2 + R*Math.sin(t), 700 - R*Math.cos(t), tam)}'/>`;
+    }
+  }
+  const svg = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 ${W} ${H}'>` +
+              `<g fill='${color}'>${g}</g></svg>`;
+  return `url("data:image/svg+xml,${encodeURIComponent(svg)}")`;
+}
+
+/* ══ paletas ══ */
+const TEMAS = {
+  claro: { fondo:{a:"#FFFFFF",b:"#FBFAF8",c:"#F4F6F9"}, papel:"#FFFFFF",
+           tinta:"#0D1117", tinta2:"#39424F", tinta3:"#57606E", borde:"#DDE3EC" },
+  oscuro:{ fondo:{a:"#0A0C10",b:"#0A0C10",c:"#08090C"}, papel:"#12161D",
+           tinta:"#F2F5FA", tinta2:"#A4AEBE", tinta3:"#8B95A6", borde:"#232A35" },
+};
+
+/* ══ clubes — patrón y estrellas son DATO, no código ══
+   ★ Fausto: corregime los que estén mal, sos vos el que sabe.              */
+const EQUIPOS = [
+  { id:"talleres", nom:"Talleres", ini:"T", color:"#0A3D91", color2:"#FFFFFF", patron:"bastones", estrellas:2 },
+  { id:"boca",     nom:"Boca",     ini:"B", color:"#0A2A5E", color2:"#FFC72C", patron:"franja",   estrellas:50 },
+  { id:"river",    nom:"River",    ini:"R", color:"#FFFFFF", color2:"#E4002B", patron:"banda",    estrellas:0 },
+  { id:"belgrano", nom:"Belgrano", ini:"B", color:"#5FB3E4", color2:"#FFFFFF", patron:"liso",     estrellas:1 },
+  { id:"racing",   nom:"Racing",   ini:"R", color:"#6CACE4", color2:"#FFFFFF", patron:"bastones", estrellas:0 },
+  { id:"central",  nom:"Central",  ini:"C", color:"#003C71", color2:"#FFD200", patron:"bastones", estrellas:0 },
+];
+
+const OPACIDAD = { off:0, suave:.38, marcada:.78 };
+
+let dis = "a", tema = "auto", seña = "marcada", eq = EQUIPOS[0];
+const prefiereOscuro = window.matchMedia("(prefers-color-scheme: dark)");
+const temaReal = () => tema === "auto" ? (prefiereOscuro.matches ? "oscuro" : "claro") : tema;
+
+function pintarColores(){
+  const T = TEMAS[temaReal()], fondo = T.fondo[dis], r = document.documentElement.style;
+  r.setProperty("--fondo", fondo);
+  r.setProperty("--papel", T.papel);
+  r.setProperty("--tinta", T.tinta);
+  r.setProperty("--tinta-2", T.tinta2);
+  r.setProperty("--tinta-3", T.tinta3);
+  r.setProperty("--borde", T.borde);
+  r.setProperty("--acento", eq.color);
+  r.setProperty("--sobre-acento", tintaSobre(eq.color));
+  r.setProperty("--acento-txt", legible(eq.color, fondo));
+  r.setProperty("--acento-suave", mezclar(eq.color, fondo, .90));
+
+  /* ── el lavado de fondo ── */
+  const k = seña === "marcada" ? 1.5 : 1.2;
+  const c1 = saturar(eq.color, k), c2 = saturar(eq.color2, k);
+  /* Las estrellas se dibujan con el color del club que más se despegue del
+     fondo del tema: el blanco de Talleres sirve de noche y desaparece de día. */
+  const cEstrella = C(eq.color2, fondo) >= C(eq.color, fondo) ? c2 : c1;
+
+  const op = OPACIDAD[seña];
+  r.setProperty("--seña", patron(eq.patron, c1, c2));
+  r.setProperty("--seña-op", op);
+  /* El blur tiene que ser MENOR que el ancho de franja o la promedia y
+     queda un color plano: ahí Talleres deja de tener bastones y se vuelve
+     un celeste indistinguible de Belgrano. La geometría es la identidad. */
+  r.setProperty("--seña-blur", (eq.patron === "bastones" ? 18 : 60) + "px");
+  r.setProperty("--estrellas", seña === "off" ? "none" : estrellasFondo(eq.estrellas, cEstrella));
+  r.setProperty("--estrellas-op", op * .5);
+
+  const lavados = [c1, c2, cEstrella].map(c => mezclar(fondo, c, op));
+  const tintas = [T.tinta, T.tinta2, T.tinta3];
+
+  /* La hoja NO es papel neutro: es papel teñido con el color del club. Una
+     hoja blanca al 94% sobre un lavado fuerte da un resultado pálido — se come
+     justo lo que queríamos mostrar. Teñida, la columna de lectura ya ES del
+     color del club aunque el lavado no llegue, y el contraste no sufre porque
+     un tinte del 14% sobre papel sigue estando lejísimos de la tinta.        */
+  /* Con qué color se tiñe. El primario, salvo que sea blanco o casi: el blanco
+     no tiñe nada, y en modo noche además aclara la hoja y se lleva puesto el
+     contraste del texto claro. Ahí manda el secundario — el rojo de River. */
+  const satDe = h => { const [,sa] = aHSL(aRGB(h)); return sa; };
+  const tinte  = satDe(c1) >= .25 ? c1 : c2;      // el que realmente tiñe
+  const tinte2 = tinte === c1 ? c2 : c1;          // el del bastón de al lado
+
+  /* LA HOJA TAMBIÉN LLEVA EL PATRÓN.
+     Con la hoja de un solo color el bastón se perdía: el lavado fuerte queda
+     en los márgenes y la columna de lectura, que es casi toda la pantalla,
+     salía plana. Un azul plano y un celeste plano se parecen demasiado; lo que
+     distingue a Talleres de Belgrano no es el tono, es tener rayas.
+
+     Entonces la hoja se dibuja con el MISMO patrón, en dos tintes de papel muy
+     suaves. Y como los dos usan las mismas unidades de viewport, las rayas de
+     la hoja caen justo encima de las del fondo: el bastón cruza la pantalla
+     entera, fuerte en los márgenes y susurrado abajo del texto.              */
+  let papelA = T.papel, papelB = T.papel;
+  for(let k = (temaReal() === "oscuro" ? .22 : .18); k >= 0; k -= .02){
+    papelA = mezclar(T.papel, tinte,  k);
+    papelB = mezclar(T.papel, tinte2, k * .45);
+    const peorPapel = Math.min(...[papelA,papelB].flatMap(pp => tintas.map(t => C(t, pp))));
+    if(peorPapel >= 6.2) break;
+  }
+  const beta = hojaMinima(lavados, tintas, papelA, papelB);
+  const rgba = (hex,a) => { const [x,y,z] = aRGB(hex); return `rgba(${x},${y},${z},${a})`; };
+  r.setProperty("--hoja", patron(eq.patron, rgba(papelA,beta), rgba(papelB,beta)));
+  r.setProperty("--papel", papelA);
+  /* expuestos solo para poder medirlos desde la prueba */
+  r.setProperty("--hoja-a", beta);
+  lavados.forEach((l,i) => {
+    r.setProperty("--sobre-hoja-"+(i+1), mezclar(l, papelA, beta));
+    r.setProperty("--sobre-hojab-"+(i+1), mezclar(l, papelB, beta)); });
+}
+
+/* ══ render ══ */
+const F = window.FEED;
+const esc = s => (s||"").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const hace = h => h<1 ? "recién" : h<24 ? Math.round(h)+" h"
+              : Math.round(h/24)===1 ? "ayer" : Math.round(h/24)+" días";
+const COLOR = { oficial:"#3B82F6", hinchas:"#E4572E", periodista:"#7B4FD4",
+                analista:"#0E8F6E", medio:"#8B94A3" };
+const fecha = new Date(F.generado).toLocaleDateString("es-AR",
+  { weekday:"long", day:"numeric", month:"long" });
+
+const DISENOS = {
+  a: () => `<div class="lienzo">
+    <div class="cabeza"><h1>${esc(eq.nom)} <i>&nbsp;hoy</i></h1>
+      <span class="fecha">${fecha}</span></div>
+    ${F.clusters.map(c => { const p=c.principal, g=c.nFuentes>1; return `
+      <div class="fila${g?" grupo":""}">
+        <span class="hora">${hace(c.horas)}</span>
+        <div class="cuerpo">
+          <h2><a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.titulo)}</a></h2>
+          <div class="pie"><b>${esc(p.fuente)}</b>${g?` · <span class="sello">${c.nFuentes} fuentes lo cuentan</span>`:""}</div>
+          ${g?`<div class="otras">${c.tambien.map(t=>
+            `<a href="${esc(t.url)}" target="_blank" rel="noopener">↳ ${esc(t.fuente)}: ${esc(t.titulo)}</a>`).join("")}</div>`:""}
+        </div>
+      </div>`; }).join("")}</div>`,
+
+  b: () => { const art = (c, tapa) => { const p=c.principal, g=c.nFuentes>1; return `
+      <article class="${tapa?"tapa":""}">
+        <div class="credito">${esc(p.fuente)} · ${hace(c.horas)}${g?` · <i>${c.nFuentes} fuentes</i>`:""}</div>
+        <h2><a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.titulo)}</a></h2>
+        ${p.resumen?`<p class="bajada">${esc(p.resumen.slice(0,180))}</p>`:""}
+        ${g?`<div class="otras">${c.tambien.map(t=>
+          `<a href="${esc(t.url)}" target="_blank" rel="noopener"><b>${esc(t.fuente)}</b> — ${esc(t.titulo)}</a>`).join("")}</div>`:""}
+      </article>`; };
+    return `<div class="banda"><div class="caja">
+        <div class="mono">${esc(eq.ini)}</div>
+        <div><h1>${esc(eq.nom)}</h1><p>${F.clusters.length} historias · ${fecha}</p></div>
+      </div></div>
+      <div class="lienzo">${art(F.clusters[0], true)}${F.clusters.slice(1).map(c=>art(c)).join("")}</div>`; },
+
+  c: () => `<div class="lienzo">
+    <div class="cabeza"><div class="mono">${esc(eq.ini)}</div>
+      <div><h1>${esc(eq.nom)}</h1>
+        <p>${F.clusters.length} historias · actualizado ${hace(F.clusters[0].horas)}</p></div></div>
+    ${F.clusters.map(c => { const p=c.principal, g=c.nFuentes>1; return `
+      <div class="tarjeta${g?" grupo":""}">
+        <div class="meta">
+          <span class="punto" style="background:${COLOR[p.fuenteTipo]||COLOR.medio}"></span>
+          <b>${esc(p.fuente)}</b><span>·</span><span>${hace(c.horas)}</span>
+          ${g?`<span class="sello">⧉ ${c.nFuentes} fuentes</span>`:""}
+        </div>
+        <h2><a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.titulo)}</a></h2>
+        ${p.resumen?`<p class="bajada">${esc(p.resumen.slice(0,150))}</p>`:""}
+        ${g?`<div class="otras">${c.tambien.map(t=>
+          `<a href="${esc(t.url)}" target="_blank" rel="noopener"><b>${esc(t.fuente)}</b>${esc(t.titulo)}</a>`).join("")}</div>`:""}
+      </div>`; }).join("")}</div>`,
+};
+
+function pintar(){
+  document.body.dataset.d = dis;
+  document.body.dataset.tema = temaReal();
+  document.body.dataset.seña = seña;
+  pintarColores();
+  document.getElementById("lienzo").innerHTML = DISENOS[dis]();
+  document.querySelectorAll("[data-set]").forEach(b => b.setAttribute("aria-pressed",
+    (b.dataset.set==="d" ? dis : b.dataset.set==="t" ? tema
+     : b.dataset.set==="s" ? seña : eq.id) === b.dataset.v));
+  const op = getComputedStyle(document.documentElement).getPropertyValue("--seña-op").trim();
+  document.getElementById("nota").textContent =
+    "La seña es un lavado fijo: cruza toda la pantalla y no scrollea. La opacidad no está " +
+    "elegida a ojo — se usa la más alta que todavía deja leer el texto encima (ahora: " +
+    Math.round(op*100) + "%). Por eso con River sube y con Boca baja: depende de cuánto " +
+    "contraste tengan los colores del club contra el fondo del tema.";
+}
+
+document.getElementById("equipos").insertAdjacentHTML("beforeend", EQUIPOS.map(e =>
+  `<button data-set="e" data-v="${e.id}"><span class="bolita" style="background:${e.color}"></span>${e.nom}</button>`).join(""));
+
+document.querySelector(".control").onclick = ev => {
+  const b = ev.target.closest("[data-set]"); if(!b) return;
+  const k = b.dataset.set;
+  if (k === "d") dis = b.dataset.v;
+  else if (k === "t") tema = b.dataset.v;
+  else if (k === "s") seña = b.dataset.v;
+  else eq = EQUIPOS.find(x => x.id === b.dataset.v);
+  pintar();
+};
+prefiereOscuro.addEventListener("change", () => { if (tema === "auto") pintar(); });
+
+pintar();
+</script>
+</body>
+</html>

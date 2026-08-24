@@ -1,0 +1,755 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Los 30 · señas para aprobar</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#0B0E13;color:#EEF1F6;
+  font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;
+  -webkit-font-smoothing:antialiased}
+header{padding:26px 20px 14px;max-width:1180px;margin:0 auto}
+h1{margin:0;font-size:24px;letter-spacing:-.5px}
+header p{margin:6px 0 0;color:#8B95A6;font-size:13.5px;max-width:640px;line-height:1.6}
+.barra{display:flex;gap:7px;padding:14px 20px 0;max-width:1180px;margin:0 auto;flex-wrap:wrap}
+.barra button{border:1px solid #2A313D;background:#151A22;color:#C3CBD8;padding:7px 13px;
+  border-radius:9px;font:inherit;font-size:12.5px;font-weight:650;cursor:pointer}
+.barra button[aria-pressed="true"]{background:#fff;color:#0B0E13;border-color:#fff}
+.rejilla{display:grid;grid-template-columns:repeat(auto-fill,minmax(215px,1fr));gap:13px;
+  padding:16px 20px 60px;max-width:1180px;margin:0 auto}
+.club{border-radius:16px;overflow:hidden;border:1px solid #232A35;background:#12161D;
+  position:relative}
+.seña{position:relative;height:112px;overflow:hidden}
+.lav{position:absolute;inset:-25%;filter:blur(16px);transform:scale(1.2)}
+.est{position:absolute;inset:0;background-position:center top;background-size:cover;
+  background-repeat:no-repeat;filter:blur(1.5px)}
+.mono{position:absolute;left:12px;bottom:10px;width:38px;height:38px;border-radius:12px;
+  display:grid;place-items:center;font-weight:800;font-size:18px;letter-spacing:-1px;
+  box-shadow:0 4px 14px rgba(0,0,0,.4);z-index:2}
+.cuerpo{padding:11px 13px 13px}
+.cuerpo h2{margin:0;font-size:15.5px;font-weight:700;letter-spacing:-.3px}
+.cuerpo .ciu{font-size:11.5px;color:#8B95A6;margin-top:1px}
+.datos{display:flex;align-items:center;gap:7px;margin-top:9px;flex-wrap:wrap;font-size:11px;
+  color:#8B95A6}
+.sw{width:15px;height:15px;border-radius:5px;border:1px solid rgba(255,255,255,.25);flex:none}
+.tag{background:#1B2129;border-radius:6px;padding:2px 7px;font-weight:650;color:#A4AEBE}
+.crudo{margin-top:8px;font-size:10.5px;color:#6E7889;line-height:1.5}
+.crudo b{color:#8B95A6;font-weight:650}
+.alerta{margin-top:8px;font-size:11px;color:#FFB4A8;background:#331A18;border-radius:8px;
+  padding:6px 9px;line-height:1.45}
+.bloq{margin-top:7px;font-size:10.5px;color:#7FB2E8;line-height:1.5}
+</style>
+</head>
+<body>
+<header>
+  <h1>Los 30 · señas para aprobar</h1>
+  <p>Cada tarjeta muestra cómo va a verse el fondo de ese club. Los colores los traduje de las
+  palabras que pusiste en la planilla, así que <b>todos son aproximados</b>: mirá cuál está
+  mal y decime el nombre del club — es más rápido que mandarme 30 códigos de color.</p>
+</header>
+<nav class="barra" id="barra">
+  <button data-f="todos" aria-pressed="true">Todos</button>
+  <button data-f="bastones">Bastones</button>
+  <button data-f="liso">Lisos</button>
+  <button data-f="banda">Banda</button>
+  <button data-f="franja">Franja</button>
+  <button data-f="otros">Otros</button>
+  <button data-f="revisar">Para revisar</button>
+</nav>
+<div class="rejilla" id="rejilla"></div>
+
+<script>
+const CLUBES = [
+ {
+  "id": "talleres-cba",
+  "nom": "Talleres",
+  "nombreCompleto": "Club Atlético Talleres (Córdoba)",
+  "ciudad": "Córdoba",
+  "ini": "T",
+  "apiId": 456,
+  "color": "#0A3D91",
+  "color2": "#FFFFFF",
+  "patron": "bastones",
+  "estrellas": 2,
+  "apodos": [
+   "la T",
+   "el Matador",
+   "Albiazul",
+   "los Tallarines"
+  ],
+  "bloqueadores": [
+   "Remedios de Escalada",
+   "Talleres RE",
+   "Perico",
+   "taller mecánico",
+   "talleres municipales",
+   "Tigre"
+  ],
+  "_colorCrudo": "#0A3D91",
+  "_color2Crudo": "#FFFFFF"
+ },
+ {
+  "id": "aldosivi",
+  "nom": "Aldosivi",
+  "nombreCompleto": "Club Atlético Aldosivi",
+  "ciudad": "Mar del Plata",
+  "ini": "A",
+  "apiId": 463,
+  "color": "#0B7A3B",
+  "color2": "#FFC72C",
+  "patron": "bastones",
+  "estrellas": 0,
+  "apodos": [
+   "El Tiburón"
+  ],
+  "bloqueadores": [],
+  "_colorCrudo": "Verde",
+  "_color2Crudo": "Amarillo"
+ },
+ {
+  "id": "argentinos",
+  "nom": "Argentinos",
+  "nombreCompleto": "Asociación Atlética Argentinos Juniors",
+  "ciudad": null,
+  "ini": "A",
+  "apiId": 458,
+  "color": "#D3202A",
+  "color2": "#FFFFFF",
+  "patron": "banda",
+  "estrellas": 5,
+  "apodos": [
+   "El bicho",
+   "el semillero del mundo"
+  ],
+  "bloqueadores": [],
+  "_colorCrudo": "Rojo",
+  "_color2Crudo": "Blanco"
+ },
+ {
+  "id": "atl-tucuman",
+  "nom": "Atlético Tucumán",
+  "nombreCompleto": "Club Atlético Tucumán",
+  "ciudad": "Tucumán",
+  "ini": "A",
+  "apiId": 455,
+  "color": "#5FB3E4",
+  "color2": "#FFFFFF",
+  "patron": "bastones",
+  "estrellas": 1,
+  "apodos": [
+   "El decano"
+  ],
+  "bloqueadores": [],
+  "_colorCrudo": "Celeste",
+  "_color2Crudo": "Blanco"
+ },
+ {
+  "id": "banfield",
+  "nom": "Banfield",
+  "nombreCompleto": "Club Atlético Banfield",
+  "ciudad": null,
+  "ini": "B",
+  "apiId": 449,
+  "color": "#0B7A3B",
+  "color2": "#FFFFFF",
+  "patron": "bastones",
+  "estrellas": 2,
+  "apodos": [
+   "El taladro"
+  ],
+  "bloqueadores": [],
+  "_colorCrudo": "Verde",
+  "_color2Crudo": "Blanco"
+ },
+ {
+  "id": "barracas",
+  "nom": "Barracas Central",
+  "nombreCompleto": "Club Atlético Barracas Central",
+  "ciudad": null,
+  "ini": "B",
+  "apiId": 2432,
+  "color": "#D3202A",
+  "color2": "#FFFFFF",
+  "patron": "bastones",
+  "estrellas": 0,
+  "apodos": [
+   "El guapo"
+  ],
+  "bloqueadores": [
+   "Santiago del Estero",
+   "club Atlético Central Córdoba",
+   "Rosario",
+   "Club atlético rosario central"
+  ],
+  "_colorCrudo": "Rojo",
+  "_color2Crudo": "Blanco"
+ },
+ {
+  "id": "belgrano-cba",
+  "nom": "Belgrano",
+  "nombreCompleto": "Club Atlético Belgrano",
+  "ciudad": "Córdoba",
+  "ini": "B",
+  "apiId": 440,
+  "color": "#4AA5DC",
+  "color2": "#FFFFFF",
+  "patron": "liso",
+  "estrellas": 1,
+  "apodos": [
+   "Pirata"
+  ],
+  "bloqueadores": [],
+  "_colorCrudo": "Celeste",
+  "_color2Crudo": null
+ },
+ {
+  "id": "boca",
+  "nom": "Boca",
+  "nombreCompleto": "Club Atlético Boca Juniors",
+  "ciudad": null,
+  "ini": "B",
+  "apiId": 451,
+  "color": "#0A2A5E",
+  "color2": "#FFC72C",
+  "patron": "franja",
+  "estrellas": 74,
+  "apodos": [
+   "Xeneixe",
+   "bostero",
+   "azul y oro"
+  ],
+  "bloqueadores": [],
+  "_colorCrudo": "Azul",
+  "_color2Crudo": "Amarillo"
+ },
+ {
+  "id": "central-cordoba-sde",
+  "nom": "Central Córdoba",
+  "nombreCompleto": "club Atlético Central Córdoba",
+  "ciudad": "Santiago del Estero",
+  "ini": "C",
+  "apiId": 1065,
+  "color": "#1A1A1A",
+  "color2": "#FFFFFF",
+  "patron": "bastones",
+  "estrellas": 1,
+  "apodos": [
+   "El ferroviario"
+  ],
+  "bloqueadores": [
+   "Club Atlético Barracas Central",
+   "Rosario",
+   "Club atlético rosario central"
+  ],
+  "_colorCrudo": "Negro",
+  "_color2Crudo": "Blanco"
+ },
+ {
+  "id": "defensa",
+  "nom": "Defensa y Justicia",
+  "nombreCompleto": "Club social y deportivo Defensa y justicia",
+  "ciudad": null,
+  "ini": "D",
+  "apiId": 442,
+  "color": "#0B7A3B",
+  "color2": "#FFC72C",
+  "patron": "banda",
+  "estrellas": 2,
+  "apodos": [
+   "El halcón de Varela"
+  ],
+  "bloqueadores": [],
+  "_colorCrudo": "Verde",
+  "_color2Crudo": "Amarillo"
+ },
+ {
+  "id": "riestra",
+  "nom": "Riestra",
+  "nombreCompleto": "Deportivo Riestra Asociación de fomento Barrio Colón",
+  "ciudad": null,
+  "ini": "R",
+  "apiId": 476,
+  "color": "#1A1A1A",
+  "color2": "#FFFFFF",
+  "patron": "liso",
+  "estrellas": 0,
+  "apodos": [
+   "El malevo"
+  ],
+  "bloqueadores": [],
+  "_colorCrudo": "Negro",
+  "_color2Crudo": "Blanco"
+ },
+ {
+  "id": "estudiantes-rc",
+  "nom": "Estudiantes (RC)",
+  "nombreCompleto": "Asociación Atlética Estudiantes",
+  "ciudad": "Río Cuarto",
+  "ini": "E",
+  "apiId": 2424,
+  "color": "#5FB3E4",
+  "color2": "#FFFFFF",
+  "patron": "liso",
+  "estrellas": 0,
+  "apodos": [
+   "Leones"
+  ],
+  "bloqueadores": [
+   "La Plata",
+   "Club estudiantes de La plata"
+  ],
+  "_colorCrudo": "Celeste",
+  "_color2Crudo": null
+ },
+ {
+  "id": "estudiantes-lp",
+  "nom": "Estudiantes",
+  "nombreCompleto": "Club estudiantes de La plata",
+  "ciudad": "La Plata",
+  "ini": "E",
+  "apiId": 450,
+  "color": "#D3202A",
+  "color2": "#FFFFFF",
+  "patron": "bastones",
+  "estrellas": 1,
+  "apodos": [
+   "El pincha",
+   "Pincharrata"
+  ],
+  "bloqueadores": [
+   "Río Cuarto",
+   "Asociación Atlética Estudiantes"
+  ],
+  "_colorCrudo": "Rojo",
+  "_color2Crudo": "Blanco"
+ },
+ {
+  "id": "gimnasia-lp",
+  "nom": "Gimnasia (LP)",
+  "nombreCompleto": "Club de Gimnasia y esgrima La plata",
+  "ciudad": "La Plata",
+  "ini": "G",
+  "apiId": 434,
+  "color": "#123C8C",
+  "color2": "#FFFFFF",
+  "patron": "franja",
+  "estrellas": 0,
+  "apodos": [
+   "El lobo"
+  ],
+  "bloqueadores": [
+   "Mendoza",
+   "Club atlético Gimnasia y esgrima"
+  ],
+  "_colorCrudo": "Azul",
+  "_color2Crudo": "Blanco"
+ },
+ {
+  "id": "gimnasia-mza",
+  "nom": "Gimnasia (M)",
+  "nombreCompleto": "Club atlético Gimnasia y esgrima",
+  "ciudad": "Mendoza",
+  "ini": "G",
+  "apiId": 1066,
+  "color": "#1A1A1A",
+  "color2": "#FFFFFF",
+  "patron": "bastones",
+  "estrellas": 0,
+  "apodos": [
+   "Lobo mendocino"
+  ],
+  "bloqueadores": [
+   "La Plata",
+   "Club de Gimnasia y esgrima La plata"
+  ],
+  "_colorCrudo": "Negro",
+  "_color2Crudo": "BLanco"
+ },
+ {
+  "id": "huracan",
+  "nom": "Huracán",
+  "nombreCompleto": "Club Atlético Huracan",
+  "ciudad": null,
+  "ini": "H",
+  "apiId": 445,
+  "color": "#FFFFFF",
+  "color2": "#D3202A",
+  "patron": "liso",
+  "estrellas": 0,
+  "apodos": [
+   "El globo",
+   "el quemero",
+   "la quema"
+  ],
+  "bloqueadores": [],
+  "_colorCrudo": "Blanco",
+  "_color2Crudo": "Rojo"
+ },
+ {
+  "id": "independiente-rivadavia",
+  "nom": "Independiente Rivadavia",
+  "nombreCompleto": "Club Sportivo Independiente Rivadavia",
+  "ciudad": "Mendoza",
+  "ini": "I",
+  "apiId": 473,
+  "color": "#123C8C",
+  "color2": "#FFFFFF",
+  "patron": "liso",
+  "estrellas": 1,
+  "apodos": [
+   "la lepra mendocina"
+  ],
+  "bloqueadores": [
+   "Club Atlético Independiente",
+   "Newell's"
+  ],
+  "_colorCrudo": "Azul",
+  "_color2Crudo": "Blanco"
+ },
+ {
+  "id": "independiente",
+  "nom": "Independiente",
+  "nombreCompleto": "Club Atlético Independiente",
+  "ciudad": null,
+  "ini": "I",
+  "apiId": 453,
+  "color": "#D6001C",
+  "color2": "#FFFFFF",
+  "patron": "liso",
+  "estrellas": 0,
+  "apodos": [
+   "El diablo"
+  ],
+  "bloqueadores": [
+   "Mendoza",
+   "Club Sportivo Independiente Rivadavia"
+  ],
+  "_colorCrudo": "Rojo",
+  "_color2Crudo": null
+ },
+ {
+  "id": "instituto-cba",
+  "nom": "Instituto",
+  "nombreCompleto": "Instituto Atlético Central Córdoba",
+  "ciudad": "Córdoba",
+  "ini": "I",
+  "apiId": 478,
+  "color": "#D3202A",
+  "color2": "#FFFFFF",
+  "patron": "bastones",
+  "estrellas": 0,
+  "apodos": [
+   "La gloria",
+   "el glorioso cordobés"
+  ],
+  "bloqueadores": [],
+  "_colorCrudo": "Rojo",
+  "_color2Crudo": "Blanco"
+ },
+ {
+  "id": "lanus",
+  "nom": "Lanús",
+  "nombreCompleto": "Club Atlético Lanus",
+  "ciudad": null,
+  "ini": "L",
+  "apiId": 446,
+  "color": "#7A1F2B",
+  "color2": "#FFFFFF",
+  "patron": "liso",
+  "estrellas": 0,
+  "apodos": [
+   "El granate"
+  ],
+  "bloqueadores": [],
+  "_colorCrudo": "Bordó",
+  "_color2Crudo": null
+ },
+ {
+  "id": "newells",
+  "nom": "Newell's",
+  "nombreCompleto": "Club atlético newells old boys",
+  "ciudad": "Rosario",
+  "ini": "N",
+  "apiId": 457,
+  "color": "#1A1A1A",
+  "color2": "#D3202A",
+  "patron": "mitades",
+  "estrellas": 0,
+  "apodos": [
+   "La lepra"
+  ],
+  "bloqueadores": [
+   "Independiente Rivadavia"
+  ],
+  "_colorCrudo": "Negro",
+  "_color2Crudo": "Rojo"
+ },
+ {
+  "id": "platense",
+  "nom": "Platense",
+  "nombreCompleto": "Club Atlético Platense",
+  "ciudad": null,
+  "ini": "P",
+  "apiId": 1064,
+  "color": "#6B4A2F",
+  "color2": "#FFFFFF",
+  "patron": "franja",
+  "estrellas": 0,
+  "apodos": [
+   "El calamar"
+  ],
+  "bloqueadores": [],
+  "_colorCrudo": "Marron",
+  "_color2Crudo": "Blanco"
+ },
+ {
+  "id": "racing",
+  "nom": "Racing",
+  "nombreCompleto": "Racing club",
+  "ciudad": null,
+  "ini": "R",
+  "apiId": 436,
+  "color": "#6CACE4",
+  "color2": "#FFFFFF",
+  "patron": "bastones",
+  "estrellas": 0,
+  "apodos": [
+   "La academia"
+  ],
+  "bloqueadores": [
+   "Racing de córdoba"
+  ],
+  "_colorCrudo": "Celeste",
+  "_color2Crudo": "Blanco"
+ },
+ {
+  "id": "river",
+  "nom": "River",
+  "nombreCompleto": "Club Atlético River Plate",
+  "ciudad": null,
+  "ini": "R",
+  "apiId": 435,
+  "color": "#E4002B",
+  "color2": "#FFFFFF",
+  "patron": "banda",
+  "estrellas": 0,
+  "apodos": [
+   "El millonario"
+  ],
+  "bloqueadores": [
+   "River plate de uruguay"
+  ],
+  "_colorCrudo": "Rojo",
+  "_color2Crudo": "Blanco"
+ },
+ {
+  "id": "rosario-central",
+  "nom": "Rosario Central",
+  "nombreCompleto": "Club atlético rosario central",
+  "ciudad": "Rosario",
+  "ini": "R",
+  "apiId": 437,
+  "color": "#FFD200",
+  "color2": "#123C8C",
+  "patron": "bastones",
+  "estrellas": 8,
+  "apodos": [
+   "canalla"
+  ],
+  "bloqueadores": [
+   "Club Atlético Barracas Central",
+   "Santiago del Estero",
+   "club Atlético Central Córdoba"
+  ],
+  "_colorCrudo": "Amarillo",
+  "_color2Crudo": "Azul"
+ },
+ {
+  "id": "san-lorenzo",
+  "nom": "San Lorenzo",
+  "nombreCompleto": "Club Atlético San Lorenzo de Almagro",
+  "ciudad": null,
+  "ini": "S",
+  "apiId": 460,
+  "color": "#7A1F2B",
+  "color2": "#123C8C",
+  "patron": "bastones",
+  "estrellas": 0,
+  "apodos": [
+   "El santo",
+   "El matador de Boedo",
+   "El cuervo"
+  ],
+  "bloqueadores": [],
+  "_colorCrudo": "Bordo",
+  "_color2Crudo": "Azul"
+ },
+ {
+  "id": "sarmiento",
+  "nom": "Sarmiento",
+  "nombreCompleto": "Club atletico Sarmiento",
+  "ciudad": "Junín",
+  "ini": "S",
+  "apiId": 474,
+  "color": "#0B7A3B",
+  "color2": "#FFFFFF",
+  "patron": "liso",
+  "estrellas": 0,
+  "apodos": [
+   "El verde",
+   "el verdolaga"
+  ],
+  "bloqueadores": [],
+  "_colorCrudo": "Verde",
+  "_color2Crudo": null
+ },
+ {
+  "id": "tigre",
+  "nom": "Tigre",
+  "nombreCompleto": "Club Atlético Tigre",
+  "ciudad": null,
+  "ini": "T",
+  "apiId": 452,
+  "color": "#D3202A",
+  "color2": "#123C8C",
+  "patron": "franja",
+  "estrellas": 1,
+  "apodos": [
+   "El matador de Victoria"
+  ],
+  "bloqueadores": [],
+  "_colorCrudo": "Rojo",
+  "_color2Crudo": "Azul"
+ },
+ {
+  "id": "union",
+  "nom": "Unión",
+  "nombreCompleto": "Club Atlético Unión",
+  "ciudad": "Santa Fe",
+  "ini": "U",
+  "apiId": 441,
+  "color": "#D3202A",
+  "color2": "#FFFFFF",
+  "patron": "bastones",
+  "estrellas": 0,
+  "apodos": [
+   "El tatengue"
+  ],
+  "bloqueadores": [],
+  "_colorCrudo": "Rojo",
+  "_color2Crudo": "Blanco"
+ },
+ {
+  "id": "velez",
+  "nom": "Vélez",
+  "nombreCompleto": "Club Atlético Velez Sarsfield",
+  "ciudad": null,
+  "ini": "V",
+  "apiId": 438,
+  "color": "#FFFFFF",
+  "color2": "#123C8C",
+  "patron": "uve",
+  "estrellas": 1,
+  "apodos": [
+   "El fortin"
+  ],
+  "bloqueadores": [],
+  "_colorCrudo": "Blanco",
+  "_color2Crudo": "Azul"
+ }
+];
+
+const aRGB=h=>{h=h.replace("#","");if(h.length===3)h=[...h].map(c=>c+c).join("");
+  return [0,2,4].map(i=>parseInt(h.slice(i,i+2),16));};
+const aHEX=([r,g,b])=>"#"+[r,g,b].map(v=>Math.round(Math.max(0,Math.min(255,v))).toString(16).padStart(2,"0")).join("");
+const lum=([r,g,b])=>{const f=v=>{v/=255;return v<=.03928?v/12.92:Math.pow((v+.055)/1.055,2.4);};
+  return .2126*f(r)+.7152*f(g)+.0722*f(b);};
+const CT=(a,b)=>{const x=lum(aRGB(a)),y=lum(aRGB(b));return (Math.max(x,y)+.05)/(Math.min(x,y)+.05);};
+function aHSL([r,g,b]){r/=255;g/=255;b/=255;const mx=Math.max(r,g,b),mn=Math.min(r,g,b),l=(mx+mn)/2,d=mx-mn;
+  if(!d)return[0,0,l];const s=l>.5?d/(2-mx-mn):d/(mx+mn);
+  const h=mx===r?((g-b)/d+(g<b?6:0)):mx===g?(b-r)/d+2:(r-g)/d+4;return[h*60,s,l];}
+function deHSL([h,s,l]){h=((h%360)+360)%360;if(!s){const v=Math.round(l*255);return[v,v,v];}
+  const c=(1-Math.abs(2*l-1))*s,x=c*(1-Math.abs((h/60)%2-1)),m=l-c/2;
+  const t=h<60?[c,x,0]:h<120?[x,c,0]:h<180?[0,c,x]:h<240?[0,x,c]:h<300?[x,0,c]:[c,0,x];
+  return t.map(v=>Math.round((v+m)*255));}
+const saturar=(h,k)=>{const[x,s,l]=aHSL(aRGB(h));return aHEX(deHSL([x,Math.min(1,s*k),l]));};
+const tintaSobre=h=>CT("#101418",h)>=CT("#FFFFFF",h)?"#101418":"#FFFFFF";
+
+/* El patrón "uve" es nuevo: lo pidió la camiseta de Vélez. Dos diagonales
+   espejadas, cada una en su mitad, arman la V.                            */
+function patronCSS(t,c1,c2){switch(t){
+  case "bastones":return `repeating-linear-gradient(90deg,${c1} 0 22px,${c2} 22px 44px)`;
+  case "franja":  return `linear-gradient(180deg,${c1} 0 30%,${c2} 30% 62%,${c1} 62% 100%)`;
+  case "banda":   return `linear-gradient(114deg,${c1} 0 30%,${c2} 30% 56%,${c1} 56% 100%)`;
+  case "mitades": return `linear-gradient(100deg,${c1} 0 48%,${c2} 52% 100%)`;
+  case "uve":     return `linear-gradient(122deg,transparent 0 36%,${c2} 36% 62%,transparent 62%) left/50% 100% no-repeat,`
+                       + `linear-gradient(238deg,transparent 0 36%,${c2} 36% 62%,transparent 62%) right/50% 100% no-repeat,${c1}`;
+  default:        return `radial-gradient(120% 100% at 50% 0%,${c2} 0%,${c1} 72%)`;}}
+
+const ptsEstrella=(cx,cy,r)=>{const p=[];
+  for(let i=0;i<10;i++){const a=-Math.PI/2+i*Math.PI/5,rad=i%2?r*.42:r;
+    p.push((cx+rad*Math.cos(a)).toFixed(1)+","+(cy+rad*Math.sin(a)).toFixed(1));}return p.join(" ");};
+/* Cuántas se DIBUJAN, que no es lo mismo que cuántas tiene.
+   Boca lleva 74 títulos y en el escudo de la camiseta pone 50: ni el club
+   las muestra todas. Pasada la docena dejan de leerse como estrellas y
+   quedan como manchas, así que el fondo muestra unas cuantas y el número
+   verdadero se guarda aparte para escribirlo donde corresponda.          */
+const TOPE_ESTRELLAS = 12;
+function estrellasFondo(n,color){ if(!n)return "none";
+  n = Math.min(n, TOPE_ESTRELLAS);
+  const W=1000,H=620,porFila=n<=6?n:14,filas=Math.ceil(n/porFila);
+  const tam=n<=3?30:n<=8?26:Math.max(11,26-n*.24); let g="",hechas=0;
+  for(let f=0;f<filas&&hechas<n;f++){const enFila=Math.min(porFila,n-hechas),R=560+f*78;
+    const arco=Math.min(1.5,.16*enFila);
+    for(let k=0;k<enFila;k++,hechas++){const t=enFila===1?0:-arco/2+(arco*k)/(enFila-1);
+      g+=`<polygon points='${ptsEstrella(W/2+R*Math.sin(t),700-R*Math.cos(t),tam)}'/>`;}}
+  return `url("data:image/svg+xml,${encodeURIComponent(
+    `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 ${W} ${H}'><g fill='${color}'>${g}</g></svg>`)}")`;}
+
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const FONDO="#0B0E13";
+let filtro="todos";
+
+function tarjeta(c){
+  const c1=saturar(c.color,1.5), c2=saturar(c.color2,1.5);
+  const cE=CT(c.color2,FONDO)>=CT(c.color,FONDO)?c2:c1;
+  const alertas=[];
+  if(c.estrellas>12) alertas.push("Cargaste <b>"+c.estrellas+" estrellas</b>. A partir de una docena dejan de leerse como estrellas y quedan como textura. ¿Va igual?");
+  if(!c.ciudad && c.bloqueadores.length) alertas.push("Choca de nombre con otro club y <b>no tiene ciudad</b>: sin eso no hay con qué distinguirlos.");
+  return `<div class="club" data-p="${c.patron}" data-rev="${alertas.length?1:0}">
+    <div class="seña">
+      <div class="lav" style="background:${patronCSS(c.patron,c1,c2)}"></div>
+      <div class="est" style="background-image:${estrellasFondo(c.estrellas,cE)};opacity:.5"></div>
+      <div class="mono" style="background:${c.color};color:${tintaSobre(c.color)}">${esc(c.ini)}</div>
+    </div>
+    <div class="cuerpo">
+      <h2>${esc(c.nom)}</h2>
+      <div class="ciu">${esc(c.ciudad||"— sin ciudad —")}</div>
+      <div class="datos">
+        <span class="sw" style="background:${c.color}"></span>
+        <span class="sw" style="background:${c.color2}"></span>
+        <span class="tag">${esc(c.patron)}</span>
+        <span class="tag">${c.estrellas} ★</span>
+      </div>
+      <div class="crudo"><b>Pusiste:</b> ${esc(c._colorCrudo||"—")}${c._color2Crudo?" / "+esc(c._color2Crudo):""}
+        &nbsp;→&nbsp; ${c.color} ${c.color2}</div>
+      ${c.bloqueadores.length?`<div class="bloq"><b>Bloqueadores:</b> ${esc(c.bloqueadores.join(" · "))}</div>`:""}
+      ${alertas.map(a=>`<div class="alerta">${a}</div>`).join("")}
+    </div></div>`;
+}
+
+function pintar(){
+  const ok=c=> filtro==="todos" ? true
+    : filtro==="otros" ? !["bastones","liso","banda","franja"].includes(c.patron)
+    : filtro==="revisar" ? (c.estrellas>12 || (!c.ciudad && c.bloqueadores.length))
+    : c.patron===filtro;
+  document.getElementById("rejilla").innerHTML=CLUBES.filter(ok).map(tarjeta).join("");
+  document.querySelectorAll("#barra button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.f===filtro));
+}
+document.getElementById("barra").onclick=e=>{const b=e.target.closest("button");
+  if(!b)return; filtro=b.dataset.f; pintar();};
+pintar();
+</script>
+</body>
+</html>
