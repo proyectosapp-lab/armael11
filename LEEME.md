@@ -61,6 +61,7 @@ probar.mjs           11 casos de Talleres contra datos reales guardados
 probar-clubes.mjs    29 casos de los clubes nuevos: titulares que entraron mal
 probar-once.mjs      22 casos del once automático
 probar-stats.mjs     30 casos de la tabla y los números
+esquema.sql          las tablas del backend. Se pega en el editor SQL de Supabase.
 probar-backend.mjs   25 casos del esquema: que nadie se escriba sus propios puntos
 cuentas.js           entrar, el perfil, el equipo y las ligas. Solo fetch.
 probar-cuentas.mjs   37 casos de lo que se le pide al backend, sin red

@@ -1,3 +1,23 @@
+TSTE — versión 2026-08-26 g (todo en la raíz, sin carpetas)
+
+Lo más nuevo:
+  · esquema.sql ya NO está en una carpeta: vive en la raíz como todo lo
+    demás. La carpeta supabase/ no se subía al arrastrar a GitHub, y una
+    corrida entera falló por eso. Si la subida pierde carpetas, la
+    respuesta no es aprender a arrastrar carpetas: es no tener carpetas.
+  · Si igual falta un archivo, la corrida lo dice por su nombre en el
+    primer renglón del log.
+
+── lo de antes ───────────────────────────────────────────────────────────
+TSTE — versión 2026-08-26 f (aviso de archivos faltantes)
+
+Lo más nuevo:
+  · publicar.mjs revisa PRIMERO que estén todos los archivos y, si falta
+    alguno, lo dice por su nombre en el primer renglón del log en vez de
+    fallar más adelante con un error críptico. Al arrastrar a GitHub hay
+    que subir también las CARPETAS: supabase/ es una de ellas.
+
+── lo de antes ───────────────────────────────────────────────────────────
 TSTE — versión 2026-08-26 e (backend enchufado)
 
 Lo más nuevo:

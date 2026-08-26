@@ -45,6 +45,35 @@ function paso(nombre, script, { obligatorio = false, args = [] } = {}) {
   return ok;
 }
 
+/* ─── 0. ¿ESTÁN TODOS LOS ARCHIVOS? ──────────────────────────────────────
+   Los archivos suben arrastrándolos al navegador, y ahí se pierden cosas:
+   una carpeta que no se seleccionó, un archivo nuevo que quedó afuera. Sin
+   esto, la corrida falla más adelante con un ENOENT en el medio de un log
+   largo, y hay que ir a buscar qué archivo era. Con esto, dice cuál falta y
+   corta en el primer renglón.
+
+   Solo se listan los que TIENEN que estar sí o sí. Los generados —feeds,
+   stats-liga, el cache del juego— no van acá: los hace la propia corrida. */
+const IMPRESCINDIBLES = [
+  "pipeline.mjs", "traer.mjs", "todos.mjs", "juego.js", "cuentas.js",
+  "clubes.json", "medios.json", "sitio.json", "app.tpl.html",
+  "construir-sitio.mjs", "datos-juego.mjs", "stats-api.mjs", "stats-calc.mjs",
+  "resolver-youtube.mjs", "esquema.sql",
+  "probar.mjs", "probar-clubes.mjs", "probar-once.mjs", "probar-stats.mjs",
+  "probar-backend.mjs", "probar-cuentas.mjs",
+];
+const faltan = IMPRESCINDIBLES.filter(f => !existsSync(aca("./" + f)));
+if (faltan.length) {
+  console.log("\n" + linea);
+  console.log("  FALTAN ARCHIVOS. No es un error del código: no llegaron al repo.");
+  console.log(linea);
+  faltan.forEach(f => console.log("    · " + f));
+  console.log("\n  Abrí la carpeta descomprimida, seleccioná TODO lo de adentro");
+  console.log("  (Ctrl+A) y arrastrá eso a GitHub. Todos los archivos van sueltos");
+  console.log("  en la raíz: no hay ninguna carpeta que subir.\n");
+  process.exit(1);
+}
+
 /* ─── 1. las pruebas ─────────────────────────────────────────────────────
    Van primero y son obligatorias. Si el pipeline está roto, publicar treinta
    feeds mal armados encima de los que estaban bien es peor que no publicar. */

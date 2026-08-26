@@ -1,7 +1,7 @@
 /* ══════════════════════════════════════════════════════════════════════════
    PRUEBA DEL ESQUEMA
      node probar-backend.mjs
-   No toca la red ni la base: lee `supabase/esquema.sql` y verifica que las
+   No toca la red ni la base: lee `esquema.sql` y verifica que las
    garantías del juego limpio sigan escritas ahí.
 
    Esto NO prueba que Postgres acepte el archivo —para eso hace falta una
@@ -12,7 +12,7 @@
    ══════════════════════════════════════════════════════════════════════════ */
 import { readFileSync } from "node:fs";
 
-const SQL = readFileSync(new URL("./supabase/esquema.sql", import.meta.url), "utf8");
+const SQL = readFileSync(new URL("./esquema.sql", import.meta.url), "utf8");
 const casos = [];
 const caso = (nom, ok, detalle = "") => casos.push([nom, ok, detalle]);
 
