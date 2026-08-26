@@ -76,6 +76,35 @@ function multimedia(xml){
   return { url, tipo, esVideo: /^video\//.test(tipo) };
 }
 
+/* ── LA IMAGEN QUE EL MEDIO YA DECLARA ────────────────────────────────────
+   No hay que ir a buscarla a ningún lado: los feeds la traen. RSS moderno
+   la manda en <media:thumbnail>, en <media:content type="image/…"> o en un
+   <enclosure> de imagen. Es la misma que usa WhatsApp cuando pegás el link.
+
+   Dos reglas y ninguna más:
+     · Solo se toma la que el feed declara. No se abre la nota a buscarla.
+     · Se enlaza a su servidor, no se copia. La imagen es del medio y sigue
+       siendo del medio; nosotros ponemos el link a su nota al lado.
+
+   Devuelve null cuando no hay, que es la mitad de los casos: la tarjeta
+   tiene que verse bien igual, no acomodarse alrededor de la foto.       */
+export const soloHttps = u => (typeof u === "string" && /^https:\/\//i.test(u)) ? u : null;
+
+export function imagenDe(xml) {
+  const cand =
+       atributo(xml, "media:thumbnail", "url")
+    || xml.match(/<media:content[^>]*\btype\s*=\s*["']image\/[^"']*["'][^>]*\burl\s*=\s*["']([^"']+)/i)?.[1]
+    || xml.match(/<media:content[^>]*\burl\s*=\s*["']([^"']+\.(?:jpe?g|png|webp)[^"']*)["']/i)?.[1]
+    || xml.match(/<enclosure[^>]*\btype\s*=\s*["']image\/[^"']*["'][^>]*\burl\s*=\s*["']([^"']+)/i)?.[1]
+    || atributo(xml, "image", "href")
+    || "";
+  return soloHttps(cand);
+}
+
+/* La miniatura de un video de YouTube no hay ni que buscarla: se arma con
+   el id. `hqdefault` pesa unos 20 kB y existe para todos los videos.    */
+export const miniaturaYT = id => id ? "https://i.ytimg.com/vi/" + id + "/hqdefault.jpg" : null;
+
 /* De /2026/08/23/aldosivi-no-pudo-ganar/ a "Aldosivi no pudo ganar" */
 export function tituloDesdeSlug(url){
   try{
@@ -109,6 +138,7 @@ const PARSERS = {
     /* Y el video, cuando el medio lo adjunta. El feed oficial de Belgrano
        manda el gol en mp4 como enclosure. No lo alojamos: se enlaza.      */
     media: multimedia(b),
+    imagen: imagenDe(b),
   })),
 
   atom: xml => bloques(xml, "entry").map(b => ({
@@ -116,6 +146,7 @@ const PARSERS = {
     url: atributo(b, "link", "href") || campo(b, "id"),
     fecha: campo(b, "published", "updated"),
     resumen: campo(b, "summary", "content").slice(0, 400),
+    imagen: imagenDe(b),
   })),
 
   /* ── SITEMAP SIN TÍTULOS ──────────────────────────────────────────────
@@ -145,6 +176,7 @@ const PARSERS = {
     url: campo(b, "loc"),
     fecha: campo(b, "news:publication_date") || campo(b, "lastmod"),
     resumen: campo(b, "news:keywords"),
+    imagen: imagenDe(b),
   })),
 
   /* ── WORDPRESS SIN FEED ────────────────────────────────────────────────
@@ -167,6 +199,10 @@ const PARSERS = {
       url: p.link || "",
       fecha: p.date_gmt ? p.date_gmt + "Z" : p.date,
       resumen: limpiar(p.excerpt?.rendered || "").slice(0, 400),
+      /* WordPress la publica en el mismo JSON cuando el sitio tiene Jetpack
+         o cuando se pidió con `_embed`. Si no está, no está.            */
+      imagen: soloHttps(p.jetpack_featured_media_url
+                     || p._embedded?.["wp:featuredmedia"]?.[0]?.source_url),
     }));
   },
 

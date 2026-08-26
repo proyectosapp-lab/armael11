@@ -113,6 +113,63 @@ srv.listen(8099, async () => {
   caso("el feed entra por <script src> y se pinta",
        (await pg.locator('#resumen').textContent() || '').includes('historias'));
 
+  /* ── JERARQUÍA ────────────────────────────────────────────────────────
+     La observación era "se ven todos igual, como líneas interminables".
+     Que existan tres tamaños no alcanza: hay que medir que el navegador
+     los pinte DISTINTOS, porque un CSS que no aplica se ve como uno que
+     no existe.                                                          */
+  const jer = await pg.evaluate(() => {
+    const px = sel => { const e = document.querySelector(sel);
+      return e ? parseFloat(getComputedStyle(e).fontSize) : 0; };
+    return { portadas: document.querySelectorAll('.tarjeta.portada').length,
+             medias:   document.querySelectorAll('.tarjeta.media').length,
+             lineas:   document.querySelectorAll('.linea').length,
+             dias:     document.querySelectorAll('h3.dia').length,
+             gr: px('.portada h2'), md: px('.tarjeta.media h2'), ch: px('.linea a'),
+             total: (window.FEED.clusters || []).length };
+  });
+  caso("hay UNA sola portada", jer.portadas === 1, "portadas: " + jer.portadas);
+  caso("y hasta cuatro tarjetas medianas", jer.medias <= 4 && jer.medias > 0, "medias: " + jer.medias);
+  caso("el resto va en renglones compactos",
+       jer.total <= 5 ? jer.lineas === 0 : jer.lineas > 0, "renglones: " + jer.lineas);
+  caso("los renglones se agrupan por día", jer.total <= 5 ? true : jer.dias > 0, "días: " + jer.dias);
+  caso("los tres tamaños se ven distintos de verdad",
+       jer.gr > jer.md && jer.md > jer.ch, [jer.gr, jer.md, jer.ch].join(" > "));
+
+  /* ── LAS MINIATURAS ───────────────────────────────────────────────────
+     El feed de prueba no trae imágenes, así que se le pone una y se vuelve
+     a pintar. Lo que importa no es que aparezca: es que vaya diferida, que
+     no se aloje acá y que si el medio la borra no quede un cuadrado roto. */
+  const img = await pg.evaluate(() => {
+    window.FEED.clusters[0].principal.imagen = "https://cdn.ejemplo.com/foto.jpg";
+    pintar();
+    const e = document.querySelector('.portada .foto');
+    if (!e) return null;
+    const ok = e.getAttribute("onerror") || "";
+    e.dispatchEvent(new Event("error"));            // el medio la borró
+    return { src: e.getAttribute("src"), lazy: e.getAttribute("loading"),
+             ref: e.getAttribute("referrerpolicy"), seSaca: ok,
+             quedan: document.querySelectorAll('.portada .foto').length };
+  });
+  caso("la portada muestra la miniatura cuando el medio la declara", !!img);
+  caso("la imagen se enlaza al medio, no se aloja acá",
+       !!img && /^https:\/\/cdn\.ejemplo\.com/.test(img.src), img ? img.src : "");
+  caso("y va con carga diferida", !!img && img.lazy === "lazy", img ? img.lazy : "");
+  caso("sin mandarle a quién la mira", !!img && img.ref === "no-referrer", img ? img.ref : "");
+  caso("si la imagen se cae, la tarjeta sigue entera (no queda el cuadrado roto)",
+       !!img && img.quedan === 0, img ? "quedaron " + img.quedan : "");
+
+  /* Y que el interruptor de sitio.json mande de verdad. */
+  const apagadas = await pg.evaluate(() => {
+    const antes = window.SITIO && window.SITIO.miniaturas;
+    window.SITIO = { miniaturas: "ninguna" }; pintar();
+    const n = document.querySelectorAll('.foto, .mini-f').length;
+    window.SITIO = { miniaturas: antes || "todas" }; pintar();
+    return n;
+  });
+  caso("con miniaturas en 'ninguna' no se baja ni una imagen", apagadas === 0,
+       "quedaron " + apagadas);
+
   /* La pestaña Números: tiene que ofrecer las tablas que haya y arrancar en
      la que contiene a este club. Mostrábamos la del torneo ya terminado. */
   /* Que el link se pueda mandar. Sin estas etiquetas, pegar la dirección en

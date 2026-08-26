@@ -1,4 +1,25 @@
-TSTE — versión 2026-08-26 (filete grueso)
+TSTE — versión 2026-08-26 c (jerarquía del feed + esquema del backend)
+
+Lo más nuevo:
+  · supabase/esquema.sql y BACKEND.md: las tablas del fantasy y las ligas,
+    con la regla escrita en la base — el teléfono escribe el equipo y solo
+    antes del cierre; los puntos los escribe el servidor.
+  · El esquema no usa comentarios con dos guiones: hay editores que los
+    convierten en una raya larga al abrir el archivo y el SQL deja de
+    correr. Abrilo arrastrandolo a una pestaña de Chrome, no con Word.
+  · 158 casos de prueba.
+
+
+Lo nuevo de esta subida:
+  · El feed dejó de ser treinta renglones iguales. Ahora hay tres tamaños:
+    la primera historia con imagen grande, las cuatro siguientes con
+    miniatura al costado, y el resto en renglones agrupados por día.
+  · Las miniaturas se enlazan al medio, nunca se alojan acá, y van con
+    carga diferida. Se apagan desde sitio.json ("miniaturas").
+  · 134 casos de prueba.
+
+── lo de antes ───────────────────────────────────────────────────────────
+
 
 Este archivo existe para una sola cosa: que se pueda mirar el repo y saber,
 sin abrir nada más, si la última subida entró o quedó a mitad de camino.

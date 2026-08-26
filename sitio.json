@@ -4,6 +4,12 @@
  "url": "https://proyectosapp-lab.github.io/armael11",
  "_url": "Sin esto, el link compartido por WhatsApp no muestra tarjeta: og:url tiene que ser absoluta. Sin barra al final.",
 
+ "supabase": { "url": "", "anon": "" },
+ "_supabase": "Las DOS claves PÚBLICAS del backend, de Project Settings → API. La 'anon' está hecha para vivir en el navegador: sola no puede leer ni escribir nada que las políticas de la base no permitan. La tercera clave, la 'service_role', NO va acá ni en ningún archivo del proyecto: va como secreto de GitHub llamado SUPABASE_SERVICE_KEY. Los pasos están en BACKEND.md. Vacío = la app funciona como hasta ahora, sin cuentas ni tablas.",
+
+ "miniaturas": "todas",
+ "_miniaturas": "Qué imágenes muestra el feed. 'todas' = la miniatura de YouTube en los videos y la que el propio medio declara en su feed en las notas. 'videos' = solo YouTube (pesa 20 kB, se arma con el id del video y no trae fotos de terceros). 'ninguna' = jerarquía sin imágenes. Ninguna imagen se aloja acá: se enlaza al servidor del medio, igual que la vista previa de WhatsApp, y va con carga diferida, así que solo se baja lo que se llega a ver.",
+
  "contador": "",
  "_contador": "Código de GoatCounter para contar visitas. Vacío = no se carga ningún script de terceros, que es como está ahora. Si ponés 'tste', se carga https://tste.goatcounter.com/count.js. GoatCounter no usa cookies, no guarda IPs completas y no sigue a nadie entre sitios: cuenta páginas vistas y de dónde vinieron. Crear la cuenta es gratis en goatcounter.com y lleva dos minutos."
 }

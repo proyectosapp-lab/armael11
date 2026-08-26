@@ -59,6 +59,42 @@ body{margin:0;background:transparent;color:var(--tinta);
 .otras{margin-top:12px;padding-top:11px;border-top:1px solid var(--borde);display:grid;gap:8px;font-size:12.5px}
 .otras a{color:var(--tinta-2);text-decoration:none;display:flex;gap:8px}
 .otras b{color:var(--tinta-3);font-weight:600;flex:none}
+
+/* ── JERARQUÍA ────────────────────────────────────────────────────────────
+   Antes las treinta historias se veían exactamente igual: treinta renglones
+   del mismo tamaño, uno abajo del otro, y el ojo no tenía dónde apoyarse.
+   Ahora hay tres tamaños y se leen en ese orden:
+
+     1. LA PRIMERA, con imagen grande. Una sola.
+     2. LAS SIGUIENTES CUATRO, con miniatura al costado.
+     3. EL RESTO, renglones compactos agrupados por día.
+
+   La imagen es siempre opcional: si el medio no la declara, o si tarda, o
+   si el servidor la borró, la tarjeta se ve bien igual. Nunca se reserva
+   un hueco vacío esperándola.                                            */
+.tarjeta.portada{padding:0;overflow:hidden}
+.foto{display:block;width:100%;aspect-ratio:16/9;object-fit:cover;background:var(--borde)}
+.portada .cuerpo{padding:15px 17px 16px}
+.portada h2{font-size:21px;line-height:1.28;font-weight:750;letter-spacing:-.4px}
+.portada .bajada{font-size:14px}
+
+.fila{display:flex;gap:13px;align-items:flex-start}
+.fila .txt{flex:1;min-width:0}
+.mini-f{width:92px;height:92px;flex:none;border-radius:12px;object-fit:cover;background:var(--borde)}
+.tarjeta.media h2{font-size:15.5px;line-height:1.35}
+
+.compactas{background:var(--hoja);border:1px solid var(--borde);border-radius:18px;
+  padding:4px 15px;margin-bottom:9px}
+.linea{display:flex;gap:10px;align-items:baseline;padding:11px 0;border-top:1px solid var(--borde)}
+.compactas .linea:first-child{border-top:0}
+.linea a{color:inherit;text-decoration:none;font-size:14px;line-height:1.4;font-weight:600}
+.linea a:hover{color:var(--acento-txt)}
+.linea .cuando{margin-left:auto;flex:none;font-size:11px;color:var(--tinta-3);white-space:nowrap}
+.linea .de{display:block;font-size:11.5px;color:var(--tinta-3);font-weight:500;margin-top:3px}
+.dia{margin:20px 2px 8px;font-size:11.5px;letter-spacing:1.1px;text-transform:uppercase;
+  color:var(--tinta-3);font-weight:800}
+.vid{display:inline-grid;place-items:center;width:17px;height:17px;border-radius:5px;
+  background:#E4572E;color:#fff;font-size:8px;flex:none;transform:translateY(2px)}
 .vacio{text-align:center;padding:44px 20px;color:var(--tinta-3);font-size:14px}
 .pie{padding:22px 6px 10px;font-size:11px;color:var(--tinta-3);line-height:1.6;text-align:center}
 
@@ -351,23 +387,114 @@ const FILTROS=[
 let filtro="todo";
 /* null = todavía no eligió: se arranca en la tabla donde está su equipo. */
 let tablaSel=null;
-const tarjeta=c=>{const p=c.principal,g=c.nFuentes>1;return `
-  <article class="tarjeta${g?" grupo":""}">
-    <div class="meta">${p.tipo==="video"?'<span class="play">▶</span>'
-      :`<span class="punto" style="background:${COLOR[p.fuenteTipo]||COLOR.medio}"></span>`}
-      <b>${esc(p.fuente)}</b><span>·</span><span>${hace(c.horas)}</span>
-      ${g?`<span class="sello">⧉ ${c.nFuentes} fuentes</span>`:""}</div>
-    <h2><a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.titulo)}</a></h2>
-    ${p.resumen?`<p class="bajada">${esc(p.resumen.slice(0,155))}</p>`:""}
-    ${g?`<div class="otras">${c.tambien.map(t=>
-      `<a href="${esc(t.url)}" target="_blank" rel="noopener"><b>${esc(t.fuente)}</b>${esc(t.titulo)}</a>`).join("")}</div>`:""}
+/* ── LAS MINIATURAS ───────────────────────────────────────────────────────
+   Las imágenes NO se alojan: se enlazan al servidor del medio, que es lo
+   mismo que hace WhatsApp cuando pegás un link. Por eso el sitio no pesa
+   ni un byte más; lo que se gasta son los datos de quien mira, y solo de
+   lo que llega a ver, porque van con carga diferida.
+
+   `sitio.json` manda: "todas" (videos y notas), "videos" (solo la miniatura
+   de YouTube, que pesa 20 kB y no tiene fotos ajenas adentro) o "ninguna".
+   Está afuera del código para que se pueda cambiar de opinión sin tocarlo. */
+const minis=()=>(window.SITIO&&window.SITIO.miniaturas)||"todas";
+const fotoDe=p=>{
+  const m=minis();
+  if(m==="ninguna") return null;
+  if(m==="videos" && p.tipo!=="video") return null;
+  return /^https:\/\//.test(p.imagen||"") ? p.imagen : null;
+};
+/* Si la imagen no carga —el medio la borró, cambió de dirección, o su
+   servidor está caído— se saca del todo. Un cuadrado roto es peor que
+   ninguna imagen.                                                       */
+const IMG=(url,clase)=>`<img class="${clase}" src="${esc(url)}" alt="" loading="lazy"
+  decoding="async" referrerpolicy="no-referrer" onerror="this.remove()">`;
+
+const cabecera=(c,p,g)=>`<div class="meta">${p.tipo==="video"?'<span class="play">▶</span>'
+  :`<span class="punto" style="background:${COLOR[p.fuenteTipo]||COLOR.medio}"></span>`}
+  <b>${esc(p.fuente)}</b><span>·</span><span>${hace(c.horas)}</span>
+  ${g?`<span class="sello">⧉ ${c.nFuentes} fuentes</span>`:""}</div>`;
+
+const otrasHTML=c=>c.nFuentes>1?`<div class="otras">${c.tambien.map(t=>
+  `<a href="${esc(t.url)}" target="_blank" rel="noopener"><b>${esc(t.fuente)}</b>${esc(t.titulo)}</a>`
+  ).join("")}</div>`:"";
+
+/* 1. la primera, con la imagen grande */
+const portada=c=>{const p=c.principal,g=c.nFuentes>1,f=fotoDe(p);return `
+  <article class="tarjeta portada${g?" grupo":""}">
+    ${f?IMG(f,"foto"):""}
+    <div class="cuerpo">
+      ${cabecera(c,p,g)}
+      <h2><a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.titulo)}</a></h2>
+      ${p.resumen?`<p class="bajada">${esc(p.resumen.slice(0,180))}</p>`:""}
+      ${otrasHTML(c)}
+    </div>
   </article>`;};
+
+/* 2. las cuatro siguientes, con miniatura al costado */
+const media=c=>{const p=c.principal,g=c.nFuentes>1,f=fotoDe(p);return `
+  <article class="tarjeta media${g?" grupo":""}">
+    <div class="fila">
+      <div class="txt">
+        ${cabecera(c,p,g)}
+        <h2><a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.titulo)}</a></h2>
+      </div>
+      ${f?IMG(f,"mini-f"):""}
+    </div>
+    ${otrasHTML(c)}
+  </article>`;};
+
+/* 3. el resto, en renglones */
+const linea=c=>{const p=c.principal;return `
+  <div class="linea">
+    ${p.tipo==="video"?'<span class="vid">▶</span>'
+      :`<span class="punto" style="background:${COLOR[p.fuenteTipo]||COLOR.medio}"></span>`}
+    <div style="min-width:0">
+      <a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.titulo)}</a>
+      <span class="de">${esc(p.fuente)}${c.nFuentes>1?" ⧉"+c.nFuentes:""}</span>
+    </div>
+    <span class="cuando">${esc(hora(p.fecha) || hace(c.horas))}</span>
+  </div>`;};
+
+/* En los renglones el día ya lo dice el título del grupo, así que repetir
+   "hace 5 días" en cada uno es ruido. Va la hora, que sí agrega algo: dice
+   en qué orden pasaron las cosas de ese día.                             */
+const hora=iso=>{ if(!iso) return "";
+  const d=new Date(iso); return isNaN(d)?"":d.toLocaleTimeString("es-AR",{hour:"2-digit",minute:"2-digit"}); };
+
+/* El día de una historia, en las palabras que usaría un hincha. */
+const DIAS=["domingo","lunes","martes","miércoles","jueves","viernes","sábado"];
+function diaDe(iso){
+  if(!iso) return "Antes";
+  const d=new Date(iso), h=new Date();
+  const solo=x=>new Date(x.getFullYear(),x.getMonth(),x.getDate()).getTime();
+  const dif=Math.round((solo(h)-solo(d))/864e5);
+  if(dif<=0) return "Hoy";
+  if(dif===1) return "Ayer";
+  if(dif<7)   return DIAS[d.getDay()].replace(/^./,m=>m.toUpperCase());
+  return d.toLocaleDateString("es-AR",{day:"numeric",month:"long"});
+}
+
 function vistaFeed(){
   const f=FILTROS.find(x=>x.id===filtro), l=F.clusters.filter(f.ok);
   const utiles=FILTROS.filter(x=>x.id===filtro||F.clusters.some(x.ok));
-  return `<nav class="filtros">${utiles.map(x=>
-    `<button class="chip" data-f="${x.id}" aria-pressed="${x.id===filtro}">${x.nom}</button>`).join("")}</nav>`
-    + (l.length?l.map(tarjeta).join(""):`<div class="vacio">Nada acá todavía.</div>`);
+  const chips=`<nav class="filtros">${utiles.map(x=>
+    `<button class="chip" data-f="${x.id}" aria-pressed="${x.id===filtro}">${x.nom}</button>`).join("")}</nav>`;
+  if(!l.length) return chips+`<div class="vacio">Nada acá todavía.</div>`;
+
+  let out=chips+portada(l[0])+l.slice(1,5).map(media).join("");
+
+  /* El resto va agrupado por día: sin eso son cuarenta renglones iguales
+     y no se sabe si lo de abajo es de anoche o de la semana pasada.     */
+  const resto=l.slice(5);
+  let dia=null, abierta=false;
+  for(const c of resto){
+    const d=diaDe(c.principal.fecha);
+    if(d!==dia){ if(abierta) out+="</div>"; out+=`<h3 class="dia">${esc(d)}</h3><div class="compactas">`;
+                 dia=d; abierta=true; }
+    out+=linea(c);
+  }
+  if(abierta) out+="</div>";
+  return out;
 }
 
 /* ══════════════════ NÚMEROS ══════════════════ */

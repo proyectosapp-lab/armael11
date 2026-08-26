@@ -45,6 +45,12 @@ export function normalizar(crudo, fuente) {
     ts: fecha && !isNaN(fecha) ? fecha.getTime() : 0,
     videoId: crudo.videoId || null,
     media: crudo.media || null,
+    /* La miniatura. Para un video de YouTube se arma con el id y siempre
+       existe; para una nota es la que el medio declaró en su feed, que
+       está la mitad de las veces. Nunca se aloja: se enlaza al servidor
+       del medio, igual que hace WhatsApp con la vista previa.          */
+    imagen: crudo.imagen
+         || (crudo.videoId ? "https://i.ytimg.com/vi/" + crudo.videoId + "/hqdefault.jpg" : null),
     categorias: crudo.categorias || [],
     seccion: seccionDe(crudo.categorias || [], (crudo.titulo || "") + " " + (crudo.resumen || "")),
     competencia: competenciaDe(crudo.categorias || [], (crudo.titulo || "") + " " + (crudo.resumen || "")),

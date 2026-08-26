@@ -48,7 +48,8 @@ function paso(nombre, script, { obligatorio = false, args = [] } = {}) {
 /* ─── 1. las pruebas ─────────────────────────────────────────────────────
    Van primero y son obligatorias. Si el pipeline está roto, publicar treinta
    feeds mal armados encima de los que estaban bien es peor que no publicar. */
-for (const t of ["probar.mjs", "probar-clubes.mjs", "probar-once.mjs", "probar-stats.mjs"])
+for (const t of ["probar.mjs", "probar-clubes.mjs", "probar-once.mjs", "probar-stats.mjs",
+                 "probar-backend.mjs"])
   paso("Pruebas · " + t, t, { obligatorio: true });
 
 if (soloPruebas) { console.log("\n  Solo pruebas. Listo.\n"); process.exit(0); }

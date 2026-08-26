@@ -58,12 +58,13 @@ todos.mjs            baja todo una vez y arma los 30 feeds
 ingest.mjs           un club solo, volviendo a pedir sus fuentes
 resolver-youtube.mjs handle -> channelId, y mide si el canal publica
 probar.mjs           11 casos de Talleres contra datos reales guardados
-probar-clubes.mjs    26 casos de los clubes nuevos: titulares que entraron mal
+probar-clubes.mjs    29 casos de los clubes nuevos: titulares que entraron mal
 probar-once.mjs      22 casos del once automático
 probar-stats.mjs     30 casos de la tabla y los números
+probar-backend.mjs   24 casos del esquema: que nadie se escriba sus propios puntos
 stats-api.mjs        tabla y números frescos, con /standings
 stats-calc.mjs       la cuenta, sin red: la usan stats.mjs y stats-api.mjs
-probar-sitio.cjs     31 casos del sitio publicado, con la API bloqueada
+probar-sitio.cjs     42 casos del sitio publicado, con la API bloqueada
 construir-sitio.mjs  arma sitio/ : portada + una página por club
 datos-juego.mjs      baja lo que el juego pedía desde el navegador
 app.tpl.html         la app. Talleres.html se genera desde acá.
@@ -76,10 +77,11 @@ node probar.mjs
 node probar-clubes.mjs
 node probar-once.mjs
 node probar-stats.mjs
+node probar-backend.mjs
 node probar-sitio.cjs
 ```
 
-Ciento nueve casos, en dos segundos y sin internet.
+Ciento cincuenta y ocho casos, en dos segundos y sin internet.
 Correlos cada vez que toques `pipeline.mjs` o `clubes.json`. Ya van dentro de
 CORRER, así que si algo se rompe se ve arriba de todo en `salida.txt`.
 

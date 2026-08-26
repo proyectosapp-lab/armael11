@@ -101,6 +101,7 @@ for (const club of CLUBES) {
 
   /* Los datos entran ANTES del script de la app, en este orden. */
   const tags = [
+    '<script>window.SITIO=' + JSON.stringify({ miniaturas: CFG.miniaturas || "todas" }) + '</script>',
     '<script src="datos/juego.js"></script>',
     '<script src="datos/stats-liga.js"></script>',
     '<script src="datos/feed-' + club.id + '.js"></script>',
