@@ -4,7 +4,11 @@
  "url": "https://proyectosapp-lab.github.io/armael11",
  "_url": "Sin esto, el link compartido por WhatsApp no muestra tarjeta: og:url tiene que ser absoluta. Sin barra al final.",
 
- "supabase": { "url": "", "anon": "" },
+ "supabase": {
+  "url": "https://wbqxmoerzofzierurxfb.supabase.co",
+  "anon": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6IndicXhtb2Vyem9memllcnVyeGZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODc3NDI5NjksImV4cCI6MjEwMzMxODk2OX0.PzYAzjnc97aAMtXi3lCZKlxwWZFNl2Tgh23ipIDkYxQ",
+  "_publicable": "Supabase está migrando a un formato nuevo de clave pública. La de este proyecto es sb_publishable_jQ5s46PkhT05wMgOez_oYQ_NeNvR15Q y hace lo mismo que la de arriba. Queda anotada acá: el día que la vieja deje de funcionar, se cambia una línea."
+ },
  "_supabase": "Las DOS claves PÚBLICAS del backend, de Project Settings → API. La 'anon' está hecha para vivir en el navegador: sola no puede leer ni escribir nada que las políticas de la base no permitan. La tercera clave, la 'service_role', NO va acá ni en ningún archivo del proyecto: va como secreto de GitHub llamado SUPABASE_SERVICE_KEY. Los pasos están en BACKEND.md. Vacío = la app funciona como hasta ahora, sin cuentas ni tablas.",
 
  "miniaturas": "todas",

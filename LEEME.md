@@ -61,7 +61,10 @@ probar.mjs           11 casos de Talleres contra datos reales guardados
 probar-clubes.mjs    29 casos de los clubes nuevos: titulares que entraron mal
 probar-once.mjs      22 casos del once automático
 probar-stats.mjs     30 casos de la tabla y los números
-probar-backend.mjs   24 casos del esquema: que nadie se escriba sus propios puntos
+probar-backend.mjs   25 casos del esquema: que nadie se escriba sus propios puntos
+cuentas.js           entrar, el perfil, el equipo y las ligas. Solo fetch.
+probar-cuentas.mjs   37 casos de lo que se le pide al backend, sin red
+probar-cuenta-sitio.cjs  18 casos del recorrido de entrar, en un navegador
 stats-api.mjs        tabla y números frescos, con /standings
 stats-calc.mjs       la cuenta, sin red: la usan stats.mjs y stats-api.mjs
 probar-sitio.cjs     42 casos del sitio publicado, con la API bloqueada
@@ -78,10 +81,12 @@ node probar-clubes.mjs
 node probar-once.mjs
 node probar-stats.mjs
 node probar-backend.mjs
+node probar-cuentas.mjs
+node probar-cuenta-sitio.cjs
 node probar-sitio.cjs
 ```
 
-Ciento cincuenta y ocho casos, en dos segundos y sin internet.
+Doscientos catorce casos, en dos segundos y sin internet.
 Correlos cada vez que toques `pipeline.mjs` o `clubes.json`. Ya van dentro de
 CORRER, así que si algo se rompe se ve arriba de todo en `salida.txt`.
 

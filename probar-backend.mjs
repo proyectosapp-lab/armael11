@@ -111,8 +111,18 @@ caso("no se guarda ni el mail ni el nombre real de nadie",
   caso("sitio.json no tiene ninguna clave de servidor",
        !/service/i.test(Object.keys(sb).join(" ")) &&
        !Object.values(sb).some(v => typeof v === "string" && /service_role/i.test(v)));
-  caso("y la clave pública, si está, es de las públicas (empieza con eyJ)",
-       !sb.anon || /^eyJ/.test(sb.anon), sb.anon ? sb.anon.slice(0, 6) + "…" : "vacía");
+  /* Las dos formas que tiene una clave pública de Supabase: la vieja, que es
+     un JWT con `role: anon` adentro, y la nueva, que empieza con
+     sb_publishable_. La de servidor no se parece a ninguna de las dos, así
+     que esto además avisa si alguien pegó la equivocada.                  */
+  caso("y la clave pública tiene forma de clave pública",
+       !sb.anon || /^eyJ/.test(sb.anon) || /^sb_publishable_/.test(sb.anon),
+       sb.anon ? sb.anon.slice(0, 8) + "…" : "vacía");
+  if (sb.anon && /^eyJ/.test(sb.anon)) {
+    let rol = "?";
+    try { rol = JSON.parse(Buffer.from(sb.anon.split(".")[1], "base64")).role; } catch (e) {}
+    caso("y adentro dice anon, no service_role", rol === "anon", "role: " + rol);
+  }
 }
 
 /* ─── resultado ──────────────────────────────────────────────────────────── */

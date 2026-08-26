@@ -1,3 +1,22 @@
+TSTE — versión 2026-08-26 e (backend enchufado)
+
+Lo más nuevo:
+  · sitio.json ya tiene las dos claves públicas del backend, así que las
+    cuentas se copian al sitio y el botón aparece.
+  · 214 casos de prueba.
+
+── lo de antes ───────────────────────────────────────────────────────────
+TSTE — versión 2026-08-26 d (las cuentas andan)
+
+Lo más nuevo:
+  · cuentas.js: entrar por mail (sin contraseña), elegir usuario, guardar
+    el equipo y las ligas de amigos. Habla con Supabase con fetch y nada
+    más: la app sigue sin cargar un solo script de terceros.
+  · Sin backend configurado en sitio.json, no se copia ni se carga: la app
+    es exactamente la de antes y no hay botón que prometa algo que no anda.
+  · 213 casos de prueba.
+
+── lo de antes ───────────────────────────────────────────────────────────
 TSTE — versión 2026-08-26 c (jerarquía del feed + esquema del backend)
 
 Lo más nuevo:

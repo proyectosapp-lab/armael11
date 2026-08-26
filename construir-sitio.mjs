@@ -38,6 +38,16 @@ copyFileSync(aca("./stats-liga.js"), new URL("stats-liga.js", DATOS));
 writeFileSync(new URL("juego.js", DATOS),
   readFileSync(aca("./juego.js"), "utf8").replace(/^export\s+/gm, ""));
 
+/* Las cuentas solo se copian si el backend está configurado. Sin eso, el
+   archivo no existe en el sitio, la app no lo carga y no hay ni un botón que
+   prometa algo que no anda. Es la misma idea del contador de visitas: lo que
+   no está configurado, no está.                                          */
+const CFG = existsSync(aca("./sitio.json")) ? JSON.parse(readFileSync(aca("./sitio.json"))) : {};
+const HAY_BACKEND = !!(CFG.supabase && CFG.supabase.url && CFG.supabase.anon);
+if (HAY_BACKEND)
+  writeFileSync(new URL("cuentas.js", DATOS),
+    readFileSync(aca("./cuentas.js"), "utf8").replace(/^export\s+/gm, ""));
+
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
 
 /* ─── lo que hace falta para que un link se pueda mandar ─────────────────
@@ -47,7 +57,6 @@ const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">"
 
    También va acá lo que hace falta para agregarlo a la pantalla de inicio:
    en el teléfono esto es una app, aunque sea una página.                */
-const CFG = existsSync(aca("./sitio.json")) ? JSON.parse(readFileSync(aca("./sitio.json"))) : {};
 const RAIZ = (CFG.url || "").replace(/\/+$/, "");
 
 /* El icono es el mismo monograma de la app: la inicial sobre el color del
@@ -101,7 +110,14 @@ for (const club of CLUBES) {
 
   /* Los datos entran ANTES del script de la app, en este orden. */
   const tags = [
-    '<script>window.SITIO=' + JSON.stringify({ miniaturas: CFG.miniaturas || "todas" }) + '</script>',
+    '<script>window.SITIO=' + JSON.stringify({
+        miniaturas: CFG.miniaturas || "todas",
+        /* Solo estas dos, nunca el objeto entero: lo que se copia a mano en
+           un archivo de configuración termina en la página, y ahí no debería
+           viajar nada que no haga falta. */
+        supabase: HAY_BACKEND ? { url: CFG.supabase.url, anon: CFG.supabase.anon } : undefined,
+      }) + '</script>',
+    HAY_BACKEND ? '<script src="datos/cuentas.js"></script>' : null,
     '<script src="datos/juego.js"></script>',
     '<script src="datos/stats-liga.js"></script>',
     '<script src="datos/feed-' + club.id + '.js"></script>',

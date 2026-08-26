@@ -96,6 +96,22 @@ body{margin:0;background:transparent;color:var(--tinta);
 .vid{display:inline-grid;place-items:center;width:17px;height:17px;border-radius:5px;
   background:#E4572E;color:#fff;font-size:8px;flex:none;transform:translateY(2px)}
 .vacio{text-align:center;padding:44px 20px;color:var(--tinta-3);font-size:14px}
+
+/* ── LA CUENTA ────────────────────────────────────────────────────────────
+   Chica y arriba de todo, porque no es el motivo por el que alguien abre la
+   app: el feed sí. Sin backend configurado no existe: el botón queda oculto
+   y nadie se entera de que había algo que configurar.                     */
+#cuenta{background:var(--hoja);border:1px solid var(--borde);border-radius:16px;
+  padding:14px 16px;margin-bottom:12px}
+#cuenta h4{margin:0 0 4px;font-size:15px;font-weight:700}
+#cuenta p{margin:0 0 11px;font-size:13px;color:var(--tinta-2);line-height:1.5}
+#cuenta .par{display:flex;gap:8px}
+#cuenta input{flex:1}
+#cuenta .aviso{margin:10px 0 0;font-size:12.5px}
+#cuenta .aviso.mal{color:#D14343}
+.boton{border:0;border-radius:11px;padding:9px 15px;font:inherit;font-size:14px;
+  font-weight:700;cursor:pointer;background:var(--acento);color:var(--sobre-acento);flex:none}
+.boton.flaco{background:transparent;color:var(--tinta-2);border:1px solid var(--borde)}
 .pie{padding:22px 6px 10px;font-size:11px;color:var(--tinta-3);line-height:1.6;text-align:center}
 
 /* ── comunes ── */
@@ -222,8 +238,10 @@ tr.yo td:first-child{border-radius:9px 0 0 9px} tr.yo td:last-child{border-radiu
   <div class="cabeza">
     <div class="mono" id="mono">T</div>
     <div><h1 id="nombre">Talleres</h1><p id="resumen">—</p></div>
+    <button class="tema" id="bcuenta" title="Tu cuenta" hidden>◍</button>
     <button class="tema" id="btema" title="Cambiar tema">☾</button>
   </div>
+  <div id="cuenta" hidden></div>
   <div id="vista"></div>
   <p class="pie">App independiente, sin relación con el Club Atlético Talleres.<br>
     Los títulos y enlaces pertenecen a cada medio; se enlaza siempre a la fuente original.</p>
@@ -1286,6 +1304,70 @@ pintar();
 /* Si los datos del juego ya vienen con la página, no hay nada que pedirle
    al usuario: se salta la pantalla de la key y se carga la temporada.  */
 if(window.CACHE) cargarTemporada();
+
+/* ══════════════════ LA CUENTA ══════════════════
+   Todo esto solo existe si `sitio.json` tiene el backend configurado. Si no
+   lo tiene, `hayBackend` ni está definida —el archivo no se cargó— y la app
+   es la de siempre. Por eso el `typeof`: preguntar por una función que no
+   existe tira, y no hay razón para que el feed se caiga por eso.        */
+const conBackend = typeof hayBackend === "function" && hayBackend();
+let cuentaAbierta=false, miNombre=null;
+
+async function arrancarCuenta(){
+  if(!conBackend) return;
+  cargarSesion();
+  /* Al volver del mail, la sesión viene en el hash. Se consume acá, antes
+     que nada, y se limpia la dirección. */
+  if(capturarVuelta()) cuentaAbierta=true;
+  $("bcuenta").hidden=false;
+  $("bcuenta").onclick=()=>{ cuentaAbierta=!cuentaAbierta; pintarCuenta(); };
+  if(quienSoy()){ try{ miNombre=await miUsuario(); }catch(e){} }
+  pintarCuenta();
+}
+
+function pintarCuenta(aviso="", mal=false){
+  const c=$("cuenta");
+  $("bcuenta").textContent = miNombre ? miNombre[0].toUpperCase() : "◍";
+  if(!cuentaAbierta){ c.hidden=true; return; }
+  c.hidden=false;
+  const av = aviso?`<p class="aviso${mal?" mal":""}">${esc(aviso)}</p>`:"";
+
+  if(!quienSoy()){
+    c.innerHTML=`<h4>Entrá para jugar con amigos</h4>
+      <p>Te mandamos un link por mail. No hay contraseña que inventar ni que recordar.</p>
+      <div class="par"><input type="text" id="cmail" placeholder="tu@mail.com" autocomplete="email">
+        <button class="boton" id="cenviar">Mandame el link</button></div>${av}`;
+    $("cenviar").onclick=async()=>{
+      const b=$("cenviar"); b.disabled=true; b.textContent="Mandando…";
+      try{
+        const m=await pedirLink($("cmail").value, location.origin+location.pathname);
+        c.innerHTML=`<h4>Listo</h4><p>Te mandamos un link a <b>${esc(m)}</b>.
+          Abrilo desde este mismo teléfono y volvés acá con la sesión iniciada.</p>`;
+      }catch(e){ pintarCuenta(e.message, true); }
+    };
+    return;
+  }
+
+  if(!miNombre){
+    c.innerHTML=`<h4>Elegí tu nombre de usuario</h4>
+      <p>Es el único nombre que van a ver los demás en las tablas. Nada de nombre
+         real ni de club: solo usuarios y puntajes.</p>
+      <div class="par"><input type="text" id="cuser" placeholder="tuusuario" maxlength="16">
+        <button class="boton" id="cguardar">Guardar</button></div>${av}`;
+    $("cguardar").onclick=async()=>{
+      try{ miNombre=await elegirUsuario($("cuser").value); cuentaAbierta=false; pintarCuenta(); }
+      catch(e){ pintarCuenta(e.message, true); }
+    };
+    return;
+  }
+
+  c.innerHTML=`<h4>Hola, ${esc(miNombre)}</h4>
+    <p>Tu cuenta está lista. Las ligas de amigos y el fantasy llegan en la próxima.</p>
+    <button class="boton flaco" id="csalir">Salir</button>${av}`;
+  $("csalir").onclick=()=>{ salir(); miNombre=null; pintarCuenta(); };
+}
+
+arrancarCuenta();
 </script>
 </body>
 </html>
