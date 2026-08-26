@@ -1,0 +1,17 @@
+TSTE — versión 2026-08-26 (filete grueso)
+
+Este archivo existe para una sola cosa: que se pueda mirar el repo y saber,
+sin abrir nada más, si la última subida entró o quedó a mitad de camino.
+
+Qué trae esta versión:
+  · El filete de los clubes a bastones pasa de 15px a 44px por segmento.
+    Con 15px son unos 56 segmentos a lo alto de una pantalla y se lee como
+    un rayado, no como una camiseta.
+  · Huracán, Rosario Central y Platense quedan como están: los confirmó
+    Fausto el 2026-08-26. Tienen la nota en clubes.json y una prueba que
+    falla si alguien los cambia.
+  · 112 casos de prueba.
+
+Cómo saber si esta subida entró: en la lista de archivos de GitHub, la fecha
+de VERSION.txt tiene que decir "now" o "X minutes ago". Si dice otra cosa,
+los archivos no se reemplazaron.
