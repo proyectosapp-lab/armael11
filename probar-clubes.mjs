@@ -150,6 +150,28 @@ const caso = (nom, ok) => casos.push([nom, ok]);
        seccionDe(["Femenino"], "Resumen del partido | Fecha 6") === "femenino");
 }
 
+/* ── 7. LA UVE DE VÉLEZ ───────────────────────────────────────────────────
+   No se puede "ver" en una prueba, pero sí se puede fijar el número. Con
+   122/238 el chevron sale invertido —una Λ en vez de una V— y así estuvo
+   en la planilla de aprobación hasta que Fausto lo miró. Vélez es el único
+   club con este patrón: si nadie lo mira, nadie se entera.             */
+{
+  const app = readFileSync(new URL("./app.tpl.html", import.meta.url), "utf8");
+  const cl  = readFileSync(new URL("./clubes.tpl.html", import.meta.url), "utf8");
+  caso("la app dibuja la uve (antes Vélez caía al patrón por defecto)",
+       /case "uve"/.test(app));
+  caso("y la dibuja con la punta abajo: 58 y 302, no 122 y 238",
+       /linear-gradient\(58deg/.test(app) && /linear-gradient\(302deg/.test(app) &&
+       !/linear-gradient\(122deg/.test(app));
+  caso("la planilla de clubes usa los mismos ángulos",
+       /linear-gradient\(58deg/.test(cl) && !/linear-gradient\(122deg/.test(cl));
+
+  const river = CLUBES.find(c => c.id === "river");
+  caso("River es blanco con banda roja, no al revés",
+       river.color.toUpperCase() === "#FFFFFF" && river.color2.toUpperCase() === "#E4002B",
+       river.color + " / " + river.color2);
+}
+
 /* ─── resultado ──────────────────────────────────────────────────────────── */
 const linea = "─".repeat(70);
 console.log("\n" + linea);

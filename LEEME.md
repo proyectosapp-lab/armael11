@@ -58,12 +58,12 @@ todos.mjs            baja todo una vez y arma los 30 feeds
 ingest.mjs           un club solo, volviendo a pedir sus fuentes
 resolver-youtube.mjs handle -> channelId, y mide si el canal publica
 probar.mjs           11 casos de Talleres contra datos reales guardados
-probar-clubes.mjs    22 casos de los clubes nuevos: titulares que entraron mal
+probar-clubes.mjs    26 casos de los clubes nuevos: titulares que entraron mal
 probar-once.mjs      22 casos del once automático
 probar-stats.mjs     30 casos de la tabla y los números
 stats-api.mjs        tabla y números frescos, con /standings
 stats-calc.mjs       la cuenta, sin red: la usan stats.mjs y stats-api.mjs
-probar-sitio.cjs     23 casos del sitio publicado, con la API bloqueada
+probar-sitio.cjs     31 casos del sitio publicado, con la API bloqueada
 construir-sitio.mjs  arma sitio/ : portada + una página por club
 datos-juego.mjs      baja lo que el juego pedía desde el navegador
 app.tpl.html         la app. Talleres.html se genera desde acá.
@@ -79,7 +79,7 @@ node probar-stats.mjs
 node probar-sitio.cjs
 ```
 
-Noventa y siete casos, en dos segundos y sin internet.
+Ciento nueve casos, en dos segundos y sin internet.
 Correlos cada vez que toques `pipeline.mjs` o `clubes.json`. Ya van dentro de
 CORRER, así que si algo se rompe se ve arriba de todo en `salida.txt`.
 
@@ -231,3 +231,32 @@ WhatsApp directo; copiar quedó de respaldo para cuando no está.
 **"No espiamos a nadie" es una promesa que se puede probar.** Hay un caso que
 falla si la página carga un script de cualquier dominio que no sea el propio.
 Una promesa sin prueba dura hasta el próximo apuro.
+
+**Una perilla que no se ve no significa nada.** Las cuatro tácticas cambiaban
+el resultado y los once puntos se quedaban exactamente donde estaban. Ahora la
+línea sube o baja el bloque, la presión lo acorta, el ancho lo abre, y durante
+el partido el equipo entero sube cuando la pelota está en campo rival. Se mueve
+solo TU equipo: el rival no tiene por qué reacomodarse porque toques algo tuyo.
+
+**Recortar a cada jugador por separado aplasta el equipo.** Con la línea al
+mínimo, defensores y volantes terminaban todos pegados al tope y encimados.
+Un equipo que no entra en la cancha retrocede completo y conserva su forma:
+el corrimiento se calcula una vez para el bloque, no once veces.
+
+**Una tira de ocho píxeles no puede mostrar un patrón a lo ancho.** Cae entera
+adentro de un solo bastón, y los trece clubes de rayas quedan con un color
+plano, indistinguibles. El filete traduce la camiseta a lo LARGO: los bastones
+bajan como segmentos, la franja son tres tramos, la banda una diagonal.
+
+**Y los segmentos tienen que ser gruesos.** Quince píxeles a lo alto de una
+pantalla son cincuenta y seis segmentos: se lee como una línea rayada, no como
+una camiseta. Cuarenta y cuatro son unos diez y se leen como bandas.
+
+**El patrón `uve` no existía en la app.** Vélez, el único club que lo tiene,
+caía al patrón por defecto. Y donde sí estaba dibujado —la planilla de
+aprobación— estaba al revés: 122/238 da una Λ, no una V. Los ángulos buenos
+son 58 y 302. Un patrón que usa un solo club de treinta no lo mira nadie.
+
+**Los colores salieron de una planilla y ahí entran invertidos.** River estaba
+como rojo con banda blanca y es blanco con banda roja. La prueba fija ese caso;
+para el resto hay una hoja con los treinta filetes al lado de su camiseta.

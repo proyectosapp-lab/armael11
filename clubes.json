@@ -490,8 +490,8 @@
   "ciudad": "Buenos Aires",
   "ini": "R",
   "apiId": 435,
-  "color": "#E4002B",
-  "color2": "#FFFFFF",
+  "color": "#FFFFFF",
+  "color2": "#E4002B",
   "patron": "banda",
   "estrellas": 0,
   "apodos": [
@@ -501,7 +501,8 @@
    "River plate de uruguay"
   ],
   "_colorCrudo": "Rojo",
-  "_color2Crudo": "Blanco"
+  "_color2Crudo": "Blanco",
+  "_porqueColor": "blanco con banda roja; en la planilla estaban invertidos"
  },
  {
   "id": "rosario-central",

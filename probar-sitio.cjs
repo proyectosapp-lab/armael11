@@ -136,6 +136,28 @@ srv.listen(8099, async () => {
      dominio. Esto lo verifica en vez de confiar.                        */
   caso("no carga ningún script de terceros", ajenos.length === 0, ajenos.join(", "));
 
+  /* La seña del club: ocho píxeles al borde, con la camiseta leída a lo
+     largo. Antes era un lavado difuminado de pantalla completa.        */
+  const fil = await pg.evaluate(() => {
+    const e = document.getElementById("filete"); if(!e) return null;
+    const cs = getComputedStyle(e);
+    return { ancho: cs.width, fondo: cs.backgroundImage,
+             lavado: getComputedStyle(document.getElementById("seña")).opacity };
+  });
+  caso("hay filete y es angosto", !!fil && parseFloat(fil.ancho) <= 10, fil ? fil.ancho : "no está");
+  caso("el filete lleva el patrón del club, no un color plano",
+       !!fil && /gradient/.test(fil.fondo), fil ? fil.fondo.slice(0,60) : "");
+  caso("el lavado de pantalla completa quedó apagado", !!fil && fil.lavado === "0", fil ? fil.lavado : "");
+  /* Los segmentos tienen que leerse como bandas, no como un rayado. A lo
+     alto de una pantalla, quince píxeles son cincuenta y seis segmentos. */
+  /* El navegador devuelve "... 0px, ... 44px, ... 44px, ... 88px": el primero
+     siempre es 0, así que el grosor es el salto más chico distinto de cero. */
+  const cortes = [...new Set((fil?.fondo.match(/([\d.]+)px/g) || []).map(parseFloat))]
+    .filter(n => n > 0).sort((a, b) => a - b);
+  const grueso = cortes[0] || 0;
+  caso("los segmentos del filete son gruesos, no un rayado", grueso >= 30,
+       grueso ? grueso + "px" : "no pude leer el grosor");
+
   await pg.click('#barra button[data-tab="numeros"]');
   await pg.waitForTimeout(400);
   const nTablas = await pg.evaluate(() => (window.STATS?.tablas || []).length);
@@ -186,6 +208,45 @@ srv.listen(8099, async () => {
   /* Y los globitos tienen que moverse. Antes rebotaba la pelota sola. */
   const antesDeJugar = await pg.evaluate(() =>
     [...document.querySelectorAll('.jug')].map(e => e.style.getPropertyValue('--dx')));
+  /* Las perillas tienen que verse en la cancha. Antes cambiaban el resultado
+     y los once puntos se quedaban exactamente donde estaban.            */
+  const posiciones = () => pg.evaluate(() => [...document.querySelectorAll('.jug')]
+    .map(e => ({ lado: e.dataset.lado, x: parseFloat(e.style.left), y: parseFloat(e.style.top) })));
+  const perilla = async (id, v) => pg.evaluate(([id, v]) => {
+    const r = document.querySelector('input[data-k="' + id + '"]');
+    r.value = v; r.dispatchEvent(new Event('input', { bubbles: true }));
+  }, [id, v]);
+
+  const base = await posiciones();
+  await perilla('linea', 100); await pg.waitForTimeout(120);
+  const alta = await posiciones();
+  const miosSubieron = base.filter(p => p.lado === 'A')
+    .every((p, i) => alta.filter(q => q.lado === 'A')[i].y <= p.y);
+  const alguienSubioMucho = base.filter(p => p.lado === 'A')
+    .some((p, i) => p.y - alta.filter(q => q.lado === 'A')[i].y > 5);
+  caso("línea alta: todo tu equipo sube", miosSubieron && alguienSubioMucho);
+  caso("y el rival no se mueve por tu perilla",
+       base.filter(p => p.lado === 'B').every((p, i) =>
+         Math.abs(alta.filter(q => q.lado === 'B')[i].y - p.y) < 0.01));
+
+  await perilla('linea', 0);
+  await perilla('ancho', 100); await pg.waitForTimeout(120);
+  const abierto = await posiciones();
+  const separacion = ps => Math.max(...ps.map(p => Math.abs(p.x - 50)));
+  caso("ancho al máximo: tu equipo se abre",
+       separacion(abierto.filter(p => p.lado === 'A')) >
+       separacion(base.filter(p => p.lado === 'A')) + 2);
+
+  await perilla('ancho', 0);
+  await perilla('presion', 100); await pg.waitForTimeout(120);
+  const alto = await posiciones();
+  const largo = ps => { const c = ps.filter(p => p.y > 0); return Math.max(...c.map(p => p.y)) - Math.min(...c.map(p => p.y)); };
+  const sinArquero = ps => ps.filter((p, i) => i > 0);
+  caso("presión alta: el bloque se acorta",
+       largo(sinArquero(alto.filter(p => p.lado === 'A'))) <
+       largo(sinArquero(base.filter(p => p.lado === 'A'))) - 1);
+  await perilla('presion', 0); await pg.waitForTimeout(120);
+
   await pg.locator('#bsim').click();
   await pg.waitForTimeout(2500);
   const durante = await pg.evaluate(() =>

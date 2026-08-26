@@ -12,6 +12,11 @@ body{margin:0;background:transparent;color:var(--tinta);
   -webkit-font-smoothing:antialiased;padding-bottom:80px}
 #seña{position:fixed;inset:-12%;z-index:0;pointer-events:none;background:var(--seña);
   opacity:var(--seña-op);filter:blur(var(--seña-blur));transform:scale(1.15)}
+/* Ocho píxeles pegados al borde, fijos: es lo único que sigue estando
+   cuando hacés scroll, y no le saca ancho a ningún titular.            */
+#filete{position:fixed;left:0;top:0;bottom:0;width:8px;z-index:3;pointer-events:none;
+  background:var(--filete);box-shadow:inset -1px 0 0 rgba(0,0,0,.18)}
+.envase{padding-left:22px}
 #estrellas{position:fixed;inset:0;z-index:0;pointer-events:none;
   background:var(--estrellas) center top / cover no-repeat;opacity:var(--estrellas-op);filter:blur(2.5px)}
 .envase{position:relative;z-index:1;max-width:680px;margin:0 auto;padding:0 14px}
@@ -91,7 +96,7 @@ button.gh{background:transparent;color:var(--tinta-2);border:1px solid var(--bor
 .jug{position:absolute;width:44px;text-align:center;cursor:pointer;z-index:2;
   --dx:0px; --dy:0px;
   transform:translate(calc(-50% + var(--dx)), calc(-50% + var(--dy)));
-  transition:transform .12s}
+  transition:transform .12s, left .45s cubic-bezier(.22,.61,.36,1), top .45s cubic-bezier(.22,.61,.36,1)}
 .jug:active{transform:translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1.14)}
 /* Durante el partido el desplazamiento acompaña al reloj, que va a 235ms. */
 .campo.jugando .jug{transition:transform .24s linear}
@@ -175,7 +180,8 @@ tr.yo td:first-child{border-radius:9px 0 0 9px} tr.yo td:last-child{border-radiu
 </style>
 </head>
 <body>
-<div id="seña"></div><div id="estrellas"></div>
+<div id="seña"></div>
+<div id="filete"></div><div id="estrellas"></div>
 <div class="envase">
   <div class="cabeza">
     <div class="mono" id="mono">T</div>
@@ -216,11 +222,42 @@ function legible(hex,fondo,min=4.5){const osc=lum(aRGB(fondo))>.5;let[h,s,l]=aHS
     l+=osc?-.015:.015;if(l<=0||l>=1)break;}return osc?"#000000":"#FFFFFF";}
 const tintaSobre=h=>CT("#101418",h)>=CT("#FFFFFF",h)?"#101418":"#FFFFFF";
 const saturar=(h,k)=>{const[x,s,l]=aHSL(aRGB(h));return aHEX(deHSL([x,Math.min(1,s*k),l]));};
+/* ── EL FILETE ────────────────────────────────────────────────────────────
+   Una tira vertical de ocho píxeles NO puede mostrar el patrón a lo ancho:
+   cae entera adentro de un solo bastón y todos los clubes de rayas quedan
+   con un color plano, indistinguibles entre sí.
+
+   Así que el filete traduce la camiseta a lo LARGO: los bastones bajan como
+   segmentos, la franja son tres tramos, la banda una diagonal, la uve una
+   cuña. No es la camiseta literal — es la camiseta leída en una tira, y
+   alcanza para que ningún club se parezca al de al lado.
+
+   El caso flojo es `liso`, que son ocho de los treinta: una camiseta sin
+   patrón no tiene nada que traducir, así que se le pone el segundo color
+   arriba como remate. Es poco, y es todo lo que hay.                    */
+function fileteCSS(t,c1,c2){switch(t){
+  /* 44 px y no 15: a lo alto de una pantalla, quince píxeles son cincuenta
+     y seis segmentos y la tira se lee como una línea rayada, no como una
+     camiseta. Con cuarenta y cuatro son unos diez y se leen como bandas.
+     Pasados los sesenta ya parece un bloque de color con manchas.      */
+  case "bastones": return `repeating-linear-gradient(180deg,${c1} 0 44px,${c2} 44px 88px)`;
+  case "franja":   return `linear-gradient(180deg,${c1} 0 33%,${c2} 33% 67%,${c1} 67%)`;
+  case "banda":    return `linear-gradient(165deg,${c1} 0 38%,${c2} 38% 60%,${c1} 60%)`;
+  case "mitades":  return `linear-gradient(180deg,${c1} 0 50%,${c2} 50%)`;
+  case "uve":      return `linear-gradient(180deg,${c1} 0 34%,${c2} 34% 48%,${c1} 48%)`;
+  default:         return `linear-gradient(180deg,${c2} 0 14%,${c1} 14%)`;}}
+
 function patronCSS(t,c1,c2){switch(t){
   case "bastones":return `repeating-linear-gradient(90deg,${c1} 0 6.5vw,${c2} 6.5vw 13vw)`;
   case "franja":  return `linear-gradient(180deg,${c1} 0 30%,${c2} 30% 62%,${c1} 62% 100%)`;
   case "banda":   return `linear-gradient(114deg,${c1} 0 30%,${c2} 30% 56%,${c1} 56% 100%)`;
   case "mitades": return `linear-gradient(100deg,${c1} 0 48%,${c2} 52% 100%)`;
+  /* La uve no estaba: Vélez, el único club que la tiene, caía al patrón por
+     defecto y se veía como cualquiera. Y en la planilla de aprobación estaba
+     dibujada al revés —122/238 da una Λ, no una V—. Los ángulos correctos
+     son 58 y 302: la punta va abajo, como en la camiseta.              */
+  case "uve":     return `linear-gradient(58deg,transparent 0 36%,${c2} 36% 62%,transparent 62%) left/50% 100% no-repeat,`
+                       + `linear-gradient(302deg,transparent 0 36%,${c2} 36% 62%,transparent 62%) right/50% 100% no-repeat,${c1}`;
   default:        return `radial-gradient(120% 90% at 50% 0%,${c2} 0%,${c1} 70%)`;}}
 const ptsEstrella=(cx,cy,r)=>{const p=[];
   for(let i=0;i<10;i++){const a=-Math.PI/2+i*Math.PI/5,rad=i%2?r*.42:r;
@@ -278,10 +315,14 @@ function pintarColores(){
   const beta=hojaMinima(lavados,tintas,pA,pB);
   const rgba=(h,a)=>{const[x,y,z]=aRGB(h);return `rgba(${x},${y},${z},${a})`;};
   r.setProperty("--seña",patronCSS(CLUB.patron,c1,c2));
-  r.setProperty("--seña-op",OP);
+  r.setProperty("--filete",fileteCSS(CLUB.patron,CLUB.color,CLUB.color2||"#FFFFFF"));
+  /* El lavado de pantalla completa y las estrellas se apagan: la seña del
+     club pasó a ser el filete. Los dos siguen acá y vuelven cambiando estos
+     dos ceros por OP y OP*.5 — no se borró nada, se bajó a cero.       */
+  r.setProperty("--seña-op",0);
   r.setProperty("--seña-blur",(CLUB.patron==="bastones"?18:60)+"px");
   r.setProperty("--estrellas",estrellasFondo(CLUB.estrellas,cE));
-  r.setProperty("--estrellas-op",OP*.5);
+  r.setProperty("--estrellas-op",0);
   r.setProperty("--hoja",patronCSS(CLUB.patron,rgba(pA,beta),rgba(pB,beta)));
   r.setProperty("--papel",pA);
   document.getElementById("btema").textContent=osc?"☀":"☾";
@@ -672,10 +713,73 @@ function coordsDe(form, arriba){
   });
   return out;
 }
+/* ── LAS PERILLAS SE TIENEN QUE VER EN LA CANCHA ─────────────────────────
+   Hasta acá movían el resultado y nada más: subías la línea, cambiaban las
+   probabilidades y los once puntos seguían exactamente donde estaban. Un
+   hincha que mueve "línea alta" espera ver a los defensores subir, y si no
+   los ve, la perilla no significa nada.
+
+   Se mueve SOLO tu equipo. El rival no tiene por qué reacomodarse porque vos
+   toques una perilla tuya, y además así se ve claro qué cambiaste.       */
+function ajustarTactica(coords, arriba, K){
+  const lin=(K.linea||0)/100, pre=(K.presion||0)/100, anc=(K.ancho||0)/100;
+  const dir = arriba ? 1 : -1;                       // hacia el arco rival
+  const campo = coords.filter(c => c.cat !== "G");
+  const cy = campo.reduce((a,c)=>a+c.y,0) / Math.max(1, campo.length);
+
+  /* Adónde puede llegar cada uno. No es cosmética: sin topes, con la línea
+     al máximo los delanteros se meten en el área rival y con la línea al
+     mínimo el arquero se va abajo del borde de la cancha.              */
+  const banda   = arriba ? [12, 60] : [40, 88];      // los de campo
+  const bandaGK = arriba ? [6, 15]  : [85, 94];
+
+  /* La y que le tocaría a cada uno según las perillas. */
+  const ys = coords.map(c => {
+    if(c.cat === "G") return c.y + dir*lin*4;
+    /* La línea sube o baja el bloque entero. */
+    let y = c.y + dir*lin*13;
+    /* La presión junta las líneas entre sí y adelanta un poco: un equipo
+       que presiona alto es un equipo CORTO, no solo adelantado.       */
+    return cy + (y - cy) * (1 - 0.30*pre) + dir*pre*6;
+  });
+
+  /* ── El bloque se corre entero ────────────────────────────────────────
+     Recortar a cada jugador por separado aplastaba las líneas una contra
+     otra: con la línea al mínimo, defensores y volantes terminaban todos
+     pegados al tope y encimados. Un equipo que no entra en la cancha
+     retrocede completo y conserva su forma.                           */
+  const deCampo = ys.filter((_, i) => coords[i].cat !== "G");
+  const sobra = Math.max(0, Math.max(...deCampo) - banda[1]);
+  const falta = Math.max(0, banda[0] - Math.min(...deCampo));
+  const corrimiento = sobra - falta;
+
+  return coords.map((c, i) => {
+    const arquero = c.cat === "G";
+    const b = arquero ? bandaGK : banda;
+    const y = Math.max(b[0], Math.min(b[1], ys[i] - (arquero ? 0 : corrimiento)));
+    /* El ancho abre a los de afuera y junta a los del medio. */
+    const x = arquero ? c.x : 50 + (c.x - 50) * (1 + 0.38*anc);
+    return { ...c, x: Math.max(8, Math.min(92, x)), y };
+  });
+}
+
+/* Mueve los puntos que ya están en pantalla, sin repintar: si repintáramos
+   la vista entera en cada movimiento del dedo, el slider perdería el foco. */
+function colocarJugadores(){
+  const campo=$("campo"); if(!campo || J.animando) return;
+  const cA=ajustarTactica(coordsDe(J.formA,false), false, J.K);
+  const cB=coordsDe(J.formB,true);
+  campo.querySelectorAll(".jug").forEach(el=>{
+    const c=(el.dataset.lado==="A"?cA:cB)[+el.dataset.slot];
+    if(!c) return;
+    el.style.left=c.x+"%"; el.style.top=c.y+"%";
+  });
+}
+
 const apellido = nom => { const w=String(nom||"").trim().split(/\s+/); return w[w.length-1]||"—"; };
 
 function campoHTML(){
-  const cA=coordsDe(J.formA,false), cB=coordsDe(J.formB,true);
+  const cA=ajustarTactica(coordsDe(J.formA,false), false, J.K), cB=coordsDe(J.formB,true);
   const globo=(p,c,lado,i)=>`
     <div class="jug" style="left:${c.x}%;top:${c.y}%" data-lado="${lado}" data-slot="${i}" data-cat="${c.cat}">
       <div class="b" style="background:${lado==="A"?CLUB.color:"#B3261E"};color:#fff">${c.cat}</div>
@@ -719,16 +823,34 @@ function campoHTML(){
    translate(-50%,-50%) que centra el globito.                            */
 function moverJugadores(campo, bx, by){
   const r = campo.getBoundingClientRect();
+  const rit=(J.K.ritmo||0)/100, pre=(J.K.presion||0)/100;
+  /* Con ritmo alto el equipo se estira y se junta más rápido. */
+  const amplitud = 1 + 0.6*rit;
+
   campo.querySelectorAll(".jug").forEach(el => {
     const x0 = parseFloat(el.style.left), y0 = parseFloat(el.style.top);
     if(isNaN(x0) || isNaN(y0)) return;
+    const arquero = el.dataset.cat === "G";
+    const mio = el.dataset.lado === "A";
+
+    /* ── LA FASE, que era lo que faltaba ────────────────────────────────
+       Antes cada jugador se corría un poquito hacia la pelota y listo: el
+       equipo, COMO equipo, no se desplazaba nunca. Un bloque real sube
+       entero cuando la pelota está en campo rival y baja entero cuando la
+       tiene el otro. Eso es lo que se ve desde la tribuna.             */
+    const suArco = mio ? 100 : 0;
+    const fase = (Math.abs(by - suArco) - 50) / 50;   // -1 replegado · +1 volcado
+    const haciaAdelante = mio ? -1 : 1;
+    const bloque = arquero ? fase * 2
+                           : haciaAdelante * fase * (7 + 5*pre) * amplitud;
+
     const dx = bx - x0, dy = by - y0;
     const lejos = Math.hypot(dx, dy);
-    const arquero = el.dataset.cat === "G";
-    const k = (arquero ? .04 : .40) * Math.max(0, 1 - lejos / 58);
-    const tope = arquero ? 3 : 9;
-    const px = Math.max(-tope, Math.min(tope, dx * k + (Math.random() - .5) * 1.8));
-    const py = Math.max(-tope, Math.min(tope, dy * k + (Math.random() - .5) * 1.8));
+    const k = (arquero ? .04 : .34) * Math.max(0, 1 - lejos / 58) * amplitud;
+    const tope = arquero ? 4 : 17;
+    const ruido = () => (Math.random() - .5) * 2.2 * amplitud;
+    const px = Math.max(-tope, Math.min(tope, dx * k + ruido()));
+    const py = Math.max(-tope, Math.min(tope, dy * k + bloque + ruido()));
     el.style.setProperty("--dx", (px / 100 * r.width ).toFixed(1) + "px");
     el.style.setProperty("--dy", (py / 100 * r.height).toFixed(1) + "px");
   });
@@ -767,7 +889,7 @@ function animarPartido(xgA, xgB, alTerminar){
     if(campo) moverJugadores(campo, x, y);
     rel.textContent = min+"'  "+marc.A+"-"+marc.B;
     if(huboGol){ gol.classList.add("on"); setTimeout(()=>gol.classList.remove("on"), 550); }
-  }, 235);
+  }, Math.round(235 * (1 - 0.22*((J.K.ritmo||0)/100))));
 }
 
 /* ── elegir jugador para un puesto ── */
@@ -991,6 +1113,7 @@ function enganchar(){
     const k=KNOBS.find(x=>x.id===e.target.dataset.k), v=+e.target.value;
     e.target.closest(".perilla").querySelector(".pv").textContent =
       Math.abs(v)<15?"neutro":(v<0?k.izq:k.der)+" "+Math.abs(v)+"%";
+    colocarJugadores();
   });
   const bs=$("bsim"); if(bs) bs.onclick=simular11;
   const ba=$("bauto"); if(ba) ba.onclick=()=>{ J.xiA=autoXI(J.pool.A,J.formA); pintar(); };
