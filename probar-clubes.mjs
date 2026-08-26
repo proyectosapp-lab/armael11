@@ -172,6 +172,21 @@ const caso = (nom, ok) => casos.push([nom, ok]);
        river.color + " / " + river.color2);
 }
 
+/* ── 8. LOS TRES QUE YA REVISÓ EL HINCHA ──────────────────────────────────
+   Estos tres me hicieron ruido a mí: Huracán sin la banda, Central a
+   bastones y no franja, Platense a franja y no bastones. Los tres están
+   bien: Fausto los confirmó el 2026-08-26. Los clavo acá para que nadie
+   —yo incluido, en otra sesión— los "corrija" de memoria. Si hay que
+   cambiarlos, que lo pida un hincha, no una corazonada.                 */
+{
+  const P = { huracan: "liso", "rosario-central": "bastones", platense: "franja" };
+  for (const [id, patron] of Object.entries(P)) {
+    const c = CLUBES.find(x => x.id === id);
+    caso(c.nom + " sigue como lo confirmó Fausto: " + patron,
+         c.patron === patron && !!c._porqueColor, c.patron);
+  }
+}
+
 /* ─── resultado ──────────────────────────────────────────────────────────── */
 const linea = "─".repeat(70);
 console.log("\n" + linea);
