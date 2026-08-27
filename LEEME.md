@@ -65,8 +65,9 @@ esquema.sql          las tablas del backend. Se pega en el editor SQL de Supabas
 probar-backend.mjs   25 casos del esquema: que nadie se escriba sus propios puntos
 cuentas.js           entrar, el perfil, el equipo y las ligas. Solo fetch.
 fantasy.mjs          el reglamento del fantasy hecho código. Sin red.
+fantasy-api.mjs      publica la próxima fecha con sus precios. Necesita las dos claves.
 probar-fantasy.mjs   75 casos del reglamento: puntos, suplencias, precios
-probar-fantasy-sitio.cjs 18 casos de la pantalla: formación, cancha, presupuesto
+probar-fantasy-sitio.cjs 19 casos de la pantalla: formación, cancha, presupuesto
 probar-cuentas.mjs   39 casos de lo que se le pide al backend, sin red
 probar-cuenta-sitio.cjs  18 casos del recorrido de entrar, en un navegador
 stats-api.mjs        tabla y números frescos, con /standings
@@ -92,7 +93,7 @@ node probar-cuenta-sitio.cjs
 node probar-sitio.cjs
 ```
 
-Trescientos quince casos, en dos segundos y sin internet.
+Trescientos diecisiete casos, en dos segundos y sin internet.
 Correlos cada vez que toques `pipeline.mjs` o `clubes.json`. Ya van dentro de
 CORRER, así que si algo se rompe se ve arriba de todo en `salida.txt`.
 

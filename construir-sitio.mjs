@@ -54,12 +54,24 @@ if (HAY_BACKEND)
    calcular los puntos — una sola tabla, una sola idea de qué equipo es
    legal. Si la pantalla dejara pasar algo que el servidor rechaza, el
    error aparecería recién el lunes. */
-const FECHA = existsSync(aca("./fecha-actual.json"))
+const FECHA_CRUDA = existsSync(aca("./fecha-actual.json"))
   ? JSON.parse(readFileSync(aca("./fecha-actual.json"))) : null;
+/* Una fecha sin jugadores es peor que no tener fecha: la pestaña aparece,
+   la persona entra y no hay nada. Se trata como si no existiera. */
+const FECHA = FECHA_CRUDA && (FECHA_CRUDA.jugadores || []).length ? FECHA_CRUDA : null;
 if (FECHA) {
   writeFileSync(new URL("fantasy.js", DATOS),
     readFileSync(aca("./fantasy.mjs"), "utf8").replace(/^export\s+/gm, ""));
   writeFileSync(new URL("fecha.js", DATOS), "window.FECHA = " + JSON.stringify(FECHA) + ";\n");
+} else {
+  /* Y si no hay fecha, los archivos de la anterior se BORRAN. Es el mismo
+     error del CNAME: lo generado que sobrevive a su motivo miente. Una
+     fecha vieja que se queda en el sitio deja la pestaña viva, con el
+     cierre pasado y jugadores de la semana pasada. */
+  for (const f of ["fantasy.js", "fecha.js"]) {
+    const u = new URL(f, DATOS);
+    if (existsSync(u)) rmSync(u);
+  }
 }
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));

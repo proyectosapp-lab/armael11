@@ -57,6 +57,17 @@ const uno = (pg, sel) => pg.locator(sel).first();
     caso('con una fecha publicada, el sitio incluye el reglamento',
          fs.existsSync(path.join(RAIZ, 'datos', 'fantasy.js')));
 
+    /* Una fecha vacía no es una fecha. Si igual se publicara, la pestaña
+       aparecería y adentro no habría nada que elegir. */
+    fs.writeFileSync(FICH, JSON.stringify({ numero: 8, torneo: 'x',
+      cierra: enDosDias, presupuesto: 75, jugadores: [] }));
+    execFileSync('node', ['construir-sitio.mjs'], { cwd: __dirname, stdio: 'pipe' });
+    caso('una fecha sin jugadores se trata como si no existiera',
+         !fs.existsSync(path.join(RAIZ, 'datos', 'fecha.js')));
+    fs.writeFileSync(FICH, JSON.stringify({ numero: 8, torneo: 'Clausura 2026',
+      cierra: enDosDias, presupuesto: 75, jugadores }));
+    execFileSync('node', ['construir-sitio.mjs'], { cwd: __dirname, stdio: 'pipe' });
+
     nav = await chromium.launch();
     const pg = await nav.newPage({ viewport: { width: 430, height: 950 } });
     const errs = [];

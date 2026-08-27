@@ -1,3 +1,21 @@
+Armá el 11 — versión 2026-08-27 o (la fecha se publica sola)
+
+Lo más nuevo:
+  · fantasy-api.mjs: saca del calendario cuál es la próxima fecha y a qué
+    hora arranca, calcula los precios con la fórmula publicada y escribe
+    la fila de `fechas` en la base, que es donde vive el cierre de verdad.
+  · ARREGLADO: la pestaña Fantasy se veía aunque no hubiera fecha. El
+    atributo `hidden` esconde con display:none y la regla de la barra le
+    ponía display:grid encima.
+  · Una fecha sin jugadores se trata como si no existiera, y los archivos
+    de una fecha vieja se borran en vez de quedar dando vueltas.
+
+  OJO: para que la fecha se escriba en la base hay que agregar UNA LÍNEA
+  al archivo .github/workflows/publicar.yml, y ese archivo NO se sube
+  arrastrando. Editalo directo en GitHub con el lápiz. Está explicado en
+  el mensaje que acompaña a esta versión.
+
+── lo de antes ───────────────────────────────────────────────────────────
 Armá el 11 — versión 2026-08-27 n (formación y cancha)
 
 Lo más nuevo:

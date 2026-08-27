@@ -58,7 +58,7 @@ const IMPRESCINDIBLES = [
   "pipeline.mjs", "traer.mjs", "todos.mjs", "juego.js", "cuentas.js",
   "clubes.json", "medios.json", "sitio.json", "app.tpl.html",
   "construir-sitio.mjs", "datos-juego.mjs", "stats-api.mjs", "stats-calc.mjs",
-  "resolver-youtube.mjs", "esquema.sql", "fantasy.mjs",
+  "resolver-youtube.mjs", "esquema.sql", "fantasy.mjs", "fantasy-api.mjs",
   "probar.mjs", "probar-clubes.mjs", "probar-once.mjs", "probar-stats.mjs",
   "probar-backend.mjs", "probar-cuentas.mjs", "probar-fantasy.mjs",
 ];
@@ -97,6 +97,9 @@ if (!hayKey) {
 } else {
   paso("Bajar los datos del juego", "datos-juego.mjs");
   paso("Rehacer la tabla y los números", "stats-api.mjs");
+  /* No es obligatorio: si la fecha no se puede armar, el resto del sitio
+     sale igual y la pestaña del fantasy simplemente no aparece. */
+  paso("Publicar la próxima fecha del fantasy", "fantasy-api.mjs");
 }
 
 /* ─── 4. el sitio ────────────────────────────────────────────────────────── */
@@ -116,6 +119,14 @@ try {
   if (!st.oficial) console.log("  ⚠ NO es la tabla oficial. Revisá qué devolvió /standings.");
   if (dias > 3)    console.log("  ⚠ el dato tiene más de tres días. Algo no se está rehaciendo.");
 } catch (e) { console.log("  ⚠ no pude leer stats-liga.json: " + e.message); }
+
+try {
+  const f = JSON.parse(readFileSync(aca("./fecha-actual.json")));
+  console.log("  FANTASY: fecha " + f.numero + " · " + (f.jugadores || []).length +
+              " jugadores · cierra " + new Date(f.cierra).toLocaleString("es-AR"));
+  if (!(f.jugadores || []).length)
+    console.log("  ⚠ la fecha quedó SIN jugadores: la pestaña no va a aparecer.");
+} catch (e) { console.log("  FANTASY: sin fecha publicada (la pestaña no aparece)"); }
 
 const cache = existsSync(aca("./sitio/datos/cache-talleres-cba.js"));
 console.log("  JUEGO: " + (cache ? "con los datos bajados, sin API key en el navegador"

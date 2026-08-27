@@ -148,6 +148,12 @@ srv.listen(8099, async () => {
 
   await pg.goto('http://localhost:8099/' + CLUB + '.html', { waitUntil: 'networkidle' });
   await pg.waitForTimeout(300);
+  /* Sin fecha publicada, la pestaña del fantasy no puede estar. Estuvo
+     visible una versión entera: `hidden` esconde con display:none y la
+     regla de la barra le ponía display:grid encima. */
+  caso("sin fecha publicada, la pestaña del fantasy NO se ve",
+       !(await pg.locator('#btfantasy').isVisible()));
+
   caso("el feed entra por <script src> y se pinta",
        (await pg.locator('#resumen').textContent() || '').includes('historias'));
 

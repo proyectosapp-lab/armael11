@@ -316,6 +316,10 @@ tr.yo td:first-child{border-radius:9px 0 0 9px} tr.yo td:last-child{border-radiu
   color:var(--tinta-3);font-size:10.5px;font-weight:600;font-family:inherit;padding:4px 0}
 .barra button span{font-size:19px;line-height:1}
 .barra button[aria-pressed="true"]{color:var(--acento-txt)}
+/* `hidden` esconde poniendo display:none, pero la regla de arriba le pone
+   display:grid y le gana: el botón quedaba visible igual. Un atributo que
+   no hace lo que dice es peor que no tenerlo. */
+.barra button[hidden]{display:none}
 </style>
 </head>
 <body>
