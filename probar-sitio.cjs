@@ -108,6 +108,44 @@ srv.listen(8099, async () => {
   await pg.goto('http://localhost:8099/index.html', { waitUntil: 'networkidle' });
   caso("la portada lista los clubes", await pg.locator('.club').count() > 0);
 
+  /* ── EL NOMBRE ────────────────────────────────────────────────────────
+     La app se llamaba TSTE por dentro y el dominio dice otra cosa. Que el
+     link diga una cosa y la pantalla diga otra confunde justo cuando
+     alguien la recibe por primera vez. */
+  {
+    const site = await pg.locator('meta[property="og:site_name"]').getAttribute('content');
+    caso("la portada se presenta con el nombre del producto", site === "Armá el 11", site);
+    const html = await pg.content();
+    caso("y no queda ni un TSTE a la vista", !/TSTE/.test(html),
+         (html.match(/.{0,30}TSTE.{0,30}/) || [""])[0]);
+  }
+
+  /* ── LA CIUDAD DE CADA CLUB ───────────────────────────────────────────
+     Estaba en la misma fila que el nombre, empujada a la derecha, y con
+     los nombres largos se cortaba: "Independiente Rivadavia" se comía a
+     "Mendoza". Ahora van apilados. Esto mide lo único que importa: que el
+     texto entre entero en su caja, en los treinta.                      */
+  {
+    const cortadas = await pg.evaluate(() => {
+      const mal = [];
+      for (const e of document.querySelectorAll('.club')) {
+        const ciu = e.querySelector('.ciu'); if (!ciu) continue;
+        /* Un píxel de tolerancia: el redondeo del navegador. */
+        if (ciu.scrollWidth > ciu.clientWidth + 1)
+          mal.push(e.querySelector('.nom').textContent.trim());
+      }
+      return mal;
+    });
+    caso("ninguna ciudad queda cortada", cortadas.length === 0, cortadas.join(", "));
+    const apilado = await pg.evaluate(() => {
+      const c = document.querySelector('.club');
+      const n = c.querySelector('.nom').getBoundingClientRect();
+      const u = c.querySelector('.ciu').getBoundingClientRect();
+      return u.top >= n.bottom - 2;      // la ciudad va DEBAJO del nombre
+    });
+    caso("la ciudad va debajo del nombre, no peleándole el renglón", apilado);
+  }
+
   await pg.goto('http://localhost:8099/' + CLUB + '.html', { waitUntil: 'networkidle' });
   await pg.waitForTimeout(300);
   caso("el feed entra por <script src> y se pinta",
@@ -192,6 +230,25 @@ srv.listen(8099, async () => {
      código de contador configurado, no puede cargarse NINGÚN script de otro
      dominio. Esto lo verifica en vez de confiar.                        */
   caso("no carga ningún script de terceros", ajenos.length === 0, ajenos.join(", "));
+
+  /* El dominio propio. La regla es que no queden dos direcciones vivas: si
+     hay dominio, TODO sale desde ahí —la tarjeta de WhatsApp, la canónica y
+     el archivo que GitHub lee—; si no hay, no se inventa un CNAME. */
+  {
+    const cfg = JSON.parse(fs.readFileSync(path.join(__dirname, 'sitio.json'), 'utf8'));
+    const dom = (cfg.dominio || '').trim();
+    const cname = path.join(RAIZ, 'CNAME');
+    if (dom) {
+      caso("con dominio propio, el sitio lleva su CNAME",
+           fs.existsSync(cname) && fs.readFileSync(cname, 'utf8').trim() === dom,
+           fs.existsSync(cname) ? fs.readFileSync(cname, 'utf8').trim() : "no está");
+      caso("y el link que se comparte apunta al dominio, no a github.io",
+           ((await meta('og:url')) || '').startsWith('https://' + dom),
+           await meta('og:url'));
+    } else {
+      caso("sin dominio propio no se inventa un CNAME", !fs.existsSync(cname));
+    }
+  }
 
   /* La seña del club: ocho píxeles al borde, con la camiseta leída a lo
      largo. Antes era un lavado difuminado de pantalla completa.        */

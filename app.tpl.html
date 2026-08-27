@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Talleres · TSTE</title>
+<title>Talleres · Armá el 11</title>
 <style>
 *{box-sizing:border-box}
 html{background:var(--fondo)}
@@ -248,7 +248,7 @@ tr.yo td:first-child{border-radius:9px 0 0 9px} tr.yo td:last-child{border-radiu
 </div>
 <nav class="barra" id="barra">
   <button data-tab="feed"><span>◎</span>Feed</button>
-  <button data-tab="juego"><span>⬡</span>Armá el 11</button>
+  <button data-tab="juego"><span>⬡</span>El 11</button>
   <button data-tab="numeros"><span>▤</span>Números</button>
 </nav>
 
@@ -1073,11 +1073,11 @@ function vistaJuego(){
   const msg = J.msg?`<div class="cargando">${esc(J.msg)}</div>`:"";
 
   if(J.paso==="key" && window.CACHE) return `
-    <h3 class="sec">Armá el 11</h3>
+    <h3 class="sec">El 11 de la fecha</h3>
     <div class="tarjeta"><div class="cargando">Cargando el partido…</div>${cab}</div>`;
 
   if(J.paso==="key") return `
-    <h3 class="sec">Armá el 11</h3>
+    <h3 class="sec">El 11 de la fecha</h3>
     <div class="tarjeta">
       <p class="bajada" style="margin-top:0">Ponés tu once, el once del rival, tocás dos o tres ajustes
       y simulás. Después revelás qué puso el DT y qué pasó de verdad.</p>

@@ -19,7 +19,7 @@
          feed-<club>.js      lo escribe todos.mjs
          cache-<club>.js     lo escribe datos-juego.mjs (puede no estar)
    ══════════════════════════════════════════════════════════════════════════ */
-import { readFileSync, writeFileSync, mkdirSync, copyFileSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, copyFileSync, existsSync, rmSync } from "node:fs";
 
 const aca = p => new URL(p, import.meta.url);
 const CLUBES = JSON.parse(readFileSync(aca("./clubes.json")));
@@ -57,7 +57,11 @@ const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">"
 
    También va acá lo que hace falta para agregarlo a la pantalla de inicio:
    en el teléfono esto es una app, aunque sea una página.                */
-const RAIZ = (CFG.url || "").replace(/\/+$/, "");
+/* Con dominio propio manda el dominio: si quedaran las dos direcciones
+   dando vueltas, la tarjeta de WhatsApp diría una y el link llevaría a la
+   otra, y los buscadores tratarían el sitio como dos sitios distintos. */
+const DOM  = (CFG.dominio || "").trim().replace(/^https?:\/\//, "").replace(/\/+$/, "");
+const RAIZ = DOM ? "https://" + DOM : (CFG.url || "").replace(/\/+$/, "");
 
 /* El icono es el mismo monograma de la app: la inicial sobre el color del
    club. Sin escudos, que no son nuestros. Va como SVG embebido, así no hay
@@ -73,7 +77,7 @@ const contador = CFG.contador
     ` async src="//gc.zgo.at/count.js"></script>` : "";
 
 function cabeza(club) {
-  const titulo = club.nom + " · TSTE";
+  const titulo = club.nom + " · Armá el 11";
   const desc = "Todo lo que se dice de " + club.nom + " en un solo lugar: noticias, " +
     "videos y números. Y armá el once para el próximo partido.";
   const url = RAIZ ? RAIZ + "/" + club.id + ".html" : "";
@@ -83,7 +87,7 @@ function cabeza(club) {
     `<meta name="description" content="${esc(desc)}">`,
     `<meta name="theme-color" content="${esc(club.color)}">`,
     `<meta property="og:type" content="website">`,
-    `<meta property="og:site_name" content="TSTE">`,
+    `<meta property="og:site_name" content="Armá el 11">`,
     `<meta property="og:locale" content="es_AR">`,
     `<meta property="og:title" content="${esc(titulo)}">`,
     `<meta property="og:description" content="${esc(desc)}">`,
@@ -133,7 +137,7 @@ for (const club of CLUBES) {
 
   /* Agregado a la pantalla de inicio, abre en su club y con sus colores. */
   writeFileSync(new URL("app-" + club.id + ".webmanifest", DATOS), JSON.stringify({
-    name: club.nom + " · TSTE", short_name: club.nom,
+    name: club.nom + " · Armá el 11", short_name: club.nom,
     start_url: "../" + club.id + ".html", scope: "../", display: "standalone",
     background_color: club.color, theme_color: club.color,
     icons: [{ src: icono(club), sizes: "any", type: "image/svg+xml", purpose: "any" }],
@@ -143,11 +147,18 @@ for (const club of CLUBES) {
 
 /* ─── la portada ──────────────────────────────────────────────────────────
    Sin escudos: monograma sobre el color del club, igual que en la app.   */
+/* El nombre y la ciudad van APILADOS, no uno al lado del otro.
+   Estaban en la misma fila con la ciudad empujada a la derecha, y eso
+   funciona mientras todos los nombres entren en un renglón. No entran:
+   "Independiente Rivadavia" ocupa dos y le come el lugar a "Mendoza";
+   "Aldosivi" deja tanto aire que "Mar del Plata" se parte en tres.
+   Apilados, el largo del nombre deja de pelearse con el de la ciudad. */
 const tarjeta = c => {
   const tinta = tintaSobre(c.color);
   return `<a class="club" href="${c.id}.html" style="--c:${c.color};--c2:${c.color2};--t:${tinta}">
-    <span class="mono">${esc(c.ini)}</span><span class="nom">${esc(c.nom)}</span>
-    ${c.ciudad ? `<span class="ciu">${esc(c.ciudad)}</span>` : ""}</a>`;
+    <span class="mono">${esc(c.ini)}</span>
+    <span class="txt"><span class="nom">${esc(c.nom)}</span>${
+      c.ciudad ? `<span class="ciu">${esc(c.ciudad)}</span>` : ""}</span></a>`;
 };
 
 /* Mismo criterio que el motor de color: se comparan los dos contrastes y
@@ -168,17 +179,17 @@ writeFileSync(new URL("index.html", SITIO), `<!doctype html>
 <html lang="es"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>TSTE · elegí tu equipo</title>
+<title>Armá el 11 · elegí tu equipo</title>
 <meta name="description" content="Todo lo que se dice de tu equipo del fútbol argentino, en un solo lugar: noticias, videos y números de los 30 clubes.">
 <meta name="theme-color" content="#101418">
 <meta property="og:type" content="website">
-<meta property="og:site_name" content="TSTE">
+<meta property="og:site_name" content="Armá el 11">
 <meta property="og:locale" content="es_AR">
-<meta property="og:title" content="TSTE · elegí tu equipo">
+<meta property="og:title" content="Armá el 11 · elegí tu equipo">
 <meta property="og:description" content="Todo lo que se dice de tu equipo del fútbol argentino, en un solo lugar. 30 clubes.">
 ${RAIZ ? `<meta property="og:url" content="${RAIZ}/">\n<link rel="canonical" href="${RAIZ}/">` : ""}
 <meta name="twitter:card" content="summary">
-<link rel="icon" href="${icono({color:"#101418", ini:"T"})}">
+<link rel="icon" href="${icono({color:"#101418", ini:"11"})}">
 <style>
   :root{ --fondo:#F7F8FA; --papel:#FFFFFF; --texto:#101418; --suave:#57606E; --borde:#E3E6EC; }
   @media (prefers-color-scheme: dark){
@@ -197,8 +208,9 @@ ${RAIZ ? `<meta property="og:url" content="${RAIZ}/">\n<link rel="canonical" hre
   .mono{width:34px;height:34px;flex:none;border-radius:9px;background:var(--c);color:var(--t);
     display:grid;place-items:center;font-weight:800;font-size:16px;
     box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--c2) 55%,transparent)}
+  .txt{display:flex;flex-direction:column;min-width:0;line-height:1.25}
   .nom{font-weight:650;letter-spacing:-.01em}
-  .ciu{margin-left:auto;color:var(--suave);font-size:12px;text-align:right}
+  .ciu{color:var(--suave);font-size:12px;margin-top:1px}
   footer{margin-top:34px;color:var(--suave);font-size:13px;line-height:1.7}
   footer b{color:var(--texto);font-weight:600}
 </style></head><body>
@@ -207,7 +219,7 @@ ${RAIZ ? `<meta property="og:url" content="${RAIZ}/">\n<link rel="canonical" hre
   <p class="baja">Todo lo que se dice de tu club, en un solo lugar. ${orden.length} equipos.</p>
   <div class="grilla">${orden.map(tarjeta).join("\n")}</div>
   <footer>
-    <b>TSTE es independiente.</b> No está afiliado ni tiene relación con ningún club
+    <b>Armá el 11 es independiente.</b> No está afiliado ni tiene relación con ningún club
     ni con la Liga Profesional. Los nombres se usan para identificar a los equipos.
     Los videos se enlazan a sus reproductores originales; acá no se aloja ninguno.
   </footer>
@@ -217,6 +229,17 @@ ${RAIZ ? `<meta property="og:url" content="${RAIZ}/">\n<link rel="canonical" hre
 /* Pages sirve tal cual lo que hay: sin esto trata la carpeta como un sitio
    Jekyll y se saltea todo lo que empiece con guion bajo. */
 writeFileSync(new URL(".nojekyll", SITIO), "");
+
+/* El dominio propio. GitHub lo lee también de Settings → Pages, pero el
+   archivo va igual: si algún día se publica desde otro lado, el dominio
+   viaja con el sitio en vez de vivir solo en una pantalla de configuración
+   que nadie recuerda haber tocado. */
+/* Y si se saca el dominio, el archivo se BORRA. Dejarlo sería peor que no
+   haberlo puesto nunca: GitHub seguiría contestando en una dirección que ya
+   no apunta a ningún lado, y el sitio quedaría inalcanzable por las dos. */
+const CNAME = new URL("CNAME", SITIO);
+if (DOM) writeFileSync(CNAME, DOM + "\n");
+else if (existsSync(CNAME)) rmSync(CNAME);
 
 console.log("\n  sitio/  ·  " + hechos + " clubes  ·  " +
             conJuego + " con datos del juego cargados");

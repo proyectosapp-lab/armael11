@@ -64,7 +64,7 @@ probar-stats.mjs     30 casos de la tabla y los números
 esquema.sql          las tablas del backend. Se pega en el editor SQL de Supabase.
 probar-backend.mjs   25 casos del esquema: que nadie se escriba sus propios puntos
 cuentas.js           entrar, el perfil, el equipo y las ligas. Solo fetch.
-probar-cuentas.mjs   37 casos de lo que se le pide al backend, sin red
+probar-cuentas.mjs   39 casos de lo que se le pide al backend, sin red
 probar-cuenta-sitio.cjs  18 casos del recorrido de entrar, en un navegador
 stats-api.mjs        tabla y números frescos, con /standings
 stats-calc.mjs       la cuenta, sin red: la usan stats.mjs y stats-api.mjs
@@ -87,7 +87,7 @@ node probar-cuenta-sitio.cjs
 node probar-sitio.cjs
 ```
 
-Doscientos catorce casos, en dos segundos y sin internet.
+Doscientos veintidós casos, en dos segundos y sin internet.
 Correlos cada vez que toques `pipeline.mjs` o `clubes.json`. Ya van dentro de
 CORRER, así que si algo se rompe se ve arriba de todo en `salida.txt`.
 

@@ -114,6 +114,23 @@ const tokenCon = uid => "x." +
   try { await C.elegirUsuario("tomado"); } catch (e) { err = e.message; }
   caso("si el usuario está tomado, lo dice en castellano",
        /ya está tomado/i.test(err), err);
+
+  /* Los dos frenos del mail dicen cosas distintas. Cuando decían lo mismo,
+     Fausto estuvo probando contra un tope de una hora creyendo que era de
+     un minuto.                                                          */
+  limpiar();
+  respuestas.push({ cuerpo: { message: "For security purposes, you can only request this after 47 seconds." },
+                    ok: false, status: 429 });
+  err = "";
+  try { await C.pedirLink("f@ejemplo.com"); } catch (e) { err = e.message; }
+  caso("la espera corta dice cuántos segundos", /47 segundos/.test(err), err);
+
+  limpiar();
+  respuestas.push({ cuerpo: { message: "email rate limit exceeded" }, ok: false, status: 429 });
+  err = "";
+  try { await C.pedirLink("f@ejemplo.com"); } catch (e) { err = e.message; }
+  caso("y el tope por hora avisa que insistir no sirve",
+       /por hora/.test(err) && !/segundos/.test(err), err);
 }
 
 /* ─── 5. EL EQUIPO ───────────────────────────────────────────────────────── */

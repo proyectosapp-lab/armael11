@@ -70,7 +70,15 @@ async function mensajeDe(r) {
   if (/duplicate key.*perfil_usuario/i.test(cru)) return "Ese nombre de usuario ya está tomado.";
   if (/violates row-level security|new row violates/i.test(cru))
     return "La fecha ya cerró: no se puede cambiar el equipo.";
-  if (/rate limit|too many/i.test(cru)) return "Probá de nuevo en un minuto.";
+  /* Los dos frenos del mail son distintos y decirles lo mismo a los dos hace
+     perder una hora. Uno es una espera de segundos entre pedidos al mismo
+     mail; el otro es el tope por hora de todo el proyecto, que en el plan
+     gratis es bajo. Insistir con el segundo solo lo empeora.             */
+  const seg = cru.match(/after (\d+) seconds?/i);
+  if (seg) return "Esperá " + seg[1] + " segundos y pedilo de nuevo.";
+  if (/rate limit|too many/i.test(cru))
+    return "Se llegó al tope de mails por hora. Hay que esperar un rato: " +
+           "insistir ahora no sirve.";
   return cru;
 }
 

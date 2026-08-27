@@ -1,3 +1,44 @@
+Armá el 11 — versión 2026-08-26 k (el nombre y las tarjetas)
+
+Lo más nuevo:
+  · La app se llama Armá el 11, no TSTE. Cambió el título de cada página,
+    el nombre que muestra WhatsApp al compartir y el de la pantalla de
+    inicio del teléfono. Hay una prueba que falla si vuelve a aparecer
+    un TSTE a la vista.
+  · La pestaña del juego pasa a llamarse "El 11": si la app entera se
+    llama Armá el 11, no puede haber una pestaña con el mismo nombre.
+  · En la portada, la ciudad va DEBAJO del nombre del club. Estaba al
+    costado y con los nombres largos se cortaba: "Independiente
+    Rivadavia" se comía a "Mendoza". Una prueba mide que las treinta
+    entren enteras.
+
+── lo de antes ───────────────────────────────────────────────────────────
+TSTE — versión 2026-08-26 j (armael11.com)
+
+OJO CON EL ORDEN: este zip trae el dominio ya configurado. NO lo subas
+hasta que https://armael11.com abra la app. Si lo subís antes, GitHub
+empieza a mandar a todo el mundo a una dirección que no contesta y el
+sitio queda inalcanzable por las dos puntas. Los pasos, en DOMINIO.md.
+
+── lo de antes ───────────────────────────────────────────────────────────
+TSTE — versión 2026-08-26 i (listo para el dominio propio)
+
+Lo más nuevo:
+  · sitio.json tiene un campo "dominio". Cuando se pone, la corrida escribe
+    el CNAME que GitHub necesita y TODAS las direcciones absolutas del sitio
+    salen de ahí. Cuando se saca, el CNAME se borra: dejarlo sería peor que
+    no haberlo puesto.
+  · DOMINIO.md: los cinco lugares que hay que tocar, en orden.
+
+── lo de antes ───────────────────────────────────────────────────────────
+TSTE — versión 2026-08-26 h (mensajes honestos del mail)
+
+Lo más nuevo:
+  · Los dos frenos del envío de mail dicen cosas distintas: la espera corta
+    avisa cuántos segundos faltan; el tope por hora avisa que insistir no
+    sirve. Cuando decían lo mismo, se perdía una hora probando.
+
+── lo de antes ───────────────────────────────────────────────────────────
 TSTE — versión 2026-08-26 g (todo en la raíz, sin carpetas)
 
 Lo más nuevo:
