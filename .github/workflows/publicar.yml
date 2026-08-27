@@ -54,6 +54,7 @@ jobs:
       - name: Correr todo
         env:
           API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: node publicar.mjs
 
       - uses: actions/upload-pages-artifact@v3
