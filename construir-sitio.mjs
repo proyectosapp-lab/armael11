@@ -48,6 +48,20 @@ if (HAY_BACKEND)
   writeFileSync(new URL("cuentas.js", DATOS),
     readFileSync(aca("./cuentas.js"), "utf8").replace(/^export\s+/gm, ""));
 
+/* La fecha del fantasy y su reglamento. Se copian solo si hay una fecha
+   publicada: sin eso la pestaña no aparece y la app pesa lo mismo que
+   antes. `fantasy.mjs` es EL MISMO archivo que usa el servidor para
+   calcular los puntos — una sola tabla, una sola idea de qué equipo es
+   legal. Si la pantalla dejara pasar algo que el servidor rechaza, el
+   error aparecería recién el lunes. */
+const FECHA = existsSync(aca("./fecha-actual.json"))
+  ? JSON.parse(readFileSync(aca("./fecha-actual.json"))) : null;
+if (FECHA) {
+  writeFileSync(new URL("fantasy.js", DATOS),
+    readFileSync(aca("./fantasy.mjs"), "utf8").replace(/^export\s+/gm, ""));
+  writeFileSync(new URL("fecha.js", DATOS), "window.FECHA = " + JSON.stringify(FECHA) + ";\n");
+}
+
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
 
 /* ─── lo que hace falta para que un link se pueda mandar ─────────────────
@@ -122,6 +136,8 @@ for (const club of CLUBES) {
         supabase: HAY_BACKEND ? { url: CFG.supabase.url, anon: CFG.supabase.anon } : undefined,
       }) + '</script>',
     HAY_BACKEND ? '<script src="datos/cuentas.js"></script>' : null,
+    FECHA ? '<script src="datos/fantasy.js"></script>' : null,
+    FECHA ? '<script src="datos/fecha.js"></script>' : null,
     '<script src="datos/juego.js"></script>',
     '<script src="datos/stats-liga.js"></script>',
     '<script src="datos/feed-' + club.id + '.js"></script>',

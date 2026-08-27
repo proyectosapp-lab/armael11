@@ -58,9 +58,9 @@ const IMPRESCINDIBLES = [
   "pipeline.mjs", "traer.mjs", "todos.mjs", "juego.js", "cuentas.js",
   "clubes.json", "medios.json", "sitio.json", "app.tpl.html",
   "construir-sitio.mjs", "datos-juego.mjs", "stats-api.mjs", "stats-calc.mjs",
-  "resolver-youtube.mjs", "esquema.sql",
+  "resolver-youtube.mjs", "esquema.sql", "fantasy.mjs",
   "probar.mjs", "probar-clubes.mjs", "probar-once.mjs", "probar-stats.mjs",
-  "probar-backend.mjs", "probar-cuentas.mjs",
+  "probar-backend.mjs", "probar-cuentas.mjs", "probar-fantasy.mjs",
 ];
 const faltan = IMPRESCINDIBLES.filter(f => !existsSync(aca("./" + f)));
 if (faltan.length) {
@@ -78,7 +78,7 @@ if (faltan.length) {
    Van primero y son obligatorias. Si el pipeline está roto, publicar treinta
    feeds mal armados encima de los que estaban bien es peor que no publicar. */
 for (const t of ["probar.mjs", "probar-clubes.mjs", "probar-once.mjs", "probar-stats.mjs",
-                 "probar-backend.mjs", "probar-cuentas.mjs"])
+                 "probar-backend.mjs", "probar-cuentas.mjs", "probar-fantasy.mjs"])
   paso("Pruebas · " + t, t, { obligatorio: true });
 
 if (soloPruebas) { console.log("\n  Solo pruebas. Listo.\n"); process.exit(0); }

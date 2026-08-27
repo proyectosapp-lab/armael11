@@ -1,3 +1,42 @@
+Armá el 11 — versión 2026-08-27 n (formación y cancha)
+
+Lo más nuevo:
+  · Se elige la FORMACIÓN: 4-3-3, 4-4-2, 3-5-2, 3-4-3, 4-5-1, 5-3-2 y
+    5-4-1. Ella dice cuántos van en cada línea, así que ya no se puede
+    guardar un equipo que no sea una formación real.
+  · El equipo se ve en una CANCHA, no en una lista. Los lugares vacíos
+    son botones que filtran la lista de abajo por ese puesto.
+  · Cambiar de formación no borra el equipo: los que sobran vuelven a la
+    lista y se avisa quiénes.
+  · 315 casos de prueba.
+
+── lo de antes ───────────────────────────────────────────────────────────
+Armá el 11 — versión 2026-08-27 m (el fantasy, con pantalla)
+
+Lo más nuevo:
+  · La pantalla de armar el equipo: quince fichas, el presupuesto bajando
+    en cada toque, capitán y vice, y el reloj del cierre a la vista.
+  · La MISMA revisión corre en la pantalla y en el servidor: una sola
+    tabla de puntos, una sola idea de qué equipo es legal.
+  · La pestaña aparece SOLO si hay una fecha publicada. Lo que sigue es
+    publicar la primera con precios de una fecha real.
+  · 307 casos de prueba.
+
+── lo de antes ───────────────────────────────────────────────────────────
+Armá el 11 — versión 2026-08-27 l (el motor del fantasy)
+
+Lo más nuevo:
+  · fantasy.mjs: el reglamento hecho código. La tabla de puntos, las
+    suplencias automáticas, el capitán y el vice, el más valioso del
+    partido y la fórmula de los precios. No toca la red ni la base.
+  · 72 casos que prueban cada regla con una situación concreta. Si
+    mañana discutimos cuánto vale el gol de un defensor, se cambia un
+    número en una tabla y las pruebas dicen qué se movió.
+  · TODAVÍA NO HAY PANTALLA. Esto es el motor: lo que sigue es la fecha
+    con sus precios y la pantalla para armar el equipo.
+  · 294 casos de prueba.
+
+── lo de antes ───────────────────────────────────────────────────────────
 Armá el 11 — versión 2026-08-26 k (el nombre y las tarjetas)
 
 Lo más nuevo:

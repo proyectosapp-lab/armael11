@@ -114,6 +114,93 @@ body{margin:0;background:transparent;color:var(--tinta);
 .boton.flaco{background:transparent;color:var(--tinta-2);border:1px solid var(--borde)}
 .pie{padding:22px 6px 10px;font-size:11px;color:var(--tinta-3);line-height:1.6;text-align:center}
 
+
+/* ── FANTASY ──────────────────────────────────────────────────────────────
+   La barra del presupuesto va arriba de todo y se mira antes de cada toque:
+   armar el equipo ES gastar la plata. Por eso el número que queda está en
+   grande y se pone rojo apenas te pasás, sin esperar a que guardes.      */
+.fcab{display:flex;align-items:center;justify-content:space-between;gap:12px;
+  background:var(--hoja);border:1px solid var(--borde);border-radius:16px;
+  padding:12px 16px;margin-bottom:10px}
+.fcab b{font-size:16px;font-weight:700;display:block}
+.fsub{display:block;font-size:11.5px;color:var(--tinta-3);margin-top:2px}
+.fplata{text-align:right}
+.fplata b{font-size:22px;letter-spacing:-.5px;font-variant-numeric:tabular-nums}
+.fplata.mal b{color:#D14343}
+
+.fcancha{padding:14px 15px}
+.flin{padding:9px 0;border-top:1px solid var(--borde)}
+.fcancha .flin:first-child{border-top:0;padding-top:2px}
+.flab{font-size:11.5px;letter-spacing:.6px;text-transform:uppercase;font-weight:800;
+  color:var(--tinta-3);margin-bottom:7px;display:flex;gap:8px;align-items:baseline}
+.flab .fsub{display:inline;text-transform:none;letter-spacing:0;font-weight:600}
+.fchips{display:flex;flex-wrap:wrap;gap:6px}
+
+.ffi{display:inline-flex;align-items:center;gap:6px;background:var(--papel);
+  border:1px solid var(--borde);border-radius:999px;padding:4px 4px 4px 8px;font-size:13px}
+.ffi.cap{border-color:var(--acento);box-shadow:0 0 0 1px var(--acento)}
+.ffi.vice{border-color:var(--tinta-3)}
+.fnom{font-weight:600;max-width:11ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.fpre{color:var(--tinta-3);font-variant-numeric:tabular-nums;font-size:12px}
+.fcinta,.fquita{border:0;background:transparent;cursor:pointer;font:inherit;color:var(--tinta-3);
+  width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:800}
+.fcinta{background:var(--borde);color:var(--tinta-2)}
+.ffi.cap .fcinta{background:var(--acento);color:var(--sobre-acento)}
+.fquita:hover{color:#D14343}
+.fhueco{border:1px dashed var(--borde-2,var(--tinta-3));background:transparent;color:var(--tinta-3);
+  border-radius:999px;padding:5px 13px;font:inherit;font-size:13px;font-weight:700;cursor:pointer}
+.fhueco:hover{color:var(--acento-txt);border-color:var(--acento)}
+
+.fprob{margin-top:12px;padding-top:11px;border-top:1px solid var(--borde);
+  font-size:12.5px;color:#D14343;display:grid;gap:4px}
+.fguardar{margin-top:13px;width:100%}
+.fguardar:disabled{opacity:.45;cursor:default}
+
+
+/* ── LA CANCHA ────────────────────────────────────────────────────────────
+   Verde apenas insinuado y las líneas dibujadas con gradientes: nada de
+   imágenes. Las filas van de arriba (delanteros) a abajo (arquero), como
+   se mira una formación cuando alguien te la dibuja en una servilleta.  */
+.fcancha2{position:relative;border-radius:14px;padding:14px 8px 10px;
+  display:flex;flex-direction:column;gap:10px;
+  background:
+    linear-gradient(0deg,rgba(255,255,255,.10) 0 1px,transparent 1px 100%) center 50%/100% 50%,
+    radial-gradient(circle at 50% 50%,transparent 0 44px,rgba(255,255,255,.10) 44px 45px,transparent 45px),
+    linear-gradient(180deg,#166534,#14532D);
+  box-shadow:inset 0 0 0 2px rgba(255,255,255,.16)}
+:root[data-theme="oscuro"] .fcancha2, .oscuro .fcancha2{background:
+    linear-gradient(0deg,rgba(255,255,255,.08) 0 1px,transparent 1px 100%) center 50%/100% 50%,
+    radial-gradient(circle at 50% 50%,transparent 0 44px,rgba(255,255,255,.08) 44px 45px,transparent 45px),
+    linear-gradient(180deg,#14532D,#0B3D22)}
+.ffila{display:flex;justify-content:center;gap:6px;flex-wrap:wrap}
+
+.fjug{position:relative;width:66px;display:flex;flex-direction:column;align-items:center;gap:3px}
+.fcam{width:38px;height:38px;border-radius:11px;border:0;cursor:pointer;font:inherit;
+  background:var(--acento);color:var(--sobre-acento);display:grid;place-items:center;
+  font-size:12px;font-weight:800;line-height:1;position:relative;
+  box-shadow:0 2px 8px -2px rgba(0,0,0,.5)}
+.fcam b{position:absolute;bottom:-5px;right:-5px;background:var(--papel);color:var(--tinta);
+  border-radius:999px;font-size:9.5px;padding:1px 4px;font-weight:800;
+  box-shadow:0 1px 3px rgba(0,0,0,.35)}
+.fjug.cap .fcam{box-shadow:0 0 0 2px #FFF,0 2px 8px -2px rgba(0,0,0,.5)}
+.fjug.vice .fcam{box-shadow:0 0 0 2px rgba(255,255,255,.5),0 2px 8px -2px rgba(0,0,0,.5)}
+.fape{font-size:10.5px;font-weight:700;color:#fff;text-align:center;line-height:1.15;
+  max-width:66px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  text-shadow:0 1px 3px rgba(0,0,0,.6)}
+.fsaca{position:absolute;top:-6px;right:6px;width:18px;height:18px;border-radius:50%;
+  border:0;cursor:pointer;background:var(--papel);color:var(--tinta-2);
+  font:inherit;font-size:11px;font-weight:800;display:grid;place-items:center;padding:0;
+  box-shadow:0 1px 3px rgba(0,0,0,.35)}
+.fsaca:hover{color:#D14343}
+
+.fvacio{width:66px;background:transparent;border:0;cursor:pointer;padding:0;
+  display:flex;flex-direction:column;align-items:center;gap:3px;font:inherit}
+.fcirc{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;
+  border:1.5px dashed rgba(255,255,255,.55);color:rgba(255,255,255,.8);font-weight:800;font-size:15px}
+.fetiq{font-size:9.5px;color:rgba(255,255,255,.75);text-transform:uppercase;letter-spacing:.4px}
+.fvacio:hover .fcirc{border-color:#fff;color:#fff}
+.ffor{padding-bottom:10px}
+
 /* ── comunes ── */
 h3.sec{margin:22px 2px 9px;font-size:12px;letter-spacing:1.1px;text-transform:uppercase;
   color:var(--tinta-3);font-weight:800}
@@ -249,6 +336,7 @@ tr.yo td:first-child{border-radius:9px 0 0 9px} tr.yo td:last-child{border-radiu
 <nav class="barra" id="barra">
   <button data-tab="feed"><span>◎</span>Feed</button>
   <button data-tab="juego"><span>⬡</span>El 11</button>
+  <button data-tab="fantasy" id="btfantasy" hidden><span>◈</span>Fantasy</button>
   <button data-tab="numeros"><span>▤</span>Números</button>
 </nav>
 
@@ -513,6 +601,269 @@ function vistaFeed(){
   }
   if(abierta) out+="</div>";
   return out;
+}
+
+
+/* ══════════════════ FANTASY ══════════════════
+   La pantalla de armar el equipo. Los datos entran por `window.FECHA`, que
+   publica la corrida: número de fecha, cuándo cierra y la lista de jugadores
+   con su precio. Sin fecha publicada, la pestaña no aparece — la misma regla
+   de siempre: lo que no está listo no se muestra prometiendo.
+
+   El reglamento no está acá: está en fantasy.js, que es el mismo archivo que
+   usa el servidor para calcular los puntos. Una sola tabla de puntos, una
+   sola idea de qué equipo es legal. Si la pantalla dejara pasar algo que el
+   servidor rechaza, el error aparecería recién el lunes.                  */
+
+const FCH = window.FECHA || null;
+/* Ojo con esta línea: `fantasy.js` solo se carga si hay una fecha publicada,
+   así que sin fecha `FORMACION_POR_DEFECTO` NO EXISTE. Escrito sin el
+   `typeof`, esto tiraba un ReferenceError al evaluar el script y se caía la
+   app ENTERA —feed incluido— en el único caso que hoy es el normal. Lo
+   agarró la prueba del sitio, no yo. */
+const FORM_DEF = (typeof FORMACION_POR_DEFECTO !== "undefined")
+  ? FORMACION_POR_DEFECTO : "4-3-3";
+let F11 = { titulares:[], suplentes:{}, capitan:null, vice:null, formacion: FORM_DEF };
+let fFiltro = "todos", fBusca = "", fGuardando = false, fAviso = "";
+
+const precioMapa = () => new Map((FCH?.jugadores||[]).map(j=>[j.id, j.precio]));
+const gastoDe = e => [...e.titulares, ...Object.values(e.suplentes)]
+  .reduce((s,j)=>s + (j.precio||0), 0);
+const enEquipo = id => F11.titulares.some(j=>j.id===id) ||
+  Object.values(F11.suplentes).some(j=>j.id===id);
+
+const PUESTO_NOM = { G:"Arqueros", D:"Defensores", M:"Medios", F:"Delanteros" };
+/* El singular va escrito, no recortado del plural: sacarle dos letras a
+   "Medios" da "Medi" y a "Delanteros", "Delanter". El castellano no se
+   pluraliza con una regla que sirva para los cuatro. */
+const PUESTO_UNO = { G:"arquero", D:"defensor", M:"medio", F:"delantero" };
+
+/* Cuánto falta para el cierre, dicho como lo diría una persona. */
+function faltaPara(iso){
+  const ms = new Date(iso) - new Date();
+  if(isNaN(ms)) return "";
+  if(ms <= 0) return "cerrada";
+  const h = Math.floor(ms/36e5), d = Math.floor(h/24);
+  if(d >= 1) return "cierra en " + d + (d===1?" día":" días");
+  if(h >= 1) return "cierra en " + h + (h===1?" hora":" horas");
+  return "cierra en " + Math.max(1, Math.floor(ms/6e4)) + " minutos";
+}
+const cerrada = () => FCH && new Date(FCH.cierra) <= new Date();
+
+function vistaFantasy(){
+  if(!FCH) return `<div class="vacio">Todavía no hay fecha abierta.<br>
+    Cuando se publique la próxima, aparece acá.</div>`;
+
+  const gasto = gastoDe(F11), pres = FCH.presupuesto || 75;
+  const fichas = F11.titulares.length + Object.keys(F11.suplentes).length;
+  const resto = Math.round((pres - gasto)*10)/10;
+
+  /* La barra del presupuesto: lo primero que se mira y lo que decide cada
+     toque. Va arriba y pegada, porque se consulta en cada elección. */
+  const cab = `<div class="fcab">
+      <div><b>Fecha ${FCH.numero}</b><span class="fsub">${esc(FCH.torneo||"")} · ${
+        cerrada()?"cerrada":esc(faltaPara(FCH.cierra))}</span></div>
+      <div class="fplata ${resto<0?"mal":""}">
+        <b>${resto}</b><span class="fsub">de ${pres} · ${fichas}/15</span></div>
+    </div>`;
+
+  /* La formación primero: es la decisión que ordena todas las demás.
+     Cambiarla no borra el equipo — los que sobran de una línea vuelven a
+     la lista, y se avisa cuáles. */
+  const chipsForm = `<nav class="filtros ffor">${Object.keys(FORMACIONES).map(f=>
+    `<button class="chip" data-form="${f}" aria-pressed="${f===F11.formacion}">${f}</button>`
+    ).join("")}</nav>`;
+
+  /* La cancha. Cada línea es una fila, y los lugares vacíos son botones:
+     tocarlos filtra la lista de abajo por ese puesto. Ver el equipo
+     acomodado es la diferencia entre elegir jugadores y armar un equipo. */
+  const cupo = cupoDe(F11.formacion);
+  const fila = p => {
+    const tit = F11.titulares.filter(j=>j.puesto===p);
+    const huecos = Math.max(0, cupo[p] - tit.length);
+    return `<div class="ffila">
+      ${tit.map(j=>puesto(j)).join("")}
+      ${Array.from({length:huecos},()=>
+        `<button class="fvacio" data-puesto="${p}"><span class="fcirc">+</span>
+          <span class="fetiq">${PUESTO_UNO[p]}</span></button>`).join("")}
+    </div>`;
+  };
+  const cancha = `<div class="fcancha2">
+      ${["F","M","D","G"].map(fila).join("")}
+    </div>`;
+
+  const banco = `<div class="flin"><div class="flab">Suplentes
+      <span class="fsub">uno por puesto</span></div>
+    <div class="fchips">${["G","D","M","F"].map(p=>{
+      const j = F11.suplentes[p];
+      return j ? ficha(j,true) : `<button class="fhueco" data-banco="${p}">${p}</button>`;
+    }).join("")}</div></div>`;
+
+  /* La revisión es la misma que corre en el servidor. */
+  const rev = revisarEquipo(
+    { titulares:F11.titulares, suplentes:F11.suplentes, capitan:F11.capitan,
+      vice:F11.vice, formacion:F11.formacion },
+    precioMapa());
+  const listo = rev.ok && !cerrada();
+
+  const problemas = fichas>0 && rev.problemas.length
+    ? `<div class="fprob">${rev.problemas.slice(0,3).map(p=>`<div>${esc(p)}</div>`).join("")}</div>` : "";
+
+  const guardar = `<button class="boton fguardar" id="fguardar" ${listo?"":"disabled"}>${
+    cerrada() ? "La fecha ya cerró" : fGuardando ? "Guardando…" : "Guardar mi equipo"}</button>
+    ${fAviso?`<p class="aviso${/^Listo/.test(fAviso)?"":" mal"}">${esc(fAviso)}</p>`:""}`;
+
+  return cab + chipsForm + `<div class="tarjeta fcancha">
+      ${cancha}
+      ${banco}
+      ${problemas}
+      ${guardar}
+    </div>` + listado();
+}
+
+/* Un jugador parado en la cancha. El apellido abajo, el precio al lado, y
+   la cinta arriba a la izquierda para marcarlo capitán o vice. */
+function puesto(j){
+  const cap = F11.capitan===j.id, vice = F11.vice===j.id;
+  return `<div class="fjug${cap?" cap":vice?" vice":""}">
+    <button class="fcam" data-cinta="${j.id}" title="Capitán / vice">
+      ${cap?"C":vice?"V":""}<b>${j.precio}</b></button>
+    <span class="fape">${esc(apellido(j.nombre))}</span>
+    <button class="fsaca" data-quita="${j.id}" aria-label="Sacar">×</button>
+  </div>`;
+}
+/* Una ficha de jugador ya elegido. El capitán y el vice se marcan tocando
+   la letra: dos toques y no una pantalla aparte. */
+function ficha(j, esBanco){
+  const cap = F11.capitan===j.id, vice = F11.vice===j.id;
+  return `<span class="ffi${cap?" cap":vice?" vice":""}">
+    ${esBanco?"":`<button class="fcinta" data-cinta="${j.id}" title="Capitán / vice">${
+      cap?"C":vice?"V":"·"}</button>`}
+    <span class="fnom">${esc(j.nombre)}</span>
+    <span class="fpre">${j.precio}</span>
+    <button class="fquita" data-quita="${j.id}" aria-label="Sacar">×</button></span>`;
+}
+
+/* La lista de donde se elige. Ordenada por precio: el que arma un equipo
+   mira primero cuánto sale, no el apellido. */
+function listado(){
+  const q = fBusca.trim().toLowerCase();
+  let l = (FCH.jugadores||[]).filter(j=>!enEquipo(j.id));
+  if(fFiltro!=="todos") l = l.filter(j=>j.puesto===fFiltro);
+  if(q) l = l.filter(j=>(j.nombre+" "+j.club).toLowerCase().includes(q));
+  l = l.sort((a,b)=> b.precio-a.precio || b.ppp-a.ppp).slice(0,60);
+
+  const chips = ["todos","G","D","M","F"].map(x=>
+    `<button class="chip" data-fp="${x}" aria-pressed="${x===fFiltro}">${
+      x==="todos"?"Todos":PUESTO_NOM[x]}</button>`).join("");
+
+  return `<h3 class="sec">Elegí jugadores</h3>
+    <nav class="filtros">${chips}</nav>
+    <div class="par" style="margin-bottom:10px">
+      <input type="text" id="fbusca" placeholder="Buscar por nombre o club" value="${esc(fBusca)}"></div>
+    <div class="compactas">${l.length?l.map(j=>`
+      <div class="linea">
+        <div style="min-width:0">
+          <a href="#" data-suma="${j.id}">${esc(j.nombre)}</a>
+          <span class="de">${esc(j.club)} · ${PUESTO_UNO[j.puesto]}${
+            j.pj?" · "+j.ppp+" por partido":""}</span>
+        </div>
+        <span class="cuando">${j.precio}</span>
+      </div>`).join(""):`<div class="vacio">Nadie con ese nombre.</div>`}</div>`;
+}
+
+function engancharFantasy(){
+  const v = $("vista");
+  v.querySelectorAll("[data-form]").forEach(b=>b.onclick=()=>cambiarFormacion(b.dataset.form));
+  v.querySelectorAll("[data-fp]").forEach(b=>b.onclick=()=>{ fFiltro=b.dataset.fp; pintar(); });
+  v.querySelectorAll("[data-puesto]").forEach(b=>b.onclick=()=>{ fFiltro=b.dataset.puesto; pintar(); });
+  v.querySelectorAll("[data-banco]").forEach(b=>b.onclick=()=>{ fFiltro=b.dataset.banco; pintar(); });
+  v.querySelectorAll("[data-suma]").forEach(a=>a.onclick=e=>{ e.preventDefault(); sumar(+a.dataset.suma); });
+  v.querySelectorAll("[data-quita]").forEach(b=>b.onclick=()=>quitar(+b.dataset.quita));
+  v.querySelectorAll("[data-cinta]").forEach(b=>b.onclick=()=>cinta(+b.dataset.cinta));
+  const bu = $("fbusca");
+  if(bu) bu.oninput = () => { fBusca = bu.value; const p = bu.selectionStart;
+    pintar(); const n = $("fbusca"); if(n){ n.focus(); n.setSelectionRange(p,p); } };
+  const g = $("fguardar"); if(g) g.onclick = guardarFantasy;
+}
+
+/* Cambiar de formación no puede borrar el equipo: eso castiga por probar.
+   Los que sobran de una línea salen —los últimos que entraron, y los más
+   caros primero— y se avisa quiénes, para que nadie descubra el domingo
+   que le falta un delantero. */
+function cambiarFormacion(f){
+  if(!FORMACIONES[f] || f===F11.formacion) return;
+  F11.formacion = f;
+  const cupo = cupoDe(f), sacados = [];
+  for(const p of ["G","D","M","F"]){
+    const enLinea = F11.titulares.filter(x=>x.puesto===p);
+    const sobran = enLinea.length - cupo[p];
+    if(sobran > 0){
+      const fuera = enLinea.slice().sort((a,b)=>b.precio-a.precio).slice(0, sobran);
+      for(const x of fuera){
+        F11.titulares = F11.titulares.filter(y=>y.id!==x.id);
+        sacados.push(apellido(x.nombre));
+        if(F11.capitan===x.id) F11.capitan = F11.titulares[0]?.id || null;
+        if(F11.vice===x.id)    F11.vice = null;
+      }
+    }
+  }
+  fAviso = sacados.length
+    ? "En " + f + " no entran: " + sacados.join(", ") + ". Volvieron a la lista."
+    : "";
+  pintar();
+}
+
+/* Sumar un jugador: primero al once si hay lugar en su línea; si no, al
+   banco. Que el usuario no tenga que decidir "titular o suplente" en cada
+   toque es la diferencia entre armar un equipo y llenar un formulario. */
+function sumar(id){
+  const j = (FCH.jugadores||[]).find(x=>x.id===id); if(!j || enEquipo(id)) return;
+  const p = j.puesto, max = cupoDe(F11.formacion)[p];
+  const enLinea = F11.titulares.filter(x=>x.puesto===p).length;
+  if(enLinea < max && F11.titulares.length < 11) F11.titulares.push(j);
+  else if(!F11.suplentes[p]) F11.suplentes[p] = j;
+  else { fAviso = "No queda lugar de " + PUESTO_UNO[p] + "."; pintar(); return; }
+  if(!F11.capitan && F11.titulares.some(x=>x.id===id)) F11.capitan = id;
+  fAviso = ""; pintar();
+}
+
+function quitar(id){
+  F11.titulares = F11.titulares.filter(j=>j.id!==id);
+  for(const p of ["G","D","M","F"]) if(F11.suplentes[p]?.id===id) delete F11.suplentes[p];
+  if(F11.capitan===id) F11.capitan = F11.titulares[0]?.id || null;
+  if(F11.vice===id)    F11.vice = null;
+  fAviso=""; pintar();
+}
+
+/* Un botón, tres estados: nada → capitán → vice → nada. */
+function cinta(id){
+  if(F11.capitan===id){ F11.capitan=null; F11.vice=id; }
+  else if(F11.vice===id){ F11.vice=null; }
+  else { if(F11.vice===id) F11.vice=null; F11.capitan=id; }
+  if(F11.capitan===F11.vice) F11.vice=null;
+  pintar();
+}
+
+async function guardarFantasy(){
+  if(typeof hayBackend!=="function" || !hayBackend()){
+    fAviso = "Falta configurar el backend."; return pintar();
+  }
+  if(!quienSoy()){
+    fAviso = "Entrá con tu mail primero, así el equipo queda guardado.";
+    cuentaAbierta = true; pintarCuenta(); return pintar();
+  }
+  fGuardando = true; fAviso = ""; pintar();
+  try{
+    await guardarEquipo(FCH.numero, {
+      titulares: F11.titulares.map(j=>j.id),
+      suplentes: ["G","D","M","F"].map(p=>F11.suplentes[p].id),
+      capitan: F11.capitan, vice: F11.vice || F11.capitan,
+      gasto: gastoDe(F11), formacion: F11.formacion,
+    });
+    fAviso = "Listo, tu equipo quedó guardado.";
+  }catch(e){ fAviso = e.message; }
+  fGuardando = false; pintar();
 }
 
 /* ══════════════════ NÚMEROS ══════════════════ */
@@ -1234,9 +1585,11 @@ function leerPronostico(){
 /* ══════════════════ render y eventos ══════════════════ */
 function pintar(){
   pintarColores();
-  $("vista").innerHTML = tab==="feed"?vistaFeed() : tab==="juego"?vistaJuego() : vistaNumeros();
+  $("vista").innerHTML = tab==="feed"?vistaFeed() : tab==="juego"?vistaJuego()
+                       : tab==="fantasy"?vistaFantasy() : vistaNumeros();
   document.querySelectorAll("#barra button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.tab===tab));
   if(tab==="juego") enganchar();
+  if(tab==="fantasy") engancharFantasy();
 }
 
 function enganchar(){
@@ -1366,6 +1719,10 @@ function pintarCuenta(aviso="", mal=false){
     <button class="boton flaco" id="csalir">Salir</button>${av}`;
   $("csalir").onclick=()=>{ salir(); miNombre=null; pintarCuenta(); };
 }
+
+/* La pestaña del fantasy solo aparece si hay una fecha publicada. Sin eso
+   no hay nada que armar, y una pestaña vacía es una promesa incumplida. */
+if(window.FECHA) $("btfantasy").hidden = false;
 
 arrancarCuenta();
 </script>
