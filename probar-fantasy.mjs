@@ -9,7 +9,8 @@
    ══════════════════════════════════════════════════════════════════════════ */
 import { puntosDeActuacion, masValiosos, aplicarSuplencias, puntosDeFecha,
          precioDe, ponerPrecios, revisarEquipo, actuacionDe,
-         REGLAS, FORMATO, FORMACIONES, cupoDe } from "./fantasy.mjs";
+         REGLAS, FORMATO, FORMACIONES, cupoDe,
+         enHoraArgentina, horaArgentinaDe, UTC_ARGENTINA } from "./fantasy.mjs";
 
 const casos = [];
 const caso = (nom, ok, det = "") => casos.push([nom, ok, det]);
@@ -178,24 +179,68 @@ const equipoBase = {
 
 /* ── 11. LOS PRECIOS ────────────────────────────────────────────────────── */
 {
-  igual("el mejor de la liga vale el techo", precioDe(10, 10), FORMATO.precio.techo);
-  igual("el que no suma nada vale el piso",  precioDe(0, 10),  FORMATO.precio.piso);
-  igual("y la mitad, la mitad de la escala", precioDe(5, 10), 7);
-  caso("nadie puede valer más que el techo", precioDe(99, 10) === FORMATO.precio.techo);
-  caso("ni menos que el piso",               precioDe(-5, 10) === FORMATO.precio.piso);
-  caso("sin historia, todos al piso: no se inventa un precio",
-       precioDe(3, 0) === FORMATO.precio.piso);
+  igual("el primero de su puesto vale el techo", precioDe(1), FORMATO.precio.techo);
+  igual("el último vale el piso",                precioDe(0), FORMATO.precio.piso);
+  caso("nadie puede valer más que el techo", precioDe(9) === FORMATO.precio.techo);
+  caso("ni menos que el piso",               precioDe(-5) === FORMATO.precio.piso);
+
+  /* Este caso es el corazón del formato: no describe la fórmula, describe
+     el juego. Si alguien toca la curva o el presupuesto, acá se entera de
+     que rompió la única cuenta que hace que armar el equipo sea difícil. */
+  igual("el jugador mediano vale exactamente un quinceavo del presupuesto",
+        precioDe(0.5) * (FORMATO.titulares + FORMATO.suplentes), FORMATO.presupuesto);
+
+  /* Una liga con un solo goleador de un partido y varios regulares. */
+  const liga = [];
+  for (let i = 0; i < 20; i++)
+    liga.push({ id: i + 1, puesto: "F", partidos: 10, puntosTotales: 20 + i * 2 });
+  const estrella = { id: 90, puesto: "F", partidos: 10, puntosTotales: 70 };   // 7 por partido
+  const pibe     = { id: 91, puesto: "F", partidos: 1,  puntosTotales: 9 };    // 9 por partido
+  const conPrecio = ponerPrecios([...liga, estrella, pibe]);
+  const dame = id => conPrecio.find(x => x.id === id);
+
+  igual("el promedio real se muestra tal cual es", dame(91).ppp, 9);
+  caso("pero un partido no alcanza para ser el más caro de la liga",
+       dame(91).precio < dame(90).precio,
+       "pibe " + dame(91).precio + " vs estrella " + dame(90).precio);
+  caso("el que lo hizo diez veces sí llega al techo",
+       dame(90).precio === FORMATO.precio.techo, "" + dame(90).precio);
+
+  /* El precio se reparte: si toda la liga sale lo mismo, no hay decisión. */
+  const distintos = new Set(conPrecio.map(x => x.precio)).size;
+  caso("los precios se reparten, no se amontonan en un solo valor",
+       distintos >= 8, distintos + " precios distintos");
+
+  /* Cada línea tiene su caro y su barato: con el acumulado, un arquero no
+     puede sumar como un delantero, y no es culpa del arquero. */
+  const mixta = ponerPrecios([
+    { id: 1, puesto: "G", partidos: 10, puntosTotales: 20 },
+    { id: 2, puesto: "G", partidos: 10, puntosTotales: 10 },
+    { id: 3, puesto: "F", partidos: 10, puntosTotales: 90 },
+    { id: 4, puesto: "F", partidos: 10, puntosTotales: 40 },
+  ]);
+  igual("el mejor arquero vale el techo aunque sume menos que un delantero",
+        mixta.find(x => x.id === 1).precio, FORMATO.precio.techo);
 
   const lista = ponerPrecios([
-    { id: 1, puntosTotales: 100, partidos: 10 },   // 10 por partido: el mejor
-    { id: 2, puntosTotales: 50,  partidos: 10 },   // 5
-    { id: 3, puntosTotales: 0,   partidos: 0 },    // nunca jugó
+    { id: 1, puesto: "M", puntosTotales: 100, partidos: 10 },
+    { id: 2, puesto: "M", puntosTotales: 50,  partidos: 10 },
+    { id: 3, puesto: "M", puntosTotales: 0,   partidos: 0 },
   ]);
   igual("el mejor de la lista queda en el techo", lista[0].precio, 10);
-  igual("el del medio, en el medio",              lista[1].precio, 7);
-  igual("el que no jugó, en el piso",             lista[2].precio, 4);
+  /* El que nunca jugó no cae al piso: cae al medio de su puesto, que es lo
+     único honesto cuando no hay dato. No es una laguna — es la misma cuenta
+     que para el que jugó una sola vez, sin un escalón raro en el cero.
+     En la fecha real ni siquiera aparece: fantasy-api.mjs deja afuera a los
+     que no sumaron un minuto, para no ofrecer un cero seguro. */
+  igual("el que no jugó queda en el medio de su puesto, no en el piso",
+        lista[2].precio, precioDe(0.5));
   caso("los precios van de a medio punto, para que se puedan leer",
        lista.every(x => (x.precio * 2) % 1 === 0));
+  caso("dos iguales valen igual",
+       ponerPrecios([{ id: 1, puesto: "D", puntosTotales: 30, partidos: 10 },
+                     { id: 2, puesto: "D", puntosTotales: 30, partidos: 10 }])
+         .every((x, _, a) => x.precio === a[0].precio));
 }
 
 /* ── 12. QUE EL EQUIPO SEA LEGAL ────────────────────────────────────────── */
@@ -269,6 +314,83 @@ const equipoBase = {
   igual("el puesto queda en una letra", a.puesto, "F");
   /* 2 (60') + 4 (gol) + 1 (3 claves) + 1 (4 quites) - 1 (amarilla) = 7 */
   igual("y la cuenta da lo que tiene que dar", puntosDeActuacion(a).puntos, 7);
+}
+
+/* ─── LA HORA DEL CIERRE ─────────────────────────────────────────────────
+   Estos casos existen porque la primera fecha real se publicó anunciando
+   que cerraba a las 7 de la mañana. Eran las 19:00 de un partido, leídas
+   por un servidor que vive en UTC. */
+{
+  igual("las 22 UTC son las 19 de Argentina",
+        enHoraArgentina("2026-08-28T22:00:00+00:00"), "28/08/2026, 19:00");
+  igual("y cruzando la medianoche se corre el día",
+        enHoraArgentina("2026-08-29T01:30:00+00:00"), "28/08/2026, 22:30");
+  igual("la hora suelta también",  horaArgentinaDe("2026-08-28T22:00:00+00:00"), 19);
+
+  /* En enero medio mundo cambia la hora. Argentina no lo hace desde 2009:
+     si algún día vuelve el horario de verano, este caso falla y avisa. */
+  igual("en verano es el mismo huso que en invierno",
+        enHoraArgentina("2027-01-15T22:00:00+00:00"), "15/01/2027, 19:00");
+  igual("Argentina es UTC-3", UTC_ARGENTINA, -3);
+
+  caso("una fecha inválida lo dice, no inventa una hora",
+       enHoraArgentina("cualquier cosa") === "fecha inválida");
+  caso("y la hora suelta devuelve nada", horaArgentinaDe("cualquier cosa") === null);
+}
+
+/* ─── QUÉ PARTIDO FIJA EL CIERRE ─────────────────────────────────────────
+   La regla vive en fantasy-api.mjs, que habla con la red; acá se prueba la
+   decisión, que es lo que importa: un partido sin horario confirmado no
+   puede adelantar el cierre de toda la fecha. */
+{
+  const F = (round, date, short) => ({ league: { round }, fixture: { date, status: { short } } });
+  const confirmado = f => f.fixture?.status?.short === "NS" && f.fixture?.date;
+  const primero = ps => ps.filter(confirmado)
+    .sort((a, b) => new Date(a.fixture.date) - new Date(b.fixture.date))[0];
+  const elegir = fs => {
+    const rondas = new Map();
+    for (const f of fs) {
+      const r = f.league.round;
+      if (!rondas.has(r)) rondas.set(r, []);
+      rondas.get(r).push(f);
+    }
+    return [...rondas.entries()].map(([r, ps]) => [r, ps, primero(ps)])
+      .filter(([, , p]) => p)
+      .sort((a, b) => new Date(a[2].fixture.date) - new Date(b[2].fixture.date))[0];
+  };
+
+  const conTBD = [
+    F("Clausura - 7", "2026-08-28T10:00:00+00:00", "TBD"),
+    F("Clausura - 7", "2026-08-28T22:00:00+00:00", "NS"),
+  ];
+  igual("un partido sin horario no adelanta el cierre",
+        enHoraArgentina(elegir(conTBD)[2].fixture.date), "28/08/2026, 19:00");
+
+  const conPostergado = [
+    F("Clausura - 7", "2026-08-26T20:00:00+00:00", "PST"),
+    F("Clausura - 7", "2026-08-28T22:00:00+00:00", "NS"),
+  ];
+  igual("un postergado tampoco: ese día ya no se juega",
+        enHoraArgentina(elegir(conPostergado)[2].fixture.date), "28/08/2026, 19:00");
+
+  igual("pero sigue contando como partido de la fecha",
+        elegir(conPostergado)[1].length, 2);
+
+  const dosRondas = [
+    F("Clausura - 8", "2026-09-04T22:00:00+00:00", "NS"),
+    F("Clausura - 7", "2026-08-28T22:00:00+00:00", "NS"),
+  ];
+  igual("entre dos fechas, se publica la que arranca antes",
+        elegir(dosRondas)[0], "Clausura - 7");
+
+  /* Si una ronda entera está sin confirmar, no se puede cerrar: se saltea.
+     Publicarla con una hora inventada sería peor que no publicarla. */
+  const sinConfirmar = [
+    F("Clausura - 7", "2026-08-28T10:00:00+00:00", "TBD"),
+    F("Clausura - 8", "2026-09-04T22:00:00+00:00", "NS"),
+  ];
+  igual("una fecha entera sin horarios se saltea",
+        elegir(sinConfirmar)[0], "Clausura - 8");
 }
 
 /* ─── resultado ──────────────────────────────────────────────────────────── */

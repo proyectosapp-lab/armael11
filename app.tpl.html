@@ -625,10 +625,14 @@ const FCH = window.FECHA || null;
    `typeof`, esto tiraba un ReferenceError al evaluar el script y se caía la
    app ENTERA —feed incluido— en el único caso que hoy es el normal. Lo
    agarró la prueba del sitio, no yo. */
+/* Mismo cuidado que con FORMACION_POR_DEFECTO: `fantasy.js` solo se carga
+   si hay una fecha publicada, así que sin fecha `FORMATO` no existe. */
+const MAX_CLUB = (typeof FORMATO !== "undefined") ? FORMATO.maxPorClub : 3;
 const FORM_DEF = (typeof FORMACION_POR_DEFECTO !== "undefined")
   ? FORMACION_POR_DEFECTO : "4-3-3";
 let F11 = { titulares:[], suplentes:{}, capitan:null, vice:null, formacion: FORM_DEF };
 let fFiltro = "todos", fBusca = "", fGuardando = false, fAviso = "";
+let fOrden = "caros", fClub = "";
 
 const precioMapa = () => new Map((FCH?.jugadores||[]).map(j=>[j.id, j.precio]));
 const gastoDe = e => [...e.titulares, ...Object.values(e.suplentes)]
@@ -748,43 +752,119 @@ function ficha(j, esBanco){
     <button class="fquita" data-quita="${j.id}" aria-label="Sacar">×</button></span>`;
 }
 
-/* La lista de donde se elige. Ordenada por precio: el que arma un equipo
-   mira primero cuánto sale, no el apellido. */
+/* Cuántos se dibujan de una vez. Hay casi mil jugadores en una fecha y un
+   teléfono no dibuja mil renglones sin trabarse, así que hay un tope. Pero
+   el tope de antes eran 60 y NO SE DECÍA: se veían los sesenta más caros y
+   parecía que el resto no existía. Un límite callado se lee como un error.
+   Ahora entran más y, cuando quedan afuera, la lista dice cuántos son y
+   cómo llegar a ellos. */
+const TOPE_LISTA = 150;
+
+/* CÓMO SE ORDENA. Con mil jugadores, un solo orden es un solo juego. El que
+   busca una figura entra por arriba; el que ya gastó el presupuesto y le
+   faltan tres fichas entra por abajo, y ese es el momento en que de verdad
+   se decide una fecha. `rinde` es la tercera pregunta: cuántos puntos por
+   partido te da cada peso — el que arma bien no compra al mejor, compra al
+   que rinde más de lo que sale.
+
+   El tope de la lista se aplica DESPUÉS de ordenar, así que el orden cambia
+   qué 150 se ven, no solo en qué fila están. Por eso el cartel del final
+   dice cuáles son: "los 150 más baratos" y "los 150 más caros" son listas
+   distintas, y confundirlas es volver al problema de antes. */
+const ORDENES = {
+  caros:   { nom: "Más caros",    dice: "más caros",
+             cmp: (a,b) => b.precio - a.precio || b.ppp - a.ppp },
+  baratos: { nom: "Más baratos",  dice: "más baratos",
+             cmp: (a,b) => a.precio - b.precio || b.ppp - a.ppp },
+  puntos:  { nom: "Más puntos",   dice: "de más puntos",
+             cmp: (a,b) => b.ppp - a.ppp || a.precio - b.precio },
+  rinde:   { nom: "Mejor rinde",  dice: "que mejor rinden",
+             cmp: (a,b) => (b.ppp/b.precio) - (a.ppp/a.precio) || a.precio - b.precio },
+  nombre:  { nom: "Por nombre",   dice: "primeros por nombre",
+             cmp: (a,b) => a.nombre.localeCompare(b.nombre, "es") },
+};
+
+/* Buscar sin tildes. Nadie escribe "Álvarez" con el acento en el teclado del
+   teléfono, y quedarse sin resultados por una tilde se siente como que el
+   jugador no está. Se sacan de los dos lados: de lo que se escribe y de lo
+   que se compara. */
+const plano = t => (t||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+
+/* La lista de donde se elige. */
 function listado(){
-  const q = fBusca.trim().toLowerCase();
+  const q = plano(fBusca.trim());
+  const todosLosClubes = [...new Set((FCH.jugadores||[]).map(j=>j.club))]
+    .sort((a,b)=>a.localeCompare(b,"es"));
+  /* Si el club elegido ya no está en la fecha —cambió la fecha, se fue el
+     club— se vuelve a "todos" en vez de mostrar una lista vacía. */
+  if(fClub && !todosLosClubes.includes(fClub)) fClub = "";
+
   let l = (FCH.jugadores||[]).filter(j=>!enEquipo(j.id));
   if(fFiltro!=="todos") l = l.filter(j=>j.puesto===fFiltro);
-  if(q) l = l.filter(j=>(j.nombre+" "+j.club).toLowerCase().includes(q));
-  l = l.sort((a,b)=> b.precio-a.precio || b.ppp-a.ppp).slice(0,60);
+  if(fClub) l = l.filter(j=>j.club===fClub);
+  if(q) l = l.filter(j=>plano(j.nombre+" "+j.club).includes(q));
+
+  const orden = ORDENES[fOrden] || ORDENES.caros;
+  l = l.slice().sort(orden.cmp);
+  const hay = l.length, cortada = hay > TOPE_LISTA;
+  l = l.slice(0, TOPE_LISTA);
 
   const chips = ["todos","G","D","M","F"].map(x=>
     `<button class="chip" data-fp="${x}" aria-pressed="${x===fFiltro}">${
       x==="todos"?"Todos":PUESTO_NOM[x]}</button>`).join("");
+  const chipsOrden = Object.entries(ORDENES).map(([k,o])=>
+    `<button class="chip" data-fo="${k}" aria-pressed="${k===fOrden}">${o.nom}</button>`).join("");
+
+  /* Treinta clubes no entran en una fila de botones, así que va un
+     desplegable. Y al lado, lo único que hace falta saber cuando se filtra
+     por club: cuántos de ese club ya tenés, porque el máximo son tres.
+     Descubrir el tope recién al intentar guardar es descubrirlo tarde. */
+  const opciones = ['<option value="">Todos los clubes</option>']
+    .concat(todosLosClubes.map(c=>
+      `<option value="${esc(c)}"${c===fClub?" selected":""}>${esc(c)}</option>`)).join("");
+  const delClub = fClub
+    ? [...F11.titulares, ...Object.values(F11.suplentes)].filter(j=>j&&j.club===fClub).length
+    : 0;
+  const avisoClub = fClub
+    ? `<p class="vacio" style="margin:6px 0 0">${
+        delClub >= MAX_CLUB
+          ? `Ya tenés ${delClub} de ${fClub}: es el máximo por club.`
+          : `Tenés ${delClub} de ${fClub}. Podés sumar ${MAX_CLUB-delClub} más.`}</p>`
+    : "";
 
   return `<h3 class="sec">Elegí jugadores</h3>
     <nav class="filtros">${chips}</nav>
     <div class="par" style="margin-bottom:10px">
       <input type="text" id="fbusca" placeholder="Buscar por nombre o club" value="${esc(fBusca)}"></div>
+    <div class="par" style="margin-bottom:4px">
+      <select id="fclub" aria-label="Filtrar por club">${opciones}</select></div>
+    ${avisoClub}
+    <nav class="filtros" aria-label="Ordenar">${chipsOrden}</nav>
     <div class="compactas">${l.length?l.map(j=>`
       <div class="linea">
         <div style="min-width:0">
           <a href="#" data-suma="${j.id}">${esc(j.nombre)}</a>
           <span class="de">${esc(j.club)} · ${PUESTO_UNO[j.puesto]}${
-            j.pj?" · "+j.ppp+" por partido":""}</span>
+            j.pj?" · "+j.ppp+" por partido en "+j.pj+(j.pj===1?" fecha":" fechas"):""}</span>
         </div>
         <span class="cuando">${j.precio}</span>
-      </div>`).join(""):`<div class="vacio">Nadie con ese nombre.</div>`}</div>`;
+      </div>`).join(""):`<div class="vacio">Nadie con ese nombre.</div>`}</div>
+    ${cortada?`<p class="vacio">Se ven los ${TOPE_LISTA} ${orden.dice} de ${hay}.
+      Buscá por nombre o club para llegar al resto.</p>`:""}`;
 }
 
 function engancharFantasy(){
   const v = $("vista");
   v.querySelectorAll("[data-form]").forEach(b=>b.onclick=()=>cambiarFormacion(b.dataset.form));
   v.querySelectorAll("[data-fp]").forEach(b=>b.onclick=()=>{ fFiltro=b.dataset.fp; pintar(); });
+  v.querySelectorAll("[data-fo]").forEach(b=>b.onclick=()=>{ fOrden=b.dataset.fo; pintar(); });
   v.querySelectorAll("[data-puesto]").forEach(b=>b.onclick=()=>{ fFiltro=b.dataset.puesto; pintar(); });
   v.querySelectorAll("[data-banco]").forEach(b=>b.onclick=()=>{ fFiltro=b.dataset.banco; pintar(); });
   v.querySelectorAll("[data-suma]").forEach(a=>a.onclick=e=>{ e.preventDefault(); sumar(+a.dataset.suma); });
   v.querySelectorAll("[data-quita]").forEach(b=>b.onclick=()=>quitar(+b.dataset.quita));
   v.querySelectorAll("[data-cinta]").forEach(b=>b.onclick=()=>cinta(+b.dataset.cinta));
+  const cl = $("fclub");
+  if(cl) cl.onchange = () => { fClub = cl.value; pintar(); };
   const bu = $("fbusca");
   if(bu) bu.oninput = () => { fBusca = bu.value; const p = bu.selectionStart;
     pintar(); const n = $("fbusca"); if(n){ n.focus(); n.setSelectionRange(p,p); } };

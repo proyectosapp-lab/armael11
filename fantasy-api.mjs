@@ -14,7 +14,7 @@
    es de otro. En la base es una política que no se puede esquivar.
    ══════════════════════════════════════════════════════════════════════════ */
 import { readFileSync, writeFileSync } from "node:fs";
-import { REGLAS, FORMATO, ponerPrecios } from "./fantasy.mjs";
+import { REGLAS, FORMATO, ponerPrecios, enHoraArgentina, horaArgentinaDe } from "./fantasy.mjs";
 
 const aca  = p => new URL(p, import.meta.url);
 const KEY  = process.env.API_FOOTBALL_KEY || process.argv[2] || "";
@@ -62,23 +62,74 @@ if (!porJugar.length) {
   process.exit(0);
 }
 
+/* NO TODOS LOS PARTIDOS SIRVEN PARA FIJAR EL CIERRE. Los tres estados que
+   contamos como "por jugar" no valen lo mismo:
+
+     NS   programado, con día y hora de verdad.
+     TBD  la fecha está, la hora NO. La API igual devuelve una hora, y es
+          un relleno.
+     PST  postergado. Ese partido NO se juega ese día; la fecha que quedó
+          es la que tenía antes de postergarse.
+
+   La primera vez que esto corrió de verdad publicó "cierra 7:00 de la
+   mañana". Ningún partido del fútbol argentino arranca a esa hora: era la
+   hora inventada de un partido sin horario confirmado. Y un cierre
+   adelantado no se nota hasta que alguien entra a armar su equipo y se lo
+   encuentra cerrado sin explicación.
+
+   Entonces la hora sale SOLO de los partidos confirmados. Los otros siguen
+   contando para saber cuántos partidos tiene la fecha —son parte de la
+   fecha— pero no deciden cuándo cierra.                                  */
+const confirmado = f => f.fixture?.status?.short === "NS" && f.fixture?.date;
+const primero = ps => ps.filter(confirmado)
+  .sort((a, b) => new Date(a.fixture.date) - new Date(b.fixture.date))[0];
+
 const rondas = new Map();
 for (const f of porJugar) {
   const r = f.league?.round || "Fecha";
   if (!rondas.has(r)) rondas.set(r, []);
   rondas.get(r).push(f);
 }
-const [ronda, partidos] = [...rondas.entries()]
-  .map(([r, ps]) => [r, ps.sort((a, b) => new Date(a.fixture.date) - new Date(b.fixture.date))])
-  .sort((a, b) => new Date(a[1][0].fixture.date) - new Date(b[1][0].fixture.date))[0];
 
-const cierra = partidos[0].fixture.date;
+/* Una ronda entera sin horarios confirmados no se puede publicar: no habría
+   con qué cerrarla. Se saltea y se prueba con la siguiente. */
+const candidatas = [...rondas.entries()]
+  .map(([r, ps]) => [r, ps, primero(ps)])
+  .filter(([, , p]) => p)
+  .sort((a, b) => new Date(a[2].fixture.date) - new Date(b[2].fixture.date));
+
+if (!candidatas.length) {
+  console.log("\n  Hay partidos por jugar, pero ninguno con horario confirmado.");
+  console.log("  Sin una hora de verdad no hay cierre, y sin cierre no hay fecha.\n");
+  process.exit(0);
+}
+
+const [ronda, partidos, arranca] = candidatas[0];
+const cierra = arranca.fixture.date;
 const numero = +(String(ronda).match(/(\d+)\s*$/)?.[1]) || 1;
 const torneo = String(ronda).split(/\s+-\s+/)[0].trim();
 
 console.log("\n  " + ronda);
-console.log("  " + partidos.length + " partidos · cierra " +
-            new Date(cierra).toLocaleString("es-AR", { timeZone: "America/Argentina/Cordoba" }));
+console.log("  " + partidos.length + " partidos · cierra " + enHoraArgentina(cierra) +
+            " (hora de Argentina)");
+
+/* Se muestran los primeros partidos con su estado para que el cierre se
+   pueda auditar de un vistazo, sin entrar a la API. */
+const porFecha = [...partidos].sort((a, b) => new Date(a.fixture.date) - new Date(b.fixture.date));
+console.log("  los primeros de la fecha:");
+for (const f of porFecha.slice(0, 4))
+  console.log("    " + (f.fixture.status.short === "NS" ? " " : "?") + " " +
+              (f.fixture.status.short + "  ").slice(0, 4) + enHoraArgentina(f.fixture.date) +
+              "  " + (f.teams?.home?.name || "?") + " - " + (f.teams?.away?.name || "?"));
+
+const sinHorario = partidos.length - partidos.filter(confirmado).length;
+if (sinHorario) console.log("  (" + sinHorario + " sin horario confirmado: no cuentan para el cierre)");
+
+/* Último control de olor. Si aun así el cierre cae de madrugada, algo se
+   nos escapó: mejor decirlo que publicarlo callado. */
+const h = horaArgentinaDe(cierra);
+if (h < 11) console.log("  ⚠ el cierre cae a las " + h + " de Argentina. " +
+                        "Revisá el calendario antes de invitar a nadie.");
 
 /* ─── 2. LOS JUGADORES Y SUS PRECIOS ──────────────────────────────────────
    Un aviso honesto sobre esta cuenta: `/players` da el ACUMULADO de la
@@ -152,19 +203,32 @@ const clubesQueJuegan = new Set(partidos.flatMap(f => [f.teams?.home?.id, f.team
 const lista = [...porId.values()].filter(j => clubesQueJuegan.has(j.clubId));
 
 const conPrecio = ponerPrecios(lista)
-  .map(({ id, nombre, club, clubId, puesto, precio, ppp, partidos }) =>
-       ({ id, nombre, club, clubId, puesto, precio, ppp, pj: partidos }))
+  .map(({ id, nombre, club, clubId, puesto, precio, ppp, pppAjustado, partidos }) =>
+       ({ id, nombre, club, clubId, puesto, precio, ppp, ppa: pppAjustado, pj: partidos }))
   .sort((a, b) => b.precio - a.precio || b.ppp - a.ppp);
+
+/* La lista de precios se mira en el log ANTES de que la mire un hincha. Si
+   toda la liga sale lo mismo, o si los caros son nombres que nadie
+   reconoce, el problema se ve acá y no el domingo. */
+const porPrecio = {};
+for (const j of conPrecio) porPrecio[j.precio] = (porPrecio[j.precio] || 0) + 1;
+console.log("\n  cómo quedaron repartidos los precios:");
+for (const p of Object.keys(porPrecio).map(Number).sort((a, b) => a - b))
+  console.log("    " + String(p).padEnd(5) + "#".repeat(Math.ceil(porPrecio[p] / 12)) +
+              " " + porPrecio[p]);
 
 const salida = {
   numero, torneo, ronda, cierra,
   presupuesto: FORMATO.presupuesto,
   jugadores: conPrecio,
   generado: new Date().toISOString(),
-  nota: "Los precios salen de los puntos por partido de la temporada, con la " +
-        "fórmula publicada. Es una aproximación: el acumulado de la API no " +
-        "permite reconstruir las vallas invictas, así que arqueros y " +
-        "defensores quedan un poco baratos.",
+  nota: "El precio sale del lugar que ocupa cada uno DENTRO DE SU PUESTO, " +
+        "según sus puntos por partido de la temporada. A los que jugaron " +
+        "pocas fechas se los acerca al promedio de su puesto: un buen " +
+        "partido no alcanza para ser el más caro de la liga. El jugador " +
+        "mediano de cada puesto vale 5, y quince medianos cuestan el " +
+        "presupuesto entero. Quedan afuera los que no sumaron un minuto " +
+        "esta temporada.",
 };
 writeFileSync(aca("./fecha-actual.json"), JSON.stringify(salida, null, 1));
 
@@ -172,8 +236,14 @@ const cuantos = p => conPrecio.filter(j => j.puesto === p).length;
 console.log("\n  " + conPrecio.length + " jugadores de " + clubesQueJuegan.size + " clubes");
 console.log("  arqueros " + cuantos("G") + " · defensores " + cuantos("D") +
             " · medios " + cuantos("M") + " · delanteros " + cuantos("F"));
-console.log("  los cinco más caros: " +
-  conPrecio.slice(0, 5).map(j => j.nombre + " (" + j.precio + ")").join(", "));
+/* Los caros van por puesto: es la lista que se mira para saber si la
+   fórmula está midiendo bien. Si los nombres de arriba no son los que uno
+   esperaría, el problema está acá y no el domingo. */
+for (const p of ["G", "D", "M", "F"]) {
+  const top = conPrecio.filter(j => j.puesto === p).slice(0, 4);
+  if (top.length) console.log("  los caros de " + p + ": " +
+    top.map(j => j.nombre + " (" + j.precio + ", " + j.pj + " f)").join(" · "));
+}
 
 /* Que no se publique una fecha imposible de armar. */
 const MINIMOS = { G: 4, D: 12, M: 12, F: 8 };

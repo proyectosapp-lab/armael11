@@ -66,7 +66,9 @@ export const cupoDe = (formacion) => {
    fecha real: 75 es la cuenta, no la respuesta. */
 export const FORMATO = {
   titulares: 11, suplentes: 4, presupuesto: 75, maxPorClub: 3,
-  precio: { piso: 4, techo: 10 },
+  /* `confianza` es cuántas fechas de duda se le suman a cada jugador antes
+     de creerle el promedio. Ver `ponerPrecios`. */
+  precio: { piso: 4, techo: 10, confianza: 4, curva: 2.5 },
 };
 
 const PUESTOS = ["G", "D", "M", "F"];
@@ -210,16 +212,96 @@ const redondear = n => Math.round(n * 10) / 10;
    Una FÓRMULA publicada, no un número que ponemos nosotros. Si alguien
    pregunta por qué un jugador vale lo que vale, la respuesta tiene que
    estar en la app y tiene que poder rehacerla cualquiera.                 */
-export function precioDe(puntosPorPartido, mejorDeLaLiga, f = FORMATO.precio) {
-  if (!(mejorDeLaLiga > 0)) return f.piso;
-  const crudo = f.piso + (f.techo - f.piso) * (puntosPorPartido / mejorDeLaLiga);
+/* El precio sale del LUGAR en la tabla de su puesto, no de la distancia al
+   mejor. Antes era la distancia, y tenía dos problemas serios.
+
+   Uno: dependía de un solo jugador. Si el mejor de la liga era un número
+   raro, todos los demás quedaban comprimidos contra él y la liga entera
+   costaba lo mismo. Un precio en el que casi nadie se distingue no es un
+   precio: es un impuesto parejo.
+
+   Dos: los arqueros y los defensores salían todos baratos, porque con el
+   acumulado de la temporada no se pueden reconstruir las vallas invictas y
+   suman menos que un delantero por razones nuestras, no del fútbol. Con el
+   lugar dentro del PUESTO, cada línea tiene su caro y su barato, y elegir
+   arquero vuelve a ser una decisión.
+
+   La curva es a propósito y su número no es un gusto: subir del montón sale
+   barato y los últimos escalones cuestan caro. Como el precio depende del
+   lugar y no del puntaje, el jugador mediano de su puesto vale SIEMPRE lo
+   mismo, sea cual sea la fecha: 4 + 6 × 0,5^2,5 = 5. Quince jugadores
+   medianos cuestan 75, que es exactamente el presupuesto. Ahí está el juego
+   entero: para tener una figura hay que encontrar una ganga.             */
+export function precioDe(percentil, f = FORMATO.precio) {
+  const p = Math.min(1, Math.max(0, Number(percentil) || 0));
+  const crudo = f.piso + (f.techo - f.piso) * Math.pow(p, f.curva ?? 1);
   return Math.round(Math.min(f.techo, Math.max(f.piso, crudo)) * 2) / 2;   // pasos de 0,5
 }
 
+/* La mediana, que es la que aguanta un dato disparatado sin moverse. El
+   promedio no: un solo jugador raro lo corre para todos. */
+const mediana = ns => {
+  const v = ns.filter(n => typeof n === "number" && !isNaN(n)).sort((a, b) => a - b);
+  if (!v.length) return 0;
+  const m = v.length >> 1;
+  return v.length % 2 ? v[m] : (v[m - 1] + v[m]) / 2;
+};
+
+/* EL PROMEDIO CRUDO NO SIRVE PARA PONER PRECIOS, y la primera fecha real lo
+   dejó a la vista: el más caro de la liga terminó siendo un pibe que jugó un
+   partido y metió un gol. Su promedio era altísimo porque tenía un solo
+   partido, y encima, al ser el máximo, era el que fijaba la escala: todos
+   los demás quedaban comparados contra una casualidad y salían baratos.
+
+   La corrección es la de siempre cuando hay pocos datos: a cada jugador se
+   le suman unas fechas imaginarias jugadas como el jugador MEDIANO de su
+   puesto. Con un partido, el promedio queda casi todo prestado del puesto;
+   con quince, las fechas imaginarias ya no pesan y el promedio es suyo.
+   Nadie es "el mejor de la liga" por una tarde.
+
+   `ppp` sigue siendo el promedio REAL, sin tocar: es lo que de verdad hizo
+   y es lo que se muestra. El precio sale del ajustado. Por eso la pantalla
+   muestra al lado en cuántas fechas lo hizo — un 8 en una fecha y un 8 en
+   quince no son la misma cosa, y el que arma el equipo tiene que verlo. */
 export function ponerPrecios(jugadores, f = FORMATO.precio) {
+  const K = f.confianza ?? 0;
   const pxp = j => (j.partidos > 0 ? j.puntosTotales / j.partidos : 0);
-  const mejor = Math.max(0, ...jugadores.map(pxp));
-  return jugadores.map(j => ({ ...j, ppp: redondear(pxp(j)), precio: precioDe(pxp(j), mejor, f) }));
+
+  /* La referencia de cada puesto sale de los que ya jugaron un puñado de
+     fechas. Si no hay ninguno todavía, se cae a todos los de ese puesto. */
+  const referencia = new Map();
+  for (const p of PUESTOS) {
+    const dele = jugadores.filter(j => j.puesto === p);
+    const rodados = dele.filter(j => j.partidos >= 3);
+    referencia.set(p, mediana((rodados.length ? rodados : dele).map(pxp)));
+  }
+  const global = mediana(jugadores.map(pxp));
+  const base = j => referencia.has(j.puesto) ? referencia.get(j.puesto) : global;
+
+  const ajustado = j => (j.puntosTotales + K * base(j)) / ((j.partidos || 0) + K);
+
+  /* El percentil dentro del puesto: cuántos de su puesto quedaron abajo.
+     Los empatados comparten lugar, así que dos jugadores iguales valen
+     igual — que es lo único que se puede defender si alguien pregunta. */
+  const porPuesto = new Map();
+  for (const j of jugadores) {
+    const p = j.puesto || "M";
+    if (!porPuesto.has(p)) porPuesto.set(p, []);
+    porPuesto.get(p).push(ajustado(j));
+  }
+
+  return jugadores.map(j => {
+    const aj = ajustado(j);
+    const suyos = porPuesto.get(j.puesto || "M") || [aj];
+    const abajo = suyos.filter(v => v < aj).length;
+    /* Con uno solo en el puesto no hay tabla que valga: va al medio. */
+    const percentil = suyos.length > 1 ? abajo / (suyos.length - 1) : 0.5;
+    return { ...j,
+      ppp: redondear(pxp(j)),
+      pppAjustado: redondear(aj),
+      percentil: Math.round(percentil * 100),
+      precio: precioDe(percentil, f) };
+  });
 }
 
 /* ─── 6. ¿ESTE EQUIPO ES LEGAL? ───────────────────────────────────────────
@@ -307,4 +389,40 @@ export function actuacionDe(bruto, recibidosDelEquipo) {
     amarillas: num(e.cards?.yellow),
     rojas:     num(e.cards?.red),
   };
+}
+
+/* ─── LA HORA DE ARGENTINA ────────────────────────────────────────────────
+   Vive acá, con el resto del reglamento, porque el cierre de una fecha es
+   una regla del juego y no un detalle de presentación.
+
+   Por qué se resta a mano en vez de usar toLocaleString con timeZone: el
+   formateo por zona horaria depende de que el Node que esté corriendo
+   tenga la tabla de zonas completa, y no siempre la tiene. En un Node con
+   ICU chico, las 22:00 UTC salían impresas como "10:00" —sin AM/PM, así
+   que ni siquiera se notaba que estaba mal—. Un log que miente sobre la
+   hora del cierre es peor que no tener log: mirás el renglón, te queda
+   tranquilo, y el juego cierra doce horas antes.
+
+   Argentina no mueve las agujas desde 2009: es UTC-3 todo el año. Mientras
+   eso siga así, restar tres horas es exacto. Si algún día vuelve el horario
+   de verano, esto hay que cambiarlo — y la prueba que lo fija está en
+   probar-fantasy.mjs, así que va a fallar y se va a ver.               */
+export const UTC_ARGENTINA = -3;
+
+const enArgentina = fecha =>
+  new Date(new Date(fecha).getTime() + UTC_ARGENTINA * 3600e3);
+
+/* La hora del día (0 a 23) en que cae ese instante en Argentina. */
+export function horaArgentinaDe(fecha) {
+  const d = enArgentina(fecha);
+  return isNaN(d.getTime()) ? null : d.getUTCHours();
+}
+
+/* "28/08/2026, 19:00" — para leer en un log o en pantalla. */
+export function enHoraArgentina(fecha) {
+  const d = enArgentina(fecha);
+  if (isNaN(d.getTime())) return "fecha inválida";
+  const dd = n => String(n).padStart(2, "0");
+  return dd(d.getUTCDate()) + "/" + dd(d.getUTCMonth() + 1) + "/" + d.getUTCFullYear() +
+         ", " + dd(d.getUTCHours()) + ":" + dd(d.getUTCMinutes());
 }

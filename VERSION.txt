@@ -1,3 +1,90 @@
+Armá el 11 — versión 2026-08-27 r (buscar, ordenar y filtrar)
+
+Lo más nuevo:
+  · FILTRO POR CLUB: un desplegable con los clubes de la fecha. Treinta no
+    entran en una fila de botones. Y cuando hay un club elegido, debajo
+    dice cuántos de ese club ya tenés y cuántos podés sumar — el máximo son
+    tres y hasta ahora eso se descubría recién al intentar guardar, que es
+    descubrirlo tarde.
+  · La lista se puede ORDENAR: Más caros · Más baratos · Más puntos ·
+    Mejor rinde · Por nombre. Con mil jugadores, un solo orden es un solo
+    juego: el que busca una figura entra por arriba, y el que ya gastó el
+    presupuesto y le faltan tres fichas entra por abajo — ahí es donde de
+    verdad se decide una fecha.
+  · "Mejor rinde" es puntos por partido dividido el precio: el que arma
+    bien no compra al mejor, compra al que rinde más de lo que sale.
+  · El tope de 150 se aplica DESPUÉS de ordenar, así que dar vuelta el
+    orden trae jugadores que antes ni aparecían. El cartel del final lo
+    dice: "los 150 más baratos" y "los 150 más caros" son listas
+    distintas.
+  · La búsqueda ignora las tildes. Nadie escribe "Álvarez" con el acento
+    en el teclado del teléfono, y quedarse sin resultados por una tilde se
+    siente como que el jugador no está.
+  · 346 casos de prueba.
+
+── lo de antes ───────────────────────────────────────────────────────────
+Armá el 11 — versión 2026-08-27 q (los precios, en serio)
+
+Los tres problemas que se vieron en la primera fecha real, y qué se hizo:
+
+  · FALTABAN JUGADORES. No faltaban: la lista mostraba los 60 más caros de
+    962 y no lo decía. Un límite callado se lee como un error. Ahora entran
+    150 y, cuando quedan afuera, la lista dice cuántos son y que se llega
+    al resto buscando por nombre o club.
+
+  · LOS MÁS CAROS NO ERAN LOS MEJORES. El precio salía del promedio crudo
+    de puntos por partido, así que el más caro de la liga terminaba siendo
+    alguien que jugó UN partido y lo hizo bien. Y como ese promedio inflado
+    fijaba la escala, todos los demás quedaban comparados contra una
+    casualidad. Ahora a cada jugador se le suman cuatro fechas imaginarias
+    jugadas como el jugador mediano de su puesto: con un partido el
+    promedio es casi todo prestado, con quince ya es suyo. Nadie es el
+    mejor de la liga por una tarde.
+
+  · TODO SALÍA BARATO. El precio se medía como distancia al mejor; ahora
+    sale del LUGAR dentro de su puesto. Dos cosas cambian: ya no depende de
+    un solo jugador raro, y cada línea tiene su caro y su barato — antes
+    los arqueros salían todos baratos porque con el acumulado no se pueden
+    reconstruir las vallas invictas, que es un problema nuestro y no del
+    arquero. Elegir arquero vuelve a ser una decisión.
+
+    El jugador mediano de cada puesto vale SIEMPRE 5, cualquiera sea la
+    fecha, y quince medianos cuestan 75: el presupuesto entero. Ahí está el
+    juego: para tener una figura hay que encontrar una ganga.
+
+  · En la lista, al lado del promedio ahora dice en cuántas fechas lo hizo.
+    Un 8 en una fecha y un 8 en quince no son la misma cosa.
+
+  · El log dibuja cómo quedaron repartidos los precios y quiénes son los
+    caros de cada puesto. Si la fórmula mide mal, se ve ahí y no el domingo.
+
+  · 336 casos de prueba.
+
+── lo de antes ───────────────────────────────────────────────────────────
+Armá el 11 — versión 2026-08-27 p (la hora del cierre, en serio)
+
+Lo más nuevo:
+  · ARREGLADO, y era grave: la primera fecha real se publicó anunciando
+    que cerraba a las 7 de la mañana. Ningún partido argentino empieza a
+    esa hora. Era el horario de relleno de un partido sin hora confirmada
+    (TBD) o postergado (PST), que la API devuelve igual. Ahora el cierre
+    sale SOLO de los partidos con horario confirmado; los otros siguen
+    contando como partidos de la fecha, pero no deciden cuándo cierra.
+  · El log muestra los primeros cuatro partidos con su estado, así el
+    cierre se puede auditar de un vistazo, sin entrar a la API. Y avisa
+    si aun así el cierre cae antes de las 11 de la mañana.
+  · Todas las horas se imprimen en hora de Argentina. Antes el resumen
+    salía en UTC —la corrida vive en un servidor de Londres— y decía
+    "cierra 10:00" para un partido de las 7. Un renglón que miente sobre
+    la hora del cierre es peor que no tener renglón.
+  · La conversión se hace restando tres horas a mano, no con la tabla de
+    zonas horarias del sistema: hay Node que viene con la tabla recortada
+    y ahí las 22:00 salían impresas como "10:00", sin AM/PM, así que ni
+    se notaba. Hay una prueba que falla si Argentina vuelve al horario
+    de verano.
+  · 329 casos de prueba.
+
+── lo de antes ───────────────────────────────────────────────────────────
 Armá el 11 — versión 2026-08-27 o (la fecha se publica sola)
 
 Lo más nuevo:

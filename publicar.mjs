@@ -16,6 +16,7 @@
    ══════════════════════════════════════════════════════════════════════════ */
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
+import { enHoraArgentina } from "./fantasy.mjs";
 
 const aca = p => new URL(p, import.meta.url);
 const soloPruebas = process.argv.includes("--sin-red");
@@ -122,8 +123,13 @@ try {
 
 try {
   const f = JSON.parse(readFileSync(aca("./fecha-actual.json")));
+  /* La hora va en hora de Argentina a propósito: esto corre en un servidor
+     de GitHub, que vive en UTC, y este renglón es lo único que se mira para
+     saber si la fecha quedó bien. Decía "cierra 10:00" para un partido que
+     empezaba a las 7 de la mañana. Un log que miente sobre la hora del
+     cierre es peor que un log que no dice nada. */
   console.log("  FANTASY: fecha " + f.numero + " · " + (f.jugadores || []).length +
-              " jugadores · cierra " + new Date(f.cierra).toLocaleString("es-AR"));
+              " jugadores · cierra " + enHoraArgentina(f.cierra) + " (hora de Argentina)");
   if (!(f.jugadores || []).length)
     console.log("  ⚠ la fecha quedó SIN jugadores: la pestaña no va a aparecer.");
 } catch (e) { console.log("  FANTASY: sin fecha publicada (la pestaña no aparece)"); }
