@@ -393,6 +393,64 @@ const equipoBase = {
         elegir(sinConfirmar)[0], "Clausura - 8");
 }
 
+/* ─── DE LA BASE A LOS PUNTOS ─────────────────────────────────────────────
+   `puntos-api.mjs` lee filas de `equipo` —ids sueltos, sin puesto— y las
+   tiene que convertir en lo que el reglamento espera. Es el paso donde se
+   pierde información y donde es fácil equivocarse sin que nada falle: la
+   base acepta un null y la tabla se llena de ceros que parecen resultados. */
+{
+  const act = (id, puesto, extra = {}) => ({ jugador:id, nombre:"J"+id, puesto,
+    minutos:90, nota:6.5, goles:0, asistencias:0, atajadas:0, recibidos:0,
+    clavesPases:0, quites:0, intercepciones:0, golEnContra:0, penalAtajado:0,
+    penalErrado:0, amarillas:0, rojas:0, ...extra });
+
+  /* Una fila como la que devuelve la base. */
+  const fila = { titulares:[1,2,3,4,5,6,7,8,9,10,11], suplentes:[12,13,14,15],
+                 capitan:9, vice:8 };
+  const PUESTOS = { 1:"G",2:"D",3:"D",4:"D",5:"D",6:"M",7:"M",8:"M",
+                    9:"F",10:"F",11:"F",12:"G",13:"D",14:"M",15:"F" };
+  const actuaciones = new Map();
+  for (const id of [...fila.titulares, ...fila.suplentes])
+    actuaciones.set(id, act(id, PUESTOS[id]));
+  actuaciones.get(9).goles = 2;                 /* el capitán metió dos */
+
+  /* La conversión, igual que en puntos-api.mjs. */
+  const arma = id => ({ id, puesto: actuaciones.get(id)?.puesto || "M",
+                        nombre: actuaciones.get(id)?.nombre || "" });
+  const suplentes = {};
+  for (const j of fila.suplentes.map(arma)) suplentes[j.puesto] = j;
+  const res = puntosDeFecha({ titulares: fila.titulares.map(arma), suplentes,
+                              capitan: fila.capitan, vice: fila.vice },
+                            actuaciones, new Set());
+
+  caso("una fila de la base se puede puntuar", typeof res.puntos === "number" && !isNaN(res.puntos),
+       JSON.stringify(res.puntos));
+  /* El campo se llama `puntos`. Si alguien lo lee como `total`, la base
+     guarda null y la tabla muestra ceros sin que falle nada. */
+  caso("y el total se llama `puntos`, no `total`",
+       res.puntos !== undefined && res.total === undefined);
+  igual("juegan once, no quince", res.jugadores.length, 11);
+  caso("el capitán duplica lo suyo",
+       res.jugadores.find(j => j.id === 9).puntosFinales >
+       res.jugadores.find(j => j.id === 10).puntosFinales);
+
+  /* Los cuatro suplentes se acomodan por puesto: si dos cayeran en la misma
+     letra, uno se perdería en silencio. */
+  igual("los cuatro suplentes entran, uno por puesto", Object.keys(suplentes).length, 4);
+
+  /* Correrlo dos veces sobre lo mismo tiene que dar lo mismo: si no, cada
+     recálculo movería la tabla y nadie confiaría en ella. */
+  const otra = puntosDeFecha({ titulares: fila.titulares.map(arma), suplentes,
+                               capitan: fila.capitan, vice: fila.vice },
+                             actuaciones, new Set());
+  igual("recalcular da exactamente lo mismo", otra.puntos, res.puntos);
+
+  /* Y el detalle se guarda entero: "te dieron 47" es un número que hay que
+     creer; el detalle es un número que se puede revisar. */
+  caso("el detalle viene abierto, jugador por jugador",
+       res.jugadores.every(j => Array.isArray(j.renglones)));
+}
+
 /* ─── resultado ──────────────────────────────────────────────────────────── */
 const linea = "─".repeat(70);
 console.log("\n" + linea);

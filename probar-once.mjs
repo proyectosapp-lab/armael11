@@ -7,7 +7,11 @@
    todo desajustado, casi todos los jugadores fuera de su puesto". Tenía razón,
    y la causa no era el modelo sino esta función.
    ══════════════════════════════════════════════════════════════════════════ */
-import { autoXI, slotsDe, fuerza, penalPuesto } from "./juego.js";
+import { autoXI, slotsDe, fuerza, penalPuesto,
+         usarLiga, ligaActual, LIGA_POR_DEFECTO, constantesDeLiga, MINIMO_PARTIDOS,
+         simDesde, aplicarIndicaciones, lineas, INDICACIONES,
+         INDICACIONES_POR_DEFECTO, PLANTEOS, planteoDe, planteo,
+         planteoSugerido, tacticas, KNOBS } from "./juego.js";
 
 const casos = [];
 const caso = (n, ok, extra = "") => casos.push([n, ok, extra]);
@@ -101,6 +105,187 @@ for (const form of ["4-4-2", "4-3-3", "3-5-2", "4-2-3-1", "5-3-2"]) {
   const c = cuenta(xi);
   caso("3-4-3 da 1 arquero, 3 defensores, 4 volantes y 3 delanteros",
        c.G === 1 && c.D === 3 && c.M === 4 && c.F === 3, JSON.stringify(c));
+}
+
+/* ─── LOS NÚMEROS DE CADA LIGA ────────────────────────────────────────────
+   Estuvieron fijos con forma argentina hasta el 2026-08-29. El documento del
+   backtest decía que cada liga corre con sus propios promedios; el motor no
+   lo hacía, y por eso la Premier daba marcadores bajos. */
+{
+  usarLiga(null);
+  caso("sin decir nada, se usa la liga de respaldo",
+       ligaActual().media === LIGA_POR_DEFECTO.media &&
+       ligaActual().local === LIGA_POR_DEFECTO.local);
+
+  usarLiga({ id: 39, nombre: "Premier", media: 6.83, local: 1.62, visita: 1.28 });
+  caso("una liga con sus propios números se aplica",
+       ligaActual().media === 6.83 && ligaActual().local === 1.62);
+
+  /* La media de la liga es el ancla del que jugó poco. Al que ya tiene tres
+     partidos completos casi no lo toca: la confianza llega a uno y la media
+     se cancela sola. Escribí este caso esperando lo contrario y me corrigió
+     el comentario que había puesto en el motor. */
+  const nuevo = { ratings: [8.0], mins: 45 };
+  const enPremier = fuerza(nuevo).v;
+  usarLiga(null);
+  const enArgentina = fuerza(nuevo).v;
+  caso("al que jugó poco, la media de su liga lo mueve",
+       Math.abs(enPremier - enArgentina) > 0.1,
+       "premier " + enPremier.toFixed(2) + " vs argentina " + enArgentina.toFixed(2));
+
+  const rodado = { ratings: [8.0, 8.0, 8.0], mins: 270 };
+  const rA = fuerza(rodado).v;
+  usarLiga({ media: 6.83, local: 1.62, visita: 1.28 });
+  const rP = fuerza(rodado).v;
+  caso("y al que ya jugó tres partidos, no: ahí manda lo que hizo él",
+       Math.abs(rP - rA) < 0.001, rA.toFixed(2) + " vs " + rP.toFixed(2));
+
+  usarLiga({ media: "cualquier cosa", local: -3, visita: 0 });
+  caso("un número inventado no reemplaza al respaldo",
+       ligaActual().media === LIGA_POR_DEFECTO.media &&
+       ligaActual().local === LIGA_POR_DEFECTO.local &&
+       ligaActual().visita === LIGA_POR_DEFECTO.visita);
+  usarLiga(null);
+
+  const fx = (n, h, a) => Array.from({ length: n }, () => ({ goals: { home: h, away: a } }));
+  caso("con pocos partidos NO se calibra: mejor el respaldo que un número inventado",
+       constantesDeLiga(fx(MINIMO_PARTIDOS - 1, 2, 1)).suficientes === false);
+  const K = constantesDeLiga(fx(200, 2, 1), Array.from({ length: 300 }, () => 6.9));
+  caso("con partidos de sobra, los goles salen de la liga",
+       K.suficientes && K.local === 2 && K.visita === 1);
+  caso("y la media de rating también", K.media === 6.9);
+  caso("pero si hay pocos ratings, la media se deja en blanco",
+       constantesDeLiga(fx(200, 2, 1), [6.9, 7.0]).media === undefined);
+}
+
+/* ─── SIMULAR DESDE UN PARTIDO EMPEZADO ─────────────────────────────────── */
+{
+  const g = s => s.win + s.draw + s.loss;
+  const a = simDesde({ xgA: 1.4, xgB: 1.1, minuto: 0 });
+  caso("desde el minuto cero las tres puntas suman cien", Math.abs(g(a) - 100) < 0.001);
+
+  const b = simDesde({ xgA: 1.4, xgB: 1.1, minuto: 60, golesA: 1, golesB: 0 });
+  caso("ganando 1-0 a los 60 se gana bastante más que desde el arranque",
+       b.win > a.win + 20, a.win.toFixed(0) + "% → " + b.win.toFixed(0) + "%");
+  caso("y el gol esperado que queda es el del tiempo que queda",
+       Math.abs(b.xgA - 1.4 / 3) < 0.001, "" + b.xgA);
+
+  const fin = simDesde({ xgA: 1.4, xgB: 1.1, minuto: 90, golesA: 2, golesB: 1 });
+  caso("en el minuto 90 el partido ya está: no queda nada por simular",
+       fin.win === 100 && fin.marcador === "2-1");
+
+  const roja = simDesde({ xgA: 1.4, xgB: 1.1, minuto: 60, golesA: 1, golesB: 0, rojasB: 1 });
+  caso("con el rival con uno menos, se gana todavía más",
+       roja.win > b.win, b.win.toFixed(0) + "% → " + roja.win.toFixed(0) + "%");
+  const miRoja = simDesde({ xgA: 1.4, xgB: 1.1, minuto: 60, golesA: 1, golesB: 0, rojasA: 1 });
+  caso("y con el expulsado propio, menos", miRoja.win < b.win);
+
+  caso("un minuto fuera de la cancha no rompe nada",
+       simDesde({ xgA: 1, xgB: 1, minuto: 500 }).xgA === 0 &&
+       simDesde({ xgA: 1, xgB: 1, minuto: -20 }).xgA === 1);
+}
+
+/* ─── LAS INDICACIONES DEL PLANTEO ───────────────────────────────────────
+   Son del planteo y no por jugador porque el motor compara LÍNEAS: no hay
+   aporte individual al que restarle una marca. Cada una publica su efecto y
+   cada una cobra su precio — ninguna puede ser una mejora gratis. */
+{
+  usarLiga(null);
+  const p = (id, pos, cat, r) => ({ id, nombre: "J" + id, pos, slotCat: cat,
+                                    ratings: [r], mins: 450 });
+  const once = (cat, rs, pos) => rs.map((r, i) => p(cat + i, pos || cat, cat, r));
+  const mio  = [...once("G", [6.5]), ...once("D", [6.5, 6.5, 6.5, 7.4]),
+                ...once("M", [6.5, 6.5, 6.5]), ...once("F", [6.5, 6.5, 6.5])];
+  const suyo = [...once("G", [6.5]), ...once("D", [6.5, 6.5, 6.5, 6.5]),
+                ...once("M", [6.5, 6.5, 6.5]), ...once("F", [8.2, 6.5, 6.5])];
+
+  const base = aplicarIndicaciones(lineas(mio), lineas(suyo), INDICACIONES_POR_DEFECTO, mio, suyo);
+  caso("por zona no cambia nada: es lo normal y no cuesta",
+       base.A.ATA === lineas(mio).ATA && base.B.ATA === lineas(suyo).ATA);
+  caso("y no inventa notas cuando no hay nada que contar", base.notas.length === 0);
+
+  const marca = aplicarIndicaciones(lineas(mio), lineas(suyo),
+    { ...INDICACIONES_POR_DEFECTO, marca: "personal" }, mio, suyo);
+  caso("marcando personal, el rival ataca menos", marca.B.ATA < base.B.ATA);
+  caso("pero tu defensa se resiente: el que marca deja de hacer lo otro",
+       marca.A.DEF < base.A.DEF);
+  caso("y se dice a quién marcás y con quién",
+       marca.notas.some(n => /Marcás personal/.test(n)), marca.notas.join(" | "));
+
+  const flojo = aplicarIndicaciones(lineas(mio), lineas(suyo),
+    { ...INDICACIONES_POR_DEFECTO, ataque: "flojo" }, mio, suyo);
+  caso("atacar el lado flojo no sirve contra una defensa pareja",
+       Math.abs(flojo.A.ATA - base.A.ATA) < 0.001,
+       "cambió " + (flojo.A.ATA - base.A.ATA).toFixed(3));
+
+  const desparejo = [...once("G", [6.5]), ...once("D", [5.2, 7.4, 7.4, 7.4]),
+                     ...once("M", [6.5, 6.5, 6.5]), ...once("F", [6.5, 6.5, 6.5])];
+  const contraDesparejo = aplicarIndicaciones(lineas(mio), lineas(desparejo),
+    { ...INDICACIONES_POR_DEFECTO, ataque: "flojo" }, mio, desparejo);
+  caso("contra una defensa con un punto flojo, sí",
+       contraDesparejo.A.ATA > lineas(mio).ATA + 0.15,
+       "ganó " + (contraDesparejo.A.ATA - lineas(mio).ATA).toFixed(2));
+
+  const pelotazo = aplicarIndicaciones(lineas(mio), lineas(suyo),
+    { ...INDICACIONES_POR_DEFECTO, salida: "pelotazo" }, mio, suyo);
+  caso("el pelotazo le regala gol esperado al rival", pelotazo.regalo > 0);
+  const conVolantes = [...once("G", [6.5]), ...once("D", [6.5, 6.5, 6.5, 6.5]),
+                       ...once("M", [8.0, 8.0, 8.0]), ...once("F", [6.0, 6.0, 6.0])];
+  const desperdicio = aplicarIndicaciones(lineas(conVolantes), lineas(suyo),
+    { ...INDICACIONES_POR_DEFECTO, salida: "pelotazo" }, conVolantes, suyo);
+  caso("con buenos volantes, saltearlos es tirar plata",
+       desperdicio.A.ATA < lineas(conVolantes).ATA,
+       "" + desperdicio.A.ATA.toFixed(2) + " vs " + lineas(conVolantes).ATA.toFixed(2));
+  caso("y se avisa que es un desperdicio",
+       desperdicio.notas.some(n => /tirar plata/.test(n)), desperdicio.notas.join(" | "));
+
+  caso("son tres indicaciones, no once jugadores con dos cada uno",
+       INDICACIONES.length === 3);
+  caso("y cada opción dice qué hace, en castellano",
+       INDICACIONES.every(g => g.opciones.every(o => o.dice && o.dice.length > 20)));
+}
+
+/* ─── LOS PLANTEOS ARMADOS ────────────────────────────────────────────────
+   Un planteo es un atajo que escribe las mismas perillas. Cuál está activo
+   NO se guarda en ningún lado: se deduce. Un botón encendido sobre valores
+   que ya no son los suyos es un botón que miente. */
+{
+  caso("cada planteo escribe las cuatro perillas",
+       PLANTEOS.every(p => KNOBS.every(k => typeof p.K[k.id] === "number")));
+  caso("y cada uno dice qué hace",
+       PLANTEOS.every(p => p.dice && p.dice.length > 30));
+  caso("de las perillas se deduce el planteo",
+       PLANTEOS.every(p => planteoDe(p.K) === p.id));
+  caso("y movida una a mano, ya no es ninguno",
+       planteoDe({ ...planteo("atras"), ritmo: 5 }) === null);
+  caso("hay un planteo neutro y es el que no toca nada",
+       planteoDe({ linea:0, presion:0, ancho:0, ritmo:0 }) === "normal");
+
+  /* Cada planteo tiene que MOVER algo, y en la dirección de su nombre. */
+  const t = id => tacticas(planteo(id));
+  caso("pararse atrás genera menos que ir a buscarlo",
+       t("atras").mine < t("buscarlo").mine,
+       t("atras").mine.toFixed(2) + " vs " + t("buscarlo").mine.toFixed(2));
+  caso("pero también concede menos",
+       t("atras").theirs < t("buscarlo").theirs,
+       t("atras").theirs.toFixed(2) + " vs " + t("buscarlo").theirs.toFixed(2));
+  caso("jugarse la vida es el que más genera y más concede",
+       t("lavida").mine === Math.max(...PLANTEOS.map(p => t(p.id).mine)) &&
+       t("lavida").theirs === Math.max(...PLANTEOS.map(p => t(p.id).theirs)));
+  caso("salir de contra genera más que meterse atrás sin salir",
+       t("contra").mine > t("atras").mine);
+  caso("ninguno es una mejora gratis: el que más genera también concede más",
+       PLANTEOS.every(p => {
+         const x = t(p.id);
+         return !(x.mine > t("normal").mine && x.theirs < t("normal").theirs);
+       }));
+
+  caso("con uno menos y ganando, se sugiere pararse atrás",
+       planteoSugerido({ conUnoMenos:true, ganando:true }) === "atras");
+  caso("con uno menos y perdiendo, salir de contra",
+       planteoSugerido({ conUnoMenos:true, ganando:false }) === "contra");
+  caso("y con once, no se sugiere nada",
+       planteoSugerido({ conUnoMenos:false, ganando:true }) === null);
 }
 
 /* ─── resultado ──────────────────────────────────────────────────────────── */

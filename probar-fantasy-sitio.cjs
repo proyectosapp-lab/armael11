@@ -307,6 +307,75 @@ const uno = (pg, sel) => pg.locator(sel).first();
          /por partido en \d+ fecha/.test(await pg.evaluate(() =>
            document.querySelector('.compactas').innerText)));
 
+    /* ── compartir ──────────────────────────────────────────────────────── */
+    const armado = await pg.evaluate(() => {
+      const P = p => FECHA.jugadores.filter(j => j.puesto === p);
+      const barato = (p, n) => P(p).slice().sort((a, b) => a.precio - b.precio).slice(0, n);
+      F11 = { titulares: [...barato('G',1), ...barato('D',4), ...barato('M',3), ...barato('F',3)],
+              suplentes: {}, capitan: null, vice: null, formacion: '4-3-3' };
+      for (const p of ['G','D','M','F'])
+        F11.suplentes[p] = P(p).slice().sort((a,b)=>a.precio-b.precio)
+          .find(j => !F11.titulares.some(t => t.id === j.id));
+      F11.capitan = F11.titulares.find(j => j.puesto === 'F').id;
+      F11.vice    = F11.titulares.find(j => j.puesto === 'M').id;
+      pintar();
+      return { texto: textoDeMiEquipo(),
+               hayBoton: !!document.getElementById('fcompartir') };
+    });
+    caso('con el equipo armado aparece el botón de compartir', armado.hayBoton);
+    caso('el texto dice la fecha, la formación y el capitán',
+         /fecha 8/.test(armado.texto) && /4-3-3/.test(armado.texto) &&
+         /capitán/.test(armado.texto), armado.texto.replace(/\n/g, ' | '));
+    caso('y dice cuánto gastaste, que es la parte que pica',
+         /gasté [\d.]+ de 75/.test(armado.texto), armado.texto.replace(/\n/g, ' | '));
+    caso('el texto no manda la lista de los quince: un mensaje largo no se reenvía',
+         armado.texto.split('\n').length <= 4, '' + armado.texto.split('\n').length + ' renglones');
+
+    /* Sin equipo legal no hay botón: mandaría a un amigo a ver una cancha
+       vacía. */
+    const sinEquipo = await pg.evaluate(() => {
+      F11 = { titulares: [], suplentes: {}, capitan: null, vice: null, formacion: '4-3-3' };
+      pintar();
+      return !!document.getElementById('fcompartir');
+    });
+    caso('sin equipo armado no hay botón de compartir', !sinEquipo);
+
+    /* ── la invitación que llega por WhatsApp ───────────────────────────── */
+    const invitacion = await pg.evaluate(() => {
+      location.hash = '#liga=xk4t9p';
+      capturarInvitacion();
+      const guardado = (() => { try { return localStorage.getItem('armaEl11.ligaPendiente'); }
+                                catch (e) { return null; } })();
+      return { pendiente: ligaPendiente, guardado, hash: location.hash };
+    });
+    caso('el código de la invitación se lee del link', invitacion.pendiente === 'XK4T9P',
+         '' + invitacion.pendiente);
+    caso('se guarda para sobrevivir el viaje al mail', invitacion.guardado === 'XK4T9P',
+         '' + invitacion.guardado);
+    caso('y se limpia la dirección: un link reenviado no arrastra el código',
+         !/liga=/.test(invitacion.hash), invitacion.hash);
+
+    /* Sin sesión, el bloque invita a entrar y NO se come la invitación. */
+    const sinSesion = await pg.evaluate(() => { pintar(); return document.body.innerText; });
+    /* Sin la /i no encuentra el título: el CSS lo pone en mayúsculas y el
+       innerText devuelve el texto YA transformado, no el del HTML. */
+    caso('sin sesión, los torneos invitan a entrar con el mail',
+         /torneos de amigos/i.test(sinSesion) && /Entrar con mi mail/.test(sinSesion));
+    caso('y avisa que hay una invitación esperando',
+         /XK4T9P/.test(sinSesion) && /invitaci[oó]n/i.test(sinSesion));
+
+    const link = await pg.evaluate(() =>
+      linkDeLiga({ nombre: 'Los del barrio', codigo: 'XK4T9P' }));
+    caso('el link de invitación lleva el código en el hash',
+         /#liga=XK4T9P$/.test(link) && /^https?:\/\//.test(link), link);
+    const invita = await pg.evaluate(() =>
+      textoDeLiga({ nombre: 'Los del barrio', codigo: 'XK4T9P' }));
+    caso('y el mensaje nombra el torneo y el código',
+         /Los del barrio/.test(invita) && /XK4T9P/.test(invita), invita.replace(/\n/g,' | '));
+
+    await pg.evaluate(() => { try { localStorage.removeItem('armaEl11.ligaPendiente'); }
+                              catch (e) {} });
+
     caso('sin errores de JavaScript en todo el recorrido', errs.length === 0, errs.join(' | '));
 
   } catch (e) {

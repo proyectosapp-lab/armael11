@@ -60,8 +60,11 @@ const IMPRESCINDIBLES = [
   "clubes.json", "medios.json", "sitio.json", "app.tpl.html",
   "construir-sitio.mjs", "datos-juego.mjs", "stats-api.mjs", "stats-calc.mjs",
   "resolver-youtube.mjs", "esquema.sql", "fantasy.mjs", "fantasy-api.mjs",
+  "ligas.json", "ligas-api.mjs", "sw.js", "puntos-api.mjs",
+  "funcion-crear-pago.ts", "funcion-pago-avisado.ts",
   "probar.mjs", "probar-clubes.mjs", "probar-once.mjs", "probar-stats.mjs",
   "probar-backend.mjs", "probar-cuentas.mjs", "probar-fantasy.mjs",
+  "probar-pagos.mjs",
 ];
 const faltan = IMPRESCINDIBLES.filter(f => !existsSync(aca("./" + f)));
 if (faltan.length) {
@@ -79,7 +82,8 @@ if (faltan.length) {
    Van primero y son obligatorias. Si el pipeline está roto, publicar treinta
    feeds mal armados encima de los que estaban bien es peor que no publicar. */
 for (const t of ["probar.mjs", "probar-clubes.mjs", "probar-once.mjs", "probar-stats.mjs",
-                 "probar-backend.mjs", "probar-cuentas.mjs", "probar-fantasy.mjs"])
+                 "probar-backend.mjs", "probar-cuentas.mjs", "probar-fantasy.mjs",
+                 "probar-pagos.mjs"])
   paso("Pruebas · " + t, t, { obligatorio: true });
 
 if (soloPruebas) { console.log("\n  Solo pruebas. Listo.\n"); process.exit(0); }
@@ -97,10 +101,18 @@ if (!hayKey) {
   console.log(linea);
 } else {
   paso("Bajar los datos del juego", "datos-juego.mjs");
+  /* No es obligatorio: sin las ligas el simulador sigue andando con el club
+     de cada página y el selector simplemente no aparece. */
+  paso("Bajar las ligas para simular", "ligas-api.mjs");
   paso("Rehacer la tabla y los números", "stats-api.mjs");
   /* No es obligatorio: si la fecha no se puede armar, el resto del sitio
      sale igual y la pestaña del fantasy simplemente no aparece. */
   paso("Publicar la próxima fecha del fantasy", "fantasy-api.mjs");
+  /* Después de publicar la próxima, puntuar la anterior. En este orden
+     porque la que se puntúa ya terminó y la que se publica todavía no
+     existe: no se pisan. Tampoco es obligatorio — una fecha sin puntuar se
+     puntúa en la corrida siguiente. */
+  paso("Puntuar la última fecha jugada", "puntos-api.mjs");
 }
 
 /* ─── 4. el sitio ────────────────────────────────────────────────────────── */
@@ -133,6 +145,35 @@ try {
   if (!(f.jugadores || []).length)
     console.log("  ⚠ la fecha quedó SIN jugadores: la pestaña no va a aparecer.");
 } catch (e) { console.log("  FANTASY: sin fecha publicada (la pestaña no aparece)"); }
+
+try {
+  const txt = readFileSync(aca("./sitio/datos/ligas.js"), "utf8");
+  const ls = JSON.parse(txt.match(/=(\[[^\]]*\])/)[1]);
+  console.log("  LIGAS: " + ls.length + " para simular · " + ls.join(", "));
+  const sin = ls.filter(sl => {
+    try { const t = readFileSync(aca("./sitio/datos/liga-" + sl + ".js"), "utf8");
+          return !/"calibrada":\{/.test(t); } catch (e) { return true; }
+  });
+  if (sin.length) console.log("  ⚠ sin calibrar (van con los números de respaldo): " + sin.join(", "));
+} catch (e) { console.log("  LIGAS: ninguna (el selector de otras ligas no aparece)"); }
+
+/* Lo que Play exige. Si falta algo, la app no se puede empaquetar y eso se
+   descubriría recién al subirla, que es el peor momento. */
+const PARA_PLAY = [
+  ["sw.js", "el service worker"],
+  ["app.webmanifest", "el manifest de la app"],
+  ["privacidad.html", "la política de privacidad"],
+  ["borrar-cuenta.html", "la página para borrar la cuenta"],
+  ["sitio-icono-512.png", "el ícono de 512"],
+  ["sitio-icono-mask-512.png", "el ícono maskable"],
+];
+const faltaPlay = PARA_PLAY.filter(([f]) => !existsSync(aca("./sitio/" + f)));
+console.log("  PLAY: " + (faltaPlay.length
+  ? "falta " + faltaPlay.map(f => f[1]).join(", ")
+  : "listo para empaquetar" +
+    (existsSync(aca("./sitio/.well-known/assetlinks.json"))
+      ? " · con assetlinks"
+      : " · sin assetlinks todavía (falta la huella de la firma en sitio.json)")));
 
 const cache = existsSync(aca("./sitio/datos/cache-talleres-cba.js"));
 console.log("  JUEGO: " + (cache ? "con los datos bajados, sin API key en el navegador"

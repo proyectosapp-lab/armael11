@@ -217,5 +217,70 @@ export const entrarALiga = codigo =>
 
 export const misLigas = () => sesion?.uid ? pedir("/rest/v1/liga?select=*") : [];
 
+/* ─── el premium ───────────────────────────────────────────────────────────
+   Se LEE, nunca se escribe. La columna tiene el permiso de escritura
+   revocado en la base, así que ni siquiera es una cuestión de confianza: un
+   update desde acá lo rechaza Postgres.
+
+   Es una fecha y no un sí/no, para que se venza solo. Y la comparación se
+   hace contra el reloj del TELÉFONO, que se puede mover: eso alcanza para
+   pintar la pantalla, pero cualquier cosa que de verdad importe —guardar,
+   cobrar, puntuar— la tiene que volver a revisar el servidor. Acá es
+   decoración informada, no una cerradura.                                */
+export async function miPremium() {
+  if (!sesion?.uid) return null;
+  const f = await pedir("/rest/v1/perfil?select=premium_hasta&id=eq." + sesion.uid);
+  const hasta = f?.[0]?.premium_hasta || null;
+  return { hasta, activo: !!hasta && new Date(hasta) > new Date() };
+}
+
+/* Los precios los pide al servidor, no los tiene escritos. Si estuvieran
+   acá y allá, el día que cambie uno la app va a mostrar un precio y Mercado
+   Pago va a cobrar otro, y esa persona nunca más compra nada. */
+export async function planesPremium() {
+  const { url, anon } = cfg();
+  if (!url) return [];
+  const r = await fetch(url + "/functions/v1/crear-pago", { headers: { apikey: anon } });
+  if (!r.ok) return [];
+  return (await r.json()).planes || [];
+}
+
+/* Devuelve la dirección de Mercado Pago a la que hay que mandar a la
+   persona. No la abre: abrir una ventana desde una función que ya esperó a
+   la red es lo que hace que el navegador la bloquee por "no la pidió
+   nadie". Eso lo hace la pantalla, que sabe que hubo un dedo.            */
+export async function linkDePago(plan = "mes") {
+  if (!sesion?.uid) throw new Error("Hay que entrar primero.");
+  const { url, anon } = cfg();
+  const r = await fetch(url + "/functions/v1/crear-pago", {
+    method: "POST",
+    headers: { apikey: anon, Authorization: "Bearer " + sesion.token,
+               "Content-Type": "application/json" },
+    body: JSON.stringify({ plan }),
+  });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok || !d.link) throw new Error(d.error || "No pude armar el pago.");
+  return d.link;
+}
+
 export const tablaDeLiga = (liga, fecha = null) =>
   pedir("/rest/v1/rpc/tabla_liga", { metodo: "POST", cuerpo: { l: liga, f: fecha } });
+
+/* ─── borrar la cuenta ─────────────────────────────────────────────────────
+   Google Play lo exige para toda app con registro, pero antes que eso es lo
+   mínimo decente: el que entregó su mail tiene que poder retirarlo sin
+   escribirle a nadie y sin esperar respuesta.
+
+   No lleva parámetros a propósito. El servidor borra al que pidió y a nadie
+   más; acá no hay forma de nombrar a otro.
+
+   Después de borrar se cierra la sesión en el acto. Si no, el teléfono
+   seguiría con un token de un usuario que ya no existe y cada pantalla
+   fallaría con un error distinto en vez de mostrar la app como recién
+   instalada.                                                             */
+export async function borrarMiCuenta() {
+  if (!sesion?.uid) throw new Error("Hay que entrar primero.");
+  await pedir("/rest/v1/rpc/borrar_mi_cuenta", { metodo: "POST", cuerpo: {} });
+  salir();
+  return true;
+}

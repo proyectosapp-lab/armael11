@@ -63,10 +63,74 @@ const politicasDe = tabla => [...SQL.matchAll(/create policy[\s\S]*?;/gi)]
   const defs = [...SQL.matchAll(/create (?:or replace )?function\s+(\w+)/gi)].map(m => m[1]);
   const conLlave = [...SQL.matchAll(/create (?:or replace )?function\s+(\w+)[\s\S]*?security definer/gi)]
     .map(m => m[1]);
-  caso("las funciones con llave maestra son las tres conocidas",
-       conLlave.length === 3 &&
-       ["es_miembro", "entrar_a_liga", "tabla_liga"].every(f => conLlave.includes(f)),
+  /* Este caso existe para que agregar una función con llave maestra sea una
+     DECISIÓN y no un descuido: `security definer` corre con permisos que el
+     usuario no tiene, así que cada una hay que poder explicarla.
+       es_miembro      rompe la recursión de la política de liga_miembro
+       entrar_a_liga   deja entrar con un código sin poder leer las ligas
+       tabla_liga      arma el join de la tabla en un solo pedido
+       borrar_mi_cuenta borra auth.users, que el teléfono no puede tocar
+       acreditar_premium suma meses de premium, y NO la puede llamar nadie
+                         desde el navegador: se le revoca a todos.
+       registrar_pago    anota el pago y lo acredita en un solo movimiento,
+                         que es lo que impide acreditarlo dos veces. Tampoco
+                         se la puede llamar desde el navegador.
+     Las seis comparten la misma defensa: o no reciben nada, o lo que
+     reciben ya lo tenía el que llama, o directamente no se les puede
+     llamar desde afuera. */
+  caso("las funciones con llave maestra son las seis conocidas",
+       conLlave.length === 6 &&
+       ["es_miembro", "entrar_a_liga", "tabla_liga", "borrar_mi_cuenta",
+        "acreditar_premium", "registrar_pago"].every(f => conLlave.includes(f)),
        conLlave.join(", "));
+
+  /* ── EL PREMIUM ───────────────────────────────────────────────────────
+     La trampa que la RLS sola NO tapa: las políticas son por FILA, no por
+     columna, y la de `perfil` ya deja que cada uno modifique la suya —la
+     necesita para el nombre de usuario—. Sin un permiso por columna,
+     cualquiera se pone premium hasta el 2099 desde la consola. */
+  caso("el premium es una fecha, no un sí/no que no se apaga nunca",
+       /premium_hasta timestamptz/i.test(SQL));
+  caso("y el usuario NO puede escribirla, aunque pueda editar su perfil",
+       /revoke update \(premium_hasta\) on perfil from[^;]*authenticated/i.test(SQL));
+  caso("la de acreditar no se le puede llamar desde el navegador",
+       /revoke all on function acreditar_premium[^;]*from[^;]*authenticated/i.test(SQL));
+
+  /* Mercado Pago puede mandar el mismo aviso varias veces. Que el id del
+     pago sea la clave primaria es toda la defensa: el segundo choca. */
+  caso("un pago repetido no se puede acreditar dos veces",
+       /create table if not exists pago \(\s*\n\s*id\s+text primary key/i.test(SQL));
+  caso("y la tabla de pagos no se lee desde ningún teléfono",
+       /alter table pago enable row level security/i.test(SQL) &&
+       !/on pago for/i.test(SQL));
+
+  /* ── LO QUE SE ANOTA NO ES SI LO VIMOS, SINO SI LO COBRAMOS ───────────
+     Que el id sea la clave primaria alcanza para no anotar dos filas, y NO
+     alcanza para no acreditar dos veces: un pago avisa varias veces y
+     cambia de estado en el camino —pendiente primero, aprobado después—.
+     Sin esta columna, el que paga en efectivo no cobra nunca su premium
+     porque el aviso bueno rebota contra la fila del aviso malo. */
+  caso("se anota si el pago ya se acreditó, no solo si se vio",
+       /acreditado boolean not null default false/i.test(SQL));
+  caso("y las dos cosas pasan adentro de la misma función, o no pasan",
+       /function registrar_pago[\s\S]*?for update[\s\S]*?acreditar_premium/i.test(SQL));
+  caso("que tampoco se le puede llamar desde el navegador",
+       /revoke all on function registrar_pago[\s\S]{0,120}?from[^;]*authenticated/i.test(SQL));
+  caso("un pago sin perfil se anota pero no acredita nada",
+       /p_perfil is null[^;]*then return null/i.test(SQL));
+
+  /* La que borra no puede recibir a QUIÉN borrar: si recibiera un id, con
+     llave maestra cualquiera podría borrar la cuenta de otro. */
+  caso("la que borra la cuenta no recibe ningún parámetro",
+       /function\s+borrar_mi_cuenta\s*\(\s*\)/.test(SQL));
+  caso("y se la sacan a los anónimos",
+       /revoke all on function borrar_mi_cuenta\(\) from public/i.test(SQL) &&
+       /grant execute on function borrar_mi_cuenta\(\) to authenticated/i.test(SQL));
+
+  /* Si la liga se fuera con el que la creó, el día que uno se borra
+     desaparece el torneo de otros once que no tienen nada que ver. */
+  caso("borrarse no se lleva puesta la liga de los demás",
+       /liga_dueno_fkey[\s\S]*?on delete set null/i.test(SQL));
   caso("y todas fijan el search_path (si no, se les puede cambiar el piso)",
        conLlave.every(f => new RegExp("function\\s+" + f + "[\\s\\S]*?set search_path", "i").test(SQL)));
   caso("no hay funciones sueltas sin revisar", defs.length === conLlave.length,

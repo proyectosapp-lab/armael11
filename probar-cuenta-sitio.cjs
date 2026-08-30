@@ -76,7 +76,13 @@ const srv = http.createServer((q, s) => {
     caso('el botón de la cuenta aparece', await pg.locator('#bcuenta').isVisible());
     caso('pero el panel arranca cerrado: nadie vino a registrarse',
          await pg.locator('#cuenta').isHidden());
+    /* La app abre en el simulador; el feed está a una pestaña de distancia.
+       Lo que importa acá es que la cuenta no rompió nada del resto. */
+    await pg.click('#barra button[data-tab="feed"]');
+    await pg.waitForTimeout(250);
     caso('y el feed se pintó igual', await pg.locator('.tarjeta.portada').count() === 1);
+    await pg.click('#barra button[data-tab="juego"]');
+    await pg.waitForTimeout(150);
     caso('sin haberle pedido nada al backend todavía', llamados.length === 0, llamados.join(' | '));
 
     /* ── 2. pedir el link ───────────────────────────────────────────────── */
@@ -124,6 +130,71 @@ const srv = http.createServer((q, s) => {
     await pg.waitForTimeout(400);
     caso('al volver a abrir sigue reconociéndolo',
          (await pg.locator('#bcuenta').innerText()).trim() === 'F');
+
+    /* ── BORRAR LA CUENTA ────────────────────────────────────────────────
+       Play lo exige, pero antes que eso es lo mínimo decente: el que entregó
+       su mail tiene que poder retirarlo sin escribirle a nadie. Va en dos
+       toques porque no hay deshacer. */
+    const borrado = await pg.evaluate(() => {
+      miNombre = "fulano"; cuentaAbierta = true; borrando = false;
+      pintarCuenta();
+      const uno = !!document.getElementById("cborrar");
+      if (uno) document.getElementById("cborrar").click();
+      const dos = { confirma: !!document.getElementById("csiborrar"),
+                    vuelta:   !!document.getElementById("cnoborrar"),
+                    texto: document.getElementById("cuenta").innerText };
+      if (dos.vuelta) document.getElementById("cnoborrar").click();
+      const r = { uno, dos, cancelado: !!document.getElementById("cborrar") };
+      /* Se deja el panel como estaba: los casos que siguen lo abren ellos. */
+      cuentaAbierta = false; pintarCuenta();
+      return r;
+    });
+    caso('hay un botón para borrar la cuenta', borrado.uno);
+    caso('pero pide confirmación: no hay deshacer',
+         borrado.dos.confirma && borrado.dos.vuelta);
+    caso('y dice exactamente qué se borra',
+         /mail|correo/i.test(borrado.dos.texto) && /puntajes/i.test(borrado.dos.texto),
+         borrado.dos.texto.replace(/\n/g, ' | ').slice(0, 150));
+    caso('y que los torneos creados siguen para los demás',
+         /siguen para los dem/i.test(borrado.dos.texto));
+    caso('se puede volver atrás', borrado.cancelado);
+
+    /* ── LO QUE SE VENDE ─────────────────────────────────────────────────
+       El panel dibuja los precios que le dio el servidor. Se le pasan a
+       mano dos planes inventados y se mira que salgan ESOS números: si
+       alguna vez alguien escribe un precio en la app, esta prueba lo
+       encuentra mostrando uno que no vino de ningún lado.
+
+       Y no se toca la red: el botón no se aprieta. Apretarlo mandaría a
+       Mercado Pago, que no es algo que una prueba tenga que hacer. */
+    const venta = await pg.evaluate(() => {
+      const foto = { p: PLANES, pr: PREMIUM, n: miNombre, a: cuentaAbierta };
+      PLANES = [{ id:"mes", meses:1, precio:1234 }, { id:"ano", meses:12, precio:9876 }];
+      PREMIUM = { activo:false, hasta:null };
+      miNombre = "fulano"; cuentaAbierta = true; pintarCuenta();
+      const t1 = document.getElementById("cuenta").innerText;
+      const botones = [...document.querySelectorAll("#cuenta [data-plan]")]
+        .map(b => b.dataset.plan);
+
+      PREMIUM = { activo:true, hasta:new Date(Date.now() + 40 * 864e5).toISOString() };
+      pintarCuenta();
+      const t2 = document.getElementById("cuenta").innerText;
+      const sigueOfreciendo = !!document.querySelector("#cuenta [data-plan]");
+
+      PLANES = foto.p; PREMIUM = foto.pr; miNombre = foto.n;
+      cuentaAbierta = foto.a; pintarCuenta();
+      return { t1, botones, t2, sigueOfreciendo };
+    });
+    caso('el panel ofrece los planes que dio el servidor',
+         venta.botones.join(",") === "mes,ano", venta.botones.join(","));
+    caso('con los precios que dio el servidor, no con unos escritos en la app',
+         /1\.234/.test(venta.t1) && /9\.876/.test(venta.t1),
+         venta.t1.replace(/\n/g, ' | ').slice(0, 160));
+    caso('y dice qué se compra: sin espera y sin avisos',
+         /sin espera/i.test(venta.t1) && /aviso/i.test(venta.t1));
+    caso('al que ya lo tiene no se le vuelve a ofrecer',
+         !venta.sigueOfreciendo && /39 días|40 días/.test(venta.t2),
+         venta.t2.replace(/\n/g, ' | ').slice(0, 120));
 
     /* ── 6. salir ───────────────────────────────────────────────────────── */
     await pg.click('#bcuenta');

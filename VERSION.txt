@@ -1,3 +1,317 @@
+Armá el 11 — versión 2026-08-30 y (el cobro)
+
+  · SE PUEDE COBRAR. Dos funciones nuevas que NO corren en GitHub: corren
+    en Supabase, y se pegan a mano en el editor del navegador. Están en el
+    repo igual, versionadas y con una prueba que las lee.
+      · funcion-crear-pago.ts    arma el link de Mercado Pago para UNA
+        persona concreta. El precio sale de una tabla que vive adentro de
+        esta función: el navegador manda el NOMBRE del plan y nada más. Si
+        mandara el precio, alguien cambia 2500 por 1 en la consola, paga un
+        peso, y Mercado Pago confirma un pago legítimo de un peso. Eso no se
+        arregla después.
+      · funcion-pago-avisado.ts  recibe el aviso de Mercado Pago y NO LE
+        CREE NADA. Del aviso toma solamente el número de pago; el estado, el
+        monto y a quién corresponde los va a buscar a la API de Mercado Pago
+        con nuestro token. La dirección del webhook es pública y no puede
+        pedir contraseña: si se creyera el cuerpo del mensaje, cualquiera se
+        hace premium mandando un JSON.
+
+  · REGISTRAR_PAGO, en la base. Anotar el pago y acreditarlo pasan adentro
+    de la misma función o no pasan. Si fueran dos pedidos separados, dos
+    avisos que llegan en el mismo segundo leen los dos "todavía no" y
+    acreditan los dos: un mes pago, dos meses entregados.
+      · Y lo que se anota no es si el pago se VIO, sino si se COBRÓ. Que el
+        id sea la clave primaria alcanza para no anotar dos filas y no
+        alcanza para esto: un pago avisa varias veces y cambia de estado en
+        el camino (pendiente primero, aprobado después). Con la defensa
+        vieja, el que paga en efectivo no cobraba nunca su premium porque el
+        aviso bueno rebotaba contra la fila del aviso malo.
+
+  · LO QUE SE VENDE, dicho en una línea. Los veinte segundos SON el aviso:
+    son el rato durante el cual la app puede mostrar uno sin interrumpir
+    nada. Por eso lo que se vende es sacarlos, y por eso la espera y el
+    aviso salen del mismo lugar y no pueden quedar desacopladas. Un premium
+    que no ve avisos pero igual espera veinte segundos no compró nada.
+    Con el pase, el partido dura seis segundos y no aparece ningún aviso.
+
+  · LA PÁGINA DE VUELTA (gracias.html) no puede afirmar que el pago entró.
+    Lo único que sabe es lo que dice la dirección, y la dirección la escribe
+    cualquiera. Dice lo que sí sabe: volvé a la app y fijate. La app, al
+    volver, vuelve a preguntarle a la base unas cuantas veces, porque el
+    aviso de Mercado Pago y la vuelta de la persona son dos carreras
+    distintas y a veces gana la persona.
+
+  · probar-pagos.mjs, nueva. Las reglas que protegen la plata no fallan
+    cuando se rompen: DEJAN PASAR. Nadie se entera de que el precio empezó a
+    salir del navegador hasta que alguien paga un peso.
+
+  · 497 casos de prueba.
+
+── lo de antes ───────────────────────────────────────────────────────────
+Armá el 11 — versión 2026-08-30 x (el orden, los puntos y el premium)
+
+  · LA APP ABRE EN EL SIMULADOR. El orden de las pestañas es El 11 ·
+    Fantasy · Números · Feed, y no es decorativo: primero lo que hicimos
+    nosotros, último el contenido de otros medios. Dos razones que apuntan
+    al mismo lado — la app se llama Armá el 11 y abría en algo que no es
+    armar el 11, y una app que se presenta como agregador de contenido
+    ajeno es la que las redes de publicidad miran con lupa.
+    OJO: el feed era el hábito diario. Si en octubre baja la gente que
+    vuelve, este cambio es el primer sospechoso.
+
+  · SE CALCULAN LOS PUNTOS (puntos-api.mjs). Es la pieza que convierte los
+    torneos en un juego: sin esto, la gente arma su equipo, se juega la
+    fecha y la tabla sigue en cero.
+      · Los escribe el SERVIDOR. `puntaje` no tiene ninguna política de
+        escritura: ni el teléfono ni la clave pública pueden tocarla.
+      · Se guarda el DETALLE, no solo el total. "Te dieron 47" es un número
+        que hay que creer; el detalle abierto se puede revisar.
+      · Recalcular da lo mismo: si la API corrige una estadística el lunes,
+        se vuelve a correr y la tabla se acomoda sola.
+      · Usa el MISMO fantasy.mjs que la pantalla. Una sola tabla de puntos.
+
+  · EL PREMIUM, en la base. Todavía sin cobrar nada: la columna y sus
+    defensas primero.
+      · Es una FECHA, no un sí/no. Un booleano se prende y no se apaga
+        nunca: quedaría gente premium para siempre por una compra de un mes.
+      · Y acá había una trampa que la RLS sola NO tapa: las políticas son
+        por FILA, no por columna, y la de `perfil` ya deja que cada uno
+        edite la suya (la necesita para el nombre de usuario). Sin más,
+        cualquiera se ponía premium hasta el 2099 desde la consola del
+        navegador. La defensa correcta es un permiso por COLUMNA: se le
+        revoca el update de `premium_hasta` a los usuarios.
+      · Tabla `pago` con el id de Mercado Pago como clave primaria: MP
+        puede mandar el mismo aviso varias veces, y así el segundo choca y
+        no acredita de nuevo. Sin políticas: no se lee desde ningún
+        teléfono.
+      · `acreditar_premium` suma sobre lo que quedaba, así el que renueva
+        antes de vencer no pierde los días que le sobraban. No se la puede
+        llamar desde el navegador.
+
+  · 478 casos de prueba.
+
+── lo de antes ───────────────────────────────────────────────────────────
+Armá el 11 — versión 2026-08-30 w (lista para empaquetar)
+
+Los cuatro archivos que Play exige, y las dos páginas:
+
+  · SERVICE WORKER (sw.js). Hace que la app conteste algo sin señal. Va
+    primero a la red SIEMPRE —la caché es el paracaídas, no el avión—, solo
+    guarda lo que salió bien, y el nombre de la caché lleva versión: cambiar
+    ese número tira todo lo guardado en todos los teléfonos. Es la única
+    salida de emergencia de un sitio estático, y por eso está escrita.
+
+  · MANIFEST DE LA APP en la raíz, con UNA puerta de entrada: la lista de
+    clubes. Los treinta manifests por club siguen igual, para el que agrega
+    el sitio a la pantalla de inicio.
+
+  · ÍCONOS PNG de 192, 512 y uno "maskable". Los hace iconos.cjs a mano y
+    viven en el repo: generar un PNG necesita un navegador y en la nube no
+    hay ninguno. El maskable deja libre el 20% del borde porque Android
+    recorta el ícono con la forma de cada teléfono.
+
+  · ASSETLINKS: NO se escribe hasta que sitio.json traiga el paquete y la
+    huella de la firma que da Play. Uno con datos inventados no falla en
+    silencio: falla en la cara del usuario cada vez que abre la app. Igual
+    que el CNAME, si se saca la configuración el archivo se borra.
+
+  · PRIVACIDAD y BORRAR-CUENTA, dos páginas públicas. Sin las dos no se
+    publica, pero además son la parte del trato que le toca al que dejó su
+    mail. Se generan desde construir-sitio.mjs para que el que agregue un
+    dato nuevo pase por el archivo que dice qué se guarda: una política que
+    vive en un HTML suelto envejece mintiendo.
+
+  · BORRAR LA CUENTA, de verdad. Desde la app y desde la web, en el acto y
+    sin escribirle a nadie. Va en dos toques porque no hay deshacer.
+      · La función de la base no recibe NINGÚN parámetro: borra al que pidió
+        y no hay forma de nombrar a otro.
+      · Se borran mail, usuario, equipos, puntajes y membresías.
+      · NO se borran las ligas que la persona creó. Si se fueran con ella,
+        el día que uno se va desaparece el torneo de once que no tienen nada
+        que ver. Hubo que sacarle el cascade a liga.dueno.
+      · Hay una prueba que falla si aparece una función con llave maestra
+        nueva sin justificar: agregar una tiene que ser una decisión.
+
+  · El log de la corrida dice ahora si el sitio está listo para empaquetar y
+    qué falta.
+
+  · 464 casos de prueba.
+
+── lo de antes ───────────────────────────────────────────────────────────
+Armá el 11 — versión 2026-08-30 v (el planteo del rival, y planteos armados)
+
+  · AHORA SE PLANTEA AL RIVAL. Tiene su propia tanda de perillas. Ese era
+    el límite de verdad: si el que se metía atrás con diez era él, no había
+    forma de decirlo. Cada planteo pesa sobre su propio ataque y sobre el
+    del otro; con el rival en neutro la cuenta da EXACTAMENTE lo de antes,
+    y hay una prueba que lo fija.
+
+  · PLANTEOS ARMADOS, para los dos equipos: se para atrás · normal ·
+    espera y sale de contra · va a buscarlo · se juega la vida. Cada uno
+    dice qué hace y ninguno es una mejora gratis: hay una prueba que falla
+    si alguno genera más y concede menos que el neutro.
+
+  · Y LAS DOS COSAS SON LA MISMA COSA. Un planteo no es otro modo de
+    juego: es un atajo que escribe las mismas perillas. Elegís uno y se
+    acomodan; después movés la que quieras a mano y el botón se apaga
+    solo. Cuál está activo NO se guarda en ningún lado, se DEDUCE de las
+    perillas — un botón encendido sobre valores que ya no son los suyos es
+    un botón que miente.
+
+  · Cuando cargás un expulsado, se OFRECE el planteo que corresponde
+    (atrás si vas ganando, de contra si vas perdiendo) con un botón. No se
+    aplica solo: cambiarle el planteo a alguien sin que lo pida es decidir
+    por él en su propio juego.
+
+  · El botón de simular pasó al final, después de todas las decisiones.
+
+
+  · CORREGIDO UN CARTEL QUE MENTÍA. En la versión u, el panel del partido
+    empezado decía "lo que NO hace: ajustar por cómo va el partido". Está
+    mal dicho y hace creer que el planteo no entra en la cuenta. Entra: el
+    gol esperado que se reparte por el tiempo que queda YA trae las
+    perillas y las indicaciones, así que si vas ganando con uno menos y te
+    parás atrás con transiciones rápidas, la cuenta lo toma. Medido: con
+    diez, meterse atrás pasa de 74,5% a 79,8% de ganar.
+    Lo que el modelo no hace es ADIVINAR el planteo. Lo pone el que juega,
+    que es justamente la gracia del juego.
+
+  · Y se dice cuál es el límite de verdad, que es otro: LAS PERILLAS SON
+    DE UN SOLO EQUIPO. No se puede plantear al rival, así que si el que se
+    mete atrás con diez es él, eso todavía no se puede expresar. Lo único
+    que se le aplica es el promedio de jugar con uno menos.
+
+  · Anotado en el motor: ese promedio (0,68 de ataque, 1,42 de goles en
+    contra) se midió sobre equipos con uno menos, y el equipo promedio con
+    uno menos YA se para atrás. Si además se pone bloque bajo a mano, una
+    parte se cuenta dos veces. Es chico y va hacia el lado conservador,
+    pero conviene saberlo antes de calibrar.
+
+  · 439 casos de prueba.
+
+── lo de antes ───────────────────────────────────────────────────────────
+Armá el 11 — versión 2026-08-30 u (cinco ligas, indicaciones y el partido empezado)
+
+Lo más nuevo:
+
+  · LAS CONSTANTES YA NO SON ARGENTINAS. `juego.js` tenía tres números
+    fijos: media de rating 6,5 y 2,48 goles por partido entre los dos.
+    Para Argentina están bien; para la Premier no, y todos los marcadores
+    salían bajos. Ahora cada liga trae los suyos, calculados con sus
+    propios partidos jugados. El documento del backtest ya decía que cada
+    liga corre con sus promedios; el motor no lo hacía.
+    Si una liga tiene menos de 40 partidos jugados NO se calibra: se usa
+    el respaldo conocido en vez de un promedio de ruido con autoridad de
+    dato. Y la app dice con qué está calibrada cada una.
+
+  · CINCO LIGAS MÁS PARA SIMULAR: Portugal, Italia, Inglaterra, España y
+    Francia, elegidas por el backtest — son donde el modelo de verdad le
+    gana a la vara (Portugal +0,098; Argentina +0,005). Se elige la liga,
+    se elige el partido y se arma el once. Sumar una liga es agregar una
+    fila en ligas.json.
+    Los datos van COCINADOS: por jugador, su promedio de rating y sus
+    minutos, que es todo lo que mira el motor. Una liga entera pesa unas
+    decenas de kilobytes en vez de megas de JSON crudo.
+
+  · SIMULAR DESDE UN PARTIDO EMPEZADO: minuto, marcador y expulsados. Se
+    simula lo que falta y se le suma lo que ya está. La animación arranca
+    en ese minuto con ese marcador.
+    Lo que NO hace, dicho en la pantalla: ajustar por cómo va el partido.
+    El que pierde se vuelca y se expone, y eso es real — pero no está
+    medido en este modelo, y acá no se agrega nada que no se haya podido
+    probar.
+
+  · TRES INDICACIONES DEL PLANTEO, cada una con su efecto publicado:
+    marca por zona o personal al mejor del rival · atacar repartido o por
+    el lado flojo · salida jugada o pelotazo. Ninguna es gratis.
+    NO son por jugador, y el motivo está escrito en el código: el gol
+    esperado sale de comparar LÍNEAS, no hay aporte individual al que
+    restarle una marca. Inventarle un efecto rompería lo único que hace
+    discutible a este juego.
+
+  · SE FUE EL SERMÓN de abajo del resultado ("ese fue uno de los 6.000
+    partidos simulados… la barra de arriba es la que hay que mirar"). Era
+    entrar a un show de magia y recordarle al espectador que es
+    ilusionismo. El dato no se pierde: la barra y el porcentaje siguen
+    arriba, que es donde corresponden.
+
+  · 415 casos de prueba. Uno de los nuevos me corrigió a mí: había
+    escrito que la media de la liga movía a todos los jugadores, y no es
+    cierto — al que ya jugó tres partidos completos no lo toca. El
+    comentario del motor decía otra cosa y ahora dice la verdad.
+
+── lo de antes ───────────────────────────────────────────────────────────
+Armá el 11 — versión 2026-08-29 t (el partido dura veinte segundos)
+
+Lo más nuevo:
+  · EL PARTIDO ANIMADO DURA 20 SEGUNDOS, y el reloj avanza de a un minuto
+    en vez de a tres. Se ve mejor —es un reloj de partido y no un
+    contador—, pero la razón de fondo es otra: tres simulaciones seguidas
+    suman sesenta segundos, que es justo el mínimo que AdSense impone
+    entre dos avisos. Con eso la cadencia de publicidad sale sola, una
+    cada tres, sin programar ninguna regla y sin pasarse de lo que
+    permite la política de AdMob (uno cada dos acciones, como mucho).
+  · Por eso el RITMO YA NO ACELERA EL RELOJ. Antes lo acortaba hasta un
+    22% y eso movía la duración. El ritmo se sigue viendo, pero en cómo
+    se mueven los jugadores, que es donde tiene sentido que se vea.
+  · Hay una prueba que MIDE la duración y falla si baja de veinte
+    segundos. Si alguien vuelve a acelerar la animación, esa cuenta se
+    rompería en silencio, y en silencio es como se rompen las cosas que
+    después nadie entiende.
+
+  · EL LUGAR DEL AVISO. Ojo: NO hay publicidad en la app. Hay un lugar
+    donde algún día va a haber una, con las reglas de cuándo corresponde
+    ya escritas y probadas:
+      · una cada 60 segundos de reloj de pared (el mínimo de AdSense);
+      · la PRIMERA simulación de alguien nunca lleva aviso — ahí está
+        decidiendo si la app le gusta, y eso vale más que centavo y medio;
+      · el reloj vive en el teléfono, no en memoria, así que recargar la
+        página no lo pone en cero;
+      · si el navegador no deja guardar nada, se falla hacia NO mostrar.
+    Mientras `sitio.json` no tenga una sección "publicidad", esto resuelve
+    en el acto y la app sigue sin cargar un solo script de terceros. La
+    prueba que lo cuida sigue en verde.
+  · El aviso va antes de simular y antes de revelar el once del DT. El
+    resumen con el resultado se ve GRATIS, siempre.
+
+  · 368 casos de prueba.
+
+── lo de antes ───────────────────────────────────────────────────────────
+Armá el 11 — versión 2026-08-27 s (compartir y torneos de amigos)
+
+Lo más nuevo:
+  · COMPARTIR MI 11 por WhatsApp. Sale como TEXTO: nada de imágenes con
+    escudos ajenos y nada de scripts de botones de compartir, que son
+    justamente lo que esta app no carga. Usa el menú del sistema en el
+    teléfono, el link de wa.me en la compu, y si el navegador bloquea la
+    ventana, copia al portapapeles. Nunca se queda sin hacer nada: un
+    botón que no hace nada se lee como roto.
+  · El mensaje cuenta lo que DECIDISTE —formación, capitán, cuánto
+    gastaste—, no la lista de los quince. Un mensaje que hay que
+    scrollear no se reenvía, y filtrar el equipo entero antes del cierre
+    sería regalarle la tarea al que lo recibe.
+  · El botón aparece recién con el equipo armado. Compartir un equipo a
+    medio hacer manda a un amigo a mirar una cancha vacía.
+  · TORNEOS DE AMIGOS, con pantalla: crear uno, entrar con el código de
+    un amigo, ver la tabla y invitar por WhatsApp. El motor y las reglas
+    ya vivían en la base desde la versión d; esto es la pantalla.
+  · La invitación viaja en el link (#liga=CODIGO) y SOBREVIVE el viaje al
+    correo: si el que la abre nunca entró, el código se guarda, se le
+    manda el mail, y al volver entra solo al torneo. Sin eso, el que
+    llega por WhatsApp tendría que acordarse del código después de
+    revisar el correo, y no se acuerda.
+  · Y el código se borra de la dirección apenas se lee, como los tokens:
+    un link reenviado no puede arrastrar la invitación de otro.
+
+  · LA FECHA ES LA FECHA ENTERA, menos los postergados. Entra toda la
+    ronda —viernes a lunes—; los TBD también, que todavía no tienen hora
+    pero se juegan. Los postergados no: sus jugadores tienen el cero
+    asegurado y ofrecer un cero asegurado es una trampa para el que no
+    miró el calendario.
+
+  · 358 casos de prueba.
+
+── lo de antes ───────────────────────────────────────────────────────────
 Armá el 11 — versión 2026-08-27 r (buscar, ordenar y filtrar)
 
 Lo más nuevo:

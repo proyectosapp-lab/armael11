@@ -197,9 +197,25 @@ for (const j of brutos) {
   }
 }
 
-/* Solo los de los clubes que juegan esta fecha: ofrecer a alguien cuyo
-   equipo no juega es ofrecer un cero seguro. */
-const clubesQueJuegan = new Set(partidos.flatMap(f => [f.teams?.home?.id, f.teams?.away?.id]));
+/* LA FECHA ES LA FECHA ENTERA, MENOS LOS POSTERGADOS.
+
+   Entra toda la ronda, se juegue el viernes o el lunes: una fecha del fútbol
+   argentino se reparte en cuatro días y recortarla al primer día dejaría
+   afuera a la mayoría de los clubes. Los `TBD` también entran — todavía no
+   tienen hora, pero se van a jugar.
+
+   Los postergados NO. Ese partido no se juega en esta fecha, así que sus
+   jugadores tienen el cero asegurado, y ofrecer un cero asegurado no es una
+   opción: es una trampa para el que no miró el calendario. */
+const juegan = partidos.filter(f => f.fixture?.status?.short !== "PST");
+const postergados = partidos.length - juegan.length;
+const clubesQueJuegan = new Set(juegan.flatMap(f => [f.teams?.home?.id, f.teams?.away?.id]));
+if (postergados) {
+  const nombres = partidos.filter(f => f.fixture?.status?.short === "PST")
+    .map(f => (f.teams?.home?.name || "?") + " - " + (f.teams?.away?.name || "?"));
+  console.log("\n  " + postergados + " partido(s) postergado(s), fuera de la fecha: " +
+              nombres.join(" · "));
+}
 const lista = [...porId.values()].filter(j => clubesQueJuegan.has(j.clubId));
 
 const conPrecio = ponerPrecios(lista)
@@ -233,7 +249,9 @@ const salida = {
 writeFileSync(aca("./fecha-actual.json"), JSON.stringify(salida, null, 1));
 
 const cuantos = p => conPrecio.filter(j => j.puesto === p).length;
-console.log("\n  " + conPrecio.length + " jugadores de " + clubesQueJuegan.size + " clubes");
+console.log("\n  " + conPrecio.length + " jugadores de " + clubesQueJuegan.size +
+            " clubes · " + juegan.length + " partidos de la fecha" +
+            (postergados ? " (" + postergados + " postergado(s) afuera)" : ""));
 console.log("  arqueros " + cuantos("G") + " · defensores " + cuantos("D") +
             " · medios " + cuantos("M") + " · delanteros " + cuantos("F"));
 /* Los caros van por puesto: es la lista que se mira para saber si la

@@ -337,11 +337,17 @@ tr.yo td:first-child{border-radius:9px 0 0 9px} tr.yo td:last-child{border-radiu
   <p class="pie">App independiente, sin relación con el Club Atlético Talleres.<br>
     Los títulos y enlaces pertenecen a cada medio; se enlaza siempre a la fuente original.</p>
 </div>
+<!-- EL ORDEN NO ES DECORATIVO. Primero lo que hicimos nosotros: el
+     simulador, el fantasy y los números salen de nuestro código. El feed
+     son titulares de otros medios, y va último por dos razones que apuntan
+     al mismo lado: la app se llama Armá el 11 y abría en algo que no es
+     armar el 11, y una app que se presenta como un agregador de contenido
+     ajeno es la que las redes de publicidad miran con lupa. -->
 <nav class="barra" id="barra">
-  <button data-tab="feed"><span>◎</span>Feed</button>
   <button data-tab="juego"><span>⬡</span>El 11</button>
   <button data-tab="fantasy" id="btfantasy" hidden><span>◈</span>Fantasy</button>
   <button data-tab="numeros"><span>▤</span>Números</button>
+  <button data-tab="feed"><span>◎</span>Feed</button>
 </nav>
 
 <script>
@@ -479,7 +485,8 @@ const $=id=>document.getElementById(id);
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 const hace=h=>h<1?"recién":h<24?Math.round(h)+" h":Math.round(h/24)===1?"ayer":Math.round(h/24)+" días";
 const F=window.FEED, ST=window.STATS;
-let tab="feed";
+/* Se abre en el simulador, no en el feed. Ver el comentario de la barra. */
+let tab="juego";
 
 /* ══════════════════ FEED ══════════════════ */
 const COLOR={oficial:"#3B82F6",hinchas:"#E4572E",periodista:"#7B4FD4",analista:"#0E8F6E",medio:"#8B94A3"};
@@ -633,6 +640,13 @@ const FORM_DEF = (typeof FORMACION_POR_DEFECTO !== "undefined")
 let F11 = { titulares:[], suplentes:{}, capitan:null, vice:null, formacion: FORM_DEF };
 let fFiltro = "todos", fBusca = "", fGuardando = false, fAviso = "";
 let fOrden = "caros", fClub = "";
+/* El borrado de cuenta pide confirmación: esto dice si está preguntando. */
+let borrando = false;
+/* Los torneos de amigos. `ligaPendiente` es el código que llegó en el link
+   de invitación y todavía no se pudo usar porque la persona no había
+   entrado con su mail. Sobrevive al viaje al correo y a la vuelta. */
+let LIGAS = [], ligaTabla = {}, ligaAviso = "", ligaOcupado = false;
+let ligaPendiente = null;
 
 const precioMapa = () => new Map((FCH?.jugadores||[]).map(j=>[j.id, j.precio]));
 const gastoDe = e => [...e.titulares, ...Object.values(e.suplentes)]
@@ -657,6 +671,148 @@ function faltaPara(iso){
   return "cierra en " + Math.max(1, Math.floor(ms/6e4)) + " minutos";
 }
 const cerrada = () => FCH && new Date(FCH.cierra) <= new Date();
+
+/* ══════════════════ COMPARTIR ══════════════════
+   Un fantasy sin gente es un solitario caro. Todo lo que se comparte sale
+   de acá, y sale como TEXTO: nada de imágenes con escudos ajenos, y nada
+   de scripts de botones de compartir, que son justamente lo que esta app
+   no carga.
+
+   Tres caminos, en orden de menos fricción a más:
+     1. `navigator.share` — el menú del sistema en el teléfono. Deja elegir
+        WhatsApp, Telegram o lo que la persona use.
+     2. `wa.me` — el link oficial de WhatsApp, que funciona en la compu.
+     3. copiar al portapapeles — cuando el navegador bloquea la ventana.
+   Nunca se queda sin hacer nada: quedarse sin hacer nada se lee como que
+   el botón está roto. */
+async function compartir(texto, url){
+  const todo = texto + "\n" + url;
+  if(navigator.share){
+    try{ await navigator.share({ text: texto, url }); return "compartido"; }
+    catch(e){ if(e && e.name === "AbortError") return null; }
+  }
+  const w = window.open("https://wa.me/?text=" + encodeURIComponent(todo),
+                        "_blank", "noopener");
+  if(w) return "whatsapp";
+  try{ await navigator.clipboard.writeText(todo); return "copiado"; }
+  catch(e){ return "nada"; }
+}
+
+const dondeEstoy = () => location.origin + location.pathname;
+
+/* El texto del equipo. Se cuenta lo que decidiste —la formación, la cinta,
+   cuánto gastaste—, no la lista de quince nombres: un mensaje que hay que
+   scrollear no se reenvía. Y no se filtra el equipo entero antes del
+   cierre, que sería regalarle la tarea al que lo recibe. */
+function textoDeMiEquipo(){
+  const cap = F11.titulares.find(j=>j.id===F11.capitan);
+  const gasto = gastoDe(F11), pres = FCH.presupuesto || 75;
+  return "Armé mi 11 para la fecha " + FCH.numero +
+         (FCH.torneo ? " del " + FCH.torneo : "") + " en Armá el 11.\n" +
+         F11.formacion + (cap ? " · capitán: " + apellido(cap.nombre) : "") +
+         " · gasté " + gasto + " de " + pres + ".\n¿Podés hacerlo mejor?";
+}
+
+function textoDeLiga(l){
+  return "Te invito a mi torneo \"" + l.nombre + "\" en Armá el 11.\n" +
+         "Armás tu equipo cada fecha y competimos en la misma tabla.\n" +
+         "Entrá con el código " + l.codigo + ":";
+}
+const linkDeLiga = l => dondeEstoy() + "#liga=" + l.codigo;
+
+/* ══════════════════ TORNEOS DE AMIGOS ══════════════════ */
+
+/* El código puede llegar antes que la sesión: alguien abre la invitación
+   sin haber entrado nunca. Se guarda, se lo manda al mail, y al volver se
+   usa solo. Sin esto, el que llega por un link de WhatsApp tiene que
+   acordarse del código después de revisar el correo, y no se acuerda. */
+const LLAVE_LIGA = "armaEl11.ligaPendiente";
+function capturarInvitacion(){
+  const m = (location.hash||"").match(/liga=([A-Z0-9]{4,10})/i);
+  if(m){
+    ligaPendiente = m[1].toUpperCase();
+    try{ localStorage.setItem(LLAVE_LIGA, ligaPendiente); }catch(e){}
+    try{ history.replaceState(null,"",location.pathname+location.search); }catch(e){}
+  }else{
+    try{ ligaPendiente = localStorage.getItem(LLAVE_LIGA) || null; }catch(e){}
+  }
+}
+function olvidarInvitacion(){
+  ligaPendiente = null;
+  try{ localStorage.removeItem(LLAVE_LIGA); }catch(e){}
+}
+
+async function cargarLigas(){
+  if(typeof misLigas!=="function" || !quienSoy()) { LIGAS = []; return; }
+  try{
+    LIGAS = await misLigas() || [];
+    for(const l of LIGAS){
+      try{ ligaTabla[l.id] = await tablaDeLiga(l.id) || []; }catch(e){ ligaTabla[l.id] = []; }
+    }
+  }catch(e){ LIGAS = []; }
+}
+
+async function usarInvitacion(){
+  if(!ligaPendiente || !quienSoy() || typeof entrarALiga!=="function") return;
+  const cod = ligaPendiente;
+  try{
+    await entrarALiga(cod);
+    olvidarInvitacion();
+    ligaAviso = "Listo, entraste al torneo.";
+    await cargarLigas();
+  }catch(e){
+    /* Un código que no existe no se guarda para siempre: se avisa una vez
+       y se olvida, o el aviso reaparece en cada visita. */
+    olvidarInvitacion();
+    ligaAviso = e.message;
+  }
+  pintar();
+}
+
+function bloqueLigas(){
+  if(typeof crearLiga!=="function") return "";       /* sin backend, no existe */
+
+  const aviso = ligaAviso
+    ? `<p class="aviso${/^Listo/.test(ligaAviso)?"":" mal"}">${esc(ligaAviso)}</p>` : "";
+
+  if(!quienSoy())
+    return `<h3 class="sec">Torneos de amigos</h3><div class="tarjeta">
+      <p class="vacio" style="text-align:left">Armá un torneo con tus amigos: cada
+      uno arma su equipo cada fecha y compiten en la misma tabla.${
+        ligaPendiente?` Tenés una invitación al código <b>${esc(ligaPendiente)}</b>
+        esperando.`:""}</p>
+      <button class="boton" id="lcuenta">Entrar con mi mail</button>${aviso}</div>`;
+
+  const tabla = l => {
+    const t = ligaTabla[l.id] || [];
+    if(!t.length) return `<p class="vacio" style="text-align:left">Todavía no hay
+      puntos: la tabla se llena cuando termine la primera fecha.</p>`;
+    return `<div class="mini">${t.map((f,i)=>
+      `<div class="it"><span class="n">${i+1}</span><span>${esc(f.usuario)}</span>
+       <span class="v">${f.puntos}</span></div>`).join("")}</div>`;
+  };
+
+  const mias = LIGAS.length ? LIGAS.map(l=>`<div class="tarjeta">
+      <div class="par" style="align-items:baseline">
+        <b>${esc(l.nombre)}</b>
+        <span class="fsub">código ${esc(l.codigo)}</span></div>
+      ${tabla(l)}
+      <button class="boton" data-lcomp="${esc(l.codigo)}">Invitar por WhatsApp</button>
+    </div>`).join("") : `<p class="vacio" style="text-align:left">Todavía no estás en
+      ningún torneo. Creá uno y pasá el código, o entrá con el de un amigo.</p>`;
+
+  return `<h3 class="sec">Torneos de amigos</h3>
+    ${mias}
+    <div class="tarjeta">
+      <div class="par" style="margin-bottom:8px">
+        <input type="text" id="lnombre" placeholder="Nombre del torneo" maxlength="40"></div>
+      <button class="boton" id="lcrear" ${ligaOcupado?"disabled":""}>Crear torneo</button>
+      <div class="par" style="margin:14px 0 8px">
+        <input type="text" id="lcodigo" placeholder="Código de un amigo" maxlength="10"></div>
+      <button class="boton" id="lentrar" ${ligaOcupado?"disabled":""}>Entrar con el código</button>
+      ${aviso}
+    </div>`;
+}
 
 function vistaFantasy(){
   if(!FCH) return `<div class="vacio">Todavía no hay fecha abierta.<br>
@@ -717,8 +873,12 @@ function vistaFantasy(){
   const problemas = fichas>0 && rev.problemas.length
     ? `<div class="fprob">${rev.problemas.slice(0,3).map(p=>`<div>${esc(p)}</div>`).join("")}</div>` : "";
 
+  /* Compartir aparece recién cuando el equipo está armado. Un botón de
+     compartir sobre un equipo a medio hacer manda a un amigo a mirar una
+     cancha vacía. */
   const guardar = `<button class="boton fguardar" id="fguardar" ${listo?"":"disabled"}>${
     cerrada() ? "La fecha ya cerró" : fGuardando ? "Guardando…" : "Guardar mi equipo"}</button>
+    ${rev.ok?`<button class="boton" id="fcompartir" style="margin-top:8px">Compartir mi 11</button>`:""}
     ${fAviso?`<p class="aviso${/^Listo/.test(fAviso)?"":" mal"}">${esc(fAviso)}</p>`:""}`;
 
   return cab + chipsForm + `<div class="tarjeta fcancha">
@@ -726,7 +886,7 @@ function vistaFantasy(){
       ${banco}
       ${problemas}
       ${guardar}
-    </div>` + listado();
+    </div>` + listado() + bloqueLigas();
 }
 
 /* Un jugador parado en la cancha. El apellido abajo, el precio al lado, y
@@ -869,6 +1029,43 @@ function engancharFantasy(){
   if(bu) bu.oninput = () => { fBusca = bu.value; const p = bu.selectionStart;
     pintar(); const n = $("fbusca"); if(n){ n.focus(); n.setSelectionRange(p,p); } };
   const g = $("fguardar"); if(g) g.onclick = guardarFantasy;
+
+  const co = $("fcompartir");
+  if(co) co.onclick = async () => {
+    const q = await compartir(textoDeMiEquipo(), dondeEstoy());
+    if(q === "copiado"){ fAviso = "Listo, lo copié: pegalo donde quieras."; pintar(); }
+  };
+
+  const lc = $("lcuenta");
+  if(lc) lc.onclick = () => { cuentaAbierta = true; pintarCuenta(); };
+
+  v.querySelectorAll("[data-lcomp]").forEach(b=>b.onclick = async () => {
+    const l = LIGAS.find(x=>x.codigo===b.dataset.lcomp); if(!l) return;
+    const q = await compartir(textoDeLiga(l), linkDeLiga(l));
+    if(q === "copiado"){ ligaAviso = "Listo, copié la invitación."; pintar(); }
+  });
+
+  const cr = $("lcrear");
+  if(cr) cr.onclick = async () => {
+    const n = ($("lnombre")||{}).value || "";
+    ligaOcupado = true; ligaAviso = ""; pintar();
+    try{
+      const l = await crearLiga(n);
+      await cargarLigas();
+      ligaAviso = "Listo, tu torneo se llama " + l.nombre + " y el código es " + l.codigo + ".";
+    }catch(e){ ligaAviso = e.message; }
+    ligaOcupado = false; pintar();
+  };
+
+  const en = $("lentrar");
+  if(en) en.onclick = async () => {
+    const c = (($("lcodigo")||{}).value || "").trim().toUpperCase();
+    if(!c){ ligaAviso = "Falta el código."; return pintar(); }
+    ligaOcupado = true; ligaAviso = ""; pintar();
+    try{ await entrarALiga(c); await cargarLigas(); ligaAviso = "Listo, entraste al torneo."; }
+    catch(e){ ligaAviso = e.message; }
+    ligaOcupado = false; pintar();
+  };
 }
 
 /* Cambiar de formación no puede borrar el equipo: eso castiga por probar.
@@ -1081,7 +1278,18 @@ function vistaNumeros(){
 /* ══════════════════ ARMÁ EL 11 ══════════════════ */
 const J={ key:"", reqs:0, temporada:2026, fixtures:[], fx:null, pool:{A:[],B:[]},
   nom:{A:"",B:""}, id:{A:CLUB.apiId,B:0}, esLocalA:true, xiA:[], xiB:[],
-  formA:"4-3-3", formB:"4-3-3", K:{linea:0,presion:0,ancho:0,ritmo:0},
+  formA:"4-3-3", formB:"4-3-3",
+  /* Las perillas de cada uno. Antes había una sola tanda —la tuya— y el
+     rival no se podía plantear: si el que se metía atrás con diez era él,
+     eso no se podía decir. */
+  K:{linea:0,presion:0,ancho:0,ritmo:0}, KB:{linea:0,presion:0,ancho:0,ritmo:0},
+  /* Las indicaciones del planteo. No son por jugador —el motor no tiene
+     aporte por jugador— pero cada una publica su efecto. */
+  IND: { ...INDICACIONES_POR_DEFECTO },
+  /* Desde dónde se simula. Minuto 0 es "desde el arranque", que es lo normal. */
+  desde: { minuto:0, golesA:0, golesB:0, rojasA:0, rojasB:0 },
+  /* Qué liga se está simulando: null es la del club de esta página. */
+  liga: null,
   sim:null, real:null, paso:"key", msg:"", err:"" };
 
 /* ── LA API, SIN API ────────────────────────────────────────────────────
@@ -1210,7 +1418,73 @@ async function restaurar(g){
   pintar();
 }
 
+/* ─── SIMULAR CUALQUIER PARTIDO DE OTRA LIGA ──────────────────────────────
+   Las ligas vienen COCINADAS desde `ligas-api.mjs`: por jugador, su promedio
+   de rating y sus minutos, que es todo lo que mira `fuerza()`. No hay que
+   pedirle nada a nadie —ni a la API ni al usuario— y una liga entera pesa
+   unas decenas de kilobytes.
+
+   Y cada liga trae SUS números: goles de local, de visitante y media de
+   rating. Sin eso, simular la Premier con la media argentina daría todos los
+   marcadores bajos y nadie entendería por qué.                           */
+const ligasParaSimular = () => (window.LIGAS_DISPONIBLES || [])
+  .map(sl => (window.LIGAS || {})[sl]).filter(Boolean);
+
+function poolDeLiga(L, equipoId){
+  const e = L.equipos[equipoId] || L.equipos[String(equipoId)];
+  if(!e) return [];
+  return e.j.map(j => ({ id:j.i, nombre:j.n, pos:(j.p||"M"),
+                         ratings: (j.r!=null ? [j.r] : []), mins: j.m||0 }));
+}
+const nombreDeEquipo = (L, id) =>
+  (L.equipos[id] || L.equipos[String(id)] || {}).n || "?";
+
+function simularDeLiga(slug, fixtureId){
+  const L = (window.LIGAS || {})[slug];
+  const p = L && L.partidos.find(x => String(x.id) === String(fixtureId));
+  if(!p){ J.err = "Ese partido ya no está en la lista."; return pintar(); }
+
+  /* Los tres números de la liga. Si la liga vino sin calibrar —porque recién
+     arranca la temporada— `usarLiga` se queda con el respaldo en vez de
+     inventar uno. */
+  usarLiga({ id:L.id, nombre:L.nombre, media:L.media, local:L.local, visita:L.visita });
+
+  J.liga = slug; J.fx = null; J.jugado = false; J.real = null; J.sim = null; J.err = "";
+  J.esLocalA = true;
+  J.id = { A:p.local, B:p.visita };
+  J.nom = { A:nombreDeEquipo(L,p.local), B:nombreDeEquipo(L,p.visita) };
+  J.pool.A = poolDeLiga(L, p.local);
+  J.pool.B = poolDeLiga(L, p.visita);
+  J.desde = { minuto:0, golesA:0, golesB:0, rojasA:0, rojasB:0 };
+
+  if(J.pool.A.length < 11 || J.pool.B.length < 11){
+    J.err = "Todavía no hay partidos previos suficientes de esos equipos.";
+    J.paso = "liga"; return pintar();
+  }
+  J.xiA = autoXI(J.pool.A, J.formA);
+  J.xiB = autoXI(J.pool.B, J.formB);
+  J.msg = L.nombre + " · " + (L.calibrada
+    ? "calibrada con " + L.calibrada.partidos + " partidos de " + L.calibrada.temporada
+    : "sin calibrar todavía: uso los números de respaldo");
+  J.paso = "armar";
+  pintar();
+}
+
+/* Volver al partido del club de esta página. Hay que devolverle al motor los
+   números de la liga local: si no, el próximo partido de tu club se
+   simularía con la media de la Premier. */
+function volverAMiClub(){
+  J.liga = null; J.sim = null; J.real = null; J.err = ""; J.msg = "";
+  usarLiga(null);
+  J.id.A = CLUB.apiId;
+  J.desde = { minuto:0, golesA:0, golesB:0, rojasA:0, rojasB:0 };
+  J.paso = "fixture";
+  pintar();
+}
+
 async function elegirPartido(i){
+  usarLiga(null);            /* el partido del club propio va con su liga */
+  J.liga=null;
   J.err=""; J.fx=J.fixtures[i]; J.jugado=JUGADO(J.fx); J.real=null; J.sim=null;
   J.esLocalA = J.fx.teams.home.id===J.id.A;
   J.id.B = J.esLocalA? J.fx.teams.away.id : J.fx.teams.home.id;
@@ -1242,24 +1516,58 @@ async function elegirPartido(i){
   pintar();
 }
 
-function simular11(){
+async function simular11(){
   if(J.animando) return;
+  await momentoDeAviso();
   const t=tacticas(J.K);
-  const LA=lineas(J.xiA), LB=lineas(J.xiB);
-  const xgA=xgDe(LA,LB,J.esLocalA,t.mine,bonusAncho(J.xiA,t.ancho));
-  const xgB=xgDe(LB,LA,!J.esLocalA,t.theirs,1)+t.theirsFlat;
+
+  /* Las líneas primero, las indicaciones después: una indicación no cambia
+     quién juega, cambia a qué se dedica. Y devuelve sus propias notas, que
+     es lo que permite discutir el número en vez de creerlo. */
+  const tB=tacticas(J.KB);
+  const ind=aplicarIndicaciones(lineas(J.xiA), lineas(J.xiB), J.IND, J.xiA, J.xiB);
+  const LA=ind.A, LB=ind.B;
+
+  /* Cada planteo pesa sobre su propio ataque y sobre el del otro. Con el
+     rival en neutro, `tacticas` devuelve todo en 1 y la cuenta queda
+     exactamente igual a la de antes: nada de lo viejo se movió. */
+  const xgA=xgDe(LA,LB, J.esLocalA, t.mine*tB.theirs, bonusAncho(J.xiA,t.ancho))
+            + tB.theirsFlat;
+  const xgB=xgDe(LB,LA,!J.esLocalA, tB.mine*t.theirs, bonusAncho(J.xiB,tB.ancho))
+            + t.theirsFlat + ind.regalo;
+
+  const d=J.desde, empezado=d.minuto>0||d.golesA||d.golesB||d.rojasA||d.rojasB;
   J.animando=true;
   const b=$("bsim"); if(b){ b.disabled=true; b.textContent="Jugando…"; }
   document.getElementById("campo")?.scrollIntoView({behavior:"smooth",block:"center"});
-  animarPartido(xgA, xgB, marc=>{
+
+  /* El resto del partido se juega con el gol esperado ya recortado por el
+     tiempo que queda y por las expulsiones. Así lo que se ve en pantalla y
+     lo que dice la barra salen de la misma cuenta. */
+  const resto=(90-d.minuto)/90;
+  let ax=xgA*resto, bx=xgB*resto;
+  for(let i=0;i<d.rojasA;i++){ ax*=ROJA.ataca; bx*=ROJA.concede; }
+  for(let i=0;i<d.rojasB;i++){ bx*=ROJA.ataca; ax*=ROJA.concede; }
+
+  animarPartido(ax, bx, marc=>{
     J.animando=false;
-    J.sim=simular(xgA,xgB); J.sim.notas=t.notas; J.sim.estaVez=marc;
+    J.sim = empezado
+      ? simDesde({ xgA, xgB, minuto:d.minuto, golesA:d.golesA, golesB:d.golesB,
+                   rojasA:d.rojasA, rojasB:d.rojasB })
+      : simular(xgA,xgB);
+    J.sim.notas=[...t.notas, ...ind.notas];
+    J.sim.estaVez=marc;
     J.paso="resultado"; pintar();
     setTimeout(()=>document.querySelector(".res")?.scrollIntoView({behavior:"smooth",block:"center"}),90);
-  });
+  }, empezado ? d : null);
 }
 
 async function revelar(){
+  /* El segundo momento: las formaciones confirmadas. Es una simulación más
+     —cuenta para el reloj— pero casi siempre cae horas después de la
+     primera, así que el aviso sale. El resumen con el resultado, no: eso se
+     ve gratis siempre. */
+  await momentoDeAviso();
   J.err=""; J.msg="Buscando el once del DT y lo que pasó…"; pintar();
   try{
     const [al,ev]=await Promise.all([
@@ -1383,6 +1691,83 @@ function campoHTML(){
   </div>`;
 }
 
+/* ══════════════════ EL LUGAR DEL AVISO ══════════════════
+   Acá NO hay publicidad. Hay un LUGAR donde algún día va a haber una, y las
+   reglas de cuándo corresponde mostrarla. Está separado a propósito:
+
+   · Hoy `SITIO.publicidad` no existe, así que `hayRed()` da falso, esto
+     resuelve en el acto y la app sigue sin cargar un solo script de terceros
+     —que es una propiedad del proyecto y tiene una prueba que la cuida.
+   · Cuando entre la red, se enchufa en UN lugar y las reglas de abajo ya
+     están escritas y probadas. Las reglas son la parte difícil; el script de
+     Google es la parte fácil.
+
+   LAS REGLAS, y por qué cada una:
+
+   1. UNA CADA SESENTA SEGUNDOS DE RELOJ DE PARED. No es una elección
+      nuestra: es el mínimo que impone AdSense entre dos avisos. Lo
+      replicamos acá para que la app sepa lo mismo que sabe Google y no
+      prometa un aviso que no va a salir. Como la simulación dura veinte
+      segundos, esto da un aviso cada tres simulaciones sin programar nada
+      más — y de paso cumple sola la política de AdMob, que permite como
+      mucho uno cada dos acciones.
+
+   2. LA PRIMERA SIMULACIÓN NUNCA LLEVA AVISO. La primera vez que alguien
+      aprieta el botón está decidiendo si esta app le gusta. Cobrarle un
+      aviso ahí vale centavo y medio y cuesta un usuario.
+
+   3. EL RELOJ VIVE EN EL TELÉFONO, no en memoria. Si viviera en memoria,
+      recargar la página lo pondría en cero y dos avisos podrían salir
+      seguidos. Si el navegador no deja guardar nada, se falla hacia el lado
+      de NO mostrar: perder un aviso es barato, mostrar dos seguidos es una
+      infracción.                                                          */
+const AVISO = { LLAVE:"armaEl11.ultimoAviso", ESPERA:60000,
+                DURACION_SIM:20000, DURACION_PAGA:6000 };
+
+/* ── QUÉ SE COMPRA, EXACTAMENTE ──────────────────────────────────────────
+   Los veinte segundos SON el aviso: son el rato durante el cual la app
+   puede mostrar uno sin interrumpir nada. Por eso lo que se vende es
+   sacarlos, y por eso las dos cosas —la espera y el aviso— salen del mismo
+   lugar y no pueden quedar desacopladas. Un premium que no ve avisos pero
+   igual espera veinte segundos no compró nada.
+
+   `PREMIUM.activo` lo pone `arrancarCuenta` leyendo la base, y se compara
+   contra el reloj del teléfono, que se puede mover. Eso está bien acá: lo
+   único que decide es cuánto dura una animación. Lo que de verdad importa
+   —hasta cuándo pagó— lo tiene el servidor.                              */
+let PREMIUM = { activo:false, hasta:null };
+const duracionSim = () => PREMIUM.activo ? AVISO.DURACION_PAGA : AVISO.DURACION_SIM;
+
+const hayRed = () => !!(window.SITIO && window.SITIO.publicidad);
+function ultimoAviso(){
+  try{ return +localStorage.getItem(AVISO.LLAVE) || 0; }catch(e){ return Infinity; }
+}
+function anotarAviso(t){
+  try{ localStorage.setItem(AVISO.LLAVE, String(t)); }catch(e){}
+}
+let simulacionesHechas = 0;
+
+/* Pura y sin efectos, para poder probarla con casos concretos. */
+function tocaAviso({ hayRed, hechas, ultimo, ahora, premium }){
+  if(!hayRed) return false;
+  if(premium) return false;                    /* es lo que compró */
+  if(hechas < 1) return false;                 /* la primera es gratis */
+  return (ahora - ultimo) >= AVISO.ESPERA;
+}
+
+/* Devuelve una promesa que se resuelve cuando se puede seguir. Hoy resuelve
+   en el acto. */
+async function momentoDeAviso(){
+  const toca = tocaAviso({ hayRed: hayRed(), hechas: simulacionesHechas,
+                           ultimo: ultimoAviso(), ahora: Date.now(),
+                           premium: PREMIUM.activo });
+  simulacionesHechas++;
+  if(!toca) return "sin aviso";
+  anotarAviso(Date.now());
+  /* Acá se enchufa la red, y en ningún otro lado. */
+  return "aviso";
+}
+
 /* ── EL PARTIDO ANIMADO ───────────────────────────────────────────────────
    Lo que se ve es UNA de las 6000 simulaciones, no un promedio. Los goles
    se sortean con la misma Poisson que usa el modelo, así que lo que pasa en
@@ -1442,19 +1827,28 @@ function quietos(campo){
     el.style.setProperty("--dx", "0px"); el.style.setProperty("--dy", "0px"); });
 }
 
-function animarPartido(xgA, xgB, alTerminar){
+function animarPartido(xgA, xgB, alTerminar, desde){
+  /* `xgA`/`xgB` ya vienen recortados por el tiempo que queda: acá solo se
+     ponen en escena. Si el partido arranca en el minuto 60 con 1-0, el
+     reloj arranca en 60 y el marcador en 1-0, y se juegan los treinta que
+     faltan al mismo ritmo que se jugarían noventa. Menos partido, menos
+     espera: es honesto y además es lo que la persona pidió. */
+  const D = desde || { minuto:0, golesA:0, golesB:0 };
+  const desdeMin = Math.max(0, Math.min(89, D.minuto|0));
   const gA=poissonUno(xgA), gB=poissonUno(xgB);
-  const minutos = n => Array.from({length:n},()=>3+Math.floor(Math.random()*86)).sort((a,b)=>a-b);
+  const queda = Math.max(1, 90-desdeMin);
+  const minutos = n => Array.from({length:n},
+    ()=>desdeMin+1+Math.floor(Math.random()*queda)).sort((a,b)=>a-b);
   const eventos=[...minutos(gA).map(m=>({m,lado:"A"})), ...minutos(gB).map(m=>({m,lado:"B"}))]
     .sort((a,b)=>a.m-b.m);
   const posesion = xgA/(xgA+xgB);
   const pel=$("pelota"), rel=$("reloj"), gol=$("golazo"), campo=$("campo");
   if(!pel) return alTerminar({A:gA,B:gB});
-  rel.hidden=false; rel.textContent="0'";
   campo?.classList.add("jugando");
-  let min=0, marc={A:0,B:0}, k=0;
+  let min=desdeMin, marc={A:D.golesA|0, B:D.golesB|0}, k=0;
+  rel.hidden=false; rel.textContent=min+"'  "+marc.A+"-"+marc.B;
   const reloj=setInterval(()=>{
-    min+=3;
+    min+=1;
     if(min>90){ clearInterval(reloj); rel.textContent="90'  "+marc.A+"-"+marc.B;
       if(campo) quietos(campo);
       setTimeout(()=>alTerminar(marc), 500); return; }
@@ -1469,7 +1863,25 @@ function animarPartido(xgA, xgB, alTerminar){
     if(campo) moverJugadores(campo, x, y);
     rel.textContent = min+"'  "+marc.A+"-"+marc.B;
     if(huboGol){ gol.classList.add("on"); setTimeout(()=>gol.classList.remove("on"), 550); }
-  }, Math.round(235 * (1 - 0.22*((J.K.ritmo||0)/100))));
+  /* ── POR QUÉ EL PARTIDO DURA VEINTE SEGUNDOS ────────────────────────
+     Dos razones, y ninguna es estética.
+
+     La primera: se ve mejor. Antes el reloj saltaba de tres en tres minutos
+     y la pelota daba treinta saltos; ahora avanza de a un minuto y da
+     noventa. Es un reloj de partido, no un contador.
+
+     La segunda es de producto y es la que hay que respetar: veinte segundos
+     por simulación significa que TRES simulaciones seguidas tardan sesenta,
+     que es justo el mínimo que AdSense impone entre dos avisos. Con eso, la
+     cadencia de publicidad sale sola —una cada tres— sin programar ninguna
+     regla de frecuencia y sin pasarse de lo que permite la política.
+
+     Por eso el ritmo YA NO ACELERA EL RELOJ. Antes lo acortaba hasta un 22%
+     y eso movía la duración; el ritmo se sigue viendo, pero en cómo se
+     mueven los jugadores (ver `amplitud` en moverJugadores), que es donde
+     tiene sentido que se vea. Si algún día alguien quiere que esto sea más
+     ágil: acortarlo abajo de veinte segundos rompe la cuenta de arriba.  */
+  }, Math.round(duracionSim() / 90));
 }
 
 /* ── elegir jugador para un puesto ── */
@@ -1503,6 +1915,49 @@ function abrirPicker(lado, slot, cat){
   document.body.appendChild(d);
 }
 
+/* Una tarjeta de planteo: los botones armados arriba y las cuatro perillas
+   abajo. Es lo MISMO estado — los botones escriben las perillas y las
+   perillas mandan. Cuál está encendido se deduce con `planteoDe`, así que
+   mover una perilla a mano apaga el botón solo: no hay dos verdades que
+   puedan quedar en desacuerdo. */
+function tarjetaPlanteo(lado){
+  const mio = lado === "A";
+  const K = mio ? J.K : J.KB;
+  const activo = planteoDe(K);
+  const attr = mio ? "data-k" : "data-kb";
+
+  /* La sugerencia, cuando hay un expulsado. Se ofrece, no se aplica: cambiarle
+     el planteo a alguien sin que lo pida es decidir por él en su propio juego. */
+  const conUnoMenos = mio ? J.desde.rojasA > 0 : J.desde.rojasB > 0;
+  const ganando = mio ? J.desde.golesA > J.desde.golesB : J.desde.golesB > J.desde.golesA;
+  const sug = planteoSugerido({ conUnoMenos, ganando });
+  const nombreSug = sug ? (PLANTEOS.find(p=>p.id===sug)||{}).n : "";
+  const ofrecer = sug && activo !== sug
+    ? `<p class="aviso" style="margin:6px 0 0">Con uno menos, lo normal es
+        ${mio?"que te metas":"que se meta"} atrás.
+        <button class="gh" data-sug="${lado}" data-sugv="${sug}"
+          style="margin-left:6px">${esc(nombreSug)}</button></p>`
+    : "";
+
+  const elegido = PLANTEOS.find(p=>p.id===activo);
+  return `<h3 class="sec">${mio ? "Tu planteo" : "El planteo del rival"}</h3>
+    <div class="tarjeta">
+      <nav class="filtros">${PLANTEOS.map(p=>
+        `<button class="chip" data-pl="${lado}" data-plv="${p.id}"
+          aria-pressed="${p.id===activo}">${esc(p.n)}</button>`).join("")}
+        ${activo?"":`<button class="chip" aria-pressed="true" disabled>A mano</button>`}
+      </nav>
+      <p class="aviso" style="margin:2px 0 8px">${elegido ? esc(elegido.dice)
+        : "Las perillas están movidas a mano. Tocá un planteo para volver a uno armado."}</p>
+      ${ofrecer}
+      ${KNOBS.map(k=>{const v=K[k.id];return `
+        <div class="perilla"><div class="ph"><b>${k.n}</b>
+          <span class="pv">${Math.abs(v)<15?"neutro":(v<0?k.izq:k.der)+" "+Math.abs(v)+"%"}</span></div>
+          <input type="range" min="-100" max="100" value="${v}" ${attr}="${k.id}">
+          <div class="ends"><span>${k.izq}</span><span>${k.der}</span></div></div>`;}).join("")}
+    </div>`;
+}
+
 function vistaJuego(){
   const cab = J.err?`<div class="err">${esc(J.err)}</div>`:"";
   const msg = J.msg?`<div class="cargando">${esc(J.msg)}</div>`:"";
@@ -1528,6 +1983,36 @@ function vistaJuego(){
       ${msg}${cab}
     </div>`;
 
+  /* La lista de otras ligas. Solo aparece si hay ligas publicadas: sin
+     ellas, la app es exactamente la de antes. */
+  const otrasLigas = () => {
+    const ls = ligasParaSimular();
+    if(!ls.length) return "";
+    return `<h3 class="sec">Simular otro partido</h3>
+      <div class="tarjeta">
+        <p class="bajada" style="margin-top:0">Cualquier partido de la próxima
+        fecha de estas ligas, con los planteles armados con lo que hicieron
+        antes. Cada liga se simula con SUS números: no se juegan los mismos
+        goles en Argentina que en Inglaterra.</p>
+        <nav class="filtros">${ls.map(L=>
+          `<button class="chip" data-liga="${esc(L.slug)}"
+            aria-pressed="${L.slug===J.liga}">${esc(L.pais)}</button>`).join("")}</nav>
+        ${J.liga && (window.LIGAS||{})[J.liga] ? (()=>{ const L=window.LIGAS[J.liga];
+          return `<div class="mini" style="margin-top:8px">${L.partidos.map(p=>
+            `<div class="it" data-part="${p.id}" role="button" tabindex="0">
+              <span class="n">${esc(String(p.fecha).slice(5,10))}</span>
+              <span>${esc(nombreDeEquipo(L,p.local))} <span style="color:var(--tinta-3)">vs</span>
+                ${esc(nombreDeEquipo(L,p.visita))}</span>
+              <span class="v">›</span></div>`).join("")}</div>
+            <p class="aviso" style="margin-top:8px">${L.calibrada
+              ? "Calibrada con " + L.calibrada.partidos + " partidos de " + L.calibrada.temporada + "."
+              : "Todavía sin calibrar: la temporada recién arranca y uso los números de respaldo."}</p>`;
+          })() : ""}
+      </div>`;
+  };
+
+  if(J.paso==="liga") return otrasLigas() + cab;
+
   if(J.paso==="fixture"){
     const fila=(f,i)=>{const loc=f.teams.home.id===J.id.A, ya=JUGADO(f);
       return `<div class="fx" data-fx="${i}">
@@ -1550,7 +2035,8 @@ function vistaJuego(){
       <p class="bajada" style="margin-top:0">Acá podés revelar el once del DT enseguida.</p>
       ${jugados.map(([f,i])=>fila(f,i)).join("")}
       ${msg}${cab}
-    </div>`;
+    </div>
+    ${otrasLigas()}`;
   }
 
   if(J.paso==="armar"||J.paso==="resultado"||J.paso==="revelado"){
@@ -1563,19 +2049,76 @@ function vistaJuego(){
         <div><label>La del rival</label>
           <select id="fB">${FORMS.map(f=>`<option${f===J.formB?" selected":""}>${f}</option>`).join("")}</select></div>
       </div>
-      <h3 class="sec">Ajustes</h3>
-      <div class="tarjeta">${KNOBS.map(k=>{const v=J.K[k.id];return `
-        <div class="perilla"><div class="ph"><b>${k.n}</b>
-          <span class="pv">${Math.abs(v)<15?"neutro":(v<0?k.izq:k.der)+" "+Math.abs(v)+"%"}</span></div>
-          <input type="range" min="-100" max="100" value="${v}" data-k="${k.id}">
-          <div class="ends"><span>${k.izq}</span><span>${k.der}</span></div></div>`;}).join("")}
-        <div style="display:flex;gap:9px;margin-top:6px">
-          <button class="acc" id="bsim" style="flex:1">Simular mi once</button>
-          <button class="gh" id="bauto">Los mejores</button>
+      ${tarjetaPlanteo("A")}
+      ${tarjetaPlanteo("B")}
+      <div class="tarjeta">
+      </div>
+
+      <h3 class="sec">Indicaciones</h3>
+      <div class="tarjeta">${INDICACIONES.map(g=>{
+        const eleg = J.IND[g.id] || g.opciones[0].v;
+        const o = g.opciones.find(x=>x.v===eleg) || g.opciones[0];
+        return `<div class="perilla" style="padding-bottom:4px">
+          <div class="ph"><b>${g.n}</b></div>
+          <nav class="filtros" style="padding-bottom:6px">${g.opciones.map(x=>
+            `<button class="chip" data-ind="${g.id}" data-val="${x.v}"
+              aria-pressed="${x.v===eleg}">${x.n}</button>`).join("")}</nav>
+          <p class="aviso" style="margin:0">${esc(o.dice)}</p>
+        </div>`;}).join("")}
+        <p class="nota" style="margin-top:10px">Son del planteo y no de cada
+        jugador a propósito: el motor calcula el gol esperado comparando
+        LÍNEAS, así que no hay número al que restarle una marca individual.
+        Estas tres se pueden calcular con lo que el motor ya sabe, y por eso
+        cada una dice cuánto mueve.</p>
+      </div>
+
+      <h3 class="sec">¿El partido ya empezó?</h3>
+      <div class="tarjeta">
+        <p class="bajada" style="margin-top:0">Poné cómo va y se simula lo que
+        falta. El gol esperado se reparte por el tiempo que queda.</p>
+        <div class="fila2">
+          <div><label for="dmin">Minuto</label>
+            <input type="number" id="dmin" min="0" max="89" step="1" value="${J.desde.minuto}"></div>
+          <div><label for="drA">Expulsados</label>
+            <select id="drA">
+              <option value="0-0"${J.desde.rojasA===0&&J.desde.rojasB===0?" selected":""}>Ninguno</option>
+              <option value="0-1"${J.desde.rojasB===1?" selected":""}>Al rival, uno menos</option>
+              <option value="1-0"${J.desde.rojasA===1?" selected":""}>A vos, uno menos</option>
+            </select></div>
         </div>
+        <div class="fila2" style="margin-top:8px">
+          <div><label for="dgA">Tus goles</label>
+            <input type="number" id="dgA" min="0" max="9" step="1" value="${J.desde.golesA}"></div>
+          <div><label for="dgB">Sus goles</label>
+            <input type="number" id="dgB" min="0" max="9" step="1" value="${J.desde.golesB}"></div>
+        </div>
+        ${J.desde.minuto>0?`<p class="nota" style="margin-top:10px">Va a simular
+          los ${90-J.desde.minuto} minutos que faltan y sumarle el
+          ${J.desde.golesA}-${J.desde.golesB} que ya está.
+          <b>Cómo se juegan esos minutos lo decidís vos</b>, con las perillas y
+          las indicaciones de arriba: si vas ganando con uno menos, metete
+          atrás y jugá de contra, y la cuenta lo toma. Lo que el modelo no
+          hace es adivinarlo solo.
+          <b>Y al rival lo planteás arriba</b>, con su propia tanda de
+          perillas: si el que se metió atrás con diez es él, ahora sí se puede
+          decir.</p>`:""}
+      </div>
+
+      <div style="display:flex;gap:9px;margin-top:14px">
+        <button class="acc" id="bsim" style="flex:1">${
+          J.desde.minuto>0?"Simular desde el "+J.desde.minuto+"'":"Simular mi once"}</button>
+        <button class="gh" id="bauto">Los mejores</button>
       </div>`;
 
-    let out=armado;
+    const deOtraLiga = J.liga && (window.LIGAS||{})[J.liga];
+    let out = (deOtraLiga
+      ? `<div class="tarjeta" style="margin-bottom:10px;display:flex;
+           justify-content:space-between;align-items:center;gap:10px">
+          <span><b>${esc(window.LIGAS[J.liga].nombre)}</b><br>
+            <span class="sub">${esc(J.nom.A)} vs ${esc(J.nom.B)}</span></span>
+          <button class="gh" id="bvolver">Volver a mi club</button>
+        </div>`
+      : "") + armado;
     if(J.sim){
       const s=J.sim, margen=s.win-s.loss;
       const veredicto = margen>12?"Salís favorito" : margen<-12?"Salís de perdedor" : "Partido parejo";
@@ -1591,15 +2134,11 @@ function vistaJuego(){
           ? "el partido que acabás de ver"
           : "marcador más probable · "+s.probMarcador.toFixed(0)+"%"} ·
           xG ${s.xgA.toFixed(2)} a ${s.xgB.toFixed(2)}</div>
-        ${s.estaVez?`<p class="nota">Ese fue <b>uno</b> de los 6.000 partidos simulados.
-          El resultado más repetido fue <b>${esc(s.marcador)}</b>, en el
-          ${s.probMarcador.toFixed(0)}% de las veces. La barra de arriba los junta a todos:
-          es la que hay que mirar.</p>`:""}
         ${s.notas.map(n=>`<p class="nota">${esc(n)}</p>`).join("")}
         ${J.paso!=="revelado" ? (J.jugado
           ? `<button class="acc" id="brev" style="width:100%;margin-top:12px">
               Revelar el once del DT y lo que pasó</button>`
-          : `<div class="pendiente" style="margin-top:12px">
+          : !J.fx ? "" : `<div class="pendiente" style="margin-top:12px">
               <b>Este partido todavía no se jugó.</b><br>
               Tu pronóstico queda guardado en el link de abajo. Cuando termine el partido,
               abrilo de nuevo y la app te muestra el once del DT y qué pasó.
@@ -1690,15 +2229,60 @@ function enganchar(){
     if(J.animando) return;
     abrirPicker(g.dataset.lado, +g.dataset.slot, g.dataset.cat);
   });
-  document.querySelectorAll("input[data-k]").forEach(r=>r.oninput=e=>{
-    J.K[e.target.dataset.k]=+e.target.value;
-    const k=KNOBS.find(x=>x.id===e.target.dataset.k), v=+e.target.value;
-    e.target.closest(".perilla").querySelector(".pv").textContent =
-      Math.abs(v)<15?"neutro":(v<0?k.izq:k.der)+" "+Math.abs(v)+"%";
-    colocarJugadores();
+  const moverPerilla = (attr, dest, mueveCancha) =>
+    document.querySelectorAll("input["+attr+"]").forEach(r=>r.oninput=e=>{
+      const id=e.target.dataset[attr==="data-k"?"k":"kb"], v=+e.target.value;
+      dest[id]=v;
+      const k=KNOBS.find(x=>x.id===id);
+      e.target.closest(".perilla").querySelector(".pv").textContent =
+        Math.abs(v)<15?"neutro":(v<0?k.izq:k.der)+" "+Math.abs(v)+"%";
+      if(mueveCancha) colocarJugadores();
+      /* El botón del planteo se apaga solo si las perillas ya no son las
+         suyas. Se repinta al soltar, no en cada pixel: repintar mientras
+         arrastrás el dedo te saca el dedo de encima del control. */
+      clearTimeout(J.__repinta);
+      J.__repinta = setTimeout(()=>{ if(!J.animando) pintar(); }, 450);
+    });
+  moverPerilla("data-k",  J.K,  true);
+  moverPerilla("data-kb", J.KB, false);
+
+  document.querySelectorAll("[data-pl]").forEach(b=>b.onclick=()=>{
+    const K = planteo(b.dataset.plv); if(!K) return;
+    Object.assign(b.dataset.pl==="A" ? J.K : J.KB, K);
+    pintar();
   });
+  document.querySelectorAll("[data-sug]").forEach(b=>b.onclick=()=>{
+    const K = planteo(b.dataset.sugv); if(!K) return;
+    Object.assign(b.dataset.sug==="A" ? J.K : J.KB, K);
+    pintar();
+  });
+  document.querySelectorAll("[data-liga]").forEach(b=>b.onclick=()=>{
+    J.liga = (J.liga===b.dataset.liga) ? null : b.dataset.liga; J.err=""; pintar(); });
+  document.querySelectorAll("[data-part]").forEach(el=>{
+    const ir = () => simularDeLiga(J.liga, el.dataset.part);
+    el.onclick = ir;
+    el.onkeydown = e => { if(e.key==="Enter"||e.key===" "){ e.preventDefault(); ir(); } };
+  });
+  const bv=$("bvolver"); if(bv) bv.onclick=volverAMiClub;
+
   const bs=$("bsim"); if(bs) bs.onclick=simular11;
   const ba=$("bauto"); if(ba) ba.onclick=()=>{ J.xiA=autoXI(J.pool.A,J.formA); pintar(); };
+
+  document.querySelectorAll("[data-ind]").forEach(b=>b.onclick=()=>{
+    J.IND[b.dataset.ind]=b.dataset.val; pintar(); });
+
+  const nEntero=(id,max)=>{ const e=$(id); if(!e) return null;
+    const n=Math.round(+e.value||0); return Math.max(0, Math.min(max, n)); };
+  const leerDesde=()=>{
+    J.desde.minuto = nEntero("dmin",89) ?? 0;
+    J.desde.golesA = nEntero("dgA",9) ?? 0;
+    J.desde.golesB = nEntero("dgB",9) ?? 0;
+    const r=($("drA")||{}).value||"0-0";
+    J.desde.rojasA=+r.split("-")[0]; J.desde.rojasB=+r.split("-")[1];
+    pintar();
+  };
+  ["dmin","dgA","dgB"].forEach(id=>{ const e=$(id); if(e) e.onchange=leerDesde; });
+  const dr=$("drA"); if(dr) dr.onchange=leerDesde;
   const br=$("brev"); if(br) br.onclick=revelar;
   /* Compartir de verdad, no copiar. En el teléfono —que es donde esto se usa—
      `navigator.share` abre WhatsApp directo; copiar al portapapeles obliga a
@@ -1756,10 +2340,33 @@ async function arrancarCuenta(){
   /* Al volver del mail, la sesión viene en el hash. Se consume acá, antes
      que nada, y se limpia la dirección. */
   if(capturarVuelta()) cuentaAbierta=true;
+  /* Y el código de invitación viaja por el MISMO hash. Se lee después de
+     los tokens —que se consumen y borran la dirección— pero el código se
+     guarda aparte, así sobrevive el viaje al correo y la vuelta. */
+  capturarInvitacion();
   $("bcuenta").hidden=false;
   $("bcuenta").onclick=()=>{ cuentaAbierta=!cuentaAbierta; pintarCuenta(); };
   if(quienSoy()){ try{ miNombre=await miUsuario(); }catch(e){} }
   pintarCuenta();
+  if(quienSoy()){
+    try{ PREMIUM = (await miPremium()) || PREMIUM; }catch(e){}
+    try{ PLANES = await planesPremium(); }catch(e){}
+    pintarCuenta();
+    await cargarLigas();
+    await usarInvitacion();
+    pintar();
+  }
+
+  /* El que vuelve de pagar. Mercado Pago le avisa al servidor por un lado y
+     manda a la persona de vuelta por otro, y a veces llega antes la persona:
+     por eso se vuelve a preguntar unas cuantas veces antes de decirle nada.
+     Mostrarle "todavía no figura" al que acaba de pagar es la peor pantalla
+     posible.                                                             */
+  if(/[?&]pago=1\b/.test(location.search)){
+    cuentaAbierta=true; pintarCuenta();
+    try{ history.replaceState(null,"",location.pathname); }catch(e){}
+    refrescarPremium(6);
+  }
 }
 
 function pintarCuenta(aviso="", mal=false){
@@ -1798,10 +2405,121 @@ function pintarCuenta(aviso="", mal=false){
     return;
   }
 
+  /* El borrado va en dos toques a propósito. Uno solo, al lado de "Salir",
+     es un accidente esperando: se pierde la cuenta por un dedo mal apoyado y
+     no hay deshacer. Dos toques con el aviso en el medio no es fricción por
+     fricción — es la única barrera que hay antes de algo irreversible. */
   c.innerHTML=`<h4>Hola, ${esc(miNombre)}</h4>
     <p>Tu cuenta está lista. Las ligas de amigos y el fantasy llegan en la próxima.</p>
-    <button class="boton flaco" id="csalir">Salir</button>${av}`;
-  $("csalir").onclick=()=>{ salir(); miNombre=null; pintarCuenta(); };
+    ${bloquePremium()}
+    <button class="boton flaco" id="csalir">Salir</button>
+    ${borrando
+      ? `<div class="pendiente" style="margin-top:14px">
+           <b>¿Seguro que querés borrar tu cuenta?</b><br>
+           Se borran tu mail, tu usuario, tus equipos y tus puntajes, y no se
+           pueden recuperar. Los torneos que hayas creado siguen para los demás.
+         </div>
+         <div class="par" style="margin-top:10px">
+           <button class="boton" id="cnoborrar">Mejor no</button>
+           <button class="boton flaco" id="csiborrar">Sí, borrarla</button>
+         </div>`
+      : `<button class="boton flaco" id="cborrar" style="margin-top:10px">Borrar mi cuenta</button>`}
+    ${av}`;
+  engancharPremium();
+  $("csalir").onclick=()=>{ salir(); miNombre=null; borrando=false;
+                            PREMIUM={activo:false,hasta:null}; pintarCuenta(); };
+  const bb=$("cborrar");   if(bb) bb.onclick=()=>{ borrando=true;  pintarCuenta(); };
+  const bn=$("cnoborrar"); if(bn) bn.onclick=()=>{ borrando=false; pintarCuenta(); };
+  const bs=$("csiborrar"); if(bs) bs.onclick=async()=>{
+    try{
+      await borrarMiCuenta();
+      miNombre=null; borrando=false; cuentaAbierta=true;
+      pintarCuenta("Listo, tu cuenta se borró.");
+    }catch(e){ pintarCuenta(e.message, true); }
+  };
+}
+
+/* ══════════════════ LO QUE SE VENDE ══════════════════
+   Un solo párrafo honesto y tres botones. Sin cuenta regresiva, sin "última
+   oportunidad", sin un precio tachado al lado de otro. Lo que se ofrece es
+   sacar la espera y los avisos, y eso se puede decir en una línea; todo lo
+   demás que se suele poner alrededor está para tapar que la oferta es
+   flaca.
+
+   LOS PRECIOS NO ESTÁN ESCRITOS ACÁ. Se piden al servidor, que es el mismo
+   que después le dice a Mercado Pago cuánto cobrar. Si estuvieran en los
+   dos lados, el día que cambie uno la app mostraría un número y el checkout
+   otro — y esa persona no vuelve a intentar nunca más.                   */
+let PLANES=[], comprando=false;
+
+const cuantoFalta = hasta => {
+  const d = Math.ceil((new Date(hasta) - Date.now()) / 864e5);
+  return d <= 1 ? "hasta hoy" : d < 60 ? "por " + d + " días más"
+                              : "hasta el " + new Date(hasta).toLocaleDateString("es-AR");
+};
+
+const plata = n => "$" + Number(n).toLocaleString("es-AR");
+
+function bloquePremium(){
+  if(!conBackend) return "";
+
+  if(PREMIUM.activo)
+    return `<div class="pendiente" style="margin-top:14px">
+      <b>Tenés el pase</b> ${esc(cuantoFalta(PREMIUM.hasta))}. Simulás sin espera
+      y sin avisos.</div>`;
+
+  if(!PLANES.length) return "";
+
+  return `<div class="pendiente" style="margin-top:14px">
+      <b>Simular sin espera</b><br>
+      La simulación tarda veinte segundos porque ahí es donde entra la
+      publicidad. El pase saca las dos cosas: el partido se juega en seis
+      segundos y no aparece ningún aviso.
+    </div>
+    <div class="par" style="margin-top:10px;flex-wrap:wrap">
+      ${PLANES.map(p=>`<button class="boton flaco" data-plan="${esc(p.id)}"
+         ${comprando?"disabled":""}>${p.meses===1?"1 mes":p.meses+" meses"}
+         · ${esc(plata(p.precio))}</button>`).join("")}
+    </div>
+    <p class="aviso" style="margin-top:8px">Se paga con Mercado Pago. Se vence
+       solo: no queda nada debitándose todos los meses.</p>`;
+}
+
+function engancharPremium(){
+  document.querySelectorAll("#cuenta [data-plan]").forEach(b=>{
+    b.onclick=async()=>{
+      if(comprando) return;
+      comprando=true; b.textContent="Abriendo…";
+      /* Desde qué página salió. La página de gracias vive en la raíz y no
+         sabe de qué club venía: sin esto, el que pagó vuelve a la portada y
+         tiene que buscar su equipo otra vez. */
+      try{ localStorage.setItem("armaEl11.volverA",
+             location.pathname + "?pago=1"); }catch(e){}
+      try{
+        /* El link se abre en ESTA pestaña. Abrir una nueva después de
+           esperar a la red es lo que el navegador bloquea por "no lo pidió
+           nadie", y la persona se queda mirando un botón que no hizo nada. */
+        location.href = await linkDePago(b.dataset.plan);
+      }catch(e){ comprando=false; pintarCuenta(e.message, true); }
+    };
+  });
+}
+
+/* Al volver de Mercado Pago la app no se cree lo que diga la dirección: el
+   pago lo confirma el servidor por su lado. Lo único que hace este rato de
+   espera es volver a preguntar, porque el aviso de Mercado Pago y la vuelta
+   de la persona son dos carreras distintas y a veces gana la persona. */
+async function refrescarPremium(reintentos=0){
+  if(!conBackend || !quienSoy()) return;
+  try{
+    const p = await miPremium();
+    if(p) PREMIUM = p;
+  }catch(e){}
+  if(!PREMIUM.activo && reintentos > 0){
+    setTimeout(()=>refrescarPremium(reintentos-1), 4000);
+    return;
+  }
+  pintarCuenta();
 }
 
 /* La pestaña del fantasy solo aparece si hay una fecha publicada. Sin eso

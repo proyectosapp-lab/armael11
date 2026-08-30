@@ -74,6 +74,33 @@ if (FECHA) {
   }
 }
 
+/* ─── LAS LIGAS PARA SIMULAR ─────────────────────────────────────────────
+   Las escribe `ligas-api.mjs` directo en sitio/datos/. Acá solo se arman los
+   <script> de las que EXISTEN: si la corrida no las pudo bajar, la app es
+   exactamente la de antes y el selector no aparece. */
+const LIGAS_LISTAS = existsSync(new URL("ligas.js", DATOS))
+  ? (() => { try {
+      const txt = readFileSync(new URL("ligas.js", DATOS), "utf8");
+      const m = txt.match(/=(\[[^\]]*\])/);
+      return m ? JSON.parse(m[1]) : [];
+    } catch (e) { return []; } })()
+  : [];
+const TAGS_LIGAS = LIGAS_LISTAS.length
+  ? ['<script src="datos/ligas.js"></script>',
+     ...LIGAS_LISTAS.map(sl => '<script src="datos/liga-' + sl + '.js"></script>')]
+  : [];
+
+/* El registro del service worker. Va en las dos plantillas —la portada y
+   las páginas de club— porque la app puede arrancar en cualquiera de las
+   dos, y el que registra tiene que ser el primero que se abre.
+
+   `catch` vacío a propósito: si el navegador no lo soporta o el usuario lo
+   tiene bloqueado, la app anda exactamente igual. Un service worker que no
+   se registra no puede ser un motivo para romper nada. */
+const REGISTRO_SW = '<script>if("serviceWorker" in navigator)' +
+  'addEventListener("load",function(){navigator.serviceWorker.register("/sw.js")' +
+  '.catch(function(){})})</script>';
+
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
 
 /* ─── lo que hace falta para que un link se pueda mandar ─────────────────
@@ -123,6 +150,7 @@ function cabeza(club) {
     `<link rel="icon" href="${ic}">`,
     `<link rel="apple-touch-icon" href="${ic}">`,
     `<link rel="manifest" href="datos/app-${club.id}.webmanifest">`,
+    REGISTRO_SW,
     `<meta name="mobile-web-app-capable" content="yes">`,
   ].filter(Boolean).join("\n");
 }
@@ -151,6 +179,7 @@ for (const club of CLUBES) {
     FECHA ? '<script src="datos/fantasy.js"></script>' : null,
     FECHA ? '<script src="datos/fecha.js"></script>' : null,
     '<script src="datos/juego.js"></script>',
+    ...TAGS_LIGAS,
     '<script src="datos/stats-liga.js"></script>',
     '<script src="datos/feed-' + club.id + '.js"></script>',
     hayJuego ? '<script src="datos/cache-' + club.id + '.js"></script>' : null,
@@ -218,6 +247,7 @@ writeFileSync(new URL("index.html", SITIO), `<!doctype html>
 ${RAIZ ? `<meta property="og:url" content="${RAIZ}/">\n<link rel="canonical" href="${RAIZ}/">` : ""}
 <meta name="twitter:card" content="summary">
 <link rel="icon" href="${icono({color:"#101418", ini:"11"})}">
+<link rel="manifest" href="/app.webmanifest">
 <style>
   :root{ --fondo:#F7F8FA; --papel:#FFFFFF; --texto:#101418; --suave:#57606E; --borde:#E3E6EC; }
   @media (prefers-color-scheme: dark){
@@ -250,13 +280,252 @@ ${RAIZ ? `<meta property="og:url" content="${RAIZ}/">\n<link rel="canonical" hre
     <b>Armá el 11 es independiente.</b> No está afiliado ni tiene relación con ningún club
     ni con la Liga Profesional. Los nombres se usan para identificar a los equipos.
     Los videos se enlazan a sus reproductores originales; acá no se aloja ninguno.
+    <br><a href="/privacidad.html">Privacidad</a> · <a href="/borrar-cuenta.html">Borrar mi cuenta</a>
   </footer>
-</div></body>${contador}</html>
+</div>${REGISTRO_SW}</body>${contador}</html>
 `);
 
 /* Pages sirve tal cual lo que hay: sin esto trata la carpeta como un sitio
    Jekyll y se saltea todo lo que empiece con guion bajo. */
 writeFileSync(new URL(".nojekyll", SITIO), "");
+
+/* ══════════════════ LAS DOS PÁGINAS QUE PIDE PLAY ══════════════════
+   Una política de privacidad con dirección propia, y una página para borrar
+   la cuenta SIN INSTALAR NADA. Las dos son requisito para publicar, pero
+   además son la parte del trato que le toca al que dejó su mail.
+
+   Se escriben acá y no a mano en un archivo suelto por una razón: lo que
+   dicen tiene que seguir siendo verdad. Si mañana se guarda un dato más, el
+   que lo agrega pasa por este archivo. Una política que vive en un HTML que
+   nadie vuelve a abrir envejece mintiendo.                              */
+const pagina = (titulo, cuerpo) => `<!doctype html>
+<html lang="es"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>${esc(titulo)} · Armá el 11</title>
+<meta name="robots" content="index,follow">
+<link rel="icon" href="${icono({color:"#0B4F3A", ini:"11"})}">
+<style>
+  :root{ --fondo:#F7F8FA; --papel:#FFFFFF; --texto:#101418; --suave:#57606E; --borde:#E3E6EC; }
+  @media (prefers-color-scheme: dark){
+    :root{ --fondo:#0D1013; --papel:#161A1F; --texto:#F2F4F7; --suave:#98A2B3; --borde:#242A31; } }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--fondo);color:var(--texto);
+    font:16px/1.65 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    padding:32px 18px 70px;-webkit-font-smoothing:antialiased}
+  .caja{max-width:660px;margin:0 auto}
+  h1{font-size:26px;letter-spacing:-.02em;margin:0 0 6px}
+  h2{font-size:15px;letter-spacing:.04em;text-transform:uppercase;color:var(--suave);
+     margin:30px 0 8px}
+  p{margin:0 0 12px}
+  ul{margin:0 0 12px;padding-left:20px} li{margin:4px 0}
+  .fecha{color:var(--suave);font-size:14px;margin-bottom:26px}
+  .caja2{background:var(--papel);border:1px solid var(--borde);border-radius:13px;
+    padding:16px 18px;margin:18px 0}
+  a{color:inherit}
+  footer{margin-top:36px;padding-top:16px;border-top:1px solid var(--borde);
+    color:var(--suave);font-size:14px}
+</style></head><body><div class="caja">${cuerpo}
+<footer><a href="/">Volver a Armá el 11</a></footer></div></body></html>
+`;
+
+const HOY = new Date().toISOString().slice(0, 10).split("-").reverse().join("/");
+const CONTACTO = (CFG.contacto || "").trim();
+
+writeFileSync(new URL("privacidad.html", SITIO), pagina("Privacidad", `
+<h1>Qué guardamos, y qué no</h1>
+<p class="fecha">Actualizado el ${HOY}</p>
+
+<p>Armá el 11 se puede usar entero sin cuenta: mirar el feed de tu club,
+   armar el once, simular partidos y ver los números. <b>Sin cuenta no
+   guardamos nada tuyo.</b></p>
+
+<h2>Lo que se guarda si creás una cuenta</h2>
+<ul>
+  <li><b>Tu correo electrónico.</b> Es la única forma de entrar: te mandamos
+      un link y no hay contraseña. Se usa para eso y nada más.</li>
+  <li><b>Un nombre de usuario</b> que elegís vos. Es lo único que ven los
+      demás en las tablas: no pedimos tu nombre real.</li>
+  <li><b>Los equipos que armás</b> en cada fecha y los puntajes que sacan.</li>
+  <li><b>En qué torneos de amigos estás.</b></li>
+</ul>
+<p>No pedimos ni guardamos nombre real, teléfono, ubicación, contactos ni
+   datos de pago.</p>
+
+<h2>Con quién se comparte</h2>
+<p>Con nadie. No vendemos ni cedemos datos, y no hay rastreadores de terceros
+   en el sitio. Tu correo no se muestra a otros usuarios en ningún lado.</p>
+<p>Para funcionar usamos dos servicios que ven parte de esto: <b>Supabase</b>,
+   donde vive la base de datos, y <b>Brevo</b>, que despacha el correo con el
+   link para entrar.</p>
+
+<h2>Los datos del fútbol</h2>
+<p>Los resultados, planteles y estadísticas vienen de API-Football. Las
+   noticias y videos se enlazan a los medios que los publicaron: acá no se
+   aloja ninguno. Armá el 11 es independiente y no tiene relación con ningún
+   club ni con la Liga Profesional.</p>
+
+<h2>Borrar todo</h2>
+<div class="caja2">
+  <p style="margin:0">Podés borrar tu cuenta y todo lo que guardamos, en
+     cualquier momento y sin pedírselo a nadie, desde la propia app o desde
+     <a href="/borrar-cuenta.html">esta página</a>. Es inmediato y no se puede
+     deshacer.</p>
+</div>
+
+<h2>Cambios</h2>
+<p>Si alguna vez guardamos algo más de lo que dice esta página, va a decirlo
+   acá antes de que pase, con la fecha cambiada.</p>
+${CONTACTO ? `<h2>Contacto</h2><p>Cualquier duda: <a href="mailto:${esc(CONTACTO)}">${esc(CONTACTO)}</a></p>` : ""}
+`));
+
+writeFileSync(new URL("borrar-cuenta.html", SITIO), pagina("Borrar mi cuenta", `
+<h1>Borrar tu cuenta</h1>
+<p class="fecha">Sin instalar nada y sin escribirle a nadie.</p>
+
+<p>Entrá con tu correo, abrí el panel de tu cuenta arriba a la derecha y tocá
+   <b>Borrar mi cuenta</b>. Te va a pedir una confirmación y listo.</p>
+
+<div class="caja2">
+  <p style="margin:0 0 10px"><b>Qué se borra, en el acto:</b></p>
+  <ul style="margin:0">
+    <li>Tu correo electrónico y tu nombre de usuario</li>
+    <li>Los equipos que armaste y todos tus puntajes</li>
+    <li>Tu lugar en las tablas de los torneos donde estabas</li>
+  </ul>
+  <p style="margin:12px 0 0"><b>Qué no:</b> los torneos que hayas creado
+     siguen existiendo para los demás. Si desaparecieran con vos, once
+     personas que no tienen nada que ver se quedarían sin su torneo.</p>
+</div>
+
+<p>No queda nada guardado ni hay período de gracia: cuando confirmás, se borra.
+   Si después querés volver, es una cuenta nueva desde cero.</p>
+
+<p style="margin-top:22px"><a href="/">Ir a Armá el 11 para entrar y borrarla</a></p>
+${CONTACTO ? `<p>Si no podés entrar a tu cuenta, escribinos a <a href="mailto:${esc(CONTACTO)}">${esc(CONTACTO)}</a> desde el mismo correo y la borramos nosotros.</p>` : ""}
+`));
+
+/* ══════════════════ LA VUELTA DE MERCADO PAGO ══════════════════
+   Mercado Pago manda a la persona acá cuando termina. Esta página tiene UNA
+   regla y es la que le da toda su forma:
+
+   NO PUEDE AFIRMAR QUE EL PAGO ENTRÓ. Lo único que sabe es lo que dice la
+   dirección, y la dirección la puede escribir cualquiera. Quien confirma el
+   pago es el servidor, por su cuenta, hablando con Mercado Pago. Si esta
+   página dijera "listo, ya sos premium" estaría repitiendo un dato que no
+   verificó — y peor: el que llegue con `?estado=approved` escrito a mano
+   leería lo mismo que el que pagó de verdad, y después no le va a funcionar
+   nada. Así que dice lo que sí sabe: "volvé a la app y fijate".
+
+   Por eso tampoco pide sesión ni habla con la base: es un cartel y un
+   botón. Todo lo que importa lo revisa la app al volver.                 */
+writeFileSync(new URL("gracias.html", SITIO), pagina("Volviendo del pago", `
+<h1 id="tit">Gracias</h1>
+<p class="fecha" id="sub">Estamos confirmando el pago con Mercado Pago.</p>
+
+<div class="caja2">
+  <p style="margin:0" id="txt">La confirmación la hace el servidor por su
+     lado, así que puede tardar unos segundos. Volvé a la app: en cuanto
+     figure, el pase aparece solo en tu cuenta.</p>
+</div>
+
+<p style="margin-top:22px"><a href="/" id="volver"><b>Volver a Armá el 11</b></a></p>
+<p style="color:var(--suave);font-size:14px">Si pasan unos minutos y el pase
+   no aparece, no vuelvas a pagar: escribinos${CONTACTO
+     ? ` a <a href="mailto:${esc(CONTACTO)}">${esc(CONTACTO)}</a>` : ""} y lo
+   resolvemos. Un pago cobrado siempre se puede acreditar a mano.</p>
+
+<script>
+/* El estado viene en la dirección y por eso no se le cree para nada que
+   importe: solo cambia el texto. Lo que se compró se lee de la base. */
+var q = new URLSearchParams(location.search);
+var e = q.get("estado") || q.get("status") || "";
+if (/falló|failure|rejected/i.test(e)) {
+  document.getElementById("tit").textContent = "No se completó";
+  document.getElementById("sub").textContent = "El pago no se hizo. No se te cobró nada.";
+  document.getElementById("txt").textContent =
+    "Podés intentarlo de nuevo desde el panel de tu cuenta, con el mismo medio de pago u otro.";
+} else if (/pendiente|pending|in_process/i.test(e)) {
+  document.getElementById("tit").textContent = "Quedó pendiente";
+  document.getElementById("sub").textContent = "Es normal si elegiste efectivo o transferencia.";
+  document.getElementById("txt").textContent =
+    "Cuando Mercado Pago lo acredite, el pase se activa solo. No hace falta que hagas nada, " +
+    "y no hay que pagar de nuevo.";
+}
+/* De qué página salió. Lo guarda la app antes de mandar a Mercado Pago: sin
+   esto, el que pagó desde la página de su club vuelve a la portada. */
+try {
+  var v = localStorage.getItem("armaEl11.volverA");
+  if (v && v.charAt(0) === "/") document.getElementById("volver").setAttribute("href", v);
+} catch (err) {}
+</script>
+`));
+
+/* ══════════════════ LO QUE HACE FALTA PARA EMPAQUETARLA ══════════════════
+   Play acepta un sitio envuelto —se llama Trusted Web Activity— pero le pide
+   cuatro cosas. Las tres primeras se generan acá; la cuarta son los íconos,
+   que viven en el repo porque generarlos necesita un navegador y en la nube
+   no hay ninguno. */
+
+/* 1. EL SERVICE WORKER. Es lo que hace que la app conteste algo sin señal, y
+      Play lo mide. Se copia tal cual desde la raíz del repo. */
+if (existsSync(aca("./sw.js"))) copyFileSync(aca("./sw.js"), new URL("sw.js", SITIO));
+else console.log("  ⚠ falta sw.js: sin él la app no pasa el control de calidad de Play");
+
+/* 2. LOS ÍCONOS. En PNG y de verdad, no los SVG que usa la web: Play pide un
+      512×512 para la ficha y uno "maskable" para que Android lo recorte con
+      la forma de cada teléfono sin comerse las puntas. Los genera
+      `iconos.cjs`, a mano y cada muerte de obispo. */
+const ICONOS = ["sitio-icono-192.png", "sitio-icono-512.png", "sitio-icono-mask-512.png"];
+const iconosListos = ICONOS.every(f => existsSync(aca("./" + f)));
+if (iconosListos) for (const f of ICONOS) copyFileSync(aca("./" + f), new URL(f, SITIO));
+else console.log("  ⚠ faltan los íconos PNG: la app se puede envolver igual, " +
+                 "pero la ficha de Play los va a pedir");
+
+/* 3. EL MANIFEST DE LA APP. Los treinta que ya hay son por club y arrancan
+      cada uno en su página; sirven para el que agrega el sitio a la pantalla
+      de inicio y no se tocan. Una APP necesita otra cosa: UNA puerta de
+      entrada. Esta arranca en la lista de clubes, que es de donde se llega
+      tanto al club propio como al simulador de otras ligas. */
+writeFileSync(new URL("app.webmanifest", SITIO), JSON.stringify({
+  name: "Armá el 11",
+  short_name: "Armá el 11",
+  description: "Armá tu once, simulá el partido y competí con tus amigos.",
+  start_url: "/",
+  scope: "/",
+  id: "/",
+  display: "standalone",
+  orientation: "portrait",
+  background_color: "#0B4F3A",
+  theme_color: "#0B4F3A",
+  lang: "es-AR",
+  icons: iconosListos ? [
+    { src: "/sitio-icono-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
+    { src: "/sitio-icono-512.png", sizes: "512x512", type: "image/png", purpose: "any" },
+    { src: "/sitio-icono-mask-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+  ] : [],
+}, null, 1) + "\n");
+
+/* 4. EL ASSETLINKS. Es el papel que le demuestra a Android que la app y el
+      dominio son de la misma persona; sin él la app abre con la barra del
+      navegador encima y Play lo cuenta como falla.
+
+      NO se escribe un archivo de mentira mientras no esté la huella de la
+      firma: un assetlinks con datos inventados no falla en silencio, falla
+      en la cara del usuario cada vez que abre la app. Se genera SOLO cuando
+      `sitio.json` trae la huella que da Play al firmar el paquete, igual que
+      el CNAME con el dominio. Y si se saca, se borra. */
+const APP = CFG.android || {};
+const wellKnown = new URL(".well-known/", SITIO);
+const ASSETLINKS = new URL("assetlinks.json", wellKnown);
+if (APP.paquete && APP.huella) {
+  mkdirSync(wellKnown, { recursive: true });
+  writeFileSync(ASSETLINKS, JSON.stringify([{
+    relation: ["delegate_permission/common.handle_all_urls"],
+    target: { namespace: "android_app", package_name: APP.paquete,
+              sha256_cert_fingerprints: [].concat(APP.huella) },
+  }], null, 1) + "\n");
+} else if (existsSync(ASSETLINKS)) rmSync(ASSETLINKS);
 
 /* El dominio propio. GitHub lo lee también de Settings → Pages, pero el
    archivo va igual: si algún día se publica desde otro lado, el dominio

@@ -1,0 +1,34 @@
+{
+  "_porqueExiste": "Las ligas que se pueden simular. Sumar una liga es agregar una fila acá: el motor se calibra solo con los partidos de cada una. Los ids son los de API-Football. La ventaja del modelo sobre la vara sale del backtest (claude/modelo-backtest.md): Argentina es la peor liga del modelo, y las europeas de esta lista son las mejores.",
+  "temporada": 2026,
+  "porLiga": {
+    "equiposPorRonda": 12,
+    "partidosParaRatings": 5
+  },
+  "ligas": [
+    {
+      "id": 128, "slug": "argentina", "nombre": "Liga Profesional",
+      "pais": "Argentina", "propia": true, "ventajaBacktest": 0.0046
+    },
+    {
+      "id": 94, "slug": "portugal", "nombre": "Primeira Liga",
+      "pais": "Portugal", "ventajaBacktest": 0.0979
+    },
+    {
+      "id": 135, "slug": "italia", "nombre": "Serie A",
+      "pais": "Italia", "ventajaBacktest": 0.0676
+    },
+    {
+      "id": 39, "slug": "inglaterra", "nombre": "Premier League",
+      "pais": "Inglaterra", "ventajaBacktest": 0.0519
+    },
+    {
+      "id": 140, "slug": "espana", "nombre": "LaLiga",
+      "pais": "España", "ventajaBacktest": 0.0505
+    },
+    {
+      "id": 61, "slug": "francia", "nombre": "Ligue 1",
+      "pais": "Francia", "ventajaBacktest": 0.0466
+    }
+  ]
+}

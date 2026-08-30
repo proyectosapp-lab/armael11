@@ -157,6 +157,17 @@ srv.listen(8099, async () => {
   caso("el feed entra por <script src> y se pinta",
        (await pg.locator('#resumen').textContent() || '').includes('historias'));
 
+  /* La app ABRE en el simulador, no en el feed: la app se llama Armá el 11
+     y el feed es contenido de otros medios. Para mirar el feed hay que ir a
+     su pestaña, que es lo que haría cualquiera. */
+  caso("la app abre en el simulador, no en el feed",
+       await pg.evaluate(() => tab) === "juego", await pg.evaluate(() => tab));
+  caso("y el feed es la última pestaña, después de lo que hicimos nosotros",
+       await pg.evaluate(() => [...document.querySelectorAll("#barra button")]
+         .map(b => b.dataset.tab).join(",")) === "juego,fantasy,numeros,feed");
+  await pg.click('#barra button[data-tab="feed"]');
+  await pg.waitForTimeout(300);
+
   /* ── JERARQUÍA ────────────────────────────────────────────────────────
      La observación era "se ven todos igual, como líneas interminables".
      Que existan tres tamaños no alcanza: hay que medir que el navegador
@@ -367,6 +378,7 @@ srv.listen(8099, async () => {
        largo(sinArquero(base.filter(p => p.lado === 'A'))) - 1);
   await perilla('presion', 0); await pg.waitForTimeout(120);
 
+  const arrancoElPartido = Date.now();
   await pg.locator('#bsim').click();
   await pg.waitForTimeout(2500);
   const durante = await pg.evaluate(() =>
@@ -375,8 +387,336 @@ srv.listen(8099, async () => {
        durante.some((v, i) => v && v !== antesDeJugar[i]),
        "desplazamientos vistos: " + durante.filter(Boolean).length + " de " + durante.length);
 
-  await pg.waitForTimeout(8000);
+  /* Veinte segundos no es capricho: tres simulaciones seguidas tienen que
+     sumar los sesenta que AdSense exige entre dos avisos. Si alguien vuelve
+     a acelerar la animación, esa cuenta se rompe en silencio — y en silencio
+     es como se rompen las cosas que después nadie entiende. */
+  await pg.locator('.res').first().waitFor({ timeout: 40000 });
+  const duro = Date.now() - arrancoElPartido;
   caso("el partido se juega y da resultado", await pg.locator('.res').count() > 0);
+  caso("y dura al menos veinte segundos, que es lo que abre el hueco del aviso",
+       duro >= 19500, "duró " + (duro/1000).toFixed(1) + "s");
+  caso("pero tampoco se hace eterno", duro < 32000, "duró " + (duro/1000).toFixed(1) + "s");
+
+  /* ── EL RESULTADO, SIN SERMÓN ──────────────────────────────────────────
+     Estaba: "Ese fue UNO de los 6.000 partidos simulados… la barra de arriba
+     es la que hay que mirar". Era entrar a un show de magia y recordarle al
+     espectador que es ilusionismo. El dato no se pierde: la barra y el
+     porcentaje siguen ahí arriba, que es donde corresponde. */
+  /* Lo que sigue toquetea el estado del juego. Se guarda una foto para
+     devolver la pantalla como estaba: los casos de más abajo siguen mirando
+     el resultado de esta misma simulación. */
+  await pg.evaluate(() => { window.__foto = { sim: J.sim, paso: J.paso,
+    liga: J.liga, nom: JSON.parse(JSON.stringify(J.nom)) }; });
+  const trasSimular = await pg.evaluate(() => document.body.innerText);
+  caso("no reta a nadie después del resultado",
+       !/6\.000 partidos simulados/.test(trasSimular) &&
+       !/es la que hay que mirar/.test(trasSimular));
+  caso("pero la barra de las tres puntas sigue estando",
+       await pg.locator('.res').count() > 0);
+  caso("y el marcador dice que es el partido que se vio",
+       /el partido que acabás de ver/.test(trasSimular));
+
+  /* ── LAS INDICACIONES DEL PLANTEO ──────────────────────────────────────
+     Tres, del planteo y no por jugador: el motor compara líneas y no tiene
+     aporte individual al que restarle una marca. */
+  const ind = await pg.evaluate(() => {
+    const g = {};
+    for (const b of document.querySelectorAll('[data-ind]'))
+      (g[b.dataset.ind] = g[b.dataset.ind] || []).push(b.dataset.val);
+    return { grupos: Object.keys(g), opciones: g, texto: document.body.innerText };
+  });
+  caso("hay tres indicaciones del planteo", ind.grupos.length === 3, ind.grupos.join(", "));
+  caso("cada una explica qué hace",
+       /Personal al mejor|Por el lado flojo|se saltea el mediocampo/i.test(ind.texto));
+
+  const cambio = await pg.evaluate(() => {
+    const antes = JSON.stringify(J.IND);
+    document.querySelector('[data-ind="marca"][data-val="personal"]').click();
+    return { antes, ahora: JSON.stringify(J.IND) };
+  });
+  caso("tocar una indicación la cambia", /personal/.test(cambio.ahora), cambio.ahora);
+
+  /* Y tiene que MOVER el resultado, no ser un cartel. */
+  const mueve = await pg.evaluate(() => {
+    const A = lineas(J.xiA), B = lineas(J.xiB);
+    const zona = aplicarIndicaciones(A, B, { marca:"zona", ataque:"parejo", salida:"elaborada" }, J.xiA, J.xiB);
+    const pers = aplicarIndicaciones(A, B, { marca:"personal", ataque:"parejo", salida:"elaborada" }, J.xiA, J.xiB);
+    return { zona: zona.B.ATA, personal: pers.B.ATA };
+  });
+  caso("y marcar personal baja de verdad el ataque del rival",
+       mueve.personal < mueve.zona,
+       mueve.zona.toFixed(3) + " → " + mueve.personal.toFixed(3));
+  await pg.evaluate(() => { J.IND = { marca:"zona", ataque:"parejo", salida:"elaborada" }; pintar(); });
+
+  /* ── LOS PLANTEOS ARMADOS ──────────────────────────────────────────────
+     Un planteo no es otro modo: es un atajo que escribe las mismas perillas.
+     Y cuál está activo se DEDUCE de ellas, así que no puede haber dos
+     verdades en desacuerdo. */
+  caso("hay planteos para los dos equipos",
+       await pg.locator('[data-pl="A"]').count() >= 4 &&
+       await pg.locator('[data-pl="B"]').count() >= 4);
+
+  const preset = await pg.evaluate(() => {
+    document.querySelector('[data-pl="B"][data-plv="atras"]').click();
+    return { KB: JSON.parse(JSON.stringify(J.KB)),
+             activo: planteoDe(J.KB),
+             marcado: document.querySelector('[data-pl="B"][data-plv="atras"]')
+                        .getAttribute("aria-pressed") };
+  });
+  caso("elegir un planteo acomoda las perillas de ese equipo",
+       preset.KB.linea === -70 && preset.KB.ritmo === -45, JSON.stringify(preset.KB));
+  caso("y el botón queda marcado", preset.marcado === "true" && preset.activo === "atras");
+
+  const aMano = await pg.evaluate(() => {
+    const r = document.querySelector('input[data-kb="linea"]');
+    r.value = 20; r.dispatchEvent(new Event("input", { bubbles: true }));
+    return { KB: J.KB.linea, activo: planteoDe(J.KB) };
+  });
+  caso("y se puede mover a mano igual", aMano.KB === 20);
+  caso("y ahí el planteo deja de estar elegido: no hay botón que mienta",
+       aMano.activo === null, "" + aMano.activo);
+  await pg.waitForTimeout(600);
+  caso("la pantalla lo dice: quedó a mano",
+       /A mano/.test(await pg.evaluate(() => document.body.innerText)));
+
+  /* Y tiene que MOVER el resultado, que es la queja original: si el que se
+     mete atrás con diez es el rival, eso tiene que poder decirse. */
+  const pesa = await pg.evaluate(() => {
+    const conKB = KB => {
+      const t = tacticas(J.K), tB = tacticas(KB);
+      const ind = aplicarIndicaciones(lineas(J.xiA), lineas(J.xiB), J.IND, J.xiA, J.xiB);
+      return xgDe(ind.B, ind.A, !J.esLocalA, tB.mine * t.theirs, bonusAncho(J.xiB, tB.ancho))
+             + t.theirsFlat;
+    };
+    return { neutro: conKB({ linea:0, presion:0, ancho:0, ritmo:0 }),
+             atras:  conKB(planteo("atras")),
+             vida:   conKB(planteo("lavida")) };
+  });
+  caso("con el rival parado atrás, el rival genera menos",
+       pesa.atras < pesa.neutro, pesa.neutro.toFixed(2) + " → " + pesa.atras.toFixed(2));
+  caso("y jugándose la vida, más",
+       pesa.vida > pesa.neutro, pesa.neutro.toFixed(2) + " → " + pesa.vida.toFixed(2));
+
+  /* Con el rival en neutro, la cuenta tiene que dar EXACTAMENTE lo de antes. */
+  caso("con el rival en neutro no cambió nada de lo que ya andaba",
+       await pg.evaluate(() => {
+         const t = tacticas({ linea:0, presion:0, ancho:0, ritmo:0 });
+         return t.mine === 1 && t.theirs === 1 && t.theirsFlat === 0;
+       }));
+
+  await pg.evaluate(() => { J.KB = { linea:0, presion:0, ancho:0, ritmo:0 }; pintar(); });
+
+  /* ── EL PARTIDO YA EMPEZADO ────────────────────────────────────────────── */
+  caso("se puede decir en qué minuto va", await pg.locator('#dmin').count() === 1);
+  const empezado = await pg.evaluate(() => {
+    const m = document.getElementById('dmin');
+    m.value = 70; m.dispatchEvent(new Event('change', { bubbles: true }));
+    const g = document.getElementById('dgA');
+    g.value = 2; g.dispatchEvent(new Event('change', { bubbles: true }));
+    return { desde: JSON.parse(JSON.stringify(J.desde)), texto: document.body.innerText };
+  });
+  caso("el minuto y el marcador quedan cargados",
+       empezado.desde.minuto === 70 && empezado.desde.golesA === 2,
+       JSON.stringify(empezado.desde));
+  caso("y avisa cuántos minutos va a simular", /20 minutos que faltan/.test(empezado.texto));
+  caso("dice que el planteo de esos minutos lo decidís vos",
+       /lo decidís vos/i.test(empezado.texto));
+  /* El límite de verdad es otro: las perillas son solo tuyas. Decirlo mal
+     —"no ajusta por cómo va el partido"— hacía creer que el planteo no
+     entraba en la cuenta, y entra. */
+  /* La sugerencia aparece cuando hay un expulsado, y se OFRECE: cambiarle el
+     planteo a alguien sin que lo pida es decidir por él en su propio juego. */
+  const sugerencia = await pg.evaluate(() => {
+    J.desde = { minuto:70, golesA:1, golesB:0, rojasA:1, rojasB:0 }; pintar();
+    const b = document.querySelector('[data-sug="A"]');
+    return { hay: !!b, dice: b ? b.textContent.trim() : "",
+             antes: JSON.parse(JSON.stringify(J.K)) };
+  });
+  caso("con un expulsado propio se ofrece un planteo, no se impone",
+       sugerencia.hay && sugerencia.antes.linea === 0,
+       JSON.stringify(sugerencia));
+  const aceptada = await pg.evaluate(() => {
+    document.querySelector('[data-sug="A"]').click();
+    return planteoDe(J.K);
+  });
+  caso("y si se acepta, acomoda las perillas", aceptada === "atras", "" + aceptada);
+  await pg.evaluate(() => { J.K = { linea:0, presion:0, ancho:0, ritmo:0 };
+    J.desde = { minuto:70, golesA:2, golesB:0, rojasA:0, rojasB:0 }; pintar(); });
+  caso("el botón de simular lo dice también",
+       /Simular desde el 70/.test(await pg.locator('#bsim').innerText()));
+
+  /* Un minuto imposible no puede pasar. */
+  const topeado = await pg.evaluate(() => {
+    const m = document.getElementById('dmin');
+    m.value = 300; m.dispatchEvent(new Event('change', { bubbles: true }));
+    return J.desde.minuto;
+  });
+  caso("un minuto imposible se recorta en vez de romper todo", topeado === 89, "" + topeado);
+  await pg.evaluate(() => { J.desde = { minuto:0, golesA:0, golesB:0, rojasA:0, rojasB:0 }; pintar(); });
+
+  /* ── OTRAS LIGAS ───────────────────────────────────────────────────────
+     Sin ligas publicadas, la app tiene que ser exactamente la de antes. */
+  caso("sin ligas bajadas, el selector no aparece",
+       await pg.locator('[data-liga]').count() === 0);
+
+  const conLigas = await pg.evaluate(() => {
+    window.LIGAS = { inglaterra: {
+      id:39, slug:"inglaterra", nombre:"Premier League", pais:"Inglaterra",
+      media:6.83, local:1.62, visita:1.28,
+      calibrada:{ partidos:380, temporada:2025 },
+      equipos:{ 1:{ n:"Rojos", j:[] }, 2:{ n:"Azules", j:[] } },
+      partidos:[{ id:99, fecha:"2026-09-05T14:00:00+00:00", local:1, visita:2 }],
+    }};
+    window.LIGAS_DISPONIBLES = ["inglaterra"];
+    J.paso = "fixture"; pintar();
+    return { chips: document.querySelectorAll('[data-liga]').length,
+             texto: document.body.innerText };
+  });
+  caso("con una liga bajada, aparece el selector", conLigas.chips === 1);
+
+  const elegida = await pg.evaluate(() => {
+    document.querySelector('[data-liga="inglaterra"]').click();
+    return document.body.innerText;
+  });
+  caso("al elegirla se ven sus partidos", /Rojos/.test(elegida) && /Azules/.test(elegida));
+  /* Con qué está calibrada se dice a la vista, no en un pie de página: es la
+     diferencia entre un pronóstico que se puede auditar y uno que hay que
+     creer. */
+  caso("y dice con cuántos partidos está calibrada",
+       /380 partidos de 2025/.test(elegida), elegida.slice(-220));
+
+  /* Un equipo sin plantel no puede tirar la pantalla abajo. */
+  const flaco = await pg.evaluate(() => {
+    simularDeLiga("inglaterra", 99);
+    return { paso: J.paso, err: J.err };
+  });
+  caso("un equipo sin jugadores lo dice en vez de romperse",
+       flaco.paso === "liga" && /partidos previos/.test(flaco.err), JSON.stringify(flaco));
+
+  /* Y lo más importante: volver a mi club tiene que devolver los números de
+     MI liga, o el próximo partido de Talleres se simularía con la media de
+     la Premier. */
+  const devuelto = await pg.evaluate(() => {
+    usarLiga({ id:39, media:6.83, local:1.62, visita:1.28 });
+    volverAMiClub();
+    return { ahora: ligaActual(), respaldo: LIGA_POR_DEFECTO };
+  });
+  caso("volver al club devuelve los números de su propia liga",
+       devuelto.ahora.local === devuelto.respaldo.local &&
+       devuelto.ahora.media === devuelto.respaldo.media,
+       JSON.stringify(devuelto.ahora));
+
+  await pg.evaluate(() => {
+    usarLiga(null);
+    J.sim = window.__foto.sim; J.paso = window.__foto.paso;
+    J.liga = window.__foto.liga; J.nom = window.__foto.nom;
+    J.IND = { marca:"zona", ataque:"parejo", salida:"elaborada" };
+    J.desde = { minuto:0, golesA:0, golesB:0, rojasA:0, rojasB:0 };
+    delete window.LIGAS; delete window.LIGAS_DISPONIBLES;
+    pintar();
+  });
+  await pg.waitForTimeout(150);
+
+  /* ── LO QUE PIDE PLAY ──────────────────────────────────────────────────
+     Cuatro archivos y dos páginas. Sin alguno de ellos la app no se puede
+     empaquetar, y el problema aparecería recién al subirla. */
+  const traer = async ruta => {
+    const r = await pg.request.get('http://localhost:8099' + ruta);
+    return { estado: r.status(), texto: r.ok() ? await r.text() : "" };
+  };
+
+  const sw = await traer('/sw.js');
+  caso("el service worker se publica", sw.estado === 200);
+  caso("y atiende los pedidos, que es lo que Play mide",
+       /addEventListener\("fetch"/.test(sw.texto));
+  caso("y va primero a la red: la caché es el paracaídas, no el avión",
+       /await fetch\(req\)/.test(sw.texto));
+  caso("las páginas lo registran",
+       /serviceWorker/.test(await pg.evaluate(() => document.documentElement.outerHTML)));
+
+  const man = await traer('/app.webmanifest');
+  caso("hay un manifest de app en la raíz", man.estado === 200);
+  const m = man.estado === 200 ? JSON.parse(man.texto) : {};
+  caso("con una sola puerta de entrada", m.start_url === "/" && m.scope === "/");
+  caso("y con un ícono maskable, o Android le pone un marco blanco",
+       (m.icons || []).some(i => i.purpose === "maskable" && i.sizes === "512x512"),
+       JSON.stringify((m.icons || []).map(i => i.sizes + " " + i.purpose)));
+  for (const i of (m.icons || []))
+    caso("el ícono " + i.sizes + " " + i.purpose + " existe de verdad",
+         (await traer(i.src)).estado === 200);
+
+  /* El assetlinks NO se escribe hasta tener la huella de la firma. Uno con
+     datos inventados no falla en silencio: falla en la cara del usuario cada
+     vez que abre la app. */
+  caso("sin la huella de la firma, no hay assetlinks de mentira",
+       (await traer('/.well-known/assetlinks.json')).estado === 404);
+
+  const priv = await traer('/privacidad.html');
+  caso("la política de privacidad se publica", priv.estado === 200);
+  caso("y dice qué se guarda: el mail y el usuario",
+       /correo electrónico/i.test(priv.texto) && /nombre de usuario/i.test(priv.texto));
+  caso("y cómo borrarlo", /borrar-cuenta\.html/.test(priv.texto));
+
+  const borrar = await traer('/borrar-cuenta.html');
+  caso("y hay una página para borrar la cuenta sin instalar nada",
+       borrar.estado === 200 && /Borrar tu cuenta/i.test(borrar.texto));
+  caso("que avisa que los torneos de los demás no se van con vos",
+       /siguen existiendo para los demás/i.test(borrar.texto));
+
+  caso("y desde la portada se llega a las dos",
+       await pg.evaluate(async () => {
+         const r = await fetch("/index.html"); const t = await r.text();
+         return /privacidad\.html/.test(t) && /borrar-cuenta\.html/.test(t);
+       }));
+
+  /* ── EL LUGAR DEL AVISO ────────────────────────────────────────────────
+     No hay publicidad en la app. Hay un lugar donde algún día va a haber
+     una, y estas son las reglas de cuándo corresponde. Se prueban ahora,
+     con la red apagada, porque las reglas son la parte difícil. */
+  const reglas = await pg.evaluate(() => {
+    const AHORA = 1000000;
+    const r = {};
+    r.sinRed = tocaAviso({ hayRed:false, hechas:9, ultimo:0, ahora:AHORA });
+    r.primera = tocaAviso({ hayRed:true, hechas:0, ultimo:0, ahora:AHORA });
+    r.segunda = tocaAviso({ hayRed:true, hechas:1, ultimo:0, ahora:AHORA });
+    r.muySeguido = tocaAviso({ hayRed:true, hechas:5, ultimo:AHORA - 30000, ahora:AHORA });
+    r.justo59 = tocaAviso({ hayRed:true, hechas:5, ultimo:AHORA - 59000, ahora:AHORA });
+    r.justo60 = tocaAviso({ hayRed:true, hechas:5, ultimo:AHORA - 60000, ahora:AHORA });
+    r.premium = tocaAviso({ hayRed:true, hechas:9, ultimo:0, ahora:AHORA, premium:true });
+    r.espera = AVISO.ESPERA;
+    r.duracion = AVISO.DURACION_SIM;
+    /* Lo que se vende es sacar la espera Y el aviso. Se mira que la
+       duración salga de `duracionSim()` y no de la constante, porque el día
+       que alguien vuelva a poner la constante en el setInterval el que pagó
+       va a seguir esperando veinte segundos sin que falle nada. */
+    const foto = PREMIUM;
+    PREMIUM = { activo:true, hasta:"2099-01-01" };
+    r.durPaga = duracionSim();
+    PREMIUM = { activo:false, hasta:null };
+    r.durGratis = duracionSim();
+    PREMIUM = foto;
+    return r;
+  });
+  caso("con la red apagada no hay aviso, pase lo que pase", reglas.sinRed === false);
+  caso("la primera simulación de alguien nunca lleva aviso", reglas.primera === false);
+  caso("la segunda sí", reglas.segunda === true);
+  caso("dos avisos en treinta segundos, no", reglas.muySeguido === false);
+  caso("a los 59 segundos todavía no", reglas.justo59 === false);
+  caso("a los 60 sí, que es el mínimo que impone AdSense", reglas.justo60 === true);
+  caso("el que pagó no ve ningún aviso: es lo que compró", reglas.premium === false);
+  caso("y tampoco espera: la simulación le dura menos",
+       reglas.durPaga < reglas.durGratis && reglas.durGratis === reglas.duracion,
+       reglas.durPaga + " vs " + reglas.durGratis);
+  caso("y tres simulaciones cubren justo esa espera",
+       reglas.duracion * 3 === reglas.espera,
+       reglas.duracion + " x 3 = " + (reglas.duracion*3) + ", espera " + reglas.espera);
+
+  /* La propiedad de siempre: que esto exista no puede haber metido un
+     script de terceros. Hay otra prueba que lo mira en el HTML; esta mira
+     que la configuración esté efectivamente apagada. */
+  caso("y hoy la publicidad está apagada en el sitio publicado",
+       await pg.evaluate(() => !(window.SITIO && window.SITIO.publicidad)));
 
   /* El número grande tiene que ser el partido que acaba de ver, no el
      marcador más probable: mostraba 0-1 después de un 0-2 y confundía. */
