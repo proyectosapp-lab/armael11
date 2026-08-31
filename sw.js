@@ -28,8 +28,10 @@
      el número, se publica, y todo lo viejo se tira.
    ══════════════════════════════════════════════════════════════════════════ */
 
-/* Cambiá este número para tirar TODO lo guardado en todos los teléfonos. */
-const VERSION = "v1";
+/* Cambiá este número para tirar TODO lo guardado en todos los teléfonos.
+   v2: la app se veía vieja después de publicar. Este número es la salida de
+   emergencia que dejamos escrita para exactamente eso. */
+const VERSION = "v2";
 const CACHE = "armael11-" + VERSION;
 
 /* Nada se precarga a propósito. Precargar una lista de archivos obliga a
@@ -60,9 +62,21 @@ self.addEventListener("fetch", e => {
   const url = new URL(req.url);
   if (!miaEs(url)) return;
 
+  /* ── LA PÁGINA NUNCA SALE DE UNA CACHÉ VIEJA HABIENDO RED ──────────────
+     "Primero la red" no alcanzaba: `fetch` también pasa por la caché HTTP
+     del navegador, y GitHub Pages manda sus páginas con diez minutos de
+     vida. Con eso, publicar y recargar podía seguir mostrando lo de antes
+     sin que nada estuviera roto — que es de las cosas más difíciles de
+     diagnosticar, porque no falla: miente.
+
+     Solo para las NAVEGACIONES, que son las que traen la app entera. Los
+     datos y las imágenes siguen usando la caché normal: ahí diez minutos
+     de más no cambian nada y ahorran tráfico de verdad.                 */
+  const esPagina = req.mode === "navigate";
+
   e.respondWith((async () => {
     try {
-      const red = await fetch(req);
+      const red = await fetch(esPagina ? new Request(req, { cache: "no-store" }) : req);
       /* Solo se guarda lo que salió bien y es nuestro. */
       if (red && red.status === 200 && red.type === "basic") {
         const copia = red.clone();

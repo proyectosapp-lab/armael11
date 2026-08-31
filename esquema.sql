@@ -167,6 +167,19 @@ create table if not exists liga (
   nombre  text not null check (char_length(nombre) between 3 and 40),
   codigo  text unique not null,
   dueno   uuid not null references perfil(id) on delete cascade,
+  /* PENDIENTE, NO CONECTADO. Hoy no la lee nadie: el torneo de amigos es
+     gratis y lo unico que se cobra es el pase. La columna queda porque la
+     decision es cobrar el torneo MAS ADELANTE, despues de la prueba con los
+     doce testers, y borrarla ahora obligaria a rehacerla igual.
+
+     Que este escrito que NO esta conectada es la mitad del punto: una
+     columna que se llama `paga` y no hace nada es exactamente lo que hace
+     que alguien, dentro de tres meses, crea que el cobro ya esta resuelto.
+
+     Cuando se conecte, la pregunta que hay que contestar primero no es
+     tecnica: quien paga. Que paguen los doce es pedirle al que arma el
+     grupo que convenza a once, y ahi se cae la mitad de los torneos. Que
+     pague el que lo crea es una sola decision de una sola persona. */
   paga    boolean not null default false,
   creada  timestamptz not null default now()
 );

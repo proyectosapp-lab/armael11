@@ -103,6 +103,25 @@ const REGISTRO_SW = '<script>if("serviceWorker" in navigator)' +
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
 
+/* ── QUÉ VERSIÓN QUEDÓ PUBLICADA ─────────────────────────────────────────
+   Sale de la primera línea de VERSION.txt y va al pie de la app y a un
+   <meta>. Existe por una tarde perdida: la app se veía vieja y no había
+   forma de saber si la corrida no había publicado o si el navegador estaba
+   mostrando algo guardado. Son dos problemas distintos con dos arreglos
+   distintos, y sin esto no se distinguen sin abrir el inspector.
+
+   Se le agrega la fecha de la corrida, que es el otro dato que hacía falta:
+   una versión igual con fecha nueva quiere decir que SÍ se publicó. */
+const VERSION = (() => {
+  const linea = existsSync(aca("./VERSION.txt"))
+    ? readFileSync(aca("./VERSION.txt"), "utf8").split("\n")[0].trim() : "";
+  const m = linea.match(/versi[oó]n\s+(\S+\s+\S+)/i);
+  const corta = m ? m[1] : "sin versión";
+  const hoy = new Date().toISOString().slice(0, 16).replace("T", " ");
+  return corta + " · publicado " + hoy + " UTC";
+})();
+console.log("  versión publicada: " + VERSION);
+
 /* ─── lo que hace falta para que un link se pueda mandar ─────────────────
    Sin esto, pegar la dirección en WhatsApp muestra un renglón gris. Con
    esto muestra el nombre del club y una línea. La diferencia entre que un
@@ -215,6 +234,13 @@ for (const club of CLUBES) {
 
   let html = TPL.replace("<script>\n/*DATOS*/", tags + "\n<script>");
   if (html === TPL) { console.log("  ✗ no encontré dónde meter los datos"); process.exit(1); }
+  if (!html.includes("{{VERSION}}")) {
+    console.log("  ✗ falta el marcador {{VERSION}} en app.tpl.html: sin eso la");
+    console.log("    página publicada no dice qué versión es, que es justo el dato");
+    console.log("    que hace falta cuando algo se ve viejo.");
+    process.exit(1);
+  }
+  html = html.replaceAll("{{VERSION}}", esc(VERSION));
 
   html = html.replace(/<title>[\s\S]*?<\/title>/i, cabeza(club));
   html = html.replace("</body>", contador + publicidad + "\n</body>");

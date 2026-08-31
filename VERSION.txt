@@ -1,3 +1,34 @@
+Armá el 11 — versión 2026-08-31 y7 (saber qué está publicado)
+
+  · LA VERSIÓN, A LA VISTA, EN EL PIE DE LA APP. Sale de este archivo y le
+    agrega la fecha y hora de la corrida. Existe por una tarde perdida: la
+    app se veía vieja y no había forma de saber si la corrida no había
+    publicado o si el navegador estaba mostrando algo guardado. Son dos
+    problemas distintos, con dos arreglos distintos, y sin este renglón no
+    se distinguen sin abrir el inspector. Ahora se mira el pie y se sabe.
+    Si falta el marcador en la plantilla, la corrida CORTA: publicar sin
+    poder saber qué se publicó es lo que había antes.
+
+  · EL SERVICE WORKER YA NO PUEDE SERVIR UNA PÁGINA VIEJA HABIENDO RED.
+    "Primero la red" no alcanzaba: `fetch` también pasa por la caché HTTP
+    del navegador, y GitHub Pages manda sus páginas con diez minutos de
+    vida. Con eso, publicar y recargar podía seguir mostrando lo de antes
+    sin que nada estuviera roto — que es de lo más difícil de diagnosticar,
+    porque no falla: miente.
+    Ahora las NAVEGACIONES van con `cache: "no-store"`. Los datos y las
+    imágenes siguen con la caché normal: ahí diez minutos no cambian nada y
+    ahorran tráfico de verdad.
+
+  · CACHÉ v2. Cambiar ese número tira todo lo guardado en todos los
+    teléfonos, y es exactamente para esto que lo dejamos escrito.
+
+  · La columna `liga.paga` queda, documentada como PENDIENTE y no
+    conectada: la decisión es cobrar el torneo de amigos después de la
+    prueba con los doce testers.
+
+  · 570 casos de prueba.
+
+── lo de antes ───────────────────────────────────────────────────────────
 Armá el 11 — versión 2026-08-31 y6 (el repaso, y el enchufe de la publicidad)
 
   · EL EQUIPO SE GUARDABA Y LA APP NUNCA LO VOLVÍA A LEER. Es lo peor que

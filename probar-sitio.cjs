@@ -666,7 +666,22 @@ srv.listen(8099, async () => {
   caso("y atiende los pedidos, que es lo que Play mide",
        /addEventListener\("fetch"/.test(sw.texto));
   caso("y va primero a la red: la caché es el paracaídas, no el avión",
-       /await fetch\(req\)/.test(sw.texto));
+       /const red = await fetch\(/.test(sw.texto));
+  /* Y "primero la red" no alcanzaba: `fetch` también pasa por la caché HTTP
+     del navegador, y GitHub Pages manda sus páginas con diez minutos de
+     vida. Con eso, publicar y recargar podía seguir mostrando lo de antes
+     sin que nada estuviera roto — que es de lo más difícil de diagnosticar,
+     porque no falla: miente. Solo para las navegaciones; los datos siguen
+     con la caché normal. */
+  caso("y la página nunca sale de una caché vieja habiendo red",
+       /new Request\(req, \{ cache: "no-store" \}\)/.test(sw.texto) &&
+       /req\.mode === "navigate"/.test(sw.texto));
+  /* La salida de emergencia: cambiar este número tira todo lo guardado en
+     todos los teléfonos. Que exista es la mitad; que se USE cuando hace
+     falta es la otra. */
+  caso("y la caché lleva versión, que es la salida de emergencia",
+       /const VERSION = "v\d+"/.test(sw.texto),
+       (sw.texto.match(/const VERSION = "[^"]*"/) || [""])[0]);
   caso("las páginas lo registran",
        /serviceWorker/.test(await pg.evaluate(() => document.documentElement.outerHTML)));
 

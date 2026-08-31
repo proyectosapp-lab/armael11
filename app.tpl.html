@@ -69,6 +69,7 @@ body{margin:0;background:transparent;color:var(--tinta);
   font-family:inherit;font-size:13px;font-weight:600;text-align:left}
 .atajo:hover{border-color:var(--tinta-3);border-style:solid}
 .atajo .v{color:var(--tinta-3);font-size:12px;font-weight:600;white-space:nowrap}
+.ver{color:var(--tinta-3);opacity:.6;font-size:11px;letter-spacing:.02em}
 
 /* El renglón de cada jugador en la fecha ya puntuada, y el porqué debajo.
    El porqué va en letra chica y adentro del mismo bloque: es la explicación
@@ -381,7 +382,18 @@ tr.yo td:first-child{border-radius:9px 0 0 9px} tr.yo td:last-child{border-radiu
   <div id="cuenta" hidden></div>
   <div id="vista"></div>
   <p class="pie">App independiente, sin relación con el Club Atlético Talleres.<br>
-    Los títulos y enlaces pertenecen a cada medio; se enlaza siempre a la fuente original.</p>
+    Los títulos y enlaces pertenecen a cada medio; se enlaza siempre a la fuente original.<br>
+    <!-- QUÉ VERSIÓN ESTÁ PUBLICADA, A LA VISTA.
+
+         Existe por una tarde entera perdida: la app se veía vieja y no
+         había forma de saber si el problema era que la corrida no había
+         publicado, o que el navegador estaba mostrando algo guardado. Son
+         dos problemas distintos, con dos arreglos distintos, y sin este
+         renglón no se pueden distinguir sin abrir herramientas de
+         desarrollador.
+
+         Ahora se mira el pie y se sabe. Cuesta una línea. -->
+    <span class="ver">{{VERSION}}</span></p>
 </div>
 <!-- EL ORDEN NO ES DECORATIVO. Primero lo que hicimos nosotros: el
      simulador, el fantasy y los números salen de nuestro código. El feed
