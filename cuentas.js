@@ -121,14 +121,71 @@ function uidDe(token) {
   } catch (e) { return null; }
 }
 
-async function renovar() {
+/* ─── RENOVAR: DOS ERRORES QUE ECHABAN A LA GENTE ─────────────────────────
+
+   1. DE A UNA POR VEZ. El refresh token de Supabase es de UN SOLO USO: al
+      canjearlo, el anterior deja de valer. La pantalla dispara varios
+      pedidos juntos —el usuario, el premium, los torneos, la tabla de cada
+      torneo— así que al vencer el token de una hora, todos daban 401 al
+      mismo tiempo y todos intentaban renovar con el MISMO refresh. El
+      primero funcionaba; los demás recibían "ya usado" y, con el código de
+      antes, cerraban la sesión. Eso es exactamente "entrás y al rato se
+      cae": no se caía sola, la cerrábamos nosotros.
+
+      La promesa compartida arregla eso: el que llega segundo espera la
+      renovación del primero en vez de pedir la suya.
+
+   2. UN ERROR DE RED NO ES UNA SESIÓN VENCIDA. Antes, cualquier excepción
+      —el subte, el ascensor, un timeout— terminaba en `salir()`, que borra
+      el token del teléfono. Perder la sesión por pasar debajo de un puente
+      es perderla para siempre: hay que volver a pedir el mail.
+
+      Ahora solo se cierra si el servidor DIJO que ese refresh no sirve. En
+      cualquier otro caso se deja la sesión como estaba y se reintenta en el
+      próximo pedido.                                                      */
+let renovando = null;
+
+const REFRESH_MURIO = /invalid|expired|revoked|not.?found|already used/i;
+
+function renovar() {
+  if (renovando) return renovando;
+  if (!sesion?.refresh) return Promise.resolve(null);
+  const antes = sesion;
+  renovando = (async () => {
+    try {
+      const d = await pedir("/auth/v1/token?grant_type=refresh_token", {
+        metodo: "POST", sinToken: true, cuerpo: { refresh_token: antes.refresh } });
+      if (!d?.access_token) return null;
+      sesion = guardado.poner({ token: d.access_token, refresh: d.refresh_token,
+                                uid: uidDe(d.access_token) });
+      return sesion;
+    } catch (e) {
+      if (REFRESH_MURIO.test(e.message || "")) { salir(); return null; }
+      sesion = antes;                       /* fue la red: no se toca nada */
+      return null;
+    } finally { renovando = null; }
+  })();
+  return renovando;
+}
+
+/* Cuánto le queda al token, en segundos. Sale del propio token, que lleva su
+   vencimiento adentro. Si no se puede leer, se contesta 0 y el que llama
+   renueva: renovar de más es barato, quedarse corto echa a alguien. */
+function leSobra(token) {
   try {
-    const d = await pedir("/auth/v1/token?grant_type=refresh_token", {
-      metodo: "POST", sinToken: true, cuerpo: { refresh_token: sesion.refresh } });
-    if (!d?.access_token) return null;
-    sesion = guardado.poner({ token: d.access_token, refresh: d.refresh_token, uid: uidDe(d.access_token) });
-    return sesion;
-  } catch (e) { salir(); return null; }
+    const medio = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+    const exp = JSON.parse(decodeURIComponent(escape(atob(medio)))).exp;
+    return exp ? exp - Math.floor(Date.now() / 1000) : 0;
+  } catch (e) { return 0; }
+}
+
+/* Renovar ANTES de disparar la tanda de pedidos, no después de que fallen.
+   Es la diferencia entre una sesión que se renueva sola y una que se cae y
+   se recupera —a veces— con un parpadeo en la pantalla.                  */
+export async function asegurarSesion() {
+  if (!sesion?.token) return null;
+  if (leSobra(sesion.token) > 90) return sesion;
+  return (await renovar()) || sesion;
 }
 
 export function salir() { sesion = guardado.poner(null); }
@@ -236,11 +293,24 @@ export async function miPremium() {
 
 /* Los precios los pide al servidor, no los tiene escritos. Si estuvieran
    acá y allá, el día que cambie uno la app va a mostrar un precio y Mercado
-   Pago va a cobrar otro, y esa persona nunca más compra nada. */
+   Pago va a cobrar otro, y esa persona nunca más compra nada.
+
+   VA CON `Authorization`, NO SOLO CON `apikey`. Las funciones tienen su
+   propia puerta antes del código: Supabase revisa el token y contesta
+   "Missing authorization header" SIN LLEGAR A EJECUTAR NADA. Con la clave
+   pública sola en `apikey`, esa puerta no se abre — y el efecto habría sido
+   invisible, porque acá abajo un pedido que falla devuelve lista vacía y la
+   pantalla simplemente no muestra ningún plan. Un botón que no aparece no
+   se parece a un error.
+
+   La clave pública sirve para esto: es un token válido y no autoriza a
+   nada. Cuando alguien compra de verdad, ahí sí va el token de la persona,
+   que es de donde la función saca a quién acreditarle.               */
 export async function planesPremium() {
   const { url, anon } = cfg();
   if (!url) return [];
-  const r = await fetch(url + "/functions/v1/crear-pago", { headers: { apikey: anon } });
+  const r = await fetch(url + "/functions/v1/crear-pago",
+    { headers: { apikey: anon, Authorization: "Bearer " + anon } });
   if (!r.ok) return [];
   return (await r.json()).planes || [];
 }

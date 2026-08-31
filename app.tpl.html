@@ -41,6 +41,45 @@ body{margin:0;background:transparent;color:var(--tinta);
 .chip:hover{border-color:var(--tinta-3)}
 .chip[aria-pressed="true"]{background:var(--acento);border-color:var(--acento);color:var(--sobre-acento)}
 
+/* Los países, con su bandera. Son fichas y no chips a propósito: esta es la
+   función que se puede vender en cualquier lado, y un chip de texto entre
+   otros seis chips de texto no se ve. La bandera es lo único que se
+   reconoce sin leer. */
+.paises{display:flex;gap:9px;overflow-x:auto;padding:2px 2px 12px;scrollbar-width:none}
+.paises::-webkit-scrollbar{display:none}
+.pais{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:3px;
+  width:100px;padding:10px 6px 9px;border:1px solid var(--borde);border-radius:14px;
+  background:var(--hoja);color:var(--tinta-2);cursor:pointer;font-family:inherit;
+  transition:transform .12s ease,border-color .12s ease}
+.pais:hover{border-color:var(--tinta-3);transform:translateY(-1px)}
+.pais .fl{width:34px;height:23px;border-radius:3px;display:block}
+.pais .pn{font-size:12.5px;font-weight:700;line-height:1.2;white-space:nowrap}
+.pais .pl{font-size:10.5px;color:var(--tinta-3);line-height:1.2;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.pais[aria-pressed="true"]{background:var(--acento);border-color:var(--acento)}
+.pais[aria-pressed="true"] .pn{color:var(--sobre-acento)}
+.pais[aria-pressed="true"] .pl{color:var(--sobre-acento);opacity:.75}
+
+/* Un renglón que lleva a otra parte de la misma pantalla. No es un botón de
+   acción y no tiene que parecerlo: si pareciera un botón, la gente
+   esperaría que pase algo y lo único que pasa es que baja. */
+.atajo{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  width:100%;margin:0 0 9px;padding:11px 14px;border:1px dashed var(--borde);
+  border-radius:14px;background:transparent;color:var(--tinta-2);cursor:pointer;
+  font-family:inherit;font-size:13px;font-weight:600;text-align:left}
+.atajo:hover{border-color:var(--tinta-3);border-style:solid}
+.atajo .v{color:var(--tinta-3);font-size:12px;font-weight:600;white-space:nowrap}
+
+/* El renglón de cada jugador en la fecha ya puntuada, y el porqué debajo.
+   El porqué va en letra chica y adentro del mismo bloque: es la explicación
+   de la línea de arriba, no otra cosa. */
+.it.pj .v{font-variant-numeric:tabular-nums;font-weight:700}
+.porque{font-size:11.5px;color:var(--tinta-3);line-height:1.45;
+  padding:2px 4px 8px 30px;margin-top:-4px}
+.cin,.mvp{font-size:9.5px;padding:1px 4px;border-radius:5px;vertical-align:1px;
+  background:var(--acento);color:var(--sobre-acento);font-weight:800;letter-spacing:.02em}
+.mvp{background:var(--tinta-3)}
+
 .tarjeta{background:var(--hoja);border:1px solid var(--borde);border-radius:18px;
   padding:15px 17px;margin-bottom:9px}
 .meta{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--tinta-3);
@@ -626,7 +665,9 @@ function vistaFeed(){
    sola idea de qué equipo es legal. Si la pantalla dejara pasar algo que el
    servidor rechaza, el error aparecería recién el lunes.                  */
 
-const FCH = window.FECHA || null;
+/* `let` y no `const` para que la prueba pueda apagar la fecha y mirar qué
+   queda en pie. La app nunca la reasigna. */
+let FCH = window.FECHA || null;
 /* Ojo con esta línea: `fantasy.js` solo se carga si hay una fecha publicada,
    así que sin fecha `FORMACION_POR_DEFECTO` NO EXISTE. Escrito sin el
    `typeof`, esto tiraba un ReferenceError al evaluar el script y se caía la
@@ -646,6 +687,81 @@ let borrando = false;
    de invitación y todavía no se pudo usar porque la persona no había
    entrado con su mail. Sobrevive al viaje al correo y a la vuelta. */
 let LIGAS = [], ligaTabla = {}, ligaAviso = "", ligaOcupado = false;
+
+/* ══════════════════ LO QUE PASÓ CON TU EQUIPO ══════════════════
+   Hasta acá, entrar con el mail no cambiaba nada de lo que veías: el
+   servidor calculaba los puntos de cada fecha, los guardaba con el detalle
+   abierto, y la app no los mostraba en ningún lado. Alguien armaba su
+   equipo, se jugaba la fecha, y no pasaba nada. Los puntos existían en la
+   base y no existían en la pantalla, que para el que juega es lo mismo que
+   no existir.
+
+   Esto es esa pantalla. Y muestra el DETALLE, no el total: "te dieron 47"
+   es un número que hay que creer; "tu 9 hizo dos goles y le dieron un 7,8,
+   y como era tu capitán va doble" es un número que se puede discutir. Esa
+   diferencia es la que hace que alguien vuelva la fecha siguiente.        */
+let MIS_PUNTOS = [], puntosAbierto = null;
+
+async function cargarPuntos(){
+  if(typeof misPuntos!=="function" || !quienSoy()){ MIS_PUNTOS = []; return; }
+  try{ MIS_PUNTOS = await misPuntos() || []; }catch(e){ MIS_PUNTOS = []; }
+}
+
+/* Dónde saliste en cada torneo. La tabla ya está cargada para dibujarla;
+   esto solo busca tu renglón. Es la línea que convierte una tabla en algo
+   que te involucra. */
+function misPosiciones(){
+  if(!miNombre) return [];
+  return LIGAS.map(l => {
+    const t = ligaTabla[l.id] || [];
+    const i = t.findIndex(f => f.usuario === miNombre);
+    return i < 0 ? null : { nombre: l.nombre, puesto: i + 1, de: t.length,
+                            puntos: t[i].puntos };
+  }).filter(Boolean);
+}
+
+const signo = n => (n > 0 ? "+" : "") + n;
+
+function bloquePuntos(){
+  if(!MIS_PUNTOS.length) return "";
+  const u = MIS_PUNTOS[0];                         /* vienen de la más nueva */
+  const d = u.detalle || {};
+  const js = (d.jugadores || []).slice().sort((a,b)=>b.puntosFinales-a.puntosFinales);
+  const abierta = puntosAbierto === u.fecha;
+  const pos = misPosiciones();
+
+  const fila = j => `<div class="it pj">
+      <span class="n">${esc(j.puesto||"")}</span>
+      <span>${esc(apellido(j.nombre||"")||"—")}${
+        j.esCapitan?` <b class="cin">C</b>`:""}${
+        j.esMVP?` <b class="mvp">MVP</b>`:""}</span>
+      <span class="v">${signo(j.puntosFinales)}</span>
+    </div>${abierta
+      ? `<div class="porque">${(j.renglones||[]).length
+          ? j.renglones.map(r=>esc(r.que) + " " + signo(r.pts)).join(" · ")
+          : (j.jugo===false ? "no jugó" : "sin puntos esta fecha")}${
+        j.nota!=null ? ` · nota ${esc(String(j.nota))}` : ""}${
+        j.esMVP ? " · más valioso del partido" : ""}${
+        j.esCapitan ? " · capitán, va doble" : ""}</div>` : ""}`;
+
+  return `<h3 class="sec">Tu fecha ${esc(String(u.fecha))}</h3>
+    <div class="tarjeta">
+      <div class="par" style="align-items:baseline;margin-bottom:8px">
+        <b style="font-size:26px;letter-spacing:-.02em">${esc(String(u.puntos))}</b>
+        <span class="fsub">puntos${d.cintaPasada
+          ? " · tu capitán no jugó y la cinta pasó al vice" : ""}</span>
+      </div>
+      ${pos.length ? `<div class="mini" style="margin-bottom:8px">${pos.map(p=>
+        `<div class="it"><span class="n">${p.puesto}º</span>
+          <span>${esc(p.nombre)}</span>
+          <span class="v">de ${p.de}</span></div>`).join("")}</div>` : ""}
+      <div class="mini">${js.map(fila).join("")}</div>
+      ${(d.afuera||[]).length ? `<p class="aviso" style="margin-top:8px">Se quedaron
+        en el banco: ${esc((d.afuera||[]).map(j=>apellido(j.nombre||"")).join(", "))}.</p>` : ""}
+      <button class="boton flaco" id="verporque" style="margin-top:10px">${
+        abierta ? "Ocultar el detalle" : "Ver por qué cada uno sacó eso"}</button>
+    </div>`;
+}
 let ligaPendiente = null;
 
 const precioMapa = () => new Map((FCH?.jugadores||[]).map(j=>[j.id, j.precio]));
@@ -685,6 +801,29 @@ const cerrada = () => FCH && new Date(FCH.cierra) <= new Date();
      3. copiar al portapapeles — cuando el navegador bloquea la ventana.
    Nunca se queda sin hacer nada: quedarse sin hacer nada se lee como que
    el botón está roto. */
+/* COPIAR SIN DEPENDER DEL PORTAPAPELES MODERNO. `navigator.clipboard` falla
+   más de lo que uno espera: pide que la página tenga el foco y que el
+   permiso esté dado, y las dos cosas se pierden justo después de que el
+   usuario cerró un menú de compartir. Ahí el navegador tira una excepción y
+   la app terminaba diciendo "copiala de la barra de direcciones", que es
+   pedirle al usuario que haga el trabajo.
+
+   El textarea con `execCommand` es la forma vieja: fea, y anda siempre,
+   porque el navegador la trata como parte del clic. Se usa de red. */
+function copiarTexto(txt){
+  try{
+    const a = document.createElement("textarea");
+    a.value = txt;
+    a.setAttribute("readonly", "");
+    a.style.cssText = "position:fixed;top:-1000px;opacity:0";
+    document.body.appendChild(a);
+    a.select(); a.setSelectionRange(0, txt.length);
+    const ok = document.execCommand("copy");
+    document.body.removeChild(a);
+    return ok;
+  }catch(e){ return false; }
+}
+
 async function compartir(texto, url){
   const todo = texto + "\n" + url;
   if(navigator.share){
@@ -695,7 +834,7 @@ async function compartir(texto, url){
                         "_blank", "noopener");
   if(w) return "whatsapp";
   try{ await navigator.clipboard.writeText(todo); return "copiado"; }
-  catch(e){ return "nada"; }
+  catch(e){ return copiarTexto(todo) ? "copiado" : "nada"; }
 }
 
 const dondeEstoy = () => location.origin + location.pathname;
@@ -776,7 +915,7 @@ function bloqueLigas(){
     ? `<p class="aviso${/^Listo/.test(ligaAviso)?"":" mal"}">${esc(ligaAviso)}</p>` : "";
 
   if(!quienSoy())
-    return `<h3 class="sec">Torneos de amigos</h3><div class="tarjeta">
+    return `<h3 class="sec" id="torneos">Torneos de amigos</h3><div class="tarjeta">
       <p class="vacio" style="text-align:left">Armá un torneo con tus amigos: cada
       uno arma su equipo cada fecha y compiten en la misma tabla.${
         ligaPendiente?` Tenés una invitación al código <b>${esc(ligaPendiente)}</b>
@@ -801,7 +940,7 @@ function bloqueLigas(){
     </div>`).join("") : `<p class="vacio" style="text-align:left">Todavía no estás en
       ningún torneo. Creá uno y pasá el código, o entrá con el de un amigo.</p>`;
 
-  return `<h3 class="sec">Torneos de amigos</h3>
+  return `<h3 class="sec" id="torneos">Torneos de amigos</h3>
     ${mias}
     <div class="tarjeta">
       <div class="par" style="margin-bottom:8px">
@@ -815,8 +954,13 @@ function bloqueLigas(){
 }
 
 function vistaFantasy(){
-  if(!FCH) return `<div class="vacio">Todavía no hay fecha abierta.<br>
-    Cuando se publique la próxima, aparece acá.</div>`;
+  /* Sin fecha abierta, ESTA PANTALLA NO PUEDE ESTAR VACÍA. Los torneos de
+     amigos vivían adentro de este `if`, así que entre una fecha y la
+     siguiente desaparecían: alguien creaba su torneo, pasaba el código, y
+     el que entraba veía "todavía no hay fecha" y se iba. El torneo es lo
+     que dura entre fechas; es justo lo que tiene que quedar en pie. */
+  if(!FCH) return bloquePuntos() + `<div class="vacio">Todavía no hay fecha abierta.<br>
+    Cuando se publique la próxima, aparece acá.</div>` + bloqueLigas();
 
   const gasto = gastoDe(F11), pres = FCH.presupuesto || 75;
   const fichas = F11.titulares.length + Object.keys(F11.suplentes).length;
@@ -881,12 +1025,29 @@ function vistaFantasy(){
     ${rev.ok?`<button class="boton" id="fcompartir" style="margin-top:8px">Compartir mi 11</button>`:""}
     ${fAviso?`<p class="aviso${/^Listo/.test(fAviso)?"":" mal"}">${esc(fAviso)}</p>`:""}`;
 
-  return cab + chipsForm + `<div class="tarjeta fcancha">
+  return cab + bloquePuntos() + atajoTorneos() + chipsForm + `<div class="tarjeta fcancha">
       ${cancha}
       ${banco}
       ${problemas}
       ${guardar}
     </div>` + listado() + bloqueLigas();
+}
+
+/* ── EL ATAJO A LOS TORNEOS ──────────────────────────────────────────────
+   El bloque de torneos sigue abajo, después de la lista de jugadores, y ahí
+   está bien: la lista es cómo se arma el equipo y no puede quedar a media
+   pantalla de scroll. Pero abajo de todo no lo encontraba nadie.
+
+   Esto es un renglón arriba que dice que existen y lleva hasta ahí. Ocupa
+   una línea y resuelve el problema entero, que era de señalización y no de
+   orden.                                                                 */
+function atajoTorneos(){
+  if(typeof crearLiga!=="function") return "";
+  const n = (LIGAS || []).length;
+  return `<button class="atajo" id="iratorneos">
+    <span>${n ? "Estás en " + n + " torneo" + (n>1?"s":"") + " de amigos"
+              : "Jugá contra tus amigos en la misma tabla"}</span>
+    <span class="v">${n ? "ver la tabla" : "armar un torneo"} ›</span></button>`;
 }
 
 /* Un jugador parado en la cancha. El apellido abajo, el precio al lado, y
@@ -1038,6 +1199,16 @@ function engancharFantasy(){
 
   const lc = $("lcuenta");
   if(lc) lc.onclick = () => { cuentaAbierta = true; pintarCuenta(); };
+
+  const vp = $("verporque");
+  if(vp) vp.onclick = () => {
+    const u = MIS_PUNTOS[0];
+    puntosAbierto = (puntosAbierto === u.fecha) ? null : u.fecha;
+    pintar();
+  };
+
+  const it = $("iratorneos");
+  if(it) it.onclick = () => $("torneos")?.scrollIntoView({behavior:"smooth", block:"start"});
 
   v.querySelectorAll("[data-lcomp]").forEach(b=>b.onclick = async () => {
     const l = LIGAS.find(x=>x.codigo===b.dataset.lcomp); if(!l) return;
@@ -1429,6 +1600,35 @@ async function restaurar(g){
    marcadores bajos y nadie entendería por qué.                           */
 const ligasParaSimular = () => (window.LIGAS_DISPONIBLES || [])
   .map(sl => (window.LIGAS || {})[sl]).filter(Boolean);
+
+/* ── LAS BANDERAS ────────────────────────────────────────────────────────
+   Dibujadas acá, en SVG, y no traídas de ningún lado. Tres razones, y la
+   primera es la que manda:
+
+   1. La app no carga NADA de terceros. Un set de banderas de un CDN sería
+      la primera excepción, y las excepciones a esa regla no vuelven.
+   2. Pesan nada y no parpadean: ya están en la página cuando se dibuja.
+   3. Son banderas de países, no escudos de clubes. Es la única imagen que
+      esta app puede mostrar sin pisar la propiedad de nadie.
+
+   Están simplificadas a propósito —el sol argentino es un círculo, la
+   esfera portuguesa es un anillo—: a treinta píxeles de ancho el detalle no
+   se ve y solo agrega bytes. Lo que tiene que leerse al instante son los
+   colores y su disposición, y eso está exacto.                          */
+const BANDERAS = {
+  argentina: '<rect width="30" height="20" fill="#74ACDF"/><rect y="6.67" width="30" height="6.66" fill="#fff"/><circle cx="15" cy="10" r="2.1" fill="#F6B40E"/>',
+  portugal:  '<rect width="30" height="20" fill="#FF0000"/><rect width="12" height="20" fill="#006600"/><circle cx="12" cy="10" r="3.6" fill="none" stroke="#FFD700" stroke-width="1.1"/><circle cx="12" cy="10" r="1.7" fill="#fff"/>',
+  italia:    '<rect width="30" height="20" fill="#fff"/><rect width="10" height="20" fill="#009246"/><rect x="20" width="10" height="20" fill="#CE2B37"/>',
+  inglaterra:'<rect width="30" height="20" fill="#fff"/><rect x="12" width="6" height="20" fill="#CE1124"/><rect y="7" width="30" height="6" fill="#CE1124"/>',
+  espana:    '<rect width="30" height="20" fill="#AA151B"/><rect y="5" width="30" height="10" fill="#F1BF00"/>',
+  francia:   '<rect width="30" height="20" fill="#fff"/><rect width="10" height="20" fill="#002395"/><rect x="20" width="10" height="20" fill="#ED2939"/>',
+};
+/* El borde va SIEMPRE, aunque la bandera no sea blanca: sin él, la de
+   Inglaterra y la de Italia se derriten contra el fondo claro y quedan como
+   manchas de color flotando. */
+const bandera = slug => `<svg class="fl" viewBox="0 0 30 20" aria-hidden="true">${
+  BANDERAS[slug] || '<rect width="30" height="20" fill="#8894A6"/>'
+}<rect x=".4" y=".4" width="29.2" height="19.2" fill="none" stroke="rgba(0,0,0,.25)" stroke-width=".8"/></svg>`;
 
 function poolDeLiga(L, equipoId){
   const e = L.equipos[equipoId] || L.equipos[String(equipoId)];
@@ -1988,15 +2188,17 @@ function vistaJuego(){
   const otrasLigas = () => {
     const ls = ligasParaSimular();
     if(!ls.length) return "";
-    return `<h3 class="sec">Simular otro partido</h3>
+    return `<h3 class="sec">Simulá cualquier liga del mundo</h3>
       <div class="tarjeta">
-        <p class="bajada" style="margin-top:0">Cualquier partido de la próxima
-        fecha de estas ligas, con los planteles armados con lo que hicieron
-        antes. Cada liga se simula con SUS números: no se juegan los mismos
-        goles en Argentina que en Inglaterra.</p>
-        <nav class="filtros">${ls.map(L=>
-          `<button class="chip" data-liga="${esc(L.slug)}"
-            aria-pressed="${L.slug===J.liga}">${esc(L.pais)}</button>`).join("")}</nav>
+        <p class="bajada" style="margin-top:0">Elegí un país y simulá cualquier
+        partido de su próxima fecha, con los planteles armados con lo que
+        hicieron antes. Cada liga corre con SUS números: no se juegan los
+        mismos goles en Argentina que en Inglaterra.</p>
+        <nav class="paises">${ls.map(L=>
+          `<button class="pais" data-liga="${esc(L.slug)}"
+            aria-pressed="${L.slug===J.liga}">${bandera(L.slug)}
+            <span class="pn">${esc(L.pais)}</span>
+            <span class="pl">${esc(L.nombre)}</span></button>`).join("")}</nav>
         ${J.liga && (window.LIGAS||{})[J.liga] ? (()=>{ const L=window.LIGAS[J.liga];
           return `<div class="mini" style="margin-top:8px">${L.partidos.map(p=>
             `<div class="it" data-part="${p.id}" role="button" tabindex="0">
@@ -2023,6 +2225,12 @@ function vistaJuego(){
         <span class="lv">${loc?"local":"visita"}</span></div>`;};
     const porVenir=J.fixtures.map((f,i)=>[f,i]).filter(([f])=>!JUGADO(f)).slice(0,4);
     const jugados =J.fixtures.map((f,i)=>[f,i]).filter(([f])=>JUGADO(f)).reverse().slice(0,12);
+    /* Las otras ligas van DESPUÉS de lo que viene y ANTES de los doce
+       partidos ya jugados. Antes estaban al final de todo y no las
+       encontraba nadie: es la función que se puede vender en cualquier
+       país, y estaba a doce filas de scroll de distancia. Arriba de todo
+       tampoco va —esta app abre en el club de uno, y eso no se toca—, pero
+       la primera pantalla tiene que dejarla ver. */
     return `
     ${porVenir.length?`<h3 class="sec">Lo que viene</h3>
       <div class="tarjeta">
@@ -2030,13 +2238,13 @@ function vistaJuego(){
         el partido volvés con tu link y comparás.</p>
         ${porVenir.map(([f,i])=>fila(f,i)).join("")}
       </div>`:""}
+    ${otrasLigas()}
     <h3 class="sec">Ya jugados</h3>
     <div class="tarjeta">
       <p class="bajada" style="margin-top:0">Acá podés revelar el once del DT enseguida.</p>
       ${jugados.map(([f,i])=>fila(f,i)).join("")}
       ${msg}${cab}
-    </div>
-    ${otrasLigas()}`;
+    </div>`;
   }
 
   if(J.paso==="armar"||J.paso==="resultado"||J.paso==="revelado"){
@@ -2287,24 +2495,27 @@ function enganchar(){
   /* Compartir de verdad, no copiar. En el teléfono —que es donde esto se usa—
      `navigator.share` abre WhatsApp directo; copiar al portapapeles obliga a
      salir de la app, abrir el chat y pegar, y ahí se pierde la mitad de la
-     gente. Si el navegador no lo tiene, se copia como antes.            */
+     gente.
+
+     ESTO USA EL MISMO `compartir` QUE EL FANTASY, y antes no. Tenía su
+     propia copia de la lógica, sin el paso de wa.me y sin la red del
+     execCommand, así que en la compu terminaba diciendo "copiala de la
+     barra de direcciones" — que es el botón admitiendo que no hizo nada.
+     Dos caminos para lo mismo es un camino que nadie arregla.          */
   const bg=$("bguardar");
   if(bg) bg.onclick=async()=>{
     const link=linkDelPronostico();
     location.hash = link.split("#")[1];
     const texto = "Armé mi once de " + CLUB.nom + " para " +
       (J.nom.A||"") + " vs " + (J.nom.B||"") + ". A ver si le pegás mejor que yo:";
-    if(navigator.share){
-      try{ await navigator.share({ title:"Armá el 11 · "+CLUB.nom, text:texto, url:link });
-        $("avisoLink").textContent="Listo. Cuando termine el partido, ese link te muestra la comparación.";
-        return;
-      }catch(e){ if(e && e.name==="AbortError") return; }   // lo cerró a propósito
-    }
-    try{ await navigator.clipboard.writeText(link);
-      $("avisoLink").textContent="Copiado. Guardalo o mandátelo: cuando termine el partido, ese link te muestra la comparación.";
-    }catch(e){
-      $("avisoLink").textContent="No pude copiarlo solo, pero ya está en la barra de direcciones: copiala de ahí.";
-    }
+    const r = await compartir(texto, link);
+    const dice = {
+      compartido: "Listo. Cuando termine el partido, ese link te muestra la comparación.",
+      whatsapp:   "Te abrí WhatsApp con el mensaje listo.",
+      copiado:    "Copiado. Mandáselo a quien quieras: cuando termine el partido, ese link muestra la comparación.",
+      nada:       "No pude copiarlo. El link quedó en la barra de direcciones.",
+    };
+    if(r) $("avisoLink").textContent = dice[r] || dice.copiado;
   };
 }
 
@@ -2346,6 +2557,11 @@ async function arrancarCuenta(){
   capturarInvitacion();
   $("bcuenta").hidden=false;
   $("bcuenta").onclick=()=>{ cuentaAbierta=!cuentaAbierta; pintarCuenta(); };
+  /* Antes de la tanda de pedidos, no después de que fallen: si el token de
+     una hora ya venció, esto lo renueva UNA vez y todo lo que sigue sale
+     con el nuevo. Sin esto, seis pedidos daban 401 juntos y se peleaban por
+     renovar con el mismo refresh, que es de un solo uso. */
+  if(quienSoy() && typeof asegurarSesion==="function"){ try{ await asegurarSesion(); }catch(e){} }
   if(quienSoy()){ try{ miNombre=await miUsuario(); }catch(e){} }
   pintarCuenta();
   if(quienSoy()){
@@ -2353,6 +2569,7 @@ async function arrancarCuenta(){
     try{ PLANES = await planesPremium(); }catch(e){}
     pintarCuenta();
     await cargarLigas();
+    await cargarPuntos();
     await usarInvitacion();
     pintar();
   }

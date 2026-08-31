@@ -176,6 +176,63 @@ const tokenCon = uid => "x." +
        C.quienSoy() === null && pedidos.length === 2, pedidos.length + " pedidos");
 }
 
+/* ─── 6bis. POR QUÉ SE CAÍA LA SESIÓN AL RATO ────────────────────────────
+   Fausto: "entrás y la sesión se cae al rato". No se caía: la cerrábamos
+   nosotros, por dos motivos distintos. Un caso para cada uno.            */
+{
+  const entrar = () => C.capturarVuelta(
+    { hash: "#access_token=" + tokenCon("uid-1") + "&refresh_token=R", pathname:"/x.html", search:"" },
+    { replaceState() {} });
+
+  /* UNO: el refresh token de Supabase es de UN SOLO USO. La pantalla
+     dispara varios pedidos juntos; al vencer el token todos daban 401 a la
+     vez y todos intentaban renovar con el mismo refresh. El primero
+     funcionaba y los demás recibían "ya usado" — y con eso cerrábamos la
+     sesión de alguien que estaba perfectamente adentro. */
+  entrar(); limpiar();
+  responder({ message: "JWT expired" }, false, 401);         /* pedido A */
+  responder({ message: "JWT expired" }, false, 401);         /* pedido B */
+  responder({ access_token: tokenCon("uid-1"), refresh_token: "R2" });  /* UNA renovación */
+  responder([{ usuario: "fausto" }]);
+  responder([{ premium_hasta: null }]);
+  const [a, b] = await Promise.all([C.miUsuario(), C.miPremium()]);
+  const renovaciones = pedidos.filter(p => /grant_type=refresh_token/.test(p.url)).length;
+  caso("dos pedidos que vencen juntos renuevan UNA sola vez", renovaciones === 1,
+       renovaciones + " renovaciones en " + pedidos.length + " pedidos");
+  caso("y los dos terminan bien, sin echar a nadie",
+       a === "fausto" && b !== null && C.quienSoy() !== null, a + " / " + JSON.stringify(b));
+
+  /* DOS: un error de red no es una sesión vencida. Antes, cualquier
+     excepción —el subte, un timeout— borraba el token del teléfono, y eso
+     no se recupera: hay que volver a pedir el mail. */
+  entrar(); limpiar();
+  const fetchBueno = globalThis.fetch;
+  let n = 0;
+  globalThis.fetch = async (...args) => {
+    n++;
+    if (n === 1) return { ok:false, status:401, text: async () => JSON.stringify({ message:"JWT expired" }) };
+    throw new Error("Failed to fetch");                       /* se cayó la red */
+  };
+  let murio = "";
+  try { await C.miUsuario(); } catch (e) { murio = e.message; }
+  globalThis.fetch = fetchBueno;
+  caso("si la red se cae mientras renueva, la sesión NO se borra",
+       C.quienSoy() !== null, "quedó: " + JSON.stringify(C.quienSoy()));
+  /* El pedido sí falla —no hay forma de contestarlo— pero falla con el
+     error del pedido original. Eso está bien: lo que no puede pasar es que
+     además se lleve puesta la sesión, que es lo que se mide arriba. */
+  caso("el pedido falla, pero solo ese pedido", !!murio, murio);
+
+  /* Y la renovación anticipada: un token que ya venció se renueva ANTES de
+     disparar la tanda, no después de que seis pedidos den 401. */
+  entrar(); limpiar();
+  responder({ access_token: tokenCon("uid-1"), refresh_token: "R3" });
+  await C.asegurarSesion();
+  caso("un token sin vencimiento se renueva por las dudas antes de usarlo",
+       pedidos.length === 1 && /grant_type=refresh_token/.test(pedidos[0].url),
+       pedidos.length + " pedidos");
+}
+
 /* ─── 7. LAS LIGAS ───────────────────────────────────────────────────────── */
 {
   /* Volver a entrar, que el caso anterior cerró la sesión a propósito. */

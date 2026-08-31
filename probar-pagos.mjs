@@ -73,6 +73,21 @@ caso("la app pide los precios, no los tiene escritos",
      /functions\/v1\/crear-pago/.test(CUENTAS) &&
      !/precio\s*[:=]\s*\d{3,}/.test(CUENTAS));
 
+/* Las funciones tienen una puerta ANTES del código: Supabase revisa el
+   token y contesta "Missing authorization header" sin ejecutar nada. Con la
+   clave pública puesta solo en `apikey`, esa puerta no se abre.
+
+   Y el efecto habría sido invisible: `planesPremium` devuelve lista vacía
+   cuando falla, y el panel sin planes no dibuja ningún botón. Un botón que
+   no aparece no se parece a un error — nadie lo habría encontrado hasta
+   preguntarse por qué no vendemos nada. */
+{
+  const pide = CUENTAS.match(/planesPremium[\s\S]*?\n}/);
+  caso("y los pide con Authorization, que es lo que mira la puerta de la función",
+       !!pide && /Authorization: "Bearer " \+ anon/.test(pide[0]),
+       (pide?.[0].match(/headers:.*/) || ["no encontré el pedido"])[0]);
+}
+
 /* ── LAS DOS TIENEN QUE HABLAR EL MISMO IDIOMA ───────────────────────── */
 caso("una escribe la referencia como uuid:meses",
      /external_reference: perfil \+ ":" \+ plan\.meses/.test(CREAR));

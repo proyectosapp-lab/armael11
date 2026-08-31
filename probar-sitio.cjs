@@ -575,6 +575,25 @@ srv.listen(8099, async () => {
   });
   caso("con una liga bajada, aparece el selector", conLigas.chips === 1);
 
+  /* ── QUE SE VEA ──────────────────────────────────────────────────────
+     Esto es lo que se puede vender en cualquier país y estaba al final de
+     todo, después de doce partidos ya jugados. Dos casos lo fijan: que
+     tenga bandera —lo único que se reconoce sin leer— y que esté ANTES de
+     "Ya jugados", que es donde termina la primera pantalla. */
+  const visible = await pg.evaluate(() => {
+    /* innerText respeta el text-transform del CSS, y los títulos van en
+       mayúsculas: buscar "Ya jugados" tal cual no encuentra nada. */
+    const t = document.body.innerText.toLowerCase();
+    const b = document.querySelector('[data-liga="inglaterra"] svg.fl');
+    return { bandera: !!b, colores: b ? b.innerHTML.match(/#[0-9A-Fa-f]{6}/g) || [] : [],
+             antes: t.indexOf("liga del mundo"), jugados: t.indexOf("ya jugados") };
+  });
+  caso("cada país va con su bandera dibujada por nosotros", visible.bandera);
+  caso("y la bandera tiene los colores del país, no un gris de relleno",
+       visible.colores.includes("#CE1124"), visible.colores.join(" "));
+  caso("y la sección va antes de los partidos ya jugados, no al final",
+       visible.antes > 0 && visible.antes < visible.jugados);
+
   const elegida = await pg.evaluate(() => {
     document.querySelector('[data-liga="inglaterra"]').click();
     return document.body.innerText;

@@ -1,4 +1,73 @@
-Armá el 11 — versión 2026-08-30 y (el cobro)
+Armá el 11 — versión 2026-08-31 y4 (la sesión y lo tuyo)
+
+  · POR QUÉ SE CAÍA LA SESIÓN AL RATO. No se caía: la cerrábamos nosotros,
+    por dos motivos que se sumaban.
+      · El refresh token de Supabase es de UN SOLO USO. La pantalla dispara
+        varios pedidos juntos —el usuario, el premium, los torneos, la
+        tabla de cada torneo— así que al vencer el token de una hora todos
+        daban 401 al mismo tiempo y todos intentaban renovar con el MISMO
+        refresh. El primero funcionaba; los demás recibían "ya usado" y con
+        eso se cerraba la sesión de alguien que estaba perfectamente
+        adentro. Ahora la renovación es una sola y los demás la esperan.
+      · Y un error de red NO es una sesión vencida. Antes cualquier
+        excepción —el subte, un timeout— borraba el token del teléfono, y
+        eso no se recupera: hay que volver a pedir el mail. Ahora solo se
+        cierra si el servidor dijo que ese refresh no sirve.
+      · Además se renueva ANTES de disparar la tanda, no después de que
+        seis pedidos fallen.
+
+  · ENTRAR AHORA CAMBIA ALGO. El servidor calculaba los puntos de cada
+    fecha y guardaba el detalle abierto, y la app no los mostraba en ningún
+    lado: se armaba el equipo, se jugaba la fecha, y no pasaba nada. Los
+    puntos existían en la base y no existían en la pantalla, que para el
+    que juega es lo mismo que no existir.
+      · Arriba de la pestaña del fantasy, tu última fecha puntuada: el
+        total, en qué puesto quedaste en cada torneo, y qué sacó cada uno
+        de tus jugadores.
+      · Y el PORQUÉ, a un toque. "Te dieron 47" es un número que hay que
+        creer; "tu 9 hizo un gol, jugó los 90, le pusieron 8.1, fue el más
+        valioso y era tu capitán" es un número que se puede discutir. Esa
+        diferencia es la que hace que alguien vuelva la fecha siguiente.
+      · El que no jugó lo dice, en vez de mostrar un cero sin explicación.
+
+  · 515 casos de prueba.
+
+── lo de antes ───────────────────────────────────────────────────────────
+Armá el 11 — versión 2026-08-31 y3 (que se encuentren las cosas)
+
+  · LAS OTRAS LIGAS, CON BANDERA Y ARRIBA. Estaban al final de la pantalla,
+    después de doce partidos ya jugados: es la función que se puede vender
+    en cualquier país y había que scrollear para encontrarla. Ahora va
+    entre "lo que viene" y "ya jugados", con una ficha por país.
+      · Las banderas son SVG escrito acá, no imágenes traídas de ningún
+        lado. La app no carga NADA de terceros y esa regla no tiene
+        excepciones. Además son banderas de países, no escudos de clubes:
+        es la única imagen que esta app puede mostrar sin pisar la
+        propiedad de nadie.
+      · Están simplificadas (el sol argentino es un círculo, la esfera
+        portuguesa un anillo): a treinta píxeles el detalle no se ve.
+
+  · COMPARTIR ANDABA MAL EN LA COMPU. El botón de compartir el pronóstico
+    tenía su propia copia de la lógica, sin el paso de wa.me: cuando el
+    portapapeles fallaba —pasa seguido, pide foco y permiso— terminaba
+    diciendo "copiala de la barra de direcciones", que es el botón
+    admitiendo que no hizo nada. Ahora usa el mismo `compartir` que el
+    fantasy, y se le agregó la red vieja del textarea con execCommand, que
+    es fea y anda siempre.
+
+  · LOS TORNEOS DE AMIGOS SE ENCUENTRAN. Dos problemas distintos:
+      · Estaban al final de la lista de jugadores. La lista se queda donde
+        está —es cómo se arma el equipo— pero ahora hay un renglón arriba
+        que dice que existen y lleva hasta ahí.
+      · Y desaparecían entre una fecha y la siguiente, porque vivían
+        adentro del "todavía no hay fecha abierta". El torneo es
+        justamente lo que dura entre fechas: el amigo que entraba con el
+        código veía una pantalla vacía y se iba.
+
+  · 504 casos de prueba.
+
+── lo de antes ───────────────────────────────────────────────────────────
+Armá el 11 — versión 2026-08-31 y2 (el cobro)
 
   · SE PUEDE COBRAR. Dos funciones nuevas que NO corren en GitHub: corren
     en Supabase, y se pegan a mano en el editor del navegador. Están en el
@@ -45,7 +114,15 @@ Armá el 11 — versión 2026-08-30 y (el cobro)
     cuando se rompen: DEJAN PASAR. Nadie se entera de que el precio empezó a
     salir del navegador hasta que alguien paga un peso.
 
-  · 497 casos de prueba.
+  · ARREGLADO ANTES DE SUBIRLO: la app pedía los precios con la clave
+    pública solo en `apikey`. Las funciones tienen una puerta ANTES del
+    código —Supabase revisa el token y contesta "Missing authorization
+    header" sin ejecutar nada— y esa puerta mira `Authorization`. El efecto
+    habría sido invisible: `planesPremium` devuelve lista vacía cuando
+    falla, y el panel sin planes no dibuja ningún botón. Un botón que no
+    aparece no se parece a un error. Hay una prueba nueva que lo fija.
+
+  · 498 casos de prueba.
 
 ── lo de antes ───────────────────────────────────────────────────────────
 Armá el 11 — versión 2026-08-30 x (el orden, los puntos y el premium)

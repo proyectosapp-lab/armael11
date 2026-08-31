@@ -364,6 +364,87 @@ const uno = (pg, sel) => pg.locator(sel).first();
     caso('y avisa que hay una invitación esperando',
          /XK4T9P/.test(sinSesion) && /invitaci[oó]n/i.test(sinSesion));
 
+    /* ── LO QUE PASÓ CON TU EQUIPO ────────────────────────────────────────
+       El servidor calculaba los puntos y guardaba el detalle, y la app no
+       los mostraba en ningún lado: alguien armaba su equipo, se jugaba la
+       fecha y no pasaba nada. Los puntos existían en la base y no existían
+       en la pantalla, que para el que juega es lo mismo.
+
+       Se le meten puntos de mentira y se mira que aparezcan, y sobre todo
+       que el PORQUÉ aparezca: "te dieron 47" hay que creerlo, "tu 9 hizo
+       dos goles y era capitán" se puede discutir. */
+    const puntos = await pg.evaluate(() => {
+      MIS_PUNTOS = [{ fecha: 7, puntos: 43.5, detalle: {
+        cintaPasada: false,
+        afuera: [{ id: 90, nombre: "Juan Banco", puesto: "D" }],
+        jugadores: [
+          { id:1, nombre:"Ana Goleadora", puesto:"F", puntosFinales:18, nota:8.1,
+            esCapitan:true, esMVP:true, jugo:true,
+            renglones:[{ que:"gol", pts:4 }, { que:"jugó todo el partido", pts:2 }] },
+          { id:2, nombre:"Luis Arquero", puesto:"G", puntosFinales:6, nota:6.9,
+            esCapitan:false, esMVP:false, jugo:true,
+            renglones:[{ que:"valla invicta", pts:4 }] },
+          { id:3, nombre:"Pedro Suplente", puesto:"M", puntosFinales:0, nota:null,
+            esCapitan:false, esMVP:false, jugo:false, renglones:[] },
+        ] } }];
+      miNombre = "fausto";
+      LIGAS = [{ id: 1, nombre: "Los del barrio", codigo: "XK4T9P" }];
+      ligaTabla = { 1: [{ usuario:"otro", puntos:50 }, { usuario:"fausto", puntos:43.5 }] };
+      pintar();
+      const cerrado = document.body.innerText;
+      document.getElementById("verporque").click();
+      return { cerrado, abierto: document.body.innerText };
+    });
+    caso('la fecha puntuada aparece con el total',
+         /43[.,]5/.test(puntos.cerrado) && /tu fecha 7/i.test(puntos.cerrado));
+    caso('con lo que sacó cada jugador', /Goleadora/.test(puntos.cerrado) &&
+         /\+18/.test(puntos.cerrado), puntos.cerrado.slice(0, 200).replace(/\n/g, ' | '));
+    caso('y en qué puesto quedaste en tu torneo',
+         /2º/.test(puntos.cerrado) && /Los del barrio/.test(puntos.cerrado));
+    caso('el porqué está escondido hasta que lo pedís',
+         !/valla invicta/.test(puntos.cerrado) && /valla invicta/.test(puntos.abierto));
+    caso('y cuando se abre dice por qué el capitán vale doble',
+         /capit[aá]n, va doble/i.test(puntos.abierto));
+    caso('el que no jugó lo dice, en vez de mostrar un cero sin explicación',
+         /no jug[oó]/.test(puntos.abierto));
+    await pg.evaluate(() => { MIS_PUNTOS = []; LIGAS = []; ligaTabla = {};
+                              miNombre = null; puntosAbierto = null; pintar(); });
+
+    /* ── QUE SE ENCUENTREN ────────────────────────────────────────────────
+       Fausto no los encontró, y tenía razón por dos motivos distintos:
+       estaban al final de la lista de jugadores, y entre una fecha y la
+       siguiente desaparecían del todo. Un caso para cada uno. */
+    const atajo = await pg.evaluate(() => {
+      const a = document.getElementById("iratorneos");
+      const h = document.getElementById("torneos");
+      /* El encabezado de la lista de jugadores. Se busca por su texto y no
+         por una clase, porque las clases se reusan en toda la pantalla. */
+      const lista = [...document.querySelectorAll("h3.sec")]
+        .find(h => /elegí jugadores/i.test(h.innerText));
+      return { hay: !!a, texto: a ? a.innerText : "",
+               arribaDelBloque: !!(a && h) &&
+                 a.getBoundingClientRect().top < h.getBoundingClientRect().top,
+               arribaDeLaLista: !!(a && lista) &&
+                 a.getBoundingClientRect().top < lista.getBoundingClientRect().top };
+    });
+    caso('hay un atajo a los torneos arriba, donde se ve', atajo.hay &&
+         /torneo/i.test(atajo.texto), atajo.texto.replace(/\n/g, ' | '));
+    caso('y está antes del bloque y antes de la lista de jugadores',
+         atajo.arribaDelBloque && atajo.arribaDeLaLista, JSON.stringify(atajo));
+
+    /* El torneo es lo que dura ENTRE fechas. Si desaparece cuando no hay
+       fecha abierta, el amigo que entra con el código ve "todavía no hay
+       fecha" y se va. */
+    const sinFecha = await pg.evaluate(() => {
+      const guardada = FCH;
+      FCH = null; pintar();
+      const t = document.body.innerText;
+      FCH = guardada; pintar();
+      return t;
+    });
+    caso('sin fecha abierta los torneos siguen estando',
+         /torneos de amigos/i.test(sinFecha), sinFecha.slice(0, 120).replace(/\n/g, ' | '));
+
     const link = await pg.evaluate(() =>
       linkDeLiga({ nombre: 'Los del barrio', codigo: 'XK4T9P' }));
     caso('el link de invitación lleva el código en el hash',
