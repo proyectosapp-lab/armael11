@@ -333,6 +333,20 @@ export async function linkDePago(plan = "mes") {
   return d.link;
 }
 
+/* ─── LAS FASES ────────────────────────────────────────────────────────────
+   El calendario es público —saber que la fase 2 va de la 13 a la 17 no dice
+   nada de nadie— pero las zonas solo las ve el que está adentro, y la tabla
+   sale de una función que devuelve usuarios y puntos: los uuid de perfil no
+   se leen desde ningún teléfono.                                          */
+export const fases = () => pedir("/rest/v1/fase?select=*&order=numero.asc");
+
+export const misZonas = () => sesion?.uid
+  ? pedir("/rest/v1/zona?select=id,nombre,fase")
+  : [];
+
+export const tablaDeZona = (zona, fecha = null) =>
+  pedir("/rest/v1/rpc/tabla_zona", { metodo: "POST", cuerpo: { z: zona, f: fecha } });
+
 export const tablaDeLiga = (liga, fecha = null) =>
   pedir("/rest/v1/rpc/tabla_liga", { metodo: "POST", cuerpo: { l: liga, f: fecha } });
 

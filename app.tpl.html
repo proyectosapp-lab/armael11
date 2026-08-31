@@ -80,6 +80,13 @@ body{margin:0;background:transparent;color:var(--tinta);
   background:var(--acento);color:var(--sobre-acento);font-weight:800;letter-spacing:.02em}
 .mvp{background:var(--tinta-3)}
 
+/* De qué torneo viene cada uno en la zona. Va chico y al lado del usuario:
+   es lo que convierte a un desconocido en alguien. */
+.viene{font-size:10.5px;color:var(--tinta-3);white-space:nowrap}
+.it.yo{background:color-mix(in srgb, var(--acento) 12%, transparent);
+  border-radius:9px;margin:0 -6px;padding-left:6px;padding-right:6px}
+.atajo.gana{border-style:solid;border-color:var(--acento)}
+
 .tarjeta{background:var(--hoja);border:1px solid var(--borde);border-radius:18px;
   padding:15px 17px;margin-bottom:9px}
 .meta{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--tinta-3);
@@ -680,6 +687,87 @@ const FORM_DEF = (typeof FORMACION_POR_DEFECTO !== "undefined")
   ? FORMACION_POR_DEFECTO : "4-3-3";
 let F11 = { titulares:[], suplentes:{}, capitan:null, vice:null, formacion: FORM_DEF };
 let fFiltro = "todos", fBusca = "", fGuardando = false, fAviso = "";
+
+/* ══════════════════ EL EQUIPO NO SE PIERDE ══════════════════
+   Esto faltaba entero y era lo peor que quedaba en la app: el equipo se
+   guardaba en el servidor y NUNCA se volvía a leer. Armabas quince
+   jugadores, tocabas guardar, cerrabas, y al volver la cancha estaba
+   vacía. Desde otro teléfono, también. Quedaba guardado de verdad —se
+   puntuaba bien— pero no había forma de verlo, así que la única lectura
+   posible era "se borró".
+
+   Se arregla por dos lados, y son dos problemas distintos:
+
+   · EL BORRADOR, en el teléfono. Armar quince jugadores son cincuenta
+     toques. Que un cierre de pestaña se los lleve es la clase de cosa que
+     hace que alguien no vuelva a intentarlo. Se guarda en cada cambio, sin
+     pedir cuenta ni conexión.
+
+   · EL GUARDADO, en el servidor. Es el que cuenta —es el que se puntúa— así
+     que cuando existe, MANDA. Si el borrador de este teléfono ganara, el
+     que armó algo en la compu y no lo guardó vería su versión vieja acá y
+     creería que perdió lo otro.
+
+   La formación no se guarda en la base a propósito: se deduce de los
+   puestos de los once. Un dato que se puede calcular y además se guarda es
+   un dato que algún día va a estar en desacuerdo consigo mismo.        */
+const LLAVE_F11 = "armaEl11.equipo";
+const jugadorPorId = new Map(((FCH && FCH.jugadores) || []).map(j => [j.id, j]));
+
+const formacionDe = titulares => ["D","M","F"]
+  .map(p => titulares.filter(j => j.puesto === p).length).join("-");
+
+/* De ids a jugadores. Los que ya no están en la fecha se caen solos: si un
+   jugador salió de la lista, mostrarlo sería ofrecer algo que el servidor
+   va a rechazar. */
+function armarEquipo({ titulares, suplentes, capitan, vice }){
+  const t = (titulares || []).map(id => jugadorPorId.get(id)).filter(Boolean);
+  const s = {};
+  for(const id of (suplentes || [])){
+    const j = jugadorPorId.get(id); if(j) s[j.puesto] = j;
+  }
+  if(!t.length) return null;
+  return { titulares: t, suplentes: s,
+           capitan: jugadorPorId.has(capitan) ? capitan : (t[0] && t[0].id) || null,
+           vice: jugadorPorId.has(vice) ? vice : null,
+           formacion: formacionDe(t) };
+}
+
+function guardarBorrador(){
+  if(!FCH) return;
+  try{
+    localStorage.setItem(LLAVE_F11, JSON.stringify({
+      fecha: FCH.numero,
+      titulares: F11.titulares.map(j=>j.id),
+      suplentes: Object.values(F11.suplentes).map(j=>j.id),
+      capitan: F11.capitan, vice: F11.vice }));
+  }catch(e){}
+}
+
+/* El borrador es de UNA fecha. Uno de la fecha pasada no se restaura: sería
+   ofrecerte un equipo con jugadores que ya no valen lo mismo. */
+function leerBorrador(){
+  if(!FCH) return null;
+  try{
+    const d = JSON.parse(localStorage.getItem(LLAVE_F11) || "null");
+    if(!d || d.fecha !== FCH.numero) return null;
+    return armarEquipo(d);
+  }catch(e){ return null; }
+}
+
+/* El del servidor manda cuando existe: es el que se va a puntuar. */
+async function traerMiEquipo(){
+  if(!FCH || typeof miEquipo!=="function" || !quienSoy()) return;
+  try{
+    const g = await miEquipo(FCH.numero);
+    const e = g && armarEquipo(g);
+    if(!e) return;
+    F11 = e;
+    fAviso = "Este es el equipo que tenés guardado para esta fecha.";
+    guardarBorrador();
+    pintar();
+  }catch(e){}
+}
 let fOrden = "caros", fClub = "";
 /* El borrado de cuenta pide confirmación: esto dice si está preguntando. */
 let borrando = false;
@@ -891,6 +979,56 @@ async function cargarLigas(){
   }catch(e){ LIGAS = []; }
 }
 
+/* ══════════════════ LAS FASES ══════════════════
+   El torneo de amigos es la fase clasificatoria: el que gana su grupo pasa
+   a una zona con ganadores de otros grupos. Acá se lee lo que armó el
+   servidor; la app no decide nada de esto.
+
+   Y una zona se muestra distinto que una liga a propósito: en tu liga
+   sabés quién es cada uno, en la zona no. Por eso cada rival va con el
+   nombre del torneo que ganó para llegar hasta ahí — "este ganó Los Pibes
+   del Barrio" — que es lo único que lo convierte en alguien en vez de un
+   nombre de usuario cualquiera.                                          */
+let ZONAS = [], zonaTabla = {}, FASES = [];
+
+async function cargarZonas(){
+  if(typeof misZonas!=="function" || !quienSoy()){ ZONAS = []; return; }
+  try{
+    ZONAS = await misZonas() || [];
+    FASES = (typeof fases==="function" ? await fases() : []) || [];
+    for(const z of ZONAS){
+      try{ zonaTabla[z.id] = await tablaDeZona(z.id) || []; }
+      catch(e){ zonaTabla[z.id] = []; }
+    }
+  }catch(e){ ZONAS = []; }
+}
+
+const faseDe = id => FASES.find(f => f.id === id) || null;
+
+function bloqueZonas(){
+  if(!ZONAS.length) return "";
+  return ZONAS.map(z => {
+    const f = faseDe(z.fase);
+    const t = zonaTabla[z.id] || [];
+    return `<div class="tarjeta">
+      <div class="par" style="align-items:baseline">
+        <b>${esc(z.nombre)}</b>
+        <span class="fsub">${f ? esc(f.nombre) + " · fechas " + f.desde + " a " + f.hasta
+                              : "clasificados"}</span></div>
+      <p class="bajada" style="margin-top:4px">Clasificaste. Acá competís contra los
+         que ganaron su propio torneo de amigos.</p>
+      ${t.length ? `<div class="mini">${t.map((x,i)=>
+        `<div class="it${x.usuario===miNombre?" yo":""}">
+           <span class="n">${i+1}</span>
+           <span>${esc(x.usuario)}${x.viene_de
+             ? ` <span class="viene">ganó ${esc(x.viene_de)}</span>` : ""}</span>
+           <span class="v">${x.puntos}</span></div>`).join("")}</div>`
+        : `<p class="vacio" style="text-align:left">La zona arranca cuando se juegue
+           la primera fecha de esta ronda.</p>`}
+    </div>`;
+  }).join("");
+}
+
 async function usarInvitacion(){
   if(!ligaPendiente || !quienSoy() || typeof entrarALiga!=="function") return;
   const cod = ligaPendiente;
@@ -940,7 +1078,10 @@ function bloqueLigas(){
     </div>`).join("") : `<p class="vacio" style="text-align:left">Todavía no estás en
       ningún torneo. Creá uno y pasá el código, o entrá con el de un amigo.</p>`;
 
-  return `<h3 class="sec" id="torneos">Torneos de amigos</h3>
+  return (ZONAS.length
+      ? `<h3 class="sec">${ZONAS.length>1?"Tus zonas":"Tu zona"}</h3>` + bloqueZonas()
+      : "") +
+    `<h3 class="sec" id="torneos">Torneos de amigos</h3>
     ${mias}
     <div class="tarjeta">
       <div class="par" style="margin-bottom:8px">
@@ -1043,11 +1184,15 @@ function vistaFantasy(){
    orden.                                                                 */
 function atajoTorneos(){
   if(typeof crearLiga!=="function") return "";
-  const n = (LIGAS || []).length;
-  return `<button class="atajo" id="iratorneos">
-    <span>${n ? "Estás en " + n + " torneo" + (n>1?"s":"") + " de amigos"
-              : "Jugá contra tus amigos en la misma tabla"}</span>
-    <span class="v">${n ? "ver la tabla" : "armar un torneo"} ›</span></button>`;
+  const n = (LIGAS || []).length, z = (ZONAS || []).length;
+  /* Clasificar es la mejor noticia que da esta app. Si pasó, el renglón lo
+     dice antes que cualquier otra cosa. */
+  const que = z ? "Clasificaste: estás en " + (z>1 ? z + " zonas" : "una zona")
+            : n ? "Estás en " + n + " torneo" + (n>1?"s":"") + " de amigos"
+                : "Jugá contra tus amigos en la misma tabla";
+  return `<button class="atajo${z?" gana":""}" id="iratorneos">
+    <span>${que}</span>
+    <span class="v">${z ? "ver tu zona" : n ? "ver la tabla" : "armar un torneo"} ›</span></button>`;
 }
 
 /* Un jugador parado en la cancha. El apellido abajo, el precio al lado, y
@@ -2416,6 +2561,11 @@ function leerPronostico(){
 /* ══════════════════ render y eventos ══════════════════ */
 function pintar(){
   pintarColores();
+  /* El borrador se guarda acá y no en cada función que toca el equipo. Hay
+     ocho lugares que lo modifican —sumar, sacar, cambiar formación, poner
+     la cinta, el banco— y el día que alguien agregue el noveno se va a
+     olvidar de llamar al guardado. Desde acá no se puede olvidar. */
+  guardarBorrador();
   $("vista").innerHTML = tab==="feed"?vistaFeed() : tab==="juego"?vistaJuego()
                        : tab==="fantasy"?vistaFantasy() : vistaNumeros();
   document.querySelectorAll("#barra button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.tab===tab));
@@ -2533,6 +2683,13 @@ $("btema").onclick=()=>{ tema=temaReal()==="oscuro"?"claro":"oscuro"; pintar(); 
 prefiere.addEventListener("change",()=>{ if(tema==="auto") pintar(); });
 pintar();
 
+/* El borrador de este teléfono, antes de dibujar nada. No necesita cuenta
+   ni conexión: es lo que estabas armando la última vez. */
+{
+  const b = leerBorrador();
+  if(b){ F11 = b; pintar(); }
+}
+
 /* Si los datos del juego ya vienen con la página, no hay nada que pedirle
    al usuario: se salta la pantalla de la key y se carga la temporada.  */
 if(window.CACHE) cargarTemporada();
@@ -2568,7 +2725,9 @@ async function arrancarCuenta(){
     try{ PREMIUM = (await miPremium()) || PREMIUM; }catch(e){}
     try{ PLANES = await planesPremium(); }catch(e){}
     pintarCuenta();
+    await traerMiEquipo();
     await cargarLigas();
+    await cargarZonas();
     await cargarPuntos();
     await usarInvitacion();
     pintar();
@@ -2644,7 +2803,8 @@ function pintarCuenta(aviso="", mal=false){
     ${av}`;
   engancharPremium();
   $("csalir").onclick=()=>{ salir(); miNombre=null; borrando=false;
-                            PREMIUM={activo:false,hasta:null}; pintarCuenta(); };
+                            PREMIUM={activo:false,hasta:null};
+                            ZONAS=[]; zonaTabla={}; MIS_PUNTOS=[]; pintarCuenta(); };
   const bb=$("cborrar");   if(bb) bb.onclick=()=>{ borrando=true;  pintarCuenta(); };
   const bn=$("cnoborrar"); if(bn) bn.onclick=()=>{ borrando=false; pintarCuenta(); };
   const bs=$("csiborrar"); if(bs) bs.onclick=async()=>{
@@ -2739,9 +2899,22 @@ async function refrescarPremium(reintentos=0){
   pintarCuenta();
 }
 
-/* La pestaña del fantasy solo aparece si hay una fecha publicada. Sin eso
-   no hay nada que armar, y una pestaña vacía es una promesa incumplida. */
-if(window.FECHA) $("btfantasy").hidden = false;
+/* ── CUÁNDO APARECE LA PESTAÑA DEL FANTASY ───────────────────────────────
+   Decía: solo si hay una fecha publicada, porque sin fecha no hay nada que
+   armar. Era cierto cuando adentro solo se armaba un equipo, y dejó de
+   serlo sin que nadie lo notara: ahí adentro ahora están los torneos de
+   amigos, las zonas y los puntos de la fecha pasada, y todo eso vive
+   JUSTAMENTE entre una fecha y la siguiente.
+
+   Con la regla vieja, el lunes —cuando la gente quiere ver cuánto sacó y
+   cómo quedó la tabla— la pestaña no existía. Un torneo al que solo se
+   puede entrar mientras hay una fecha abierta es un torneo que nadie
+   sigue.
+
+   La regla nueva: hay fecha, o hay backend (y entonces hay algo tuyo que
+   mostrar). Sin ninguna de las dos sigue escondida, que es lo correcto:
+   una pestaña vacía es una promesa incumplida.                          */
+if(window.FECHA || conBackend) $("btfantasy").hidden = false;
 
 arrancarCuenta();
 </script>

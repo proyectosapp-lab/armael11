@@ -1,0 +1,15 @@
+{
+  "_porqueExiste": "Cómo se arma el torneo largo a partir de los grupos de amigos. Son cuatro números y cambiarlos cambia el torneo entero, así que viven acá y no adentro del código. Los de ahora son un punto de partida: el número real sale de ver cuánta gente hay en octubre, no de esta línea.",
+
+  "_fechasPorFase": "Cuántas fechas del fantasy dura cada fase. Cinco es una rueda corta: suficiente para que un mal domingo no te elimine, corto para que el que va último no espere dos meses a que empiece algo nuevo.",
+  "fechasPorFase": 5,
+
+  "_clasificanPorGrupo": "Cuántos pasan de cada grupo de amigos. Uno hace que ganar el grupo sea LA cosa. Si los grupos crecen a veinte personas, dos es más justo. Los empates con el último que entra pasan todos: eso lo decide fases.mjs y no se configura.",
+  "clasificanPorGrupo": 1,
+
+  "_porZona": "A cuántos se apunta por zona. No es un máximo duro: la cantidad de zonas se redondea y los empates pueden dejar alguna con uno o dos de más.",
+  "porZona": 10,
+
+  "_minimoGrupos": "Menos que esto y no se arma nada: cruzar a los ganadores de un solo grupo es el mismo grupo con otro nombre. Mientras no se llegue, la fase queda abierta y se reintenta en cada corrida.",
+  "minimoGrupos": 2
+}

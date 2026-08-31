@@ -75,14 +75,33 @@ const politicasDe = tabla => [...SQL.matchAll(/create policy[\s\S]*?;/gi)]
        registrar_pago    anota el pago y lo acredita en un solo movimiento,
                          que es lo que impide acreditarlo dos veces. Tampoco
                          se la puede llamar desde el navegador.
-     Las seis comparten la misma defensa: o no reciben nada, o lo que
+       es_de_zona      rompe la misma recursión que es_miembro, en zona
+       tabla_zona      arma la tabla de la zona en un solo pedido, y solo
+                       si el que pregunta está en esa zona
+     Las ocho comparten la misma defensa: o no reciben nada, o lo que
      reciben ya lo tenía el que llama, o directamente no se les puede
      llamar desde afuera. */
-  caso("las funciones con llave maestra son las seis conocidas",
-       conLlave.length === 6 &&
+  caso("las funciones con llave maestra son las ocho conocidas",
+       conLlave.length === 8 &&
        ["es_miembro", "entrar_a_liga", "tabla_liga", "borrar_mi_cuenta",
-        "acreditar_premium", "registrar_pago"].every(f => conLlave.includes(f)),
+        "acreditar_premium", "registrar_pago", "es_de_zona", "tabla_zona"]
+         .every(f => conLlave.includes(f)),
        conLlave.join(", "));
+
+  /* ── LAS FASES ─────────────────────────────────────────────────────────
+     Todo esto lo escribe el servidor, como los puntos. Si alguna de estas
+     tablas tuviera política de escritura, cualquiera se anotaría en la
+     zona de la final desde la consola. */
+  for (const t of ["fase", "zona", "zona_miembro"]) {
+    caso("la tabla " + t + " tiene RLS encendido",
+         new RegExp("alter table " + t + " enable row level security", "i").test(SQL));
+    caso("y nadie la escribe desde el navegador",
+         !new RegExp("on " + t + " for (insert|update|delete|all)", "i").test(SQL));
+  }
+  caso("los uuid de perfil de las zonas no se leen desde ningún teléfono",
+       !/on zona_miembro for select/i.test(SQL));
+  caso("la tabla de la zona solo la ve el que está en esa zona",
+       /function tabla_zona[\s\S]*?es_de_zona\(z\)/i.test(SQL));
 
   /* ── EL PREMIUM ───────────────────────────────────────────────────────
      La trampa que la RLS sola NO tapa: las políticas son por FILA, no por

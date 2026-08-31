@@ -364,6 +364,77 @@ const uno = (pg, sel) => pg.locator(sel).first();
     caso('y avisa que hay una invitación esperando',
          /XK4T9P/.test(sinSesion) && /invitaci[oó]n/i.test(sinSesion));
 
+    /* ── EL EQUIPO NO SE PIERDE ───────────────────────────────────────────
+       Faltaba entero: el equipo se guardaba en el servidor y la app nunca
+       lo volvía a leer. Armabas quince jugadores, guardabas, cerrabas, y al
+       volver la cancha estaba vacía. Quedaba guardado de verdad —se
+       puntuaba bien— pero la única lectura posible era "se borró". */
+    const borrador = await pg.evaluate(() => {
+      /* Se arma un once acá y no se depende de lo que dejaron los casos de
+         arriba: una prueba que hereda estado falla por lo que no mide. */
+      const de = p => FECHA.jugadores.filter(j => j.puesto === p);
+      F11 = { titulares: [...de("G").slice(0,1), ...de("D").slice(0,4),
+                          ...de("M").slice(0,3), ...de("F").slice(0,3)],
+              suplentes: {}, capitan: de("F")[0].id, vice: de("M")[0].id,
+              formacion: "4-3-3" };
+      for(const p of ["G","D","M","F"]) F11.suplentes[p] = de(p)[9];
+      const antes = F11.titulares.map(j => j.id);
+      guardarBorrador();
+      const crudo = JSON.parse(localStorage.getItem("armaEl11.equipo"));
+      /* Se vacía el equipo como si la app hubiera arrancado de cero y se
+         restaura desde el teléfono, que es el recorrido real. */
+      F11 = { titulares:[], suplentes:{}, capitan:null, vice:null, formacion:"4-3-3" };
+      const vuelto = leerBorrador();
+      return { antes, guardado: crudo, ids: vuelto ? vuelto.titulares.map(j=>j.id) : [],
+               form: vuelto ? vuelto.formacion : "", cap: vuelto ? vuelto.capitan : null };
+    });
+    caso('el equipo se guarda solo en el teléfono, sin cuenta ni conexión',
+         borrador.guardado && borrador.guardado.titulares.length === 11,
+         JSON.stringify(borrador.guardado || {}).slice(0, 120));
+    caso('y vuelve completo al reabrir la app',
+         borrador.ids.join(",") === borrador.antes.join(","),
+         borrador.ids.length + " de " + borrador.antes.length);
+    caso('con su capitán y su formación deducida de los puestos',
+         borrador.cap === borrador.guardado.capitan && /^\d-\d-\d$/.test(borrador.form),
+         borrador.form);
+
+    /* Un borrador de OTRA fecha no se restaura: los precios cambiaron y
+       sería ofrecer un equipo que ya no es legal. */
+    const vieja = await pg.evaluate(() => {
+      const d = JSON.parse(localStorage.getItem("armaEl11.equipo"));
+      d.fecha = 999;
+      localStorage.setItem("armaEl11.equipo", JSON.stringify(d));
+      const r = leerBorrador();
+      guardarBorrador();                       /* deja el borrador bueno */
+      return r;
+    });
+    caso('el borrador de otra fecha se ignora', vieja === null);
+
+    /* Y el del servidor manda sobre el del teléfono: es el que se puntúa. */
+    const delServidor = await pg.evaluate(async () => {
+      const ids = FECHA.jugadores;
+      const de = p => ids.filter(j => j.puesto === p);
+      const once = [...de("G").slice(0,1), ...de("D").slice(0,4),
+                    ...de("M").slice(0,3), ...de("F").slice(0,3)];
+      window.miEquipo = async () => ({
+        titulares: once.map(j=>j.id),
+        suplentes: ["G","D","M","F"].map(p => de(p)[8].id),
+        capitan: once[10].id, vice: once[9].id });
+      const tok = "x." + btoa(JSON.stringify({ sub:"11111111-2222-3333-4444-555555555555" }))
+                    .replace(/=+$/,"") + ".y";
+      capturarVuelta({ hash:"#access_token=" + tok + "&refresh_token=R",
+                       pathname:location.pathname, search:"" }, { replaceState(){} });
+      await traerMiEquipo();
+      const r = { ids: F11.titulares.map(j=>j.id), esperado: once.map(j=>j.id), aviso: fAviso };
+      salir(); delete window.miEquipo;
+      return r;
+    });
+    caso('el equipo guardado en el servidor se recupera al entrar',
+         delServidor.ids.join(",") === delServidor.esperado.join(","),
+         delServidor.ids.length + " jugadores");
+    caso('y se avisa que ese es el que está guardado, no uno nuevo',
+         /guardado/i.test(delServidor.aviso || ""), delServidor.aviso);
+
     /* ── LO QUE PASÓ CON TU EQUIPO ────────────────────────────────────────
        El servidor calculaba los puntos y guardaba el detalle, y la app no
        los mostraba en ningún lado: alguien armaba su equipo, se jugaba la
@@ -409,6 +480,45 @@ const uno = (pg, sel) => pg.locator(sel).first();
          /no jug[oó]/.test(puntos.abierto));
     await pg.evaluate(() => { MIS_PUNTOS = []; LIGAS = []; ligaTabla = {};
                               miNombre = null; puntosAbierto = null; pintar(); });
+
+    /* ── LA ZONA ──────────────────────────────────────────────────────────
+       Clasificar es la mejor noticia que da esta app, así que se mira que
+       se vea antes que nada. Y que cada rival venga con el nombre del
+       torneo que ganó: sin eso, la zona es una lista de desconocidos. */
+    const zona = await pg.evaluate(() => {
+      /* El bloque de torneos solo se dibuja con sesión abierta, así que la
+         prueba abre una: el token es de mentira pero tiene la forma real
+         —tres partes y el uid en el medio— que es lo único que mira la app. */
+      const tok = "x." + btoa(JSON.stringify({ sub: "11111111-2222-3333-4444-555555555555" }))
+                    .replace(/=+$/, "") + ".y";
+      capturarVuelta({ hash: "#access_token=" + tok + "&refresh_token=R",
+                       pathname: location.pathname, search: "" }, { replaceState(){} });
+      miNombre = "fausto";
+      FASES = [{ id:"f2", numero:2, nombre:"Zonas", desde:8, hasta:12, cerrada:false }];
+      ZONAS = [{ id:"z1", nombre:"Zona A", fase:"f2" }];
+      zonaTabla = { z1: [
+        { usuario:"tincho", puntos:61, viene_de:"Los del taller" },
+        { usuario:"fausto", puntos:55, viene_de:"Los del barrio" },
+      ] };
+      pintar();
+      const t = document.body.innerText;
+      const atajo = document.getElementById("iratorneos");
+      const yo = document.querySelectorAll("#vista .it.yo").length;
+      const idsALaVista = /z1|f2|[0-9a-f]{8}-[0-9a-f]{4}/.test(t);
+      ZONAS = []; zonaTabla = {}; FASES = []; miNombre = null; salir(); pintar();
+      return { t, atajo: atajo ? atajo.innerText : "", yo, idsALaVista };
+    });
+    caso('la zona se muestra con su nombre y su rango de fechas',
+         /zona a/i.test(zona.t) && /fechas 8 a 12/.test(zona.t));
+    caso('y cada rival viene con el torneo que ganó',
+         /ganó Los del taller/.test(zona.t), zona.t.slice(0, 160).replace(/\n/g, ' | '));
+    caso('el atajo de arriba anuncia que clasificaste',
+         /clasificaste/i.test(zona.atajo), zona.atajo.replace(/\n/g, ' | '));
+    caso('tu renglón queda marcado en la tabla', zona.yo === 1, zona.yo + " marcados");
+    /* La regla del torneo pago, que vale para todo: usuarios y puntajes,
+       nada más. Ningún id de perfil ni de zona puede llegar a la pantalla. */
+    caso('no se filtra ningún id a la pantalla: solo usuarios y puntos',
+         !zona.idsALaVista);
 
     /* ── QUE SE ENCUENTREN ────────────────────────────────────────────────
        Fausto no los encontró, y tenía razón por dos motivos distintos:

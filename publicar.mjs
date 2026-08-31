@@ -61,10 +61,11 @@ const IMPRESCINDIBLES = [
   "construir-sitio.mjs", "datos-juego.mjs", "stats-api.mjs", "stats-calc.mjs",
   "resolver-youtube.mjs", "esquema.sql", "fantasy.mjs", "fantasy-api.mjs",
   "ligas.json", "ligas-api.mjs", "sw.js", "puntos-api.mjs",
+  "fases.mjs", "fases-reglas.mjs", "fases.json",
   "funcion-crear-pago.ts", "funcion-pago-avisado.ts",
   "probar.mjs", "probar-clubes.mjs", "probar-once.mjs", "probar-stats.mjs",
   "probar-backend.mjs", "probar-cuentas.mjs", "probar-fantasy.mjs",
-  "probar-pagos.mjs",
+  "probar-pagos.mjs", "probar-fases.mjs", "probar-publicidad.mjs",
 ];
 const faltan = IMPRESCINDIBLES.filter(f => !existsSync(aca("./" + f)));
 if (faltan.length) {
@@ -83,7 +84,7 @@ if (faltan.length) {
    feeds mal armados encima de los que estaban bien es peor que no publicar. */
 for (const t of ["probar.mjs", "probar-clubes.mjs", "probar-once.mjs", "probar-stats.mjs",
                  "probar-backend.mjs", "probar-cuentas.mjs", "probar-fantasy.mjs",
-                 "probar-pagos.mjs"])
+                 "probar-pagos.mjs", "probar-fases.mjs", "probar-publicidad.mjs"])
   paso("Pruebas · " + t, t, { obligatorio: true });
 
 if (soloPruebas) { console.log("\n  Solo pruebas. Listo.\n"); process.exit(0); }
@@ -113,6 +114,10 @@ if (!hayKey) {
      existe: no se pisan. Tampoco es obligatorio — una fecha sin puntuar se
      puntúa en la corrida siguiente. */
   paso("Puntuar la última fecha jugada", "puntos-api.mjs");
+  /* Y recién después de puntuar, ver si con eso se cerró una fase. El orden
+     no es casual: una fase se cierra cuando su última fecha está PUNTUADA,
+     así que preguntar antes de calcular siempre diría que no. */
+  paso("Cerrar la fase si terminó y armar las zonas", "fases.mjs");
 }
 
 /* ─── 4. el sitio ────────────────────────────────────────────────────────── */

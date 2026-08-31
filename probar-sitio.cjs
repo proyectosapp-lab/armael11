@@ -148,11 +148,27 @@ srv.listen(8099, async () => {
 
   await pg.goto('http://localhost:8099/' + CLUB + '.html', { waitUntil: 'networkidle' });
   await pg.waitForTimeout(300);
-  /* Sin fecha publicada, la pestaña del fantasy no puede estar. Estuvo
-     visible una versión entera: `hidden` esconde con display:none y la
-     regla de la barra le ponía display:grid encima. */
-  caso("sin fecha publicada, la pestaña del fantasy NO se ve",
-       !(await pg.locator('#btfantasy').isVisible()));
+  /* Este caso decía lo contrario y estaba bien cuando lo escribimos: sin
+     fecha publicada no había nada que armar, y la pestaña vacía era una
+     promesa incumplida. (Estuvo visible una versión entera por un choque de
+     CSS: `hidden` esconde con display:none y la regla de la barra le ponía
+     display:grid encima.)
+
+     Cambió porque cambió lo que hay adentro. Ahí ahora viven los torneos de
+     amigos, las zonas y los puntos de la fecha pasada, y todo eso se mira
+     JUSTAMENTE entre una fecha y la siguiente. Con la regla vieja, el lunes
+     —cuando la gente quiere ver cuánto sacó y cómo quedó la tabla— la
+     pestaña no existía.
+
+     La condición ahora es "hay fecha O hay backend". Sin ninguna de las
+     dos sigue escondida, que es lo correcto: ahí adentro no habría nada. */
+  caso("con backend configurado, la pestaña del fantasy está aunque no haya fecha",
+       await pg.locator('#btfantasy').isVisible());
+  caso("y sin fecha NI backend seguiría escondida",
+       await pg.evaluate(async () => {
+         const t = await (await fetch(location.pathname)).text();
+         return /window\.FECHA \|\| conBackend/.test(t);
+       }));
 
   caso("el feed entra por <script src> y se pinta",
        (await pg.locator('#resumen').textContent() || '').includes('historias'));
@@ -688,6 +704,30 @@ srv.listen(8099, async () => {
          const r = await fetch("/index.html"); const t = await r.text();
          return /privacidad\.html/.test(t) && /borrar-cuenta\.html/.test(t);
        }));
+
+  /* ── LA PESTAÑA DEL FANTASY SIN FECHA ─────────────────────────────────
+     Decía "solo si hay fecha publicada", y era cierto cuando adentro solo
+     se armaba un equipo. Dejó de serlo sin que nadie lo notara: ahí adentro
+     están los torneos, las zonas y los puntos de la fecha pasada, y todo
+     eso vive JUSTAMENTE entre una fecha y la siguiente. El lunes —cuando la
+     gente quiere ver cuánto sacó— la pestaña no existía.
+
+     Este sitio se construye SIN fecha publicada, así que es el caso exacto. */
+  {
+    const hayFecha = await pg.evaluate(() => !!window.FECHA);
+    const visible = await pg.locator('#btfantasy').isVisible();
+    caso("sin fecha publicada, la pestaña del fantasy sigue estando",
+         !hayFecha && visible, "fecha: " + hayFecha + ", visible: " + visible);
+    if (visible) {
+      await pg.click('#btfantasy');
+      await pg.waitForTimeout(200);
+      const t = (await pg.evaluate(() => document.body.innerText)).toLowerCase();
+      caso("y adentro están los torneos, que es lo que se mira el lunes",
+           /torneos de amigos/.test(t), t.slice(0, 120).replace(/\n/g, ' | '));
+      await pg.click('[data-tab="juego"]');
+      await pg.waitForTimeout(200);
+    }
+  }
 
   /* ── EL LUGAR DEL AVISO ────────────────────────────────────────────────
      No hay publicidad en la app. Hay un lugar donde algún día va a haber

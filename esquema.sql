@@ -424,3 +424,111 @@ end; $$;
    llama la funcion del webhook, que corre con la clave de servicio. */
 revoke all on function registrar_pago(text, uuid, int, text, numeric, text, jsonb)
   from public, anon, authenticated;
+
+
+/* ==========================================================================
+   10. LAS FASES: DE UN GRUPO DE AMIGOS A UN TORNEO DE VERDAD
+
+   El problema que resuelve. Un torneo de amigos se muere solo: doce
+   personas juegan cinco fechas, gana uno, y no queda nada por hacer. El que
+   gano no tiene contra quien seguir y los otros once ya saben que no
+   ganan. La quinta fecha la juega la mitad.
+
+   La idea es vieja y funciona: el grupo de amigos es la FASE
+   CLASIFICATORIA. El que gana su grupo pasa a una zona donde compite
+   contra ganadores de OTROS grupos, que no conoce. Y el que quedo afuera
+   sigue jugando su liga igual, porque la liga no se termina.
+
+   ─── LAS TRES DECISIONES ────────────────────────────────────────────────
+
+   1. UNA FASE ES UN RANGO DE FECHAS, no una duracion en dias. El fantasy
+      ya esta organizado por fechas y todo el mundo entiende "de la 8 a la
+      12". Un torneo que se mide en dias tendria que explicar que pasa
+      cuando se posterga una fecha; medido en fechas, no pasa nada.
+
+   2. LOS EMPATES NO SE ROMPEN: PASAN LOS DOS. Cualquier desempate que
+      inventemos -el mejor puntaje de una fecha, quien se anoto antes, el
+      orden alfabetico- es una regla arbitraria que le saca el lugar a
+      alguien que hizo exactamente los mismos puntos. Que una zona tenga
+      once en vez de diez no le molesta a nadie; que a uno lo eliminen por
+      una regla que no sabia que existia, si.
+
+   3. LAS ZONAS SE ARMAN EN SERPENTINA, no cortando la lista. Si se cortara
+      por puntaje, los diez mejores clasificados quedarian todos juntos en
+      la zona A y los diez peores en la ultima: nueve de los diez mejores
+      quedarian afuera en la ronda siguiente y la ultima zona la ganaria
+      alguien que hizo la mitad de puntos. La serpentina reparte:
+      1-2-3-4, 4-3-2-1, 1-2-3-4... y las zonas quedan parejas.
+
+   Todo esto lo escribe el SERVIDOR, como los puntos. Ninguna de estas
+   tablas tiene politica de escritura.
+   ========================================================================== */
+
+create table if not exists fase (
+  id      uuid primary key default gen_random_uuid(),
+  numero  int  not null unique,        /* 1 es la clasificatoria */
+  nombre  text not null,
+  desde   int  not null,               /* primera fecha del fantasy que cuenta */
+  hasta   int  not null,               /* ultima */
+  cerrada boolean not null default false,
+  creada  timestamptz not null default now(),
+  check (hasta >= desde)
+);
+alter table fase enable row level security;
+
+/* El calendario es publico: saber que la fase 2 va de la 13 a la 17 no le
+   dice nada de nadie, y sin eso la pantalla no puede explicar que esta
+   pasando. */
+drop policy if exists "el calendario se ve" on fase;
+create policy "el calendario se ve" on fase for select using (true);
+
+create table if not exists zona (
+  id     uuid primary key default gen_random_uuid(),
+  fase   uuid not null references fase(id) on delete cascade,
+  nombre text not null,
+  creada timestamptz not null default now()
+);
+alter table zona enable row level security;
+
+create table if not exists zona_miembro (
+  zona    uuid not null references zona(id) on delete cascade,
+  perfil  uuid not null references perfil(id) on delete cascade,
+  /* De donde salio: el NOMBRE del torneo que gano, no su id. Es lo que
+     hace que la zona no sea una lista de desconocidos -"este gano Los
+     Pibes del Barrio"- y no expone ninguna liga a la que no pertenezcas. */
+  viene_de text,
+  entro   timestamptz not null default now(),
+  primary key (zona, perfil)
+);
+alter table zona_miembro enable row level security;
+
+/* El mismo rodeo que con las ligas, por la misma razon: preguntar "estoy en
+   esta zona?" desde la politica de la tabla de miembros se muerde la cola. */
+create or replace function es_de_zona(z uuid) returns boolean
+  language sql security definer stable set search_path = public as $$
+  select exists (select 1 from zona_miembro where zona = z and perfil = auth.uid());
+$$;
+
+drop policy if exists "veo las zonas donde estoy" on zona;
+create policy "veo las zonas donde estoy" on zona for select using (es_de_zona(id));
+
+/* zona_miembro NO se lee desde ningun telefono: adentro hay uuids de perfil
+   y no hacen falta para nada. La pantalla pide la tabla, que devuelve
+   usuarios y puntos. Es la misma regla del torneo pago: usuarios y
+   puntajes, nada mas. */
+
+create or replace function tabla_zona(z uuid, f int default null)
+  returns table (usuario text, puntos numeric, viene_de text)
+  language sql security definer stable set search_path = public as $$
+  select p.usuario, coalesce(sum(pt.puntos), 0)::numeric, m.viene_de
+    from zona_miembro m
+    join perfil p on p.id = m.perfil
+    join zona  z2 on z2.id = m.zona
+    join fase  fa on fa.id = z2.fase
+    left join puntaje pt on pt.perfil = m.perfil
+         and pt.fecha between fa.desde and fa.hasta
+         and (f is null or pt.fecha = f)
+   where m.zona = z and es_de_zona(z)
+   group by p.usuario, m.viene_de
+   order by 2 desc, 1;
+$$;

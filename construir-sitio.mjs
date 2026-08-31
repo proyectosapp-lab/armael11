@@ -129,6 +129,30 @@ const contador = CFG.contador
   ? `\n<script data-goatcounter="https://${CFG.contador}.goatcounter.com/count"` +
     ` async src="//gc.zgo.at/count.js"></script>` : "";
 
+/* ══════════════════ LA PUBLICIDAD ══════════════════
+   Hoy `sitio.json` NO tiene bloque `publicidad`, así que esto es la cadena
+   vacía y la app no carga un solo script de terceros: una propiedad del
+   proyecto que tiene su propia prueba y que hay que romper A PROPÓSITO.
+
+   El día que AdSense apruebe la cuenta, se agrega esto a sitio.json:
+
+       "publicidad": { "cliente": "ca-pub-0000000000000000" }
+
+   y con eso entra el script y `window.SITIO.publicidad` pasa a existir, que
+   es lo único que mira `hayRed()` adentro de la app. Las reglas de cuándo
+   corresponde un aviso —una por minuto, la primera simulación gratis, nunca
+   al que pagó— ya están escritas y probadas desde la versión anterior. Esto
+   es solo el enchufe.
+
+   Va con `crossorigin` porque Google lo pide, y `async` para que un problema
+   de su servidor no frene el dibujado de la página: un aviso que tarda no
+   puede hacer esperar al partido.                                       */
+const PUB = (CFG.publicidad && CFG.publicidad.cliente) ? CFG.publicidad : null;
+const publicidad = PUB
+  ? `\n<script async crossorigin="anonymous" src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${PUB.cliente}"></script>`
+  : "";
+if (PUB) console.log("  publicidad: ENCENDIDA (" + PUB.cliente + ")");
+
 function cabeza(club) {
   const titulo = club.nom + " · Armá el 11";
   const desc = "Todo lo que se dice de " + club.nom + " en un solo lugar: noticias, " +
@@ -174,6 +198,10 @@ for (const club of CLUBES) {
            un archivo de configuración termina en la página, y ahí no debería
            viajar nada que no haga falta. */
         supabase: HAY_BACKEND ? { url: CFG.supabase.url, anon: CFG.supabase.anon } : undefined,
+        /* Solo el id de cliente, que igual va a la vista en el script de
+           Google. Lo que la app necesita saber es SI hay red de publicidad,
+           no su configuración. */
+        publicidad: PUB ? { cliente: PUB.cliente } : undefined,
       }) + '</script>',
     HAY_BACKEND ? '<script src="datos/cuentas.js"></script>' : null,
     FECHA ? '<script src="datos/fantasy.js"></script>' : null,
@@ -189,7 +217,7 @@ for (const club of CLUBES) {
   if (html === TPL) { console.log("  ✗ no encontré dónde meter los datos"); process.exit(1); }
 
   html = html.replace(/<title>[\s\S]*?<\/title>/i, cabeza(club));
-  html = html.replace("</body>", contador + "\n</body>");
+  html = html.replace("</body>", contador + publicidad + "\n</body>");
   writeFileSync(new URL(club.id + ".html", SITIO), html);
 
   /* Agregado a la pantalla de inicio, abre en su club y con sus colores. */
@@ -282,7 +310,7 @@ ${RAIZ ? `<meta property="og:url" content="${RAIZ}/">\n<link rel="canonical" hre
     Los videos se enlazan a sus reproductores originales; acá no se aloja ninguno.
     <br><a href="/privacidad.html">Privacidad</a> · <a href="/borrar-cuenta.html">Borrar mi cuenta</a>
   </footer>
-</div>${REGISTRO_SW}</body>${contador}</html>
+</div>${REGISTRO_SW}</body>${contador}${publicidad}</html>
 `);
 
 /* Pages sirve tal cual lo que hay: sin esto trata la carpeta como un sitio

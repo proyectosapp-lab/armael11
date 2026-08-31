@@ -1,3 +1,98 @@
+Armá el 11 — versión 2026-08-31 y6 (el repaso, y el enchufe de la publicidad)
+
+  · EL EQUIPO SE GUARDABA Y LA APP NUNCA LO VOLVÍA A LEER. Es lo peor que
+    quedaba. Armabas quince jugadores, tocabas guardar, cerrabas, y al
+    volver la cancha estaba vacía; desde otro teléfono, también. Quedaba
+    guardado de verdad —se puntuaba bien— pero no había forma de verlo, así
+    que la única lectura posible era "se borró".
+    Se arregló por dos lados, que son dos problemas distintos:
+      · EL BORRADOR, en el teléfono, en cada cambio. Armar quince jugadores
+        son cincuenta toques; que un cierre de pestaña se los lleve es la
+        clase de cosa que hace que alguien no vuelva a intentarlo. No
+        necesita cuenta ni conexión.
+      · EL GUARDADO, en el servidor, que MANDA cuando existe: es el que se
+        puntúa. Si ganara el borrador local, el que armó algo en la compu y
+        no lo guardó vería su versión vieja acá y creería que perdió lo
+        otro.
+    La formación no se guarda: se deduce de los puestos de los once. Un dato
+    que se puede calcular y además se guarda es un dato que algún día va a
+    estar en desacuerdo consigo mismo.
+
+  · LA PESTAÑA DEL FANTASY DESAPARECÍA ENTRE FECHAS. La regla era "solo si
+    hay fecha publicada", y era correcta cuando adentro solo se armaba un
+    equipo. Dejó de serlo sin que nadie lo notara: ahí adentro ahora están
+    los torneos de amigos, las zonas y los puntos de la fecha pasada, y todo
+    eso se mira JUSTAMENTE entre una fecha y la siguiente. El lunes —cuando
+    la gente quiere ver cuánto sacó— la pestaña no existía.
+    Ahora aparece si hay fecha O si hay backend. Sin ninguna de las dos
+    sigue escondida, que es lo correcto.
+
+  · EL ENCHUFE DE LA PUBLICIDAD, listo y apagado. Hoy `sitio.json` no tiene
+    bloque `publicidad`, así que no entra un solo script de terceros — una
+    propiedad del proyecto que ahora tiene su propia prueba y que hay que
+    romper A PROPÓSITO. El día que AdSense apruebe la cuenta se agrega una
+    línea con el id de cliente y queda encendido: el script entra y
+    `window.SITIO.publicidad` pasa a existir, que es lo único que mira la
+    app. Las reglas de cuándo corresponde un aviso ya estaban escritas y
+    probadas.
+    probar-publicidad.mjs construye el sitio dos veces —apagada y
+    encendida— y compara. Deja sitio.json como estaba pase lo que pase: una
+    prueba que deja el sitio con avisos encendidos es peor que no tenerla.
+
+  · 568 casos de prueba.
+
+── lo de antes ───────────────────────────────────────────────────────────
+Armá el 11 — versión 2026-08-31 y5 (el torneo que sigue)
+
+  · LA FASE CLASIFICATORIA. Un torneo de amigos se muere solo: doce
+    personas juegan cinco fechas, gana uno, y no queda nada por hacer. El
+    que ganó no tiene contra quién seguir y los otros once ya saben que no
+    ganan; la quinta fecha la juega la mitad.
+    Ahora el grupo de amigos ES la clasificatoria: el que gana su grupo
+    pasa a una zona donde compite contra ganadores de OTROS grupos, gente
+    que no conoce. El que quedó afuera sigue jugando su liga igual, porque
+    la liga no se termina.
+
+  · LAS CUATRO REGLAS, y cada una tiene su prueba:
+      · Una fase es un RANGO DE FECHAS ("de la 8 a la 12"), no una
+        cantidad de días. El fantasy ya está organizado así, todos las
+        entienden, y una fecha postergada no rompe nada.
+      · Una fase se cierra cuando su última fecha está PUNTUADA, no cuando
+        pasó el tiempo. Repartir zonas con la última fecha a medio calcular
+        sería repartirlas con puntajes que todavía van a cambiar.
+      · LOS EMPATES NO SE ROMPEN: PASAN LOS DOS. Cualquier desempate que
+        inventáramos le saca el lugar a alguien que hizo exactamente los
+        mismos puntos. Que una zona tenga once en vez de diez no le molesta
+        a nadie; que a uno lo eliminen por una regla que no sabía que
+        existía, sí.
+      · LAS ZONAS SE ARMAN EN SERPENTINA. Cortando la lista por puntaje,
+        los diez mejores clasificados quedarían todos en la zona A: nueve
+        de los diez mejores afuera en la ronda siguiente, y la última zona
+        ganada por alguien que hizo la mitad de puntos.
+
+  · ARCHIVOS NUEVOS
+      fases.mjs         cierra la fase y arma las zonas. Corre en GitHub,
+                        después de puntuar (el orden importa: una fase se
+                        cierra cuando su última fecha está puntuada).
+      fases-reglas.mjs  quién pasa y en qué zona cae. Separado porque no
+                        toca la base y por eso se puede probar de verdad.
+      fases.json        los cuatro números que definen el torneo, cada uno
+                        explicado adentro del archivo.
+      probar-fases.mjs  18 casos sobre las dos decisiones que dejan gente
+                        afuera sin que falle nada.
+
+  · EN LA BASE: fase, zona y zona_miembro, las tres sin política de
+    escritura — las escribe el servidor, como los puntos.
+      · `zona_miembro` no se lee desde ningún teléfono: adentro hay uuid de
+        perfil y no hacen falta. La pantalla pide `tabla_zona`, que
+        devuelve usuarios y puntos. Es la misma regla de siempre.
+      · Cada rival de la zona viene con el NOMBRE del torneo que ganó, no
+        con su id. Es lo que hace que la zona no sea una lista de
+        desconocidos.
+
+  · 546 casos de prueba.
+
+── lo de antes ───────────────────────────────────────────────────────────
 Armá el 11 — versión 2026-08-31 y4 (la sesión y lo tuyo)
 
   · POR QUÉ SE CAÍA LA SESIÓN AL RATO. No se caía: la cerrábamos nosotros,
