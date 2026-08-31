@@ -199,28 +199,77 @@ const uno = (pg, sel) => pg.locator(sel).first();
          await pg.locator('#fguardar[disabled]').count() === 1,
          await uno(pg, '#fguardar').innerText());
 
-    /* ── la lista larga ─────────────────────────────────────────────────── */
-    await pg.evaluate(() => { F11 = { titulares: [], suplentes: {}, capitan: null,
-      vice: null, formacion: '4-3-3' }; fBusca = ''; fFiltro = 'todos'; pintar(); });
-    await pg.waitForTimeout(120);
-    const aviso = await pg.evaluate(() => document.querySelector('.compactas')
-      ?.parentElement?.innerText || '');
-    caso('cuando no entran todos, la lista dice cuántos hay',
-         /Se ven los \d+ más caros de 200/.test(aviso),
-         (aviso.match(/Se ven[^\n]*/) || ['(no dice nada)'])[0]);
+    /* ── LA LISTA, DE A VEINTE ──────────────────────────────────────────
+       Es la tercera versión de la misma decisión. Primero eran 60 y no se
+       decía: parecía que el resto no existía. Después 150 con un cartel,
+       que era mejor pero seguía escondiendo gente —al resto solo se llegaba
+       adivinando un nombre—. Ahora se ve TODO, de a veinte.
 
-    /* El que quedó fuera del tope tiene que poder encontrarse igual: si no,
-       el tope deja de ser un tope y pasa a ser una lista incompleta. */
+       Y arregló algo que no era de la lista: con ciento cincuenta renglones,
+       lo que venía después quedaba a un scroll que nadie hace. Los torneos
+       de amigos vivían justo ahí abajo. */
+    await pg.evaluate(() => { F11 = { titulares: [], suplentes: {}, capitan: null,
+      vice: null, formacion: '4-3-3' }; fBusca = ''; fFiltro = 'todos';
+      fPagina = 0; pintar(); });
+    await pg.waitForTimeout(120);
+
+    const pag1 = await pg.evaluate(() => ({
+      cuantos: document.querySelectorAll('.compactas .linea').length,
+      cual: document.querySelector('.paginas .cual')?.textContent.trim() || '',
+      atras: !!document.querySelector('#fant[disabled]'),
+      nombres: [...document.querySelectorAll('[data-suma]')].map(a => a.textContent.trim()),
+    }));
+    caso('la lista muestra veinte por página, no doscientos',
+         pag1.cuantos === 20, pag1.cuantos + " renglones");
+    caso('y dice cuáles de cuántos, para que se vea que no esconde nada',
+         /^1–20 de 200$/.test(pag1.cual), pag1.cual);
+    caso('en la primera página no se puede ir para atrás', pag1.atras);
+
+    const pag2 = await pg.evaluate(() => {
+      document.getElementById('fsig').click();
+      return { cual: document.querySelector('.paginas .cual')?.textContent.trim() || '',
+               nombres: [...document.querySelectorAll('[data-suma]')].map(a => a.textContent.trim()) };
+    });
+    caso('"Siguientes" trae los veinte que siguen', /^21–40 de 200$/.test(pag2.cual), pag2.cual);
+    caso('y son OTROS veinte, no los mismos',
+         pag2.nombres.every(n => !pag1.nombres.includes(n)));
+
+    /* Se puede llegar al final caminando, que es lo que antes no se podía:
+       al que quedaba fuera del tope solo se llegaba adivinando su nombre. */
+    const ultima = await pg.evaluate(() => {
+      for (let i = 0; i < 20; i++) {
+        const b = document.getElementById('fsig');
+        if (!b || b.disabled) break;
+        b.click();
+      }
+      return { cual: document.querySelector('.paginas .cual')?.textContent.trim() || '',
+               adelante: !!document.querySelector('#fsig[disabled]') };
+    });
+    caso('se llega hasta el último jugador pasando páginas',
+         /^181–200 de 200$/.test(ultima.cual), ultima.cual);
+    caso('y en la última no se puede seguir', ultima.adelante);
+
+    /* Cambiar el filtro estando en la página 10 dejaría una lista vacía y
+       parecería que ese puesto no tiene jugadores. */
+    const trasFiltrar = await pg.evaluate(() => {
+      document.querySelector('[data-fp="G"]').click();
+      return { pagina: fPagina,
+               cuantos: document.querySelectorAll('.compactas .linea').length };
+    });
+    caso('al cambiar de puesto vuelve a la primera página',
+         trasFiltrar.pagina === 0 && trasFiltrar.cuantos > 0,
+         JSON.stringify(trasFiltrar));
+    await pg.evaluate(() => { document.querySelector('[data-fp="todos"]').click(); });
+
     const buscado = await pg.evaluate(() => {
       const barato = FECHA.jugadores.slice().sort((a, b) => a.precio - b.precio)[0];
-      fBusca = barato.nombre; pintar();
+      fBusca = barato.nombre; fPagina = 0; pintar();
       return { nombre: barato.nombre,
                visible: [...document.querySelectorAll('[data-suma]')]
                           .some(a => a.textContent.trim() === barato.nombre) };
     });
-    caso('y al más barato de todos se llega buscándolo por nombre',
-         buscado.visible, buscado.nombre);
-    await pg.evaluate(() => { fBusca = ''; pintar(); });
+    caso('y buscar por nombre sigue andando', buscado.visible, buscado.nombre);
+    await pg.evaluate(() => { fBusca = ''; fPagina = 0; pintar(); });
 
     /* ── el orden ───────────────────────────────────────────────────────── */
     const precios = async () => pg.evaluate(() =>
@@ -245,10 +294,19 @@ const uno = (pg, sel) => pg.locator(sel).first();
          (await pg.evaluate(() => document.querySelectorAll('.compactas .linea').length)) > 0,
          'baratos desde ' + baratos[0] + ', caros hasta ' + caros[caros.length - 1]);
 
-    const cartel = await pg.evaluate(() =>
-      [...document.querySelectorAll('.vacio')].map(x => x.textContent).join(' '));
-    caso('y el cartel del final dice que ahora son los más baratos',
-         /más baratos/.test(cartel), cartel.trim().slice(0, 80));
+    /* Este caso miraba un cartel que decía "se ven los 150 más baratos de
+       200". Ese cartel ya no existe: ahora se ven los 200, de a veinte. Lo
+       que sí tiene que seguir siendo cierto es que el orden manda sobre la
+       página: la primera página del orden "baratos" tiene que arrancar por
+       el más barato de TODOS, no por el más barato de un recorte. */
+    const primeroBarato = await pg.evaluate(() => {
+      const min = Math.min(...FECHA.jugadores.map(j => j.precio));
+      const arriba = +document.querySelector('.compactas .linea .cuando').textContent;
+      return { min, arriba };
+    });
+    caso('la primera página de "baratos" arranca por el más barato de todos',
+         primeroBarato.arriba === primeroBarato.min,
+         primeroBarato.arriba + " vs " + primeroBarato.min);
 
     await pg.click('[data-fo="rinde"]'); await pg.waitForTimeout(120);
     caso('ordenar por rendimiento no rompe la lista',
@@ -502,18 +560,21 @@ const uno = (pg, sel) => pg.locator(sel).first();
       ] };
       pintar();
       const t = document.body.innerText;
-      const atajo = document.getElementById("iratorneos");
+
       const yo = document.querySelectorAll("#vista .it.yo").length;
       const idsALaVista = /z1|f2|[0-9a-f]{8}-[0-9a-f]{4}/.test(t);
       ZONAS = []; zonaTabla = {}; FASES = []; miNombre = null; salir(); pintar();
-      return { t, atajo: atajo ? atajo.innerText : "", yo, idsALaVista };
+      return { t, yo, idsALaVista };
     });
     caso('la zona se muestra con su nombre y su rango de fechas',
          /zona a/i.test(zona.t) && /fechas 8 a 12/.test(zona.t));
     caso('y cada rival viene con el torneo que ganó',
          /ganó Los del taller/.test(zona.t), zona.t.slice(0, 160).replace(/\n/g, ' | '));
-    caso('el atajo de arriba anuncia que clasificaste',
-         /clasificaste/i.test(zona.atajo), zona.atajo.replace(/\n/g, ' | '));
+    /* Clasificar es la mejor noticia que da esta app, y tiene que estar
+       dicha con esas palabras: "quedaste segundo en la zona A" no le dice
+       nada al que no sabe qué es una zona. */
+    caso('el bloque dice que clasificaste, con esa palabra',
+         /clasificaste/i.test(zona.t), (zona.t.match(/[^\n]*lasificaste[^\n]*/) || [''])[0]);
     caso('tu renglón queda marcado en la tabla', zona.yo === 1, zona.yo + " marcados");
     /* La regla del torneo pago, que vale para todo: usuarios y puntajes,
        nada más. Ningún id de perfil ni de zona puede llegar a la pantalla. */
@@ -521,26 +582,25 @@ const uno = (pg, sel) => pg.locator(sel).first();
          !zona.idsALaVista);
 
     /* ── QUE SE ENCUENTREN ────────────────────────────────────────────────
-       Fausto no los encontró, y tenía razón por dos motivos distintos:
-       estaban al final de la lista de jugadores, y entre una fecha y la
-       siguiente desaparecían del todo. Un caso para cada uno. */
-    const atajo = await pg.evaluate(() => {
-      const a = document.getElementById("iratorneos");
-      const h = document.getElementById("torneos");
-      /* El encabezado de la lista de jugadores. Se busca por su texto y no
-         por una clase, porque las clases se reusan en toda la pantalla. */
-      const lista = [...document.querySelectorAll("h3.sec")]
-        .find(h => /elegí jugadores/i.test(h.innerText));
-      return { hay: !!a, texto: a ? a.innerText : "",
-               arribaDelBloque: !!(a && h) &&
-                 a.getBoundingClientRect().top < h.getBoundingClientRect().top,
-               arribaDeLaLista: !!(a && lista) &&
-                 a.getBoundingClientRect().top < lista.getBoundingClientRect().top };
+       Fausto no los encontraba, y tenía razón por dos motivos distintos:
+       estaban al final de una lista de ciento cincuenta jugadores, y entre
+       una fecha y la siguiente desaparecían del todo. Un caso para cada uno.
+
+       Hubo un intento intermedio —un renglón arriba que llevaba hasta el
+       bloque— que se sacó cuando la lista pasó a ser de veinte: con la
+       lista corta, el bloque quedó a la vista y el atajo pasó a ser un
+       cartel que señalaba algo que ya se veía. */
+    const orden = await pg.evaluate(() => {
+      const h = [...document.querySelectorAll("h3.sec")];
+      const torneos = h.find(x => /torneos de amigos/i.test(x.innerText));
+      const lista = h.find(x => /elegí jugadores/i.test(x.innerText));
+      return { hay: !!torneos, hayLista: !!lista,
+               arriba: !!(torneos && lista) &&
+                 torneos.getBoundingClientRect().top < lista.getBoundingClientRect().top };
     });
-    caso('hay un atajo a los torneos arriba, donde se ve', atajo.hay &&
-         /torneo/i.test(atajo.texto), atajo.texto.replace(/\n/g, ' | '));
-    caso('y está antes del bloque y antes de la lista de jugadores',
-         atajo.arribaDelBloque && atajo.arribaDeLaLista, JSON.stringify(atajo));
+    caso('los torneos están en la pantalla del fantasy', orden.hay && orden.hayLista);
+    caso('y van ARRIBA de la lista de jugadores, no al final de todo',
+         orden.arriba, JSON.stringify(orden));
 
     /* El torneo es lo que dura ENTRE fechas. Si desaparece cuando no hay
        fecha abierta, el amigo que entra con el código ve "todavía no hay

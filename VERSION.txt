@@ -1,3 +1,31 @@
+Armá el 11 — versión 2026-08-31 y8 (la lista de a veinte)
+
+  · LA LISTA DE JUGADORES VA DE A VEINTE, CON ANTERIORES Y SIGUIENTES. Es
+    la tercera versión de la misma decisión, y conviene tener las tres:
+      60, callado    se veían los sesenta más caros y parecía que el resto
+                     no existía. Un límite callado se lee como un error.
+      150, dicho     mejor, pero seguía escondiendo gente: al resto solo se
+                     llegaba adivinando un nombre para buscarlo.
+      20, paginado   se ve TODO, en pedazos que entran en una pantalla, y
+                     el pie dice "1-20 de 200", que es lo que prueba que la
+                     lista no esconde nada.
+    Cualquier cosa que cambie QUÉ se lista —el puesto, el club, el orden,
+    la búsqueda— vuelve a la primera página. Sin eso, cambiar de puesto
+    estando en la página 7 deja una pantalla vacía y parece que ese puesto
+    no tiene jugadores.
+
+  · LOS TORNEOS DE AMIGOS, ARRIBA DE LA LISTA. Con ciento cincuenta
+    renglones, todo lo que venía después quedaba a un scroll que nadie
+    hace, y ahí abajo vivían los torneos. Con la lista corta, el bloque
+    entra en la pantalla.
+
+  · SE SACÓ EL ATAJO que habíamos puesto arriba para llegar a los torneos.
+    Existía porque el bloque estaba lejos; ahora está a la vista, y un
+    cartel que señala algo que ya se ve es ruido.
+
+  · 577 casos de prueba.
+
+── lo de antes ───────────────────────────────────────────────────────────
 Armá el 11 — versión 2026-08-31 y7 (saber qué está publicado)
 
   · LA VERSIÓN, A LA VISTA, EN EL PIE DE LA APP. Sale de este archivo y le

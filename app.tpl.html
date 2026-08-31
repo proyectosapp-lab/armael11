@@ -60,16 +60,16 @@ body{margin:0;background:transparent;color:var(--tinta);
 .pais[aria-pressed="true"] .pn{color:var(--sobre-acento)}
 .pais[aria-pressed="true"] .pl{color:var(--sobre-acento);opacity:.75}
 
-/* Un renglón que lleva a otra parte de la misma pantalla. No es un botón de
-   acción y no tiene que parecerlo: si pareciera un botón, la gente
-   esperaría que pase algo y lo único que pasa es que baja. */
-.atajo{display:flex;align-items:center;justify-content:space-between;gap:10px;
-  width:100%;margin:0 0 9px;padding:11px 14px;border:1px dashed var(--borde);
-  border-radius:14px;background:transparent;color:var(--tinta-2);cursor:pointer;
-  font-family:inherit;font-size:13px;font-weight:600;text-align:left}
-.atajo:hover{border-color:var(--tinta-3);border-style:solid}
-.atajo .v{color:var(--tinta-3);font-size:12px;font-weight:600;white-space:nowrap}
 .ver{color:var(--tinta-3);opacity:.6;font-size:11px;letter-spacing:.02em}
+
+/* Pasar de página. El "de cuántos" va en el medio y no al costado: es el
+   dato que dice que la lista no esconde nada. */
+.paginas{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  margin-top:10px}
+.paginas .cual{font-size:12px;color:var(--tinta-3);white-space:nowrap;
+  font-variant-numeric:tabular-nums}
+.paginas .boton{padding:8px 12px;font-size:13px}
+.paginas .boton[disabled]{opacity:.35}
 
 /* El renglón de cada jugador en la fecha ya puntuada, y el porqué debajo.
    El porqué va en letra chica y adentro del mismo bloque: es la explicación
@@ -86,7 +86,6 @@ body{margin:0;background:transparent;color:var(--tinta);
 .viene{font-size:10.5px;color:var(--tinta-3);white-space:nowrap}
 .it.yo{background:color-mix(in srgb, var(--acento) 12%, transparent);
   border-radius:9px;margin:0 -6px;padding-left:6px;padding-right:6px}
-.atajo.gana{border-style:solid;border-color:var(--acento)}
 
 .tarjeta{background:var(--hoja);border:1px solid var(--borde);border-radius:18px;
   padding:15px 17px;margin-bottom:9px}
@@ -780,7 +779,9 @@ async function traerMiEquipo(){
     pintar();
   }catch(e){}
 }
-let fOrden = "caros", fClub = "";
+let fOrden = "caros", fClub = "", fPagina = 0;
+/* Veinte entran en una pantalla de teléfono sin scroll interminable. */
+const POR_PAGINA = 20;
 /* El borrado de cuenta pide confirmación: esto dice si está preguntando. */
 let borrando = false;
 /* Los torneos de amigos. `ligaPendiente` es el código que llegó en el link
@@ -1178,34 +1179,14 @@ function vistaFantasy(){
     ${rev.ok?`<button class="boton" id="fcompartir" style="margin-top:8px">Compartir mi 11</button>`:""}
     ${fAviso?`<p class="aviso${/^Listo/.test(fAviso)?"":" mal"}">${esc(fAviso)}</p>`:""}`;
 
-  return cab + bloquePuntos() + atajoTorneos() + chipsForm + `<div class="tarjeta fcancha">
+  return cab + bloquePuntos() + chipsForm + `<div class="tarjeta fcancha">
       ${cancha}
       ${banco}
       ${problemas}
       ${guardar}
-    </div>` + listado() + bloqueLigas();
+    </div>` + bloqueLigas() + listado();
 }
 
-/* ── EL ATAJO A LOS TORNEOS ──────────────────────────────────────────────
-   El bloque de torneos sigue abajo, después de la lista de jugadores, y ahí
-   está bien: la lista es cómo se arma el equipo y no puede quedar a media
-   pantalla de scroll. Pero abajo de todo no lo encontraba nadie.
-
-   Esto es un renglón arriba que dice que existen y lleva hasta ahí. Ocupa
-   una línea y resuelve el problema entero, que era de señalización y no de
-   orden.                                                                 */
-function atajoTorneos(){
-  if(typeof crearLiga!=="function") return "";
-  const n = (LIGAS || []).length, z = (ZONAS || []).length;
-  /* Clasificar es la mejor noticia que da esta app. Si pasó, el renglón lo
-     dice antes que cualquier otra cosa. */
-  const que = z ? "Clasificaste: estás en " + (z>1 ? z + " zonas" : "una zona")
-            : n ? "Estás en " + n + " torneo" + (n>1?"s":"") + " de amigos"
-                : "Jugá contra tus amigos en la misma tabla";
-  return `<button class="atajo${z?" gana":""}" id="iratorneos">
-    <span>${que}</span>
-    <span class="v">${z ? "ver tu zona" : n ? "ver la tabla" : "armar un torneo"} ›</span></button>`;
-}
 
 /* Un jugador parado en la cancha. El apellido abajo, el precio al lado, y
    la cinta arriba a la izquierda para marcarlo capitán o vice. */
@@ -1230,13 +1211,18 @@ function ficha(j, esBanco){
     <button class="fquita" data-quita="${j.id}" aria-label="Sacar">×</button></span>`;
 }
 
-/* Cuántos se dibujan de una vez. Hay casi mil jugadores en una fecha y un
-   teléfono no dibuja mil renglones sin trabarse, así que hay un tope. Pero
-   el tope de antes eran 60 y NO SE DECÍA: se veían los sesenta más caros y
-   parecía que el resto no existía. Un límite callado se lee como un error.
-   Ahora entran más y, cuando quedan afuera, la lista dice cuántos son y
-   cómo llegar a ellos. */
-const TOPE_LISTA = 150;
+/* Acá había un TOPE_LISTA de 150 y ya no está. Vale la pena dejar escrito
+   por qué, porque es la tercera versión de la misma decisión:
+
+     60, callado    se veían los sesenta más caros y parecía que el resto no
+                    existía. Un límite callado se lee como un error.
+     150, dicho     mejor, pero seguía escondiendo gente: al resto solo se
+                    llegaba adivinando un nombre para buscarlo.
+     20, paginado   se ve TODO, en pedazos que entran en una pantalla.
+
+   Y de paso arregla algo que no era de la lista: con ciento cincuenta
+   renglones, cualquier cosa que viniera después quedaba a un scroll que
+   nadie hace. Los torneos de amigos vivían justo ahí abajo. */
 
 /* CÓMO SE ORDENA. Con mil jugadores, un solo orden es un solo juego. El que
    busca una figura entra por arriba; el que ya gastó el presupuesto y le
@@ -1284,8 +1270,30 @@ function listado(){
 
   const orden = ORDENES[fOrden] || ORDENES.caros;
   l = l.slice().sort(orden.cmp);
-  const hay = l.length, cortada = hay > TOPE_LISTA;
-  l = l.slice(0, TOPE_LISTA);
+
+  /* ── DE A VEINTE, Y SE PASA ──────────────────────────────────────────
+     Antes se mostraban los 150 primeros con un cartel abajo diciendo
+     cuántos quedaban afuera. Dos problemas, y el segundo es peor:
+
+     · Ciento cincuenta renglones son una lista interminable, y todo lo que
+       viene después de la lista queda a un scroll que nadie hace. Los
+       torneos de amigos vivían justo ahí abajo.
+     · Y el resto no se podía ver de ninguna manera: había que adivinar un
+       nombre para buscarlo. Una lista que esconde cosas y no te deja
+       llegar a ellas es peor que una lista larga.
+
+     Veinte por página, con Anteriores y Siguientes. Se ve todo, en pedazos
+     que entran en una pantalla.
+
+     La página se acomoda sola si el filtro achica la lista: quedarse en la
+     página 7 de una lista que ahora tiene dos es una pantalla vacía sin
+     explicación. */
+  const hay = l.length;
+  const paginas = Math.max(1, Math.ceil(hay / POR_PAGINA));
+  if(fPagina >= paginas) fPagina = paginas - 1;
+  if(fPagina < 0) fPagina = 0;
+  const desde = fPagina * POR_PAGINA;
+  l = l.slice(desde, desde + POR_PAGINA);
 
   const chips = ["todos","G","D","M","F"].map(x=>
     `<button class="chip" data-fp="${x}" aria-pressed="${x===fFiltro}">${
@@ -1327,25 +1335,41 @@ function listado(){
         </div>
         <span class="cuando">${j.precio}</span>
       </div>`).join(""):`<div class="vacio">Nadie con ese nombre.</div>`}</div>
-    ${cortada?`<p class="vacio">Se ven los ${TOPE_LISTA} ${orden.dice} de ${hay}.
-      Buscá por nombre o club para llegar al resto.</p>`:""}`;
+    ${paginas > 1 ? `<div class="paginas">
+      <button class="boton flaco" id="fant" ${fPagina===0?"disabled":""}>‹ Anteriores</button>
+      <span class="cual">${desde+1}–${Math.min(desde+POR_PAGINA, hay)} de ${hay}</span>
+      <button class="boton flaco" id="fsig" ${fPagina>=paginas-1?"disabled":""}>Siguientes ›</button>
+    </div>` : hay ? `<p class="vacio">${hay} jugador${hay===1?"":"es"} ${
+      hay===1?"":"en total"}.</p>` : ""}`;
 }
 
 function engancharFantasy(){
   const v = $("vista");
   v.querySelectorAll("[data-form]").forEach(b=>b.onclick=()=>cambiarFormacion(b.dataset.form));
-  v.querySelectorAll("[data-fp]").forEach(b=>b.onclick=()=>{ fFiltro=b.dataset.fp; pintar(); });
-  v.querySelectorAll("[data-fo]").forEach(b=>b.onclick=()=>{ fOrden=b.dataset.fo; pintar(); });
-  v.querySelectorAll("[data-puesto]").forEach(b=>b.onclick=()=>{ fFiltro=b.dataset.puesto; pintar(); });
-  v.querySelectorAll("[data-banco]").forEach(b=>b.onclick=()=>{ fFiltro=b.dataset.banco; pintar(); });
+  /* Todo lo que cambia QUÉ se lista vuelve a la primera página. Si no,
+     cambiar de puesto estando en la página 7 deja una lista vacía y parece
+     que ese puesto no tiene jugadores. */
+  const desdeArriba = f => () => { f(); fPagina = 0; pintar(); };
+  v.querySelectorAll("[data-fp]").forEach(b=>b.onclick=desdeArriba(()=>{ fFiltro=b.dataset.fp; }));
+  v.querySelectorAll("[data-fo]").forEach(b=>b.onclick=desdeArriba(()=>{ fOrden=b.dataset.fo; }));
+  v.querySelectorAll("[data-puesto]").forEach(b=>b.onclick=desdeArriba(()=>{ fFiltro=b.dataset.puesto; }));
+  v.querySelectorAll("[data-banco]").forEach(b=>b.onclick=desdeArriba(()=>{ fFiltro=b.dataset.banco; }));
   v.querySelectorAll("[data-suma]").forEach(a=>a.onclick=e=>{ e.preventDefault(); sumar(+a.dataset.suma); });
   v.querySelectorAll("[data-quita]").forEach(b=>b.onclick=()=>quitar(+b.dataset.quita));
   v.querySelectorAll("[data-cinta]").forEach(b=>b.onclick=()=>cinta(+b.dataset.cinta));
   const cl = $("fclub");
-  if(cl) cl.onchange = () => { fClub = cl.value; pintar(); };
+  if(cl) cl.onchange = () => { fClub = cl.value; fPagina = 0; pintar(); };
   const bu = $("fbusca");
-  if(bu) bu.oninput = () => { fBusca = bu.value; const p = bu.selectionStart;
+  if(bu) bu.oninput = () => { fBusca = bu.value; fPagina = 0; const p = bu.selectionStart;
     pintar(); const n = $("fbusca"); if(n){ n.focus(); n.setSelectionRange(p,p); } };
+
+  /* Pasar de página lleva el foco arriba de la lista. Sin eso, tocás
+     "Siguientes" abajo de todo y los veinte nuevos quedan arriba, fuera de
+     la pantalla: parece que no pasó nada. */
+  const irA = n => { fPagina = n; pintar();
+    document.querySelector(".compactas")?.scrollIntoView({ behavior:"smooth", block:"start" }); };
+  const ba = $("fant"); if(ba) ba.onclick = () => irA(fPagina - 1);
+  const bs = $("fsig"); if(bs) bs.onclick = () => irA(fPagina + 1);
   const g = $("fguardar"); if(g) g.onclick = guardarFantasy;
 
   const co = $("fcompartir");
@@ -1363,9 +1387,6 @@ function engancharFantasy(){
     puntosAbierto = (puntosAbierto === u.fecha) ? null : u.fecha;
     pintar();
   };
-
-  const it = $("iratorneos");
-  if(it) it.onclick = () => $("torneos")?.scrollIntoView({behavior:"smooth", block:"start"});
 
   v.querySelectorAll("[data-lcomp]").forEach(b=>b.onclick = async () => {
     const l = LIGAS.find(x=>x.codigo===b.dataset.lcomp); if(!l) return;
