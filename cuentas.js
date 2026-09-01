@@ -84,12 +84,75 @@ async function mensajeDe(r) {
 
 /* ─── entrar y salir ─────────────────────────────────────────────────────── */
 
-/* Sin contraseñas: llega un link al mail y listo. La contraseña que no
-   guardamos es la que no podemos perder — y es una cosa menos que inventar
-   para alguien que solo quiere jugar una fecha.                          */
+/* ══════════════════ CÓMO SE ENTRA ══════════════════
+
+   Empezamos solo con el link por mail: la contraseña que no guardamos es la
+   que no podemos perder, y era una cosa menos que inventar para alguien que
+   solo quiere jugar una fecha. Sigue siendo un buen argumento y el link
+   sigue estando. Pero el link tiene dos fallas que en la práctica pesan
+   más, y las dos las sufrimos:
+
+   1. DEPENDE DE UNA CONFIGURACIÓN QUE NO SE VE. Supabase solo redirige a
+      las direcciones de su lista blanca; si la de destino no está, manda a
+      la Site URL. La persona vuelve a una página que no es la suya, sin
+      sesión, sin ningún error. Parece que el link no anda.
+
+   2. EL NAVEGADOR DEL MAIL NO ES EL NAVEGADOR. En el teléfono, tocar un
+      link en Gmail lo abre en el navegador interno de Gmail. La sesión
+      queda guardada AHÍ. La persona vuelve a Chrome y no está: hizo todo
+      bien y no entró.
+
+   Ninguna de las dos se arregla con código nuestro, y las dos se evitan
+   entrando con contraseña, que no sale de la pantalla en la que estás.
+
+   Así que ahora hay las dos: la contraseña es el camino principal y el
+   link queda para el que la olvidó. La contraseña no la guardamos nosotros
+   —la guarda Supabase, hasheada— y acá nunca se escribe en ningún lado.  */
+
+const MAIL_OK = e => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e);
+const limpiarMail = e => String(e || "").trim().toLowerCase();
+
+/* Seis es el mínimo que acepta Supabase. Pedir más acá y que el servidor
+   pida menos no protege a nadie: solo hace que la app rechace algo que el
+   servidor habría aceptado, y esa diferencia se nota como un error raro. */
+export const CLAVE_MINIMA = 6;
+
+function guardarSesionDe(d) {
+  if (!d?.access_token) return null;
+  sesion = guardado.poner({ token: d.access_token, refresh: d.refresh_token,
+                            uid: uidDe(d.access_token) });
+  return sesion;
+}
+
+export async function crearCuenta(email, clave) {
+  const e = limpiarMail(email);
+  if (!MAIL_OK(e)) throw new Error("Ese mail no parece un mail.");
+  if (String(clave || "").length < CLAVE_MINIMA)
+    throw new Error("La contraseña necesita al menos " + CLAVE_MINIMA + " caracteres.");
+  const d = await pedir("/auth/v1/signup", { metodo: "POST", sinToken: true,
+    cuerpo: { email: e, password: clave } });
+  /* Si el proyecto pide confirmar el mail, `signup` NO devuelve sesión:
+     devuelve el usuario y manda un correo. Hay que decirlo, porque si no la
+     pantalla se queda como si no hubiera pasado nada. */
+  const s = guardarSesionDe(d);
+  return { sesion: s, confirmar: !s };
+}
+
+export async function entrarConClave(email, clave) {
+  const e = limpiarMail(email);
+  if (!MAIL_OK(e)) throw new Error("Ese mail no parece un mail.");
+  const d = await pedir("/auth/v1/token?grant_type=password", { metodo: "POST",
+    sinToken: true, cuerpo: { email: e, password: clave } });
+  const s = guardarSesionDe(d);
+  if (!s) throw new Error("Mail o contraseña incorrectos.");
+  return s;
+}
+
+/* El link por mail. Queda para el que se olvidó la contraseña y para el que
+   prefiere no inventar una. */
 export async function pedirLink(email, volverA) {
-  const e = String(email || "").trim().toLowerCase();
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)) throw new Error("Ese mail no parece un mail.");
+  const e = limpiarMail(email);
+  if (!MAIL_OK(e)) throw new Error("Ese mail no parece un mail.");
   await pedir("/auth/v1/otp", { metodo: "POST", sinToken: true,
     cuerpo: { email: e, create_user: true, options: { email_redirect_to: volverA } } });
   return e;

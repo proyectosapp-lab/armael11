@@ -101,6 +101,31 @@ const REGISTRO_SW = '<script>if("serviceWorker" in navigator)' +
   'addEventListener("load",function(){navigator.serviceWorker.register("/sw.js")' +
   '.catch(function(){})})</script>';
 
+/* ══════════════════ EL RESCATE DE LA SESIÓN ══════════════════
+   Va en la PORTADA y no en las páginas de club, y es por un caso concreto
+   que nos costó un día:
+
+   El link que Supabase manda por mail vuelve con la sesión en el hash de la
+   dirección. Pero Supabase solo redirige a las direcciones de su lista
+   blanca; si la de destino no está, redirige a la Site URL — que es la
+   portada. Y la portada no cargaba `cuentas.js`, así que el token llegaba,
+   nadie lo leía, y la persona terminaba en la lista de clubes sin sesión y
+   sin ningún error a la vista. "El link no anda."
+
+   Esto lo rescata: si llega un token acá, se guarda. Como el guardado es
+   por ORIGEN, con eso ya queda la sesión puesta para todas las páginas del
+   sitio, y se manda a la persona de vuelta a la de su club.
+
+   Es una red, no la solución: lo correcto es tener bien la lista blanca en
+   Supabase. Pero una configuración que no se ve no puede ser lo único que
+   separa a alguien de entrar a su cuenta.                              */
+const RESCATE_SESION = HAY_BACKEND ? '<script src="datos/cuentas.js"></script>' +
+  '<script>try{if(/access_token=/.test(location.hash)&&capturarVuelta()){' +
+  'var v=null;try{v=localStorage.getItem("armaEl11.volviendoDe")}catch(e){}' +
+  'if(v&&v.charAt(0)==="/"){try{localStorage.removeItem("armaEl11.volviendoDe")}catch(e){}' +
+  'location.replace(v)}}}catch(e){}</script>' : "";
+
+
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
 
 /* ── QUÉ VERSIÓN QUEDÓ PUBLICADA ─────────────────────────────────────────
@@ -336,7 +361,7 @@ ${RAIZ ? `<meta property="og:url" content="${RAIZ}/">\n<link rel="canonical" hre
     Los videos se enlazan a sus reproductores originales; acá no se aloja ninguno.
     <br><a href="/privacidad.html">Privacidad</a> · <a href="/borrar-cuenta.html">Borrar mi cuenta</a>
   </footer>
-</div>${REGISTRO_SW}</body>${contador}${publicidad}</html>
+</div>${RESCATE_SESION}${REGISTRO_SW}</body>${contador}${publicidad}</html>
 `);
 
 /* Pages sirve tal cual lo que hay: sin esto trata la carpeta como un sitio

@@ -352,6 +352,64 @@ srv.listen(8099, async () => {
   caso("pero ese no es titular",
        !once.some(p => /Refuerzo/.test(p.nombre)));
 
+  /* ── EL BLOQUE TIENE QUE CRUZAR LA MITAD ──────────────────────────────
+     Fausto: "los globitos no pasan la mitad de la cancha". Era estructural.
+     Las formaciones ocupan el 36% del alto —el de abajo del 93 al 57— y el
+     movimiento estaba topeado en ±17: un delantero parado en 57 llegaba
+     como mucho a 40. Para pisar el área rival (13) necesitaba moverse 44,
+     casi el triple del tope. Los dos equipos jugaban siempre en su propio
+     campo y no parecía un partido.
+
+     Esto mide lo único que importa de ese arreglo: dónde termina la gente
+     cuando la pelota está en cada área. Se llama a `moverJugadores` a mano
+     con la pelota puesta, así el caso es determinista y no hay que esperar
+     veinte segundos de animación para medirlo. */
+  {
+    const donde = await pg.evaluate(() => {
+      const campo = document.getElementById("campo");
+      const rc = campo.getBoundingClientRect();
+      const leer = () => [...campo.querySelectorAll(".jug")].map(el => ({
+        lado: el.dataset.lado, cat: el.dataset.cat,
+        x: parseFloat(el.style.left) +
+           (parseFloat(el.style.getPropertyValue("--dx")) || 0) / rc.width * 100,
+        y: parseFloat(el.style.top) +
+           (parseFloat(el.style.getPropertyValue("--dy")) || 0) / rc.height * 100,
+      }));
+      const deA = l => l.filter(p => p.lado === "A" && p.cat !== "G");
+      const reposo = leer();
+      moverJugadores(campo, 50, 8);      /* la pelota en el área del rival */
+      const atacando = leer();
+      moverJugadores(campo, 50, 92);     /* la pelota en la mía */
+      const defendiendo = leer();
+      quietos(campo);
+      return {
+        reposoArriba: Math.min(...deA(reposo).map(p => p.y)),
+        atacandoArriba: Math.min(...deA(atacando).map(p => p.y)),
+        cruzan: deA(atacando).filter(p => p.y < 50).length,
+        defendiendoArriba: Math.min(...deA(defendiendo).map(p => p.y)),
+        fuera: atacando.concat(defendiendo)
+                 .filter(p => p.y < 0 || p.y > 100 || p.x < 0 || p.x > 100).length,
+        arqueroLejos: Math.max(...atacando.concat(defendiendo)
+          .filter(p => p.cat === "G" && p.lado === "A").map(p => Math.abs(p.y - 93))),
+      };
+    });
+    caso("en reposo los equipos están en su propio campo, como en el saque",
+         donde.reposoArriba > 50, "el más adelantado en " + donde.reposoArriba.toFixed(1));
+    caso("pero atacando el bloque cruza la mitad",
+         donde.cruzan >= 4, donde.cruzan + " jugadores pasan la mitad");
+    caso("y alguien llega al borde del área rival",
+         donde.atacandoArriba < 30, "el más adelantado en " + donde.atacandoArriba.toFixed(1));
+    /* El bloque se ESTIRA, no se muda entero: el que más sube atacando es
+       el que menos baja defendiendo. Con el mismo factor para los dos
+       lados, el 9 terminaba defendiendo adentro de su propia área. */
+    caso("y defendiendo el delantero NO se vuelve a su área",
+         donde.defendiendoArriba < 82,
+         "el más adelantado queda en " + donde.defendiendoArriba.toFixed(1));
+    caso("nadie se va de la cancha", donde.fuera === 0, donde.fuera + " afuera");
+    caso("y el arquero no se despega del arco",
+         donde.arqueroLejos < 12, "se alejó " + donde.arqueroLejos.toFixed(1));
+  }
+
   /* Y los globitos tienen que moverse. Antes rebotaba la pelota sola. */
   const antesDeJugar = await pg.evaluate(() =>
     [...document.querySelectorAll('.jug')].map(e => e.style.getPropertyValue('--dx')));

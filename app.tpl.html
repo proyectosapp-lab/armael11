@@ -1378,8 +1378,17 @@ function engancharFantasy(){
     if(q === "copiado"){ fAviso = "Listo, lo copié: pegalo donde quieras."; pintar(); }
   };
 
+  /* El botón parecía de adorno y lo era: abría el panel de la cuenta, que
+     vive ARRIBA DE TODO, mientras la persona estaba abajo en los torneos.
+     Se abría de verdad, fuera de la pantalla, y desde abajo no pasaba
+     nada. Un botón que funciona pero cuyo efecto no se ve es un botón
+     roto. */
   const lc = $("lcuenta");
-  if(lc) lc.onclick = () => { cuentaAbierta = true; pintarCuenta(); };
+  if(lc) lc.onclick = () => {
+    cuentaAbierta = true; pintarCuenta();
+    $("cuenta")?.scrollIntoView({ behavior:"smooth", block:"start" });
+    setTimeout(() => $("cmail")?.focus(), 400);
+  };
 
   const vp = $("verporque");
   if(vp) vp.onclick = () => {
@@ -2164,10 +2173,45 @@ async function momentoDeAviso(){
 
    Se hace con una variable CSS y no tocando left/top, para no pelear con el
    translate(-50%,-50%) que centra el globito.                            */
+/* ── EL BLOQUE SE MUEVE, NO TIEMBLA ──────────────────────────────────────
+   Fausto: "los globitos no pasan la mitad de la cancha". Tenía razón y era
+   estructural, no una impresión. Los números de antes:
+
+   · Las formaciones ocupan el 36% de la cancha: el de abajo va del 93 al
+     57, el de arriba del 7 al 43. La mitad está en el 50. En reposo NO
+     había un solo jugador pasando la mitad, y quedaba una franja de 14
+     puntos en el medio que nadie pisaba nunca.
+   · El movimiento estaba topeado en ±17. Un delantero parado en 57 llegaba
+     como mucho a 40: apenas cruzaba. Para pisar el área rival (13)
+     necesitaba moverse 44, casi el triple del tope.
+   · Y el desplazamiento de bloque competía contra ESE MISMO tope junto con
+     la atracción a la pelota, así que en la práctica se anulaban.
+
+   Lo que cambia, y son tres cosas distintas:
+
+   1. EL BLOQUE TIENE SU PROPIO PRESUPUESTO. Se calcula aparte y se suma
+      aparte, con un rango de ±30 en vez de pelear por los 17 de la
+      atracción. Un equipo que ataca se lleva a sus once treinta puntos
+      arriba, que es lo que se ve desde la tribuna.
+   2. EL BLOQUE TAMBIÉN SE CORRE DE COSTADO. Un equipo real bascula hacia
+      donde está la pelota. Sin eso, los once suben y bajan como un ascensor
+      y el partido pasa siempre por el medio.
+   3. LA CASILLA DEJA DE SER SAGRADA. Antes cada uno volvía siempre a su
+      punto y el ruido era de ±2: nadie se cruzaba con nadie. Ahora el ruido
+      es mayor y depende del ritmo, así que las líneas se mezclan.
+
+   Y todo termina clavado adentro de la cancha: por muy volcado que esté un
+   equipo, un globito afuera del rectángulo no se lee como presión, se lee
+   como un error de dibujo.                                              */
+const CANCHA = { alto: [3, 97], ancho: [3, 97] };
+const entre = (v, [a, b]) => Math.max(a, Math.min(b, v));
+
 function moverJugadores(campo, bx, by){
   const r = campo.getBoundingClientRect();
-  const rit=(J.K.ritmo||0)/100, pre=(J.K.presion||0)/100;
-  /* Con ritmo alto el equipo se estira y se junta más rápido. */
+  const K = J.K || {}, KB = J.KB || {};
+  const rit = (K.ritmo||0)/100;
+  /* Con ritmo alto el equipo se estira, se junta más rápido y se desordena
+     más. Es la perilla que más se tiene que ver en movimiento. */
   const amplitud = 1 + 0.6*rit;
 
   campo.querySelectorAll(".jug").forEach(el => {
@@ -2175,27 +2219,62 @@ function moverJugadores(campo, bx, by){
     if(isNaN(x0) || isNaN(y0)) return;
     const arquero = el.dataset.cat === "G";
     const mio = el.dataset.lado === "A";
+    /* Cada equipo lee las perillas de SU técnico. El bloque del rival
+       responde a lo que puso el rival, no a lo tuyo. */
+    const suK = mio ? K : KB;
+    const pre = (suK.presion||0)/100, lin = (suK.linea||0)/100;
 
-    /* ── LA FASE, que era lo que faltaba ────────────────────────────────
-       Antes cada jugador se corría un poquito hacia la pelota y listo: el
-       equipo, COMO equipo, no se desplazaba nunca. Un bloque real sube
-       entero cuando la pelota está en campo rival y baja entero cuando la
-       tiene el otro. Eso es lo que se ve desde la tribuna.             */
+    /* ── 1. EL BLOQUE ────────────────────────────────────────────────────
+       `fase` va de -1 (la pelota en mi área: repliego) a +1 (la pelota en
+       la del otro: me vuelco). Con presión alta el equipo sale a buscar más
+       arriba; con línea alta arranca de más adelante siempre.            */
     const suArco = mio ? 100 : 0;
-    const fase = (Math.abs(by - suArco) - 50) / 50;   // -1 replegado · +1 volcado
+    const fase = entre((Math.abs(by - suArco) - 50) / 50, [-1, 1]);
     const haciaAdelante = mio ? -1 : 1;
-    const bloque = arquero ? fase * 2
-                           : haciaAdelante * fase * (7 + 5*pre) * amplitud;
+    /* EL BLOQUE NO SE MUEVE EN UNA PIEZA: SE ESTIRA. Un equipo que ataca no
+       se corre treinta puntos entero como un bloque de metegol — el
+       delantero se mete en el área y el central se queda cerca de la
+       mitad. Sin esto, o los delanteros no llegan nunca al área, o los
+       defensores terminan de delanteros. Es la diferencia entre un equipo
+       y un cardumen. */
+    const ESTIRA = { G: 0.2, D: 0.75, M: 1, F: 1.4 };
+    const estira = ESTIRA[el.dataset.cat] ?? 1;
+    /* Y AL REPLEGAR SE INVIERTE. El que más sube atacando es el que menos
+       baja defendiendo: el delantero queda arriba esperando la contra,
+       mientras los defensores se hunden. Con el mismo factor para los dos
+       lados, el 9 terminaba defendiendo adentro de su propia área — que es
+       exactamente lo que no hace un 9. */
+    const factor = fase >= 0 ? estira : (2 - estira);
+    const empuje = (27 + 12*pre) * amplitud;
+    /* Techo propio: con ritmo y presión al máximo, la cuenta se pasaría de
+       la cancha y los once terminarían apilados contra el arco. */
+    const bloqueY = entre(
+      haciaAdelante * (fase * empuje * factor + lin * 6),
+      arquero ? [-5, 5] : [-36, 36]);
 
+    /* De costado: el equipo bascula hacia la pelota. El arquero también, un
+       poco, que es lo que hace un arquero de verdad. */
+    const bloqueX = (bx - 50) / 50 * (arquero ? 4 : 9) * amplitud;
+
+    /* ── 2. LA ATRACCIÓN, con su propio tope ─────────────────────────── */
     const dx = bx - x0, dy = by - y0;
     const lejos = Math.hypot(dx, dy);
-    const k = (arquero ? .04 : .34) * Math.max(0, 1 - lejos / 58) * amplitud;
-    const tope = arquero ? 4 : 17;
-    const ruido = () => (Math.random() - .5) * 2.2 * amplitud;
-    const px = Math.max(-tope, Math.min(tope, dx * k + ruido()));
-    const py = Math.max(-tope, Math.min(tope, dy * k + bloque + ruido()));
-    el.style.setProperty("--dx", (px / 100 * r.width ).toFixed(1) + "px");
-    el.style.setProperty("--dy", (py / 100 * r.height).toFixed(1) + "px");
+    const k = (arquero ? .05 : .30) * Math.max(0, 1 - lejos / 62) * amplitud;
+    const topeAtraccion = arquero ? 5 : 16;
+    const cerca = v => entre(v, [-topeAtraccion, topeAtraccion]);
+
+    /* ── 3. EL DESORDEN ──────────────────────────────────────────────── */
+    const ruido = () => (Math.random() - .5) * (arquero ? 1.2 : 5) * amplitud;
+
+    /* El arquero no se despega del arco pase lo que pase: es lo único que
+       de verdad tiene una casilla. */
+    const y = arquero
+      ? entre(y0 + bloqueY + cerca(dy*k) + ruido(), mio ? [86, 97] : [3, 14])
+      : entre(y0 + bloqueY + cerca(dy*k) + ruido(), CANCHA.alto);
+    const x = entre(x0 + bloqueX + cerca(dx*k) + ruido(), CANCHA.ancho);
+
+    el.style.setProperty("--dx", ((x - x0) / 100 * r.width ).toFixed(1) + "px");
+    el.style.setProperty("--dy", ((y - y0) / 100 * r.height).toFixed(1) + "px");
   });
 }
 
@@ -2734,6 +2813,9 @@ if(window.CACHE) cargarTemporada();
    existe tira, y no hay razón para que el feed se caiga por eso.        */
 const conBackend = typeof hayBackend === "function" && hayBackend();
 let cuentaAbierta=false, miNombre=null;
+/* Arranca en "crear cuenta" porque el que llega por primera vez es el que
+   más ayuda necesita; el que ya tiene cuenta sabe lo que busca. */
+let creandoCuenta=true, mailEscrito="";
 
 async function arrancarCuenta(){
   if(!conBackend) return;
@@ -2786,17 +2868,87 @@ function pintarCuenta(aviso="", mal=false){
   const av = aviso?`<p class="aviso${mal?" mal":""}">${esc(aviso)}</p>`:"";
 
   if(!quienSoy()){
-    c.innerHTML=`<h4>Entrá para jugar con amigos</h4>
-      <p>Te mandamos un link por mail. No hay contraseña que inventar ni que recordar.</p>
-      <div class="par"><input type="text" id="cmail" placeholder="tu@mail.com" autocomplete="email">
-        <button class="boton" id="cenviar">Mandame el link</button></div>${av}`;
-    $("cenviar").onclick=async()=>{
-      const b=$("cenviar"); b.disabled=true; b.textContent="Mandando…";
+    /* ── POR QUÉ AHORA HAY CONTRASEÑA ──────────────────────────────────
+       Empezamos solo con el link por mail, y el argumento era bueno: la
+       contraseña que no guardamos es la que no podemos perder. Pero el
+       link falla de dos maneras que no dependen de nosotros y que pesan
+       más que el argumento:
+
+       · Supabase solo redirige a las direcciones de su lista blanca. Si
+         la de destino no está, manda a otra página, sin sesión y sin
+         error. Parece que el link no anda.
+       · En el teléfono, tocar el link en Gmail lo abre en el navegador
+         INTERNO de Gmail. La sesión queda guardada ahí. La persona vuelve
+         a Chrome y no está: hizo todo bien y no entró.
+
+       La contraseña no sale de esta pantalla, así que no le puede pasar
+       ninguna de las dos. El link queda para el que la olvidó.          */
+    c.innerHTML=`<h4>${creandoCuenta?"Creá tu cuenta":"Entrá a tu cuenta"}</h4>
+      <p>${creandoCuenta
+        ? "Es para guardar tu equipo y jugar los torneos con tus amigos. Nada más."
+        : "Con el mail y la contraseña que usaste al crearla."}</p>
+      <div style="display:grid;gap:8px">
+        <input type="email" id="cmail" placeholder="tu@mail.com"
+               autocomplete="email" value="${esc(mailEscrito)}">
+        <input type="password" id="cclave" placeholder="contraseña"
+               autocomplete="${creandoCuenta?"new-password":"current-password"}">
+        <button class="boton" id="centrar">${
+          creandoCuenta?"Crear mi cuenta":"Entrar"}</button>
+      </div>
+      ${av}
+      <p class="aviso" style="margin-top:12px">
+        <a href="#" id="cotro">${creandoCuenta
+          ? "Ya tengo cuenta, quiero entrar"
+          : "No tengo cuenta, quiero crear una"}</a>
+      </p>
+      <p class="aviso" style="margin-top:2px">
+        <a href="#" id="clink">Prefiero recibir un link por mail</a>
+        ${creandoCuenta?"":" · sirve también si te olvidaste la contraseña"}</p>`;
+
+    /* El mail escrito se guarda en memoria al cambiar de pantalla: hacer
+       que alguien lo tipee dos veces porque se equivocó de botón es la
+       clase de detalle que hace abandonar un registro. */
+    const leerMail = () => { mailEscrito = ($("cmail")||{}).value || ""; };
+
+    $("cotro").onclick=e=>{ e.preventDefault(); leerMail();
+      creandoCuenta=!creandoCuenta; pintarCuenta(); };
+
+    $("centrar").onclick=async()=>{
+      const b=$("centrar"); const mail=($("cmail")||{}).value, clave=($("cclave")||{}).value;
+      mailEscrito = mail;
+      b.disabled=true; b.textContent=creandoCuenta?"Creando…":"Entrando…";
       try{
-        const m=await pedirLink($("cmail").value, location.origin+location.pathname);
-        c.innerHTML=`<h4>Listo</h4><p>Te mandamos un link a <b>${esc(m)}</b>.
-          Abrilo desde este mismo teléfono y volvés acá con la sesión iniciada.</p>`;
+        if(creandoCuenta){
+          const r=await crearCuenta(mail, clave);
+          if(r.confirmar){
+            c.innerHTML=`<h4>Revisá tu correo</h4><p>Te mandamos un mail a
+              <b>${esc(mail)}</b> para confirmar la cuenta. Abrilo y volvés
+              a entrar con tu contraseña.</p>`;
+            return;
+          }
+        }else{
+          await entrarConClave(mail, clave);
+        }
+        miNombre=null;
+        try{ miNombre=await miUsuario(); }catch(e){}
+        pintarCuenta();
+        await cargarLigas(); await cargarZonas(); await cargarPuntos();
+        await traerMiEquipo(); await usarInvitacion(); pintar();
       }catch(e){ pintarCuenta(e.message, true); }
+    };
+
+    $("clink").onclick=async e=>{
+      e.preventDefault(); leerMail();
+      try{
+        /* De dónde salió, para que el rescate de la portada la devuelva a
+           su club si Supabase la manda al inicio. */
+        try{ localStorage.setItem("armaEl11.volviendoDe", location.pathname); }catch(x){}
+        const m=await pedirLink(mailEscrito, location.origin+location.pathname);
+        c.innerHTML=`<h4>Listo</h4><p>Te mandamos un link a <b>${esc(m)}</b>.
+          <b>Abrilo en este mismo navegador.</b> Si lo abrís desde la app del
+          correo, algunos teléfonos lo abren en un navegador aparte y la
+          sesión queda ahí adentro.</p>`;
+      }catch(err){ pintarCuenta(err.message, true); }
     };
     return;
   }

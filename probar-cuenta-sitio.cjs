@@ -85,16 +85,95 @@ const srv = http.createServer((q, s) => {
     await pg.waitForTimeout(150);
     caso('sin haberle pedido nada al backend todavía', llamados.length === 0, llamados.join(' | '));
 
-    /* ── 2. pedir el link ───────────────────────────────────────────────── */
+    /* ── 2. CREAR CUENTA Y ENTRAR ───────────────────────────────────────
+       El link por mail dejó de ser el camino principal, y no fue un
+       capricho: falla de dos maneras que no dependen de nosotros. Supabase
+       solo redirige a las direcciones de su lista blanca —si la de destino
+       no está, manda a otra página sin sesión y sin error— y en el teléfono
+       el link abre el navegador INTERNO del correo, donde la sesión queda
+       encerrada. La contraseña no sale de esta pantalla. */
     await pg.click('#bcuenta');
-    caso('el panel se abre y pide un mail', await pg.locator('#cmail').count() === 1);
+    caso('el panel arranca ofreciendo crear la cuenta',
+         await pg.locator('#cmail').count() === 1 &&
+         await pg.locator('#cclave').count() === 1 &&
+         /cre[aá]/i.test(await pg.locator('#cuenta h4').innerText()),
+         await pg.locator('#cuenta h4').innerText());
+
+    /* Una contraseña corta la rechaza la pantalla, sin ir al servidor: el
+       viaje de ida y vuelta para escuchar lo mismo es tiempo regalado. */
     await pg.fill('#cmail', 'Fausto@Ejemplo.com');
-    await pg.click('#cenviar');
-    await pg.waitForTimeout(300);
-    caso('pide el link al backend', llamados.some(l => /POST \/auth\/v1\/otp/.test(l)),
+    await pg.fill('#cclave', '123');
+    await pg.click('#centrar');
+    await pg.waitForTimeout(200);
+    caso('una contraseña corta se rechaza sin molestar al servidor',
+         !llamados.some(l => /signup/.test(l)) &&
+         /caracteres/i.test(await pg.locator('#cuenta .aviso.mal').first().innerText()),
          llamados.join(' | '));
+
+    caso('se puede cambiar a "ya tengo cuenta" sin volver a escribir el mail',
+         await pg.evaluate(() => {
+           document.getElementById('cotro').click();
+           return (document.getElementById('cmail') || {}).value;
+         }) === 'Fausto@Ejemplo.com');
+    await pg.evaluate(() => document.getElementById('cotro').click());
+
+    llamados.length = 0;
+    await pg.fill('#cclave', 'unaclavelarga');
+    await pg.click('#centrar');
+    await pg.waitForTimeout(300);
+    caso('con una contraseña válida se crea la cuenta contra el backend',
+         llamados.some(l => /POST \/auth\/v1\/signup/.test(l)), llamados.join(' | '));
+
+    /* El link por mail sigue estando, para el que se olvidó la contraseña.
+       Y antes de pedirlo se anota de dónde salió: si Supabase manda a la
+       persona a la portada, el rescate de allá la devuelve a su club. */
+    llamados.length = 0;
+    await pg.evaluate(() => { salir(); miNombre = null; creandoCuenta = false;
+                              cuentaAbierta = true; pintarCuenta(); });
+    await pg.fill('#cmail', 'Fausto@Ejemplo.com');
+    await pg.click('#clink');
+    await pg.waitForTimeout(300);
+    caso('el link por mail sigue disponible', llamados.some(l => /POST \/auth\/v1\/otp/.test(l)),
+         llamados.join(' | '));
+    caso('y deja anotado de qué página salió, para volver ahí',
+         await pg.evaluate(() => { try { return localStorage.getItem('armaEl11.volviendoDe'); }
+                                   catch (e) { return null; } }) === '/' + CLUB + '.html',
+         await pg.evaluate(() => { try { return localStorage.getItem('armaEl11.volviendoDe'); }
+                                   catch (e) { return 'no pude leer'; } }));
     caso('y avisa que revise el mail',
          /Listo/i.test(await pg.locator('#cuenta h4').innerText()));
+
+    /* ── EL RESCATE DE LA PORTADA ───────────────────────────────────────
+       El caso que nos costó un día: Supabase solo redirige a las
+       direcciones de su lista blanca. Si la de destino no está, manda a la
+       Site URL, que es la portada — y la portada no leía el token. Llegaba
+       la sesión, no la agarraba nadie, y la persona terminaba en la lista
+       de clubes sin sesión y sin ningún error. "El link no anda."
+
+       Ahora la portada lo rescata y devuelve a la persona a su club. */
+    {
+      const p2 = await nav.newPage({ viewport: { width: 420, height: 900 } });
+      await p2.route('**/base.supabase.co/**', r =>
+        r.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+      await p2.goto('http://localhost:8097/index.html');
+      await p2.evaluate(c => { try { localStorage.clear();
+        localStorage.setItem('armaEl11.volviendoDe', '/' + c + '.html'); } catch (e) {} }, CLUB);
+      /* Hay que salir de la página primero: navegar a la MISMA dirección
+         cambiando solo el `#` no recarga nada, y el rescate no correría.
+         Es la misma trampa que está anotada más abajo, y caí igual. */
+      await p2.goto('about:blank');
+      await p2.goto('http://localhost:8097/index.html#access_token=' + TOKEN +
+                    '&refresh_token=RRR&type=magiclink', { waitUntil: 'networkidle' });
+      await p2.waitForTimeout(600);
+      const donde = new URL(p2.url()).pathname;
+      const ses = await p2.evaluate(() => { try { return localStorage.getItem('tste.sesion'); }
+                                            catch (e) { return null; } });
+      caso('si el link cae en la portada, la sesión se rescata igual',
+           !!ses && JSON.parse(ses).uid === UID, ses ? ses.slice(0, 60) : 'sin sesión');
+      caso('y devuelve a la persona a la página de su club',
+           donde === '/' + CLUB + '.html', donde);
+      await p2.close();
+    }
 
     /* ── 3. volver del mail ─────────────────────────────────────────────── */
     /* Hay que salir de la página primero. Si se navega a la MISMA dirección

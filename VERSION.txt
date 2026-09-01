@@ -1,3 +1,79 @@
+Armá el 11 — versión 2026-09-01 y11 (la cancha se mueve)
+
+  · "LOS GLOBITOS NO PASAN LA MITAD DE LA CANCHA". Tenía razón y era
+    estructural, no una impresión. Los números de antes:
+      · Las formaciones ocupan el 36% del alto: el de abajo va del 93 al 57,
+        el de arriba del 7 al 43, y la mitad está en el 50. EN REPOSO NO
+        HABÍA UN SOLO JUGADOR PASANDO LA MITAD, y quedaba una franja de 14
+        puntos en el medio que nadie pisaba nunca.
+      · El movimiento estaba topeado en ±17. Un delantero parado en 57
+        llegaba como mucho a 40. Para pisar el área rival (13) necesitaba
+        moverse 44, casi el triple del tope.
+      · Y el desplazamiento de bloque competía contra ESE MISMO tope junto
+        con la atracción a la pelota, así que se anulaban entre ellos.
+
+  · TRES ARREGLOS DISTINTOS:
+      · EL BLOQUE TIENE SU PROPIO PRESUPUESTO, de ±36, separado del de la
+        atracción a la pelota. Un equipo que ataca se lleva a sus once
+        treinta puntos arriba.
+      · Y NO SE MUEVE EN UNA PIEZA: SE ESTIRA. El delantero avanza 1,4 veces
+        lo que avanza un central. Sin eso, o los delanteros no llegaban
+        nunca, o los defensores terminaban de delanteros.
+      · AL REPLEGAR SE INVIERTE: el que más sube atacando es el que menos
+        baja defendiendo, así el 9 queda arriba esperando la contra. Con el
+        mismo factor para los dos lados, el 9 defendía adentro de su propia
+        área — que es exactamente lo que no hace un 9.
+      · El bloque también BASCULA de costado hacia la pelota. Sin eso los
+        once suben y bajan como un ascensor y todo pasa por el medio.
+      · Y el desorden pasó de ±2 a ±5 por el ritmo: ahora las líneas se
+        mezclan en vez de temblar cada una en su casilla.
+
+  · Cada equipo lee las perillas de SU técnico: el bloque del rival responde
+    a lo que puso el rival, no a lo tuyo.
+
+  · Medido: en reposo el más adelantado está en 57 (su propio campo, como en
+    el saque); atacando llega a 22 —el borde del área rival— y seis jugadores
+    cruzan la mitad; defendiendo el delantero se queda en 72 y no vuelve a su
+    área. Nadie se va de la cancha y el arquero no se despega del arco.
+
+  · 605 casos de prueba.
+
+── lo de antes ───────────────────────────────────────────────────────────
+Armá el 11 — versión 2026-08-31 y10 (entrar de verdad)
+
+  · AHORA SE ENTRA CON MAIL Y CONTRASEÑA. Empezamos solo con el link por
+    mail y el argumento era bueno —la contraseña que no guardamos es la que
+    no podemos perder— pero el link falla de dos maneras que NO dependen de
+    nosotros, y las dos las sufrimos:
+      · Supabase solo redirige a las direcciones de su lista blanca. Si la
+        de destino no está, manda a la Site URL. La persona vuelve a una
+        página que no es la suya, sin sesión y SIN NINGÚN ERROR. Parece que
+        el link no anda.
+      · En el teléfono, tocar el link en Gmail lo abre en el navegador
+        INTERNO de Gmail. La sesión queda guardada AHÍ. La persona vuelve a
+        Chrome y no está: hizo todo bien y no entró.
+    La contraseña no sale de la pantalla en la que estás, así que no le
+    puede pasar ninguna de las dos. El link queda para el que se la olvidó.
+    La contraseña la guarda Supabase, hasheada; en la app no se escribe en
+    ningún lado.
+
+  · LA PORTADA RESCATA LA SESIÓN. Si el link cae en el inicio —el caso 1 de
+    arriba—, la portada agarra el token, lo guarda y devuelve a la persona a
+    la página de su club. El guardado es por ORIGEN, así que con eso queda
+    la sesión puesta para todo el sitio. Es una red, no la solución: lo
+    correcto es tener bien la lista blanca en Supabase. Pero una
+    configuración que no se ve no puede ser lo único que separa a alguien de
+    entrar a su cuenta.
+
+  · EL BOTÓN "ENTRAR CON MI MAIL" DE LOS TORNEOS ERA DE ADORNO, Y LO ERA.
+    Funcionaba: abría el panel de la cuenta, que vive arriba de todo,
+    mientras la persona estaba abajo en los torneos. Se abría fuera de la
+    pantalla. Un botón que anda pero cuyo efecto no se ve es un botón roto.
+    Ahora lleva hasta el panel y pone el cursor en el mail.
+
+  · 599 casos de prueba.
+
+── lo de antes ───────────────────────────────────────────────────────────
 Armá el 11 — versión 2026-08-31 y9 (dejar de comernos la cuota)
 
   · POR QUÉ SE AGOTÓ LA API. No la gastaron usuarios: la gastamos
