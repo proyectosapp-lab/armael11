@@ -15,8 +15,9 @@
      node publicar.mjs --sin-red    solo las pruebas
    ══════════════════════════════════════════════════════════════════════════ */
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { enHoraArgentina } from "./fantasy.mjs";
+import { CADA_HORAS, hayQueCorrer, leerSellos, sellar, hayAlguno } from "./frescura.mjs";
 
 const aca = p => new URL(p, import.meta.url);
 const soloPruebas = process.argv.includes("--sin-red");
@@ -24,10 +25,47 @@ const hayKey = !!process.env.API_FOOTBALL_KEY;
 
 const linea = "═".repeat(74);
 let fallas = [];
+let salteados = [];
+
+/* ─── CUÁNTO SALE PUBLICAR ───────────────────────────────────────────────
+   Una corrida completa son unos 1.200 pedidos a la API: las seis ligas son
+   ~800, los treinta clubes ~400, y el resto calderilla. El workflow corre
+   cada tres horas Y en cada push, así que una tarde de seis versiones
+   publicadas sumó catorce corridas y se comió los 7.500 pedidos del día.
+
+   Por eso ahora cada paso caro lleva su sello: si lo que produjo sigue ahí
+   y se bajó hace poco, se saltea. Los sellos sobreviven de una corrida a la
+   otra porque el workflow los guarda en su cache; sin eso, esto no serviría
+   de nada.
+
+   `Run workflow` a mano trae TODO igual. Es la salida de emergencia y está
+   pensada para usarse poco: cuesta una corrida completa.               */
+const SELLOS_EN = new URL("./.sellos.json", import.meta.url);
+const sellos = leerSellos(SELLOS_EN);
+const EVENTO = process.env.GITHUB_EVENT_NAME || "a mano";
+const FORZAR = EVENTO === "workflow_dispatch" || process.argv.includes("--todo");
+const dat = f => new URL("./sitio/datos/" + f, import.meta.url);
+const datosDe = pre => { try {
+  return readdirSync(new URL("./sitio/datos/", import.meta.url))
+    .filter(f => f.startsWith(pre)).map(f => dat(f));
+} catch (e) { return []; } };
 
 /* `obligatorio` es lo que, si falla, no vale la pena publicar. El resto sigue:
    que YouTube no conteste no es razón para dejar el sitio sin feed.        */
-function paso(nombre, script, { obligatorio = false, args = [] } = {}) {
+function paso(nombre, script, { obligatorio = false, args = [], sello = null,
+                               produce = [] } = {}) {
+  /* El salteo va ANTES de imprimir el título: un paso que no corrió no
+     merece un encabezado que parezca que corrió. */
+  if (sello) {
+    const q = hayQueCorrer({ sello: sellos[sello], ahora: Date.now(),
+                             cada: CADA_HORAS[sello], forzar: FORZAR,
+                             hayResultado: hayAlguno(produce) });
+    if (!q.correr) {
+      console.log("\n  ↷ " + nombre + ": " + q.porque);
+      salteados.push(sello);
+      return true;
+    }
+  }
   console.log("\n" + linea);
   console.log("  " + nombre);
   console.log(linea);
@@ -43,6 +81,10 @@ function paso(nombre, script, { obligatorio = false, args = [] } = {}) {
     }
     console.log("  Sigo igual: esto no impide publicar.");
   }
+  /* El sello se pone SOLO si salió bien. Sellar un paso que falló haría que
+     la corrida siguiente lo saltee creyendo que hay datos frescos, y el
+     error se volvería permanente sin que nada lo diga. */
+  if (ok && sello) sellar(SELLOS_EN, sellos, sello);
   return ok;
 }
 
@@ -66,6 +108,7 @@ const IMPRESCINDIBLES = [
   "probar.mjs", "probar-clubes.mjs", "probar-once.mjs", "probar-stats.mjs",
   "probar-backend.mjs", "probar-cuentas.mjs", "probar-fantasy.mjs",
   "probar-pagos.mjs", "probar-fases.mjs", "probar-publicidad.mjs",
+  "probar-frescura.mjs", "frescura.mjs",
 ];
 const faltan = IMPRESCINDIBLES.filter(f => !existsSync(aca("./" + f)));
 if (faltan.length) {
@@ -84,7 +127,8 @@ if (faltan.length) {
    feeds mal armados encima de los que estaban bien es peor que no publicar. */
 for (const t of ["probar.mjs", "probar-clubes.mjs", "probar-once.mjs", "probar-stats.mjs",
                  "probar-backend.mjs", "probar-cuentas.mjs", "probar-fantasy.mjs",
-                 "probar-pagos.mjs", "probar-fases.mjs", "probar-publicidad.mjs"])
+                 "probar-pagos.mjs", "probar-fases.mjs", "probar-publicidad.mjs",
+                 "probar-frescura.mjs"])
   paso("Pruebas · " + t, t, { obligatorio: true });
 
 if (soloPruebas) { console.log("\n  Solo pruebas. Listo.\n"); process.exit(0); }
@@ -101,19 +145,26 @@ if (!hayKey) {
   console.log("  y la tabla va a ser la que quedó de la corrida anterior.");
   console.log(linea);
 } else {
-  paso("Bajar los datos del juego", "datos-juego.mjs");
+  paso("Bajar los datos del juego", "datos-juego.mjs",
+       { sello: "juego", produce: datosDe("cache-") });
   /* No es obligatorio: sin las ligas el simulador sigue andando con el club
-     de cada página y el selector simplemente no aparece. */
-  paso("Bajar las ligas para simular", "ligas-api.mjs");
-  paso("Rehacer la tabla y los números", "stats-api.mjs");
+     de cada página y el selector simplemente no aparece.
+     Es el paso MÁS CARO de todos —unos 800 pedidos— y el que menos cambia:
+     el calendario de la próxima fecha de seis ligas se mueve una vez por
+     semana. Por eso se rehace una vez por día y no ocho. */
+  paso("Bajar las ligas para simular", "ligas-api.mjs",
+       { sello: "ligas", produce: [dat("ligas.js")] });
+  paso("Rehacer la tabla y los números", "stats-api.mjs",
+       { sello: "tabla", produce: [new URL("./stats-liga.json", import.meta.url)] });
   /* No es obligatorio: si la fecha no se puede armar, el resto del sitio
      sale igual y la pestaña del fantasy simplemente no aparece. */
-  paso("Publicar la próxima fecha del fantasy", "fantasy-api.mjs");
+  paso("Publicar la próxima fecha del fantasy", "fantasy-api.mjs",
+       { sello: "fantasy", produce: [new URL("./fecha-actual.json", import.meta.url)] });
   /* Después de publicar la próxima, puntuar la anterior. En este orden
      porque la que se puntúa ya terminó y la que se publica todavía no
      existe: no se pisan. Tampoco es obligatorio — una fecha sin puntuar se
      puntúa en la corrida siguiente. */
-  paso("Puntuar la última fecha jugada", "puntos-api.mjs");
+  paso("Puntuar la última fecha jugada", "puntos-api.mjs", { sello: "puntos", produce: ["."] });
   /* Y recién después de puntuar, ver si con eso se cerró una fase. El orden
      no es casual: una fase se cierra cuando su última fecha está PUNTUADA,
      así que preguntar antes de calcular siempre diría que no. */
@@ -185,6 +236,35 @@ console.log("  JUEGO: " + (cache ? "con los datos bajados, sin API key en el nav
                                  : "SIN datos bajados: la app le va a pedir la key al usuario"));
 
 console.log(linea);
+if (salteados.length)
+  console.log("  Se saltearon por estar frescos: " + salteados.join(", ") +
+              "   (para traer todo, Run workflow a mano)");
 console.log(fallas.length ? "  Terminó con " + fallas.length + " paso(s) fallado(s): " + fallas.join(", ")
                           : "  Todo bien.");
+
+/* ─── EL AVISO QUE NOS FALTÓ ─────────────────────────────────────────────
+   Los pasos que hablan con la API no son obligatorios: si no contesta, el
+   sitio se publica igual en vez de no publicarse. Es la decisión correcta y
+   tiene un costo que pagamos: la corrida sale VERDE con todo vacío, y eso
+   puede quedar así durante días sin que nadie lo note.
+
+   Si todo lo que depende de la API vino sin nada, no es mala suerte: es una
+   sola causa. Y la más probable, con diferencia, es la cuota. */
+if (hayKey) {
+  const sinJuego  = !datosDe("cache-").length;
+  const sinLigas  = !existsSync(dat("ligas.js"));
+  const sinFecha  = !existsSync(new URL("./fecha-actual.json", import.meta.url));
+  if (sinJuego && sinLigas && sinFecha) {
+    console.log("\n" + linea);
+    console.log("  ⚠⚠  TODO LO QUE DEPENDE DE LA API VINO VACÍO.");
+    console.log(linea);
+    console.log("  No es mala suerte: tres pasos independientes no fallan juntos.");
+    console.log("  Lo más probable, con diferencia, es que se haya agotado la cuota");
+    console.log("  diaria de API-Football. Mirá dashboard.api-football.com; si dice");
+    console.log("  100% usado, se resetea a las 00:00 UTC y no hay nada que arreglar");
+    console.log("  en el código: hay que publicar menos veces o subir de plan.");
+    console.log("  La otra causa posible es que la key haya dejado de valer.");
+    console.log(linea);
+  }
+}
 console.log(linea + "\n");

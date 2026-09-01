@@ -1,3 +1,39 @@
+Armá el 11 — versión 2026-08-31 y9 (dejar de comernos la cuota)
+
+  · POR QUÉ SE AGOTÓ LA API. No la gastaron usuarios: la gastamos
+    publicando. Una corrida completa son unos 1.200 pedidos —las seis ligas
+    ~800, los treinta clubes ~400— y el workflow corre cada 3 horas Y en
+    cada push. Seis versiones publicadas en una tarde más las ocho del reloj
+    dieron catorce corridas: unos 16.000 pedidos contra un tope de 7.500.
+
+  · LA SOLUCIÓN: NO VOLVER A BAJAR LO QUE YA BAJAMOS HACE UN RATO.
+      · `frescura.mjs` decide qué pasos vale la pena rehacer. Cada paso deja
+        un sello con la hora en que terminó bien; si lo que produjo sigue
+        estando y se bajó hace poco, se saltea.
+      · Los sellos sobreviven entre corridas porque el workflow los guarda
+        en su cache (bloque `actions/cache`, agregado al .yml). Sin ese
+        bloque los sellos estarían siempre vacíos y esto no serviría.
+      · Cada cuánto: ligas 24 h (es el paso más caro y el que menos cambia),
+        juego 6 h, tabla 6 h, fantasy 3 h (es barato y sin fecha no hay
+        pestaña), puntos 6 h. Da unos 2.500 pedidos por día contra 7.500.
+      · `Run workflow` a mano trae TODO igual: es la salida de emergencia.
+
+  · LA REGLA QUE HACE QUE SEA SEGURO: un paso solo se saltea si lo que
+    produjo SIGUE ESTANDO. El sello dice "se bajó hace dos horas"; si el
+    archivo no está, el sello miente. Sin eso, un cache a medias publicaría
+    un sitio sin datos del juego y la app le pediría la API key al usuario
+    — que es el síntoma exacto que nos hizo encontrar todo esto.
+
+  · Y EL AVISO QUE NOS FALTÓ. Los pasos que hablan con la API no son
+    obligatorios: si no contesta, el sitio se publica igual. Es la decisión
+    correcta y tiene un costo que pagamos hoy: la corrida sale VERDE con
+    todo vacío. Ahora, si TODO lo que depende de la API viene sin nada, el
+    log lo grita y nombra la causa más probable, que es la cuota. Tres pasos
+    independientes no fallan juntos por casualidad.
+
+  · 593 casos de prueba.
+
+── lo de antes ───────────────────────────────────────────────────────────
 Armá el 11 — versión 2026-08-31 y8 (la lista de a veinte)
 
   · LA LISTA DE JUGADORES VA DE A VEINTE, CON ANTERIORES Y SIGUIENTES. Es
