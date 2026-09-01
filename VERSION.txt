@@ -1,3 +1,96 @@
+Armá el 11 — versión 2026-09-01 y13 (el tanteador con nombres, y el gancho de la portada)
+
+  · EL MARCADOR YA NO ES UN "2-0" PELADO. Dice "Talleres 2 - Belgrano 0",
+    en los tres lugares donde aparece: la línea de abajo de la cancha
+    mientras el partido corre, la tarjeta de tu simulación y la tarjeta de
+    la realidad. Antes había que acordarse de quién iba primero — y la
+    tarjeta del resultado queda a pantalla y media de la cancha.
+
+  · Mientras juega, cada gol va PEGADO A SU EQUIPO y el reloj cuenta solo
+    minutos: "Belgrano Cordoba 1 · 72' · 0 Huracán". Ya no hay nada que
+    deducir del orden.
+
+  · Los dos nombres del tanteador se achican por igual, así los números
+    quedan siempre centrados aunque de un lado diga "Central Córdoba".
+
+  · Un error que casi no se ve y conviene recordar: la clase del número se
+    llamaba `.gol`, que YA ERA el cartel de "¡GOL!" que ocupa la cancha
+    entera. El número heredó `position:absolute; inset:0; display:grid` y
+    quedó invisible, estirado sobre toda la línea. Una clase repetida no da
+    error: da un elemento que está y no se ve. Ahora se llama `.tanto`.
+
+  · LA PORTADA CUENTA POR QUÉ ESTO NO ES UN DADO, EN DOS FRASES. Un bloque
+    abajo de la grilla de clubes —después, nunca antes: elegir el club sigue
+    siendo lo primero—, con un título, dos oraciones y una línea de letra
+    chica. La primera versión lo explicaba en tres párrafos: "este testamento
+    no lo lee nadie". En una portada el respaldo se muestra, no se argumenta.
+
+      · El título: "El simulador no tira un dado."
+      · Las dos frases: tu partido se juega 6.000 veces con los goles reales
+        de cada liga; y la argentina es la más imprevisible — está medido.
+        (Sin el "de las nueve que probamos": la comparación ya está abajo,
+        en la letra chica, y en el titular restaba en vez de sumar.)
+      · La letra chica, un renglón, para el que quiera verificar: 10.860
+        partidos reales · nueve ligas · desde 2019 · 1.783 de tres ligas que
+        el modelo nunca había visto.
+
+    Los números salen de contar los fixtures del backtest y están anotados
+    uno por uno en `claude/modelo-backtest.md`. Hay una prueba que falla si
+    alguien los cambia en la portada, para obligarlo a pasar por el respaldo:
+    prometer algo que no está medido es la única forma de que esto se vuelva
+    mentira, y ninguna prueba automática lo detecta sola.
+
+  · 136 casos en probar-sitio.cjs, más las de Node. Todo en verde.
+
+
+Armá el 11 — versión 2026-09-01 y12 (el marcador, la letra y el descargo)
+
+  · EL RELOJ SE FUE DE LA CANCHA. Estuvo arriba del arco rival y después en
+    la esquina, y en los dos lugares tapaba jugadores: con el bloque
+    moviéndose ±36 no queda un rincón por donde no pase nadie. Ahora va
+    ENTRE LOS DOS NOMBRES DE LOS EQUIPOS, abajo de la cancha, donde se lee
+    como lo que es: un marcador.
+
+  · Y ESO OBLIGÓ A ORDENAR LOS NOMBRES. Un "1-0" entre dos nombres se lee de
+    izquierda a derecha. El marcador siempre contó desde tu club, y los
+    nombres estaban al revés: el mismo partido decía dos cosas distintas.
+    Ahora TU CLUB VA PRIMERO en las cuatro puntas — la línea de equipos, el
+    reloj, el número grande y el xG. Hay una prueba que simula hasta que
+    haya un ganador (en un 1-1 el error no se ve) y falla si alguien da
+    vuelta una sola de las cuatro.
+
+  · LA TARJETA DEL RESULTADO YA DICE QUIÉN CONTRA QUIÉN. Queda a pantalla y
+    media de la cancha: llegabas a un "1-1" sin saber de qué partido
+    hablaba.
+
+  · LA LETRA DEL GLOBITO SALÍA SIEMPRE EN BLANCO. En River, Huracán y Vélez
+    el fondo TAMBIÉN es blanco: la G, la D, la M y la F desaparecían, y el
+    anillo blanco terminaba de convertir a los once en manchas. En Rosario
+    Central pasaba lo mismo con el amarillo. Ahora la tinta se calcula por
+    contraste, con la misma función que usan las tarjetas de la portada, y
+    hay una prueba que la mide con los colores de los treinta clubes.
+
+  · NADIE SE PARA ARRIBA DEL ARQUERO. Un central arranca a doce puntos de su
+    arco; cuando el repliegue le sumaba treinta y cuatro, los cuatro
+    defensores y el arquero terminaban en el mismo metro cuadrado. El
+    repliegue de cada uno se limita AL ESPACIO QUE TIENE DETRÁS: el que está
+    lejos se hunde, el que ya está hundido se queda. El bloque se comprime
+    en vez de amontonarse.
+
+  · EL DESCARGO LEGAL NOMBRABA AL CLUB EQUIVOCADO. Decía "sin relación con
+    el Club Atlético Talleres" en las treinta páginas: la de River aclaraba
+    que no tenía relación con Talleres. Ahora sale del club de cada página,
+    y la construcción se aborta si falta el marcador — igual que con la
+    versión.
+
+  · foto-play.cjs: las capturas de la tienda dejaron de ser a mano. Levanta
+    el sitio, carga el cache real de cada club y saca las cuatro a 1080×1920.
+    Si el cache de un club es el sintético de las pruebas, NO saca la
+    captura: una foto de tienda con nombres inventados es publicidad falsa.
+
+  · 129 casos en probar-sitio.cjs, todos en verde.
+
+
 Armá el 11 — versión 2026-09-01 y11 (la cancha se mueve)
 
   · "LOS GLOBITOS NO PASAN LA MITAD DE LA CANCHA". Tenía razón y era

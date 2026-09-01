@@ -89,6 +89,17 @@ const srv = http.createServer((q, s) => {
 const casos = [];
 const caso = (n, ok) => casos.push([n, ok]);
 
+/* El tanteador dice "Talleres 2 - Belgrano 0": los goles son los dos <b> y
+   los nombres los dos .eq. Leerlo con `textContent` daría todo pegado. */
+const tanteador = pg => pg.evaluate(() => {
+  const m = document.querySelector('.marcador');
+  if (!m) return { goles: "", nombres: [] };
+  return {
+    goles: [...m.querySelectorAll('b')].map(b => b.textContent.trim()).join("-"),
+    nombres: [...m.querySelectorAll('.eq')].map(e => e.textContent.trim()),
+  };
+});
+
 srv.listen(8099, async () => {
   const b = await chromium.launch();
   const pg = await b.newPage({ viewport: { width: 430, height: 920 } });
@@ -107,6 +118,31 @@ srv.listen(8099, async () => {
 
   await pg.goto('http://localhost:8099/index.html', { waitUntil: 'networkidle' });
   caso("la portada lista los clubes", await pg.locator('.club').count() > 0);
+
+  /* ── EL GANCHO DEL SIMULADOR ──────────────────────────────────────────
+     La portada tiene que contar que el resultado no sale de un dado, y
+     tiene que contarlo con los números que están efectivamente medidos y
+     anotados en `claude/modelo-backtest.md`. No hay forma automática de
+     verificar que una promesa sea cierta; lo que sí se puede fijar es que
+     los números NO se muevan solos. Si alguien los cambia, este caso
+     falla y lo obliga a pasar por el respaldo. */
+  {
+    const g = pg.locator('.gancho');
+    caso("la portada dice que el simulador no tira un dado",
+         await g.count() === 1 && /no tira un dado/i.test(await g.innerText()));
+    const txt = await g.innerText();
+    for (const n of ["10.860", "nueve ligas", "1.783", "6.000"])
+      caso("y el respaldo dice " + n, txt.includes(n),
+           txt.replace(/\n/g, " ").slice(0, 140));
+    /* Elegir el club sigue siendo lo primero: el gancho va DESPUÉS de la
+       grilla, no antes. Un argumento sobre el modelo no puede empujar a los
+       treinta clubes abajo del pliegue. */
+    caso("y va después de la grilla, no antes",
+         await pg.evaluate(() => {
+           const gr = document.querySelector('.grilla'), ga = document.querySelector('.gancho');
+           return !!gr && !!ga && (gr.compareDocumentPosition(ga) & Node.DOCUMENT_POSITION_FOLLOWING) > 0;
+         }));
+  }
 
   /* ── EL NOMBRE ────────────────────────────────────────────────────────
      La app se llamaba TSTE por dentro y el dominio dice otra cosa. Que el
@@ -391,6 +427,12 @@ srv.listen(8099, async () => {
                  .filter(p => p.y < 0 || p.y > 100 || p.x < 0 || p.x > 100).length,
         arqueroLejos: Math.max(...atacando.concat(defendiendo)
           .filter(p => p.cat === "G" && p.lado === "A").map(p => Math.abs(p.y - 93))),
+        /* Cuánto se le acercó el jugador de campo más pegado a su propio
+           arquero, en el peor de los dos momentos. */
+        encimaDelArquero: Math.min(...[atacando, defendiendo].map(l => {
+          const g = l.find(p => p.cat === "G" && p.lado === "A");
+          return Math.min(...deA(l).map(p => Math.hypot(p.x - g.x, p.y - g.y)));
+        })),
       };
     });
     caso("en reposo los equipos están en su propio campo, como en el saque",
@@ -408,6 +450,44 @@ srv.listen(8099, async () => {
     caso("nadie se va de la cancha", donde.fuera === 0, donde.fuera + " afuera");
     caso("y el arquero no se despega del arco",
          donde.arqueroLejos < 12, "se alejó " + donde.arqueroLejos.toFixed(1));
+    /* ── NADIE SE PARA ARRIBA DEL ARQUERO ────────────────────────────────
+       Un central ya arranca a doce puntos de su arco. Cuando el repliegue
+       le sumaba treinta y cuatro más, los cuatro defensores y el arquero
+       terminaban en el mismo metro cuadrado: cinco globitos superpuestos no
+       son cinco jugadores, son un borrón con los nombres ilegibles. Ahora
+       el repliegue de cada uno se limita al espacio que tiene detrás. */
+    caso("y ningún jugador de campo se para arriba de su arquero",
+         donde.encimaDelArquero > 4,
+         "el más pegado quedó a " + donde.encimaDelArquero.toFixed(1));
+
+    /* ── LA LETRA DEL GLOBITO SOBRE EL COLOR DEL CLUB ────────────────────
+       Estaba en blanco fija. En River, Huracán y Vélez el fondo TAMBIÉN es
+       blanco: la G, la D, la M y la F desaparecían y el anillo blanco
+       terminaba de convertir a los once en manchas. En Central pasaba lo
+       mismo con el amarillo. Se mide el contraste de verdad, con los
+       colores de los treinta clubes, usando la misma función que usa la
+       app: si alguien vuelve a poner un color fijo, esto falla en siete. */
+    const flojos = await pg.evaluate(colores => {
+      const lin = v => (v /= 255) <= .03928 ? v/12.92 : Math.pow((v+.055)/1.055, 2.4);
+      const L = h => { const n = parseInt(String(h).slice(1), 16);
+        return .2126*lin(n>>16&255) + .7152*lin(n>>8&255) + .0722*lin(n&255); };
+      const ct = (a,b) => { const x=L(a), y=L(b);
+        return (Math.max(x,y)+.05)/(Math.min(x,y)+.05); };
+      return colores.filter(c => ct(tintaSobre(c), c) < 4.5);
+    }, JSON.parse(require('fs').readFileSync(path.join(__dirname, 'clubes.json')))
+         .map(c => c.color));
+    caso("la letra del globito se lee sobre el color de los treinta clubes",
+         flojos.length === 0, flojos.join(", "));
+
+    const ink = await pg.evaluate(() => {
+      const b = document.querySelector('.jug[data-lado="A"] .b');
+      const hex = tintaSobre(CLUB.color);
+      const n = parseInt(hex.slice(1), 16);
+      return { real: getComputedStyle(b).color,
+               esperado: `rgb(${n>>16&255}, ${n>>8&255}, ${n&255})` };
+    });
+    caso("y el globito usa esa letra, no una fija",
+         ink.real === ink.esperado, ink.real + " vs " + ink.esperado);
   }
 
   /* Y los globitos tienen que moverse. Antes rebotaba la pelota sola. */
@@ -786,20 +866,29 @@ srv.listen(8099, async () => {
      gente quiere ver cuánto sacó— la pestaña no existía.
 
      Este sitio se construye SIN fecha publicada, así que es el caso exacto. */
+  /* La prueba NO puede depender de que el sitio de al lado se haya
+     construido sin fecha: si un día corre después del workflow, hay fecha y
+     el caso se volvía verde por el motivo equivocado (o rojo, como pasó).
+     La ausencia de fecha se FABRICA acá: se sirve `fecha.js` vacío. */
   {
-    const hayFecha = await pg.evaluate(() => !!window.FECHA);
-    const visible = await pg.locator('#btfantasy').isVisible();
+    const pg2 = await b.newPage({ viewport: { width: 430, height: 920 } });
+    await pg2.route('**/v3.football.api-sports.io/**', r => r.abort());
+    await pg2.route('**/datos/fecha.js', r =>
+      r.fulfill({ contentType: 'text/javascript', body: '/* sin fecha */' }));
+    await pg2.goto('http://localhost:8099/' + CLUB + '.html', { waitUntil: 'networkidle' });
+
+    const hayFecha = await pg2.evaluate(() => !!window.FECHA);
+    const visible = await pg2.locator('#btfantasy').isVisible();
     caso("sin fecha publicada, la pestaña del fantasy sigue estando",
          !hayFecha && visible, "fecha: " + hayFecha + ", visible: " + visible);
     if (visible) {
-      await pg.click('#btfantasy');
-      await pg.waitForTimeout(200);
-      const t = (await pg.evaluate(() => document.body.innerText)).toLowerCase();
+      await pg2.click('#btfantasy');
+      await pg2.waitForTimeout(200);
+      const t = (await pg2.evaluate(() => document.body.innerText)).toLowerCase();
       caso("y adentro están los torneos, que es lo que se mira el lunes",
            /torneos de amigos/.test(t), t.slice(0, 120).replace(/\n/g, ' | '));
-      await pg.click('[data-tab="juego"]');
-      await pg.waitForTimeout(200);
     }
+    await pg2.close();
   }
 
   /* ── EL LUGAR DEL AVISO ────────────────────────────────────────────────
@@ -852,10 +941,81 @@ srv.listen(8099, async () => {
 
   /* El número grande tiene que ser el partido que acaba de ver, no el
      marcador más probable: mostraba 0-1 después de un 0-2 y confundía. */
-  const grande = (await pg.locator('.marcador').first().textContent() || '').trim();
+  const grande = (await tanteador(pg)).goles;
   const visto = await pg.evaluate(() => J.sim.estaVez.A + "-" + J.sim.estaVez.B);
   caso("el número grande es el partido que se vio", grande === visto,
        "en pantalla " + grande + " · jugado " + visto);
+
+  /* ── EL TANTEADOR DICE LOS NOMBRES ────────────────────────────────────
+     Era un "2-0" pelado, a pantalla y media de la cancha: había que
+     acordarse de quién iba primero. Ahora dice "Talleres 2 - Belgrano 0",
+     y los nombres tienen que ser LOS DE ESTE PARTIDO y en el mismo orden
+     que los números — si alguien invierte uno de los dos, se lee al revés
+     sin que nada falle. */
+  {
+    const t = await tanteador(pg);
+    const nom = await pg.evaluate(() => [J.nom.A, J.nom.B]);
+    caso("el tanteador dice quién contra quién, tu club primero",
+         t.nombres.length === 2 && t.nombres[0] === nom[0] && t.nombres[1] === nom[1],
+         t.nombres.join(" | ") + "  (esperado: " + nom.join(" | ") + ")");
+  }
+
+  /* ── LO QUE SE VE CORRIENDO Y EL NÚMERO FINAL NO SE PUEDEN CONTRADECIR ──
+     El reloj dejó la cancha (tapaba defensores) y se mudó a la línea de
+     equipos, y los goles quedaron pegados a cada nombre. Eso hace que el
+     ORDEN signifique algo: si el gol de la izquierda es el del rival, el
+     partido entero se lee al revés y nada falla.
+     Se fijan las cuatro puntas de una sola convención: tu club primero en
+     la línea de equipos, tu gol pegado a tu nombre, tu club primero en el
+     tanteador final y el número de la izquierda igual al que se vio correr.
+     Si alguien da vuelta una sola, esto falla. */
+  {
+    const orden = await pg.evaluate(() =>
+      [...document.querySelectorAll('.equipos .nm')].map(x => x.textContent.trim()));
+    const miClub = await pg.evaluate(() => J.nom.A);
+    caso("en la línea de equipos tu club va primero",
+         orden[0] === miClub, orden.join("  |  ") + "  (tuyo: " + miClub + ")");
+
+    /* Se miran los goles de la línea EN EL MOMENTO en que el reloj llega a
+       90, antes de que la tarjeta se dibuje, y se comparan con el tanteador.
+
+       Y TIENE QUE SER UN PARTIDO CON GANADOR: en un 1-1 se lee igual al
+       derecho que al revés y la prueba pasaría con el orden dado vuelta.
+       Se simula hasta que haya diferencia. */
+    let enVivo = null, final = "", empate = true;
+    for (let i = 0; i < 8 && empate; i++) {
+      enVivo = await pg.evaluate(() => new Promise(listo => {
+        const bs = document.getElementById('bsim');
+        if (!bs) return listo(null);
+        /* Se toma el ÚLTIMO estado, no el primero que dice 90: el minuto 90
+           se escribe dos veces (el último tic y el cierre) y si solo se
+           mirara el primero, una diferencia entre esas dos líneas pasaría
+           sin que nadie la vea. */
+        let ultimo = null, cerrando = false;
+        const t = setInterval(() => {
+          const r = document.getElementById('reloj');
+          const a = document.getElementById('golA'), b = document.getElementById('golB');
+          if (r && !r.hidden && a && b)
+            ultimo = { min: r.textContent.trim(), goles: a.textContent.trim() + "-" + b.textContent.trim() };
+          if (!cerrando && ultimo && ultimo.min.startsWith("90'")) {
+            cerrando = true;
+            setTimeout(() => { clearInterval(t); listo(ultimo); }, 700);
+          }
+        }, 60);
+        setTimeout(() => { clearInterval(t); listo(ultimo); }, 40000);
+        bs.click();
+      }));
+      await pg.waitForTimeout(1500);
+      final = (await tanteador(pg)).goles;
+      const [a, b] = final.split("-");
+      empate = a === b;
+    }
+    const corriendo = enVivo ? enVivo.goles : "";
+    caso("los goles que se ven correr son los del resultado final",
+         !empate && !!corriendo && corriendo === final,
+         "en vivo " + (corriendo || "(no se vio)") + " · tarjeta " + final +
+         (empate ? " · ocho simulaciones y todas empate" : ""));
+  }
 
   caso("el navegador NUNCA llamó a api-sports.io", apiTocada.length === 0);
   caso("sin errores de JavaScript", errs.length === 0);

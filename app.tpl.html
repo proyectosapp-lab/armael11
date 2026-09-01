@@ -293,16 +293,40 @@ button.gh{background:transparent;color:var(--tinta-2);border:1px solid var(--bor
 .pelota{position:absolute;width:12px;height:12px;border-radius:50%;background:#fff;z-index:3;
   box-shadow:0 0 10px rgba(0,0,0,.6);transform:translate(-50%,-50%);
   transition:left .5s cubic-bezier(.4,0,.3,1),top .5s cubic-bezier(.4,0,.3,1)}
-.reloj{position:absolute;top:9px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.6);
-  color:#fff;padding:5px 14px;border-radius:99px;font-size:12.5px;font-weight:800;z-index:4;
-  font-variant-numeric:tabular-nums;letter-spacing:.5px}
+/* EL RELOJ NO VA ADENTRO DE LA CANCHA. Estuvo centrado arriba (encima del
+   arco rival) y después en la esquina, y en las dos tapaba nombres: con el
+   bloque moviéndose ±36 no queda un solo rincón donde no pase nadie. Ahora
+   vive ENTRE LOS DOS NOMBRES DE LOS EQUIPOS, abajo, que es donde un
+   marcador se lee sin tapar nada — y de paso se lee como marcador. */
+.reloj{background:var(--tinta);color:var(--papel);
+  padding:3px 12px;border-radius:99px;font-size:12.5px;font-weight:800;
+  font-variant-numeric:tabular-nums;letter-spacing:.5px;white-space:nowrap}
+.reloj[hidden]{display:none}
 .gol{position:absolute;inset:0;display:grid;place-items:center;z-index:5;pointer-events:none;
   font-size:44px;font-weight:900;color:#fff;text-shadow:0 4px 20px rgba(0,0,0,.8);
   opacity:0;transition:opacity .2s}
 .gol.on{opacity:1}
-.equipos{display:flex;justify-content:space-between;align-items:center;margin:9px 2px 0;font-size:12px}
-.equipos .e{display:flex;align-items:center;gap:6px;color:var(--tinta-2);font-weight:650}
-.equipos .pt{width:11px;height:11px;border-radius:50%;flex:none}
+.equipos{display:flex;justify-content:space-between;align-items:center;gap:8px;margin:9px 2px 0;font-size:12px}
+/* Con el reloj en el medio, los nombres largos ("Independiente Rivadavia")
+   tienen que ceder ellos, no empujar el marcador fuera de la pantalla. */
+.equipos .e{display:flex;align-items:center;gap:6px;color:var(--tinta-2);font-weight:650;
+  flex:1 1 0;min-width:0}
+.equipos .e:last-child{justify-content:flex-end}
+.equipos .nm{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+/* Los goles van pegados al nombre, no adentro del reloj: así la línea de
+   abajo de la cancha dice "Talleres 2 · 15' · 0 Belgrano" y se entiende sin
+   tener que recordar cuál de los dos números era cuál.
+   Se llama `.tanto` y no `.gol` porque `.gol` ya era el cartel de "¡GOL!"
+   que ocupa la cancha entera: con ese nombre el número heredaba
+   `position:absolute; inset:0; display:grid` y se volvía invisible
+   estirado sobre toda la línea. Una clase repetida no da error, da un
+   elemento que está y no se ve. */
+.equipos .tanto{font-size:16px;font-weight:800;color:var(--tinta);flex:none;
+  font-variant-numeric:tabular-nums;letter-spacing:-.5px}
+.equipos .tanto[hidden]{display:none}
+/* Con anillo: el punto de River o de Vélez es blanco sobre fondo claro. */
+.equipos .pt{width:11px;height:11px;border-radius:50%;flex:none;
+  box-shadow:inset 0 0 0 1px rgba(16,32,26,.28)}
 .picker{position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.5);display:flex;align-items:flex-end}
 .hoja2{background:var(--papel);border-radius:22px 22px 0 0;width:100%;max-height:72vh;overflow:auto;
   padding:16px 16px max(16px,env(safe-area-inset-bottom))}
@@ -322,7 +346,20 @@ input[type=range]{width:100%;accent-color:var(--acento)}
 .ends{display:flex;justify-content:space-between;font-size:10.5px;color:var(--tinta-3)}
 .res{display:flex;gap:2px;margin:12px 0 8px;border-radius:11px;overflow:hidden;height:42px}
 .res div{display:grid;place-items:center;font-size:12.5px;font-weight:800;color:#fff}
-.marcador{text-align:center;font-size:30px;font-weight:800;letter-spacing:-1px;margin:6px 0 2px}
+/* ── EL TANTEADOR ────────────────────────────────────────────────────────
+   Era un "2-0" pelado. Un marcador sin nombres obliga a acordarse de quién
+   iba primero, y la tarjeta del resultado queda a pantalla y media de la
+   cancha. Con los nombres adentro se lee de una: "Talleres 2 - Belgrano 0".
+   Los dos nombres se achican por igual, así los números quedan siempre en
+   el centro aunque de un lado diga "Central Córdoba (SdE)". */
+.marcador{display:flex;align-items:baseline;justify-content:center;gap:7px;
+  font-size:30px;font-weight:800;letter-spacing:-1px;margin:6px 0 2px}
+.marcador .eq{flex:1 1 0;min-width:0;font-size:13.5px;font-weight:700;letter-spacing:0;
+  color:var(--tinta-2);overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+.marcador .eq:first-child{text-align:right}
+.marcador .eq:last-child{text-align:left}
+.marcador b{font-variant-numeric:tabular-nums;flex:none}
+.marcador i{font-style:normal;font-size:19px;color:var(--tinta-3);flex:none}
 .nota{font-size:12.5px;color:var(--tinta-2);line-height:1.55;margin:6px 0 0;padding-left:14px;
   border-left:2px solid var(--borde)}
 
@@ -380,7 +417,11 @@ tr.yo td:first-child{border-radius:9px 0 0 9px} tr.yo td:last-child{border-radiu
   </div>
   <div id="cuenta" hidden></div>
   <div id="vista"></div>
-  <p class="pie">App independiente, sin relación con el Club Atlético Talleres.<br>
+  <!-- EL AVISO DE INDEPENDENCIA NOMBRA AL CLUB DE ESTA PÁGINA.
+       Decía "Club Atlético Talleres" fijo, en las treinta: la página de
+       River aclaraba que no tenía relación con Talleres. Un descargo legal
+       que nombra al club equivocado no descarga nada. -->
+  <p class="pie">App independiente, sin relación con {{CLUB_OFICIAL}}.<br>
     Los títulos y enlaces pertenecen a cada medio; se enlaza siempre a la fuente original.<br>
     <!-- QUÉ VERSIÓN ESTÁ PUBLICADA, A LA VISTA.
 
@@ -1981,10 +2022,21 @@ async function revelar(){
    globito y elegís quién lo ocupa.                                       */
 function coordsDe(form, arriba){
   const slots=slotsDe(form), filas=slots.length, out=[];
+  /* LOS DOS EQUIPOS NO PUEDEN CAER EN LA MISMA COLUMNA. Con la misma
+     formación de los dos lados —4-3-3 contra 4-3-3 es lo más común— las x
+     salían idénticas, y cuando las líneas se cruzaban los globitos quedaban
+     uno EXACTAMENTE encima del otro: dos nombres superpuestos, ilegibles,
+     que parecen un error de dibujo.
+
+     Tres puntos y medio de corrimiento alcanzan para que se vean los dos y
+     además queda más real: un marcador no se para arriba del delantero, se
+     para al lado. */
+  const corrido = arriba ? 3.5 : -3.5;
   slots.forEach((l,i)=>{
     const t=i/(filas-1);
     const y = arriba ? 7 + t*36 : 93 - t*36;
-    for(let j=0;j<l.n;j++) out.push({ x:(j+1)/(l.n+1)*100, y, cat:l.cat });
+    for(let j=0;j<l.n;j++)
+      out.push({ x:(j+1)/(l.n+1)*100 + corrido, y, cat:l.cat });
   });
   return out;
 }
@@ -2055,10 +2107,15 @@ const apellido = nom => { const w=String(nom||"").trim().split(/\s+/); return w[
 
 function campoHTML(){
   const cA=ajustarTactica(coordsDe(J.formA,false), false, J.K), cB=coordsDe(J.formB,true);
-  const globo=(p,c,lado,i)=>`
+  const globo=(p,c,lado,i)=>{
+    const fondo = lado==="A" ? CLUB.color : "#B3261E";
+    const tinta = tintaSobre(fondo);
+    /* El anillo también: blanco sobre blanco no es un anillo. */
+    const anillo = tinta==="#101418" ? "rgba(16,20,24,.55)" : "rgba(255,255,255,.9)";
+    return `
     <div class="jug" style="left:${c.x}%;top:${c.y}%" data-lado="${lado}" data-slot="${i}" data-cat="${c.cat}">
-      <div class="b" style="background:${lado==="A"?CLUB.color:"#B3261E"};color:#fff">${c.cat}</div>
-      <div class="n">${esc(apellido(p&&p.nombre))}</div></div>`;
+      <div class="b" style="background:${fondo};color:${tinta};border-color:${anillo}">${c.cat}</div>
+      <div class="n">${esc(apellido(p&&p.nombre))}</div></div>`;};
   return `<div class="campo" id="campo">
     <div class="ln" style="left:0;right:0;top:50%;height:0"></div>
     <div class="ln" style="left:50%;top:50%;width:24%;aspect-ratio:1;border-radius:50%;transform:translate(-50%,-50%)"></div>
@@ -2069,12 +2126,12 @@ function campoHTML(){
     ${cB.map((c,i)=>globo(J.xiB[i],c,"B",i)).join("")}
     ${cA.map((c,i)=>globo(J.xiA[i],c,"A",i)).join("")}
     <div class="pelota" id="pelota" style="left:50%;top:50%"></div>
-    <div class="reloj" id="reloj" hidden>0'</div>
     <div class="gol" id="golazo">¡GOL!</div>
   </div>
   <div class="equipos">
-    <span class="e"><span class="pt" style="background:#B3261E"></span>${esc(J.nom.B)}</span>
-    <span class="e">${esc(J.nom.A)}<span class="pt" style="background:${CLUB.color}"></span></span>
+    <span class="e"><span class="pt" style="background:${CLUB.color}"></span><span class="nm">${esc(J.nom.A)}</span><b class="tanto" id="golA" hidden>0</b></span>
+    <div class="reloj" id="reloj" hidden>0'</div>
+    <span class="e"><b class="tanto" id="golB" hidden>0</b><span class="nm">${esc(J.nom.B)}</span><span class="pt" style="background:#B3261E"></span></span>
   </div>`;
 }
 
@@ -2203,7 +2260,23 @@ async function momentoDeAviso(){
    Y todo termina clavado adentro de la cancha: por muy volcado que esté un
    equipo, un globito afuera del rectángulo no se lee como presión, se lee
    como un error de dibujo.                                              */
+/* ── EL TANTEADOR, UN SOLO LUGAR ─────────────────────────────────────────
+   Lo usan las dos tarjetas —la simulación y la realidad— y así no se pueden
+   ir separando. Los nombres salen de `J.nom`, con tu club primero, que es la
+   misma convención que la línea de abajo de la cancha y el xG. */
+const tanteador = (a, b) => `<div class="marcador">
+    <span class="eq">${esc(J.nom.A)}</span><b>${String(a).trim()}</b>
+    <i>-</i>
+    <b>${String(b).trim()}</b><span class="eq">${esc(J.nom.B)}</span>
+  </div>`;
+
 const CANCHA = { alto: [3, 97], ancho: [3, 97] };
+/* EL ARQUERO TIENE SU METRO Y NADIE MÁS LO PISA. Los de afuera llegan hasta
+   el borde del área chica ajena y hasta el borde de la propia, pero no
+   arriba del arquero: dos globitos en el mismo punto no son dos jugadores,
+   son un borrón. */
+const PISO = [12, 88];
+const ARCO = { A: [89, 97], B: [3, 11] };
 const entre = (v, [a, b]) => Math.max(a, Math.min(b, v));
 
 function moverJugadores(campo, bx, by){
@@ -2246,11 +2319,25 @@ function moverJugadores(campo, bx, by){
        exactamente lo que no hace un 9. */
     const factor = fase >= 0 ? estira : (2 - estira);
     const empuje = (27 + 12*pre) * amplitud;
+    let mov = haciaAdelante * (fase * empuje * factor + lin * 6);
+
+    /* ── AL REPLEGAR NO HAY LUGAR PARA TODOS ─────────────────────────────
+       Un central ya está parado a doce puntos de su propio arco. Si
+       repliega treinta y cuatro como decía la cuenta, termina adentro del
+       área chica, arriba del arquero — y eso es exactamente lo que se veía:
+       cuatro defensores y un arquero en el mismo metro cuadrado.
+       El repliegue de cada uno se limita AL ESPACIO QUE TIENE DETRÁS. El
+       que está lejos se hunde, el que ya está hundido se queda donde está.
+       Así el bloque se COMPRIME, que es lo que hace un equipo defendiendo,
+       en vez de amontonarse contra la línea. */
+    const retrocede = mio ? mov > 0 : mov < 0;
+    if (retrocede && !arquero) {
+      const espacio = Math.max(0, mio ? PISO[1] - y0 : y0 - PISO[0]);
+      mov = Math.sign(mov) * Math.min(Math.abs(mov), espacio);
+    }
     /* Techo propio: con ritmo y presión al máximo, la cuenta se pasaría de
        la cancha y los once terminarían apilados contra el arco. */
-    const bloqueY = entre(
-      haciaAdelante * (fase * empuje * factor + lin * 6),
-      arquero ? [-5, 5] : [-36, 36]);
+    const bloqueY = entre(mov, arquero ? [-5, 5] : [-36, 36]);
 
     /* De costado: el equipo bascula hacia la pelota. El arquero también, un
        poco, que es lo que hace un arquero de verdad. */
@@ -2269,8 +2356,8 @@ function moverJugadores(campo, bx, by){
     /* El arquero no se despega del arco pase lo que pase: es lo único que
        de verdad tiene una casilla. */
     const y = arquero
-      ? entre(y0 + bloqueY + cerca(dy*k) + ruido(), mio ? [86, 97] : [3, 14])
-      : entre(y0 + bloqueY + cerca(dy*k) + ruido(), CANCHA.alto);
+      ? entre(y0 + bloqueY + cerca(dy*k) + ruido(), mio ? ARCO.A : ARCO.B)
+      : entre(y0 + bloqueY + cerca(dy*k) + ruido(), PISO);
     const x = entre(x0 + bloqueX + cerca(dx*k) + ruido(), CANCHA.ancho);
 
     el.style.setProperty("--dx", ((x - x0) / 100 * r.width ).toFixed(1) + "px");
@@ -2303,10 +2390,22 @@ function animarPartido(xgA, xgB, alTerminar, desde){
   if(!pel) return alTerminar({A:gA,B:gB});
   campo?.classList.add("jugando");
   let min=desdeMin, marc={A:D.golesA|0, B:D.golesB|0}, k=0;
-  rel.hidden=false; rel.textContent=min+"'  "+marc.A+"-"+marc.B;
+  /* UNA SOLA CONVENCIÓN, TU CLUB PRIMERO, y el número al lado del nombre.
+     El reloj vive ENTRE los dos nombres, así que el orden pasó a significar
+     algo: un "1-0" suelto se lee de izquierda a derecha y con los nombres
+     al revés decía lo contrario. Ahora ni siquiera hay que deducirlo: cada
+     gol está pegado a su equipo y el reloj solo cuenta minutos. Tu club va
+     primero en la línea, en el resultado final y en el xG. */
+  const gA_ = $("golA"), gB_ = $("golB");
+  const pintarGoles = () => {
+    if(gA_){ gA_.hidden=false; gA_.textContent=marc.A; }
+    if(gB_){ gB_.hidden=false; gB_.textContent=marc.B; }
+  };
+  rel.hidden=false; rel.textContent=min+"'";
+  pintarGoles();
   const reloj=setInterval(()=>{
     min+=1;
-    if(min>90){ clearInterval(reloj); rel.textContent="90'  "+marc.A+"-"+marc.B;
+    if(min>90){ clearInterval(reloj); rel.textContent="90'"; pintarGoles();
       if(campo) quietos(campo);
       setTimeout(()=>alTerminar(marc), 500); return; }
     let x=14+Math.random()*72;
@@ -2318,7 +2417,7 @@ function animarPartido(xgA, xgB, alTerminar, desde){
     }
     pel.style.left=x+"%"; pel.style.top=y+"%";
     if(campo) moverJugadores(campo, x, y);
-    rel.textContent = min+"'  "+marc.A+"-"+marc.B;
+    rel.textContent = min+"'"; pintarGoles();
     if(huboGol){ gol.classList.add("on"); setTimeout(()=>gol.classList.remove("on"), 550); }
   /* ── POR QUÉ EL PARTIDO DURA VEINTE SEGUNDOS ────────────────────────
      Dos razones, y ninguna es estética.
@@ -2594,7 +2693,8 @@ function vistaJuego(){
           <div style="flex:${s.loss};background:#D64550">${s.loss.toFixed(0)}%</div>
         </div>
         <div class="meta"><b>${veredicto}</b><span>·</span><span>ganás / empatás / perdés</span></div>
-        <div class="marcador">${s.estaVez ? s.estaVez.A+"-"+s.estaVez.B : esc(s.marcador)}</div>
+        ${s.estaVez ? tanteador(s.estaVez.A, s.estaVez.B)
+                    : tanteador(...String(s.marcador).split("-"))}
         <div class="meta" style="justify-content:center">${s.estaVez
           ? "el partido que acabás de ver"
           : "marcador más probable · "+s.probMarcador.toFixed(0)+"%"} ·
@@ -2620,9 +2720,8 @@ function vistaJuego(){
                    || (empate&&J.sim.draw>=J.sim.win&&J.sim.draw>=J.sim.loss)
                    || (!gano&&!empate&&J.sim.loss>J.sim.win);
       out+=`<h3 class="sec">La realidad</h3><div class="tarjeta">
-        <div class="marcador">${R.misG} - ${R.susG}</div>
-        <div class="meta" style="justify-content:center">${esc(J.nom.A)} vs ${esc(J.nom.B)}
-          ${R.formacion?"· el DT puso "+esc(R.formacion):""}</div>
+        ${tanteador(R.misG, R.susG)}
+        ${R.formacion?`<div class="meta" style="justify-content:center">el DT puso ${esc(R.formacion)}</div>`:""}
         ${R.once.length?`<div class="otras" style="margin-top:12px">${R.once.map(p=>
           `<span><b>${esc(p.pos||"")}</b> ${esc(p.name)}</span>`).join("")}</div>`:""}
         ${R.rojas.length?`<p class="nota"><b>Expulsión:</b> ${R.rojas.map(r=>

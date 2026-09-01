@@ -267,6 +267,16 @@ for (const club of CLUBES) {
   }
   html = html.replaceAll("{{VERSION}}", esc(VERSION));
 
+  /* El descargo de independencia tiene que decir el nombre del club de ESTA
+     página. Se aborta igual que con la versión: una página sin el marcador
+     saldría publicada con un descargo mudo, o peor, con el club de al lado. */
+  if (!html.includes("{{CLUB_OFICIAL}}")) {
+    console.log("  ✗ falta el marcador {{CLUB_OFICIAL}} en app.tpl.html: sin eso");
+    console.log("    el aviso de 'app independiente' no nombra al club correcto.");
+    process.exit(1);
+  }
+  html = html.replaceAll("{{CLUB_OFICIAL}}", esc(club.nombreCompleto || club.nom));
+
   html = html.replace(/<title>[\s\S]*?<\/title>/i, cabeza(club));
   html = html.replace("</body>", contador + publicidad + "\n</body>");
   writeFileSync(new URL(club.id + ".html", SITIO), html);
@@ -280,6 +290,25 @@ for (const club of CLUBES) {
   }, null, 1));
   hechos++;
 }
+
+/* ─── EL RESPALDO DEL SIMULADOR, EN NÚMEROS QUE SE PUEDEN AUDITAR ─────────
+   Estos tres números NO son marketing redondeado: salen de contar los
+   fixtures que se usaron en el backtest, y están anotados uno por uno en
+   `claude/modelo-backtest.md`.
+
+     Inglaterra 1140 · Italia 1140 · España 1140 · Brasil 1140 · Países
+     Bajos 951 · Alemania 924 · Portugal 924 · Francia 923 (2023-2025)
+     Argentina 2578 (2019, 2020, 2021, 2022, 2023, 2024 y 2026)
+     = 10.860 partidos, nueve ligas.
+
+   La prueba limpia fueron Alemania, Portugal y Países Bajos: 1.783 partidos
+   de ligas que el modelo nunca había tocado, con las hipótesis escritas
+   ANTES de correrla.
+
+   SI ALGUIEN CAMBIA ESTE NÚMERO TIENE QUE CAMBIAR TAMBIÉN EL RESPALDO.
+   Prometer en la portada algo que no está medido es la única forma de que
+   esto se vuelva mentira, y no hay prueba automática que lo detecte. */
+const RESPALDO = { partidos: "10.860", ligas: "nueve", desde: 2019, limpias: "1.783" };
 
 /* ─── la portada ──────────────────────────────────────────────────────────
    Sin escudos: monograma sobre el color del club, igual que en la app.   */
@@ -350,11 +379,32 @@ ${RAIZ ? `<meta property="og:url" content="${RAIZ}/">\n<link rel="canonical" hre
   .ciu{color:var(--suave);font-size:12px;margin-top:1px}
   footer{margin-top:34px;color:var(--suave);font-size:13px;line-height:1.7}
   footer b{color:var(--texto);font-weight:600}
+  .gancho{margin-top:30px;padding:20px 20px 17px;border-radius:15px;
+    background:var(--papel);border:1px solid var(--borde)}
+  .gancho h2{margin:0 0 7px;font-size:21px;letter-spacing:-.025em;line-height:1.2}
+  .gancho p{margin:0;color:var(--texto);font-size:16px;line-height:1.55}
+  .gancho b{font-weight:700}
+  .gancho .chica{margin-top:11px;color:var(--suave);font-size:11.5px;line-height:1.5;
+    font-weight:500}
 </style></head><body>
 <div class="caja">
   <h1>Elegí tu equipo</h1>
   <p class="baja">Todo lo que se dice de tu club, en un solo lugar. ${orden.length} equipos.</p>
   <div class="grilla">${orden.map(tarjeta).join("\n")}</div>
+
+  <!-- DOS FRASES Y LA LETRA CHICA. La versión larga explicaba el modelo en
+       tres párrafos y no la leía nadie: en una portada el respaldo se
+       muestra, no se argumenta. Los números siguen todos acá, en un
+       renglón, para el que quiera verificarlos. -->
+  <section class="gancho">
+    <h2>El simulador no tira un dado.</h2>
+    <p>Tu partido se juega <b>6.000 veces</b> con los goles reales de cada
+      liga. Y <b>la argentina es la más imprevisible</b>: está medido.</p>
+    <p class="chica">${RESPALDO.partidos} partidos reales · ${RESPALDO.ligas}
+      ligas · desde ${RESPALDO.desde} · ${RESPALDO.limpias} de tres ligas que
+      el modelo nunca había visto</p>
+  </section>
+
   <footer>
     <b>Armá el 11 es independiente.</b> No está afiliado ni tiene relación con ningún club
     ni con la Liga Profesional. Los nombres se usan para identificar a los equipos.
