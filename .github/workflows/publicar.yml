@@ -51,10 +51,46 @@ jobs:
         with:
           node-version: "22"
 
+      # ══════════════════════════════════════════════════════════════════
+      #  LO QUE YA BAJAMOS, GUARDADO ENTRE CORRIDAS
+      #
+      #  El 31/8/2026 nos comimos los 7.500 pedidos diarios de la API en una
+      #  tarde. No fue por usuarios: fue por publicar. Cada corrida baja TODO
+      #  de nuevo —seis ligas, treinta clubes, la tabla— y eso son unos 1.200
+      #  pedidos. Esto corre cada 3 horas Y en cada push, así que seis
+      #  versiones publicadas en una tarde más las ocho del reloj dieron
+      #  catorce corridas: dieciséis mil pedidos.
+      #
+      #  Con esto, lo bajado sobrevive de una corrida a la otra y publicar
+      #  deja de costar. `publicar.mjs` mira los sellos y saltea lo que
+      #  todavía sirve; sin este bloque los sellos estarían siempre vacíos y
+      #  no serviría de nada.
+      #
+      #  La clave lleva el número de corrida para que SIEMPRE se guarde una
+      #  copia nueva; `restore-keys` hace que cada corrida levante la más
+      #  reciente. Es el patrón normal para un cache que se actualiza solo.
+      # ══════════════════════════════════════════════════════════════════
+      - name: Traer lo que ya habíamos bajado
+        uses: actions/cache@v4
+        with:
+          path: |
+            sitio/datos
+            stats-liga.json
+            stats-liga.js
+            fecha-actual.json
+            .sellos.json
+          key: datos-api-${{ github.run_id }}
+          restore-keys: |
+            datos-api-
+
       - name: Correr todo
         env:
           API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          # Para que publicar.mjs sepa si esto lo disparó una subida (y
+          # entonces conviene reusar lo bajado) o el botón de "Run workflow"
+          # (y entonces se trae todo de nuevo a propósito).
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
         run: node publicar.mjs
 
       - uses: actions/upload-pages-artifact@v3
