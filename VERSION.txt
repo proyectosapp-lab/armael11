@@ -1,3 +1,44 @@
+Armá el 11 — versión 2026-09-02 y17 (crear un torneo estaba roto)
+
+  · NO SE PODÍA CREAR UN TORNEO DE AMIGOS, y el mensaje que salía mandaba a
+    buscar al lugar equivocado: "La fecha ya cerró: no se puede cambiar el
+    equipo". Nada que ver.
+
+  · QUÉ PASABA. La app hacía dos inserts seguidos: primero en `liga`, con
+    `Prefer: return=representation`, y después en `liga_miembro`. Esa cabecera
+    le pide a Postgres que devuelva la fila reción creada — y para devolverla,
+    Postgres tiene que poder LEERLA. La política de lectura de `liga` es
+    `es_miembro(id)`, que en ese instante es FALSA: la fila de miembro se
+    insertaba recién en el segundo pedido. El insert entraba y la lectura lo
+    rebotaba con un error de política.
+
+  · Y HABÍA UN SEGUNDO AGUJERO, más silencioso: eran dos pedidos. Si el
+    segundo no llegaba —se cortó la red, se cerró la pestaña—, quedaba un
+    torneo sin ningún miembro, invisible hasta para el que lo había creado.
+
+  · LOS DOS SE ARREGLAN IGUAL: `crear_liga`, una función en la base, como
+    `entrar_a_liga`. Una sola transacción, y la lectura ya no pasa por la
+    política. El código del torneo lo sortea el servidor: antes lo sorteaba
+    el navegador y reintentaba cinco veces si chocaba, o sea que usaba el
+    `unique` de la base como mecanismo de reintento a través de la red.
+
+  · EL MENSAJE MENTÍA, Y ESO ES LO QUE COSTÓ EL TIEMPO. La traducción de
+    errores agarraba CUALQUIER violación de política y contestaba siempre lo
+    mismo. Ahora solo lo dice cuando el error es de la tabla `equipo`, que es
+    de lo que habla. Para el resto muestra el error de verdad: un mensaje
+    amable y falso hace perder más tiempo que uno feo y cierto.
+
+  · POR QUÉ NINGUNA PRUEBA LO VIO. Las de backend leen el SQL y las de
+    cuentas simulan el servidor: ninguna corre contra una base real, así que
+    ninguna podía descubrir que una política rebotaba un `returning`. La que
+    lo encontró fue Fausto, apretando el botón. Quedaron cuatro casos nuevos
+    que fijan la forma —un solo pedido, por función, sin mandar el código— y
+    uno que usa el texto COMPLETO que manda Postgres, con el nombre de la
+    tabla, y verifica que un error en `liga` NO diga que la fecha cerró.
+
+  · 48 casos en cuentas, 46 en backend, 160 en el navegador. Todo en verde.
+
+
 Armá el 11 — versión 2026-09-02 y16 (el ciclo empieza el día que pagás)
 
   · EL CUPO NO SE CUENTA POR MES CALENDARIO. Se contaba así y estaba mal de

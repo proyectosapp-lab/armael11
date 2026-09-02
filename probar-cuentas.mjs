@@ -148,12 +148,29 @@ const tokenCon = uid => "x." +
        !("puntos" in p.cuerpo) && !/puntaje/i.test(p.url));
 
   /* Después del cierre la base rechaza por política. El mensaje crudo habla
-     de "row-level security" y no le dice nada a nadie. */
-  limpiar(); responder({ message: "new row violates row-level security policy" }, false, 403);
+     de "row-level security" y no le dice nada a nadie. Se usa el texto
+     COMPLETO que manda Postgres, con el nombre de la tabla incluido: la
+     traducción se decide justamente por ahí. */
+  limpiar();
+  responder({ message: 'new row violates row-level security policy for table "equipo"' },
+            false, 403);
   let err = "";
   try { await C.guardarEquipo(8, { titulares: [], suplentes: [], capitan: 1, vice: 2, gasto: 0 }); }
   catch (e) { err = e.message; }
   caso("después del cierre avisa que la fecha cerró", /cerr/i.test(err), err);
+
+  /* Y EL MISMO ERROR EN OTRA TABLA NO PUEDE DECIR LO MISMO. Esta línea
+     agarraba cualquier violación de política y contestaba "la fecha ya
+     cerró": un error al crear un torneo mandaba a mirar el fantasy, que no
+     tenía nada que ver. Un mensaje amable y falso hace perder más tiempo
+     que uno feo y cierto. */
+  limpiar();
+  responder({ message: 'new row violates row-level security policy for table "liga"' },
+            false, 403);
+  let otro = "";
+  try { await C.crearLiga("Los del bar"); } catch (e) { otro = e.message; }
+  caso("pero un error de otra tabla NO dice que la fecha cerró",
+       !/cerr/i.test(otro) && /liga/i.test(otro), otro);
 }
 
 /* ─── 6. EL TOKEN VENCIDO ────────────────────────────────────────────────── */
@@ -244,15 +261,33 @@ const tokenCon = uid => "x." +
   caso("y no tiene vocales ni ceros ni unos",
        !/[AEIOU01]/.test(C.codigoAlAzar(200, Math.random)));
 
+  /* ── CREAR UN TORNEO VA POR FUNCIÓN, COMO ENTRAR ──────────────────────
+     Eran dos inserts y estaba ROTO en la base de verdad, sin que ninguna
+     prueba lo viera: el primero pedía `return=representation`, y para
+     devolver la fila Postgres tiene que poder leerla — pero la política de
+     lectura de `liga` es "soy miembro", y la fila de miembro se insertaba
+     recién en el segundo pedido. El insert entraba y la lectura lo rebotaba.
+     Un solo pedido, una sola transacción, y el problema no puede volver. */
   limpiar();
-  respuestas.push({ cuerpo: { message: "duplicate key value" }, ok: false, status: 409 });
   responder([{ id: "liga-1", nombre: "Los del bar", codigo: "XYZ123" }]);
-  responder(null);
   const l = await C.crearLiga("Los del bar");
-  caso("si el código chocaba, prueba con otro sin molestar a nadie",
-       l.id === "liga-1" && pedidos.length === 3, pedidos.length + " pedidos");
-  caso("y el que crea la liga queda adentro",
-       /liga_miembro/.test(pedidos[2].url) && pedidos[2].cuerpo.liga === "liga-1");
+  caso("crear un torneo es UN solo pedido, no dos",
+       pedidos.length === 1, pedidos.length + " pedidos");
+  caso("y va por función, igual que entrar",
+       /rpc\/crear_liga$/.test(pedidos[0].url), pedidos[0].url);
+  caso("no manda el código: lo sortea el servidor",
+       !("codigo" in (pedidos[0].cuerpo || {})) && !("dueno" in (pedidos[0].cuerpo || {})),
+       JSON.stringify(pedidos[0].cuerpo));
+  caso("y devuelve el torneo con su código",
+       l.id === "liga-1" && l.codigo === "XYZ123", JSON.stringify(l));
+
+  /* El nombre se revisa acá también, para no gastar un viaje a la red en
+     algo que se ve sin salir del teléfono. */
+  limpiar();
+  let corto = null;
+  try { await C.crearLiga("ab"); } catch (e) { corto = e.message; }
+  caso("un nombre de dos letras no llega ni a viajar",
+       pedidos.length === 0 && /3 y 40/.test(corto || ""), corto);
 
   limpiar(); responder("liga-1");
   await C.entrarALiga("  xyz123 ");

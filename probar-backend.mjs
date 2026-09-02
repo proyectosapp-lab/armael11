@@ -76,6 +76,11 @@ const politicasDe = tabla => [...SQL.matchAll(/create policy[\s\S]*?;/gi)]
      usuario no tiene, así que cada una hay que poder explicarla.
        es_miembro      rompe la recursión de la política de liga_miembro
        entrar_a_liga   deja entrar con un código sin poder leer las ligas
+       crear_liga      crea el torneo Y mete adentro al que lo creó, en una
+                       sola transacción. Sin esto eran dos inserts desde el
+                       teléfono y el primero no podía leer su propia fila: la
+                       política de lectura de `liga` es "soy miembro", y el
+                       miembro se insertaba recién en el segundo pedido.
        tabla_liga      arma el join de la tabla en un solo pedido
        borrar_mi_cuenta borra auth.users, que el teléfono no puede tocar
        acreditar_premium suma meses de premium, y NO la puede llamar nadie
@@ -95,12 +100,12 @@ const politicasDe = tabla => [...SQL.matchAll(/create policy[\s\S]*?;/gi)]
        poner_plan      cambia el plan de alguien, y no se la puede llamar
                        desde el navegador: se le revoca a todos. Es la misma
                        defensa que `acreditar_premium`, por la misma razón.
-     Las once comparten la misma defensa: o no reciben nada, o lo que
+     Las doce comparten la misma defensa: o no reciben nada, o lo que
      reciben ya lo tenía el que llama, o directamente no se les puede
      llamar desde afuera. */
-  caso("las funciones con llave maestra son las once conocidas",
-       conLlave.length === 11 &&
-       ["es_miembro", "entrar_a_liga", "tabla_liga", "borrar_mi_cuenta",
+  caso("las funciones con llave maestra son las doce conocidas",
+       conLlave.length === 12 &&
+       ["es_miembro", "entrar_a_liga", "crear_liga", "tabla_liga", "borrar_mi_cuenta",
         "acreditar_premium", "registrar_pago", "es_de_zona", "tabla_zona",
         "mi_cupo", "sumar_simulacion", "poner_plan"]
          .every(f => conLlave.includes(f)),

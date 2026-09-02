@@ -68,8 +68,15 @@ async function mensajeDe(r) {
   let d = {}; try { d = JSON.parse(await r.text()); } catch (e) {}
   const cru = d.message || d.error_description || d.msg || d.error || ("HTTP " + r.status);
   if (/duplicate key.*perfil_usuario/i.test(cru)) return "Ese nombre de usuario ya está tomado.";
-  if (/violates row-level security|new row violates/i.test(cru))
-    return "La fecha ya cerró: no se puede cambiar el equipo.";
+  /* SOLO PARA EL EQUIPO. Antes esta línea agarraba CUALQUIER violación de
+     política y contestaba lo mismo, y eso convirtió un error de crear un
+     torneo en un "la fecha ya cerró" que no tenía nada que ver: media hora
+     mirando el fantasy por un problema que estaba en otra tabla. Un mensaje
+     amable y falso manda a buscar donde no es. */
+  if (/violates row-level security|new row violates/i.test(cru)) {
+    if (/"?equipo"?/i.test(cru)) return "La fecha ya cerró: no se puede cambiar el equipo.";
+    return "El servidor no permitió esa operación. " + cru;
+  }
   /* Los dos frenos del mail son distintos y decirles lo mismo a los dos hace
      perder una hora. Uno es una espera de segundos entre pedidos al mismo
      mail; el otro es el tope por hora de todo el proyecto, que en el plan
@@ -306,23 +313,32 @@ export const misPuntos = async () => sesion?.uid
    dos personas creando una liga en el mismo segundo podrían chocar y la
    base rechazaría a la segunda sin explicación. Acá se propone uno y, si ya
    existe, se prueba otro. Cinco intentos son de sobra.                    */
+/* ── CREAR UN TORNEO ──────────────────────────────────────────────────────
+   UNA SOLA LLAMADA, y no dos inserts seguidos. Los dos inserts estaban
+   ROTOS y ninguna prueba lo vio, porque las nuestras leen el SQL y no lo
+   corren contra una base de verdad:
+
+   El primero pedía `Prefer: return=representation`. Para devolver la fila,
+   Postgres tiene que poder LEERLA, y la política de lectura de `liga` es
+   "soy miembro" — que en ese instante es falsa, porque la fila de miembro
+   se insertaba después. El insert entraba y la lectura lo rebotaba con un
+   error de política, que esta misma capa traducía —mal— a "la fecha ya
+   cerró". Un mensaje amable y falso es peor que uno feo y cierto.
+
+   Y eran dos pedidos: si el segundo no llegaba, quedaba un torneo sin
+   ningún miembro, invisible hasta para el que lo había creado.
+
+   Ahora los dos pasan adentro de `crear_liga`, en una transacción, igual
+   que `entrar_a_liga`. El código lo sortea el servidor.                  */
 export async function crearLiga(nombre) {
   if (!sesion?.uid) throw new Error("Hay que entrar primero.");
   const n = String(nombre || "").trim();
   if (n.length < 3 || n.length > 40) throw new Error("El nombre va entre 3 y 40 caracteres.");
-  for (let i = 0; i < 5; i++) {
-    const codigo = codigoAlAzar();
-    try {
-      const f = await pedir("/rest/v1/liga", { metodo: "POST",
-        cabeceras: { Prefer: "return=representation" },
-        cuerpo: { nombre: n, codigo, dueno: sesion.uid } });
-      const liga = f?.[0];
-      await pedir("/rest/v1/liga_miembro", { metodo: "POST",
-        cuerpo: { liga: liga.id, perfil: sesion.uid } });
-      return liga;
-    } catch (e) { if (!/duplicate key/i.test(e.message)) throw e; }
-  }
-  throw new Error("No pude crear la liga, probá de nuevo.");
+  const f = await pedir("/rest/v1/rpc/crear_liga", {
+    metodo: "POST", cuerpo: { p_nombre: n } });
+  const liga = f?.[0];
+  if (!liga) throw new Error("No pude crear el torneo, probá de nuevo.");
+  return liga;
 }
 
 /* Sin vocales: así ningún código sale diciendo una palabra que después haya

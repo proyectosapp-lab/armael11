@@ -239,6 +239,64 @@ begin
 end; $$;
 
 
+/* ── CREAR UN TORNEO, DE UN SOLO LADO ────────────────────────────────────
+   ESTO ESTABA ROTO Y NO LO VIO NINGUNA PRUEBA, porque las pruebas leen el
+   SQL y no lo corren contra una base de verdad.
+
+   Lo que hacia la app: insertar en `liga` con `Prefer: return=representation`
+   y despues insertar en `liga_miembro`. El problema es el `returning` que
+   pide esa cabecera: para devolver la fila, Postgres tiene que poder LEERLA,
+   y la politica de lectura de `liga` es `es_miembro(id)` -que en ese
+   instante es falsa, porque la fila de miembro todavia no existe-. O sea que
+   el insert entraba y la lectura lo rebotaba. En pantalla salia un error de
+   politica de seguridad, que la app traducia -mal- a "la fecha ya cerro".
+
+   Y habia un segundo agujero, mas silencioso: eran DOS pedidos. Si el
+   segundo no llegaba, quedaba un torneo sin ningun miembro, invisible hasta
+   para el que lo habia creado.
+
+   Los dos se arreglan igual: adentro de una sola funcion, como
+   `entrar_a_liga`. Una transaccion, y la lectura ya no pasa por la politica.
+
+   EL CODIGO LO GENERA EL SERVIDOR. Antes lo sorteaba el navegador y
+   reintentaba cinco veces si chocaba con uno repetido: eso es hacer del
+   `unique` un mecanismo de reintento a traves de la red. Aca el sorteo y la
+   comprobacion pasan en el mismo lugar.                                  */
+create or replace function crear_liga(p_nombre text)
+  returns table (id uuid, nombre text, codigo text)
+  language plpgsql security definer set search_path = public as $$
+declare
+  /* Sin vocales, asi ningun codigo sale diciendo una palabra que despues
+     haya que explicar. Y sin 0/O ni 1/I, que se confunden al dictarlos. */
+  alfabeto text := 'BCDFGHJKLMNPQRSTVWXYZ23456789';
+  n text; c text; l uuid;
+begin
+  if auth.uid() is null then raise exception 'hay que entrar primero'; end if;
+  n := btrim(coalesce(p_nombre, ''));
+  if char_length(n) < 3 or char_length(n) > 40 then
+    raise exception 'el nombre va entre 3 y 40 caracteres';
+  end if;
+
+  for intento in 1..8 loop
+    c := '';
+    for i in 1..6 loop
+      c := c || substr(alfabeto, floor(random() * char_length(alfabeto))::int + 1, 1);
+    end loop;
+    exit when not exists (select 1 from liga where codigo = c);
+    c := null;
+  end loop;
+  if c is null then raise exception 'no pude generar un codigo, proba de nuevo'; end if;
+
+  insert into liga (nombre, codigo, dueno) values (n, c, auth.uid())
+    returning liga.id into l;
+  insert into liga_miembro (liga, perfil) values (l, auth.uid());
+
+  return query select l, n, c;
+end; $$;
+revoke all on function crear_liga(text) from public, anon;
+grant execute on function crear_liga(text) to authenticated;
+
+
 /* ==========================================================================
    6. UNA MANO PARA LAS TABLAS
 

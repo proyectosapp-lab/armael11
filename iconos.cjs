@@ -13,6 +13,13 @@
    cuadrado redondeado, gota— así que el dibujo tiene que dejar libre el 20%
    de los bordes. Si llega al borde, se come las puntas.
 
+   Y HAY UN TERCERO, EL DE LA FICHA DE PLAY, que va A SANGRE: el verde llega
+   hasta el borde y no lleva esquinas redondeadas. Los de la web sí las
+   llevan, y como el PNG no tiene transparencia, atrás de esas esquinas hay
+   BLANCO. Play recorta el ícono con su propia forma redondeada, así que un
+   ícono ya redondeado le deja cuatro cuñas blancas en las puntas. El que
+   redondea es Play; nosotros le damos el cuadrado lleno.
+
    El monograma es nuestro: dos unos sobre verde. Nada de escudos ajenos.
    ══════════════════════════════════════════════════════════════════════════ */
 const { chromium } = require('/home/claude/.npm-global/lib/node_modules/playwright');
@@ -27,7 +34,7 @@ const pagina = (lado, seguro) => `
      display:flex;align-items:center;justify-content:center;
      ${seguro ? '' : `border-radius:${Math.round(lado*0.22)}px;`}}
   b{font-family:Arial,Helvetica,sans-serif;font-weight:800;color:${TINTA};
-    font-size:${Math.round(lado*(seguro?0.42:0.54))}px;letter-spacing:-${Math.round(lado*0.02)}px;
+    font-size:${Math.round(lado * (seguro === true ? 0.42 : seguro === 'sangre' ? 0.50 : 0.54))}px;letter-spacing:-${Math.round(lado*0.02)}px;
     line-height:1}
 </style></head><body><div class="c"><b>11</b></div></body></html>`;
 (async () => {
@@ -36,13 +43,15 @@ const pagina = (lado, seguro) => `
     ['sitio-icono-192.png', 192, false],
     ['sitio-icono-512.png', 512, false],
     ['sitio-icono-mask-512.png', 512, true],
+    ['play-icono-512.png', 512, 'sangre'],
   ]) {
     const pg = await nav.newPage({ viewport: { width: lado, height: lado },
                                    deviceScaleFactor: 1 });
     await pg.setContent(pagina(lado, seguro));
     await pg.screenshot({ path: archivo, omitBackground: false });
     await pg.close();
-    console.log('  ✓ ' + archivo + '  ' + lado + '×' + lado + (seguro ? '  (maskable)' : ''));
+    console.log('  ✓ ' + archivo + '  ' + lado + '×' + lado +
+      (seguro === true ? '  (maskable)' : seguro === 'sangre' ? '  (a sangre, para la ficha de Play)' : ''));
   }
   await nav.close();
 })();
