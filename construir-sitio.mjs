@@ -246,6 +246,15 @@ for (const club of CLUBES) {
            Google. Lo que la app necesita saber es SI hay red de publicidad,
            no su configuración. */
         publicidad: PUB ? { cliente: PUB.cliente } : undefined,
+        /* El cupo de simulaciones. Los tres son públicos por definición: la
+           pantalla los tiene que poder leer para dibujar el contador y los
+           planes. Los precios NO están acá — viven en la función de cobro,
+           que es el único lugar del proyecto donde vive un precio. */
+        cupo: CFG.cupo ? {
+          gratis:   CFG.cupo.gratis ?? 10,
+          bloquea:  !!CFG.cupo.bloquea,
+          cobrando: !!CFG.cupo.cobrando,
+        } : undefined,
       }) + '</script>',
     HAY_BACKEND ? '<script src="datos/cuentas.js"></script>' : null,
     FECHA ? '<script src="datos/fantasy.js"></script>' : null,

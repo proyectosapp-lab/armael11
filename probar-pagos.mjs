@@ -89,10 +89,51 @@ caso("la app pide los precios, no los tiene escritos",
 }
 
 /* ── LAS DOS TIENEN QUE HABLAR EL MISMO IDIOMA ───────────────────────── */
-caso("una escribe la referencia como uuid:meses",
-     /external_reference: perfil \+ ":" \+ plan\.meses/.test(CREAR));
+caso("una escribe la referencia como uuid:meses:plan",
+     /external_reference: perfil \+ ":" \+ plan\.meses \+ ":" \+ idPlan/.test(CREAR));
 caso("y la otra la parte por los dos puntos",
      /String\(ref \|\| ""\)\.split\(":"\)/.test(AVISO));
+
+/* ── LA REFERENCIA, CON CASOS DE VERDAD ──────────────────────────────────
+   `leerReferencia` se exporta justo para poder correrla acá. El tercer campo
+   es nuevo, y lo que hay que probar no es que funcione con datos lindos: es
+   que aguante los pagos que ya están en vuelo, hechos cuando la referencia
+   tenía dos campos. Un pago viejo que rompa el webhook deja a Mercado Pago
+   reintentando para siempre algo que ya cobró. */
+{
+  /* Se corre LA FUNCIÓN DE VERDAD, la que está en el archivo que se pega en
+     Supabase, no una copia. Como ese archivo es TypeScript y no se puede
+     importar desde Node, se recorta el pedazo que importa y se le sacan las
+     anotaciones de tipo. Copiarla acá sería más cómodo y probaría la copia. */
+  const trozo = AVISO.slice(AVISO.indexOf("const UUID"),
+                            AVISO.indexOf("Deno.serve"));
+  const enJs = trozo
+    .replace(/export function/g, "function")
+    .replace(/\(ref: string \| null\):[\s\S]*?\{\s*\n/, "(ref) {\n");
+  const leerReferencia = new Function(enJs + "\nreturn leerReferencia;")();
+  const U = "a1b2c3d4-1111-2222-3333-444455556666";
+
+  const nuevo = leerReferencia(U + ":1:libre");
+  caso("lee el perfil, los meses y el plan",
+       nuevo.perfil === U && nuevo.meses === 1 && nuevo.plan === "libre",
+       JSON.stringify(nuevo));
+
+  const viejo = leerReferencia(U + ":3");
+  caso("un pago viejo, sin plan, se sigue acreditando",
+       viejo.perfil === U && viejo.meses === 3 && viejo.plan === null,
+       JSON.stringify(viejo));
+
+  /* Un plan inventado no puede viajar a la base: la función de allá lo
+     rechaza con una excepción, el webhook contesta 500 y Mercado Pago
+     reintenta el mismo pago para siempre. Se descarta acá. */
+  const raro = leerReferencia(U + ":1:platino");
+  caso("un plan que no existe se descarta en vez de viajar a la base",
+       raro.plan === null && raro.perfil === U, JSON.stringify(raro));
+
+  const roto = leerReferencia("cualquier cosa");
+  caso("una referencia rota no inventa un perfil",
+       roto.perfil === null && roto.meses === 1, JSON.stringify(roto));
+}
 
 /* Los meses se recortan de los dos lados. El de arriba es por si algún día
    alguien arma una referencia a mano; el de abajo, porque `greatest(p_meses,
@@ -123,6 +164,49 @@ caso("la clave de servicio de Supabase la pone Supabase sola",
 caso("la app lee el premium y no intenta escribirlo",
      /select=premium_hasta/.test(CUENTAS) &&
      !/premium_hasta\s*:/.test(CUENTAS));
+
+/* ── EL CUPO NO SE PUEDE FALSEAR DESDE EL NAVEGADOR ──────────────────────
+   Las dos columnas que deciden cuánto entra —`premium_hasta` y `plan`— viven
+   en `perfil`, y la política de RLS de esa tabla deja que cada uno edite su
+   propia fila: la necesita para elegir el nombre de usuario. Las políticas
+   son por FILA, no por columna, así que sin un revoke por columna cualquiera
+   se pone plan 'libre' desde la consola. Es la misma lección que costó
+   descubrir con el premium; acá queda clavada para las dos. */
+{
+  const ESQUEMA = leer("esquema.sql");
+  for (const col of ["premium_hasta", "plan"])
+    caso("la columna " + col + " tiene el update revocado",
+         new RegExp("revoke update \\(" + col + "\\) on perfil").test(ESQUEMA));
+
+  /* El contador vive en su propia tabla, y esa tabla no tiene política de
+     escritura: la única forma de moverlo es la función. Si hubiera una
+     política de insert o de update, el tope sería una sugerencia. */
+  caso("uso_ciclo tiene RLS encendido",
+       /alter table uso_ciclo enable row level security/.test(ESQUEMA));
+  caso("y ninguna política de escritura: el contador solo lo mueve la función",
+       !/create policy[^;]*on uso_ciclo for (insert|update|delete)/i.test(ESQUEMA));
+  caso("y cada uno ve solo el suyo",
+       /create policy[\s\S]{0,80}on uso_ciclo for select using \(auth\.uid\(\) = perfil\)/.test(ESQUEMA));
+
+  /* ── EL CICLO ARRANCA EL DÍA QUE SE PAGA ──────────────────────────────
+     Se contaba por mes calendario, y el que compraba el 30 se llevaba
+     cuarenta simulaciones por un día. El ancla es el día del pago, y el
+     ciclo se calcula SIEMPRE desde el ancla sumando meses enteros: sumarle
+     un mes al ciclo anterior deja clavado el 28 de febrero para siempre. */
+  caso("pagar mueve el ancla del ciclo al día del pago",
+       /update perfil set plan = nuevo, plan_desde = now\(\)/.test(ESQUEMA));
+  caso("y el ciclo se cuenta desde el ancla, no desde el ciclo anterior",
+       /ancla \+ \(\s*\n?\s*\(extract\(year\s+from age\(now\(\), ancla\)\)/.test(ESQUEMA));
+  caso("el que nunca pagó ancla en el día que se hizo la cuenta",
+       /coalesce\(p?\.?plan_desde, p?\.?creado\)/.test(ESQUEMA));
+
+  /* El plan que llega desde el pago se valida en la base, no solo en el
+     webhook: la validación del webhook es una comodidad, esta es la que
+     queda si alguien llama a la función desde otro lado. */
+  caso("la base rechaza un plan que no existe",
+       /check \(plan in \('gratis','chico','medio','libre'\)\)/.test(ESQUEMA) &&
+       /raise exception 'plan desconocido/.test(ESQUEMA));
+}
 
 const linea = "─".repeat(70);
 console.log("\n" + linea);

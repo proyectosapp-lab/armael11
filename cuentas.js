@@ -382,7 +382,32 @@ export async function planesPremium() {
    persona. No la abre: abrir una ventana desde una función que ya esperó a
    la red es lo que hace que el navegador la bloquee por "no la pidió
    nadie". Eso lo hace la pantalla, que sabe que hubo un dedo.            */
-export async function linkDePago(plan = "mes") {
+/* ─── EL CUPO DE SIMULACIONES ──────────────────────────────────────────────
+   Diez por mes son gratis y llevan publicidad; de ahí en adelante hay que
+   tener un plan.
+
+   EL CONTADOR VIVE EN LA BASE. El que había era una variable de JavaScript:
+   se borraba al recargar la página, o sea que el tope se reiniciaba solo.
+   Acá se pregunta y se suma contra el servidor.
+
+   `miCupo` mira sin gastar; `usarSimulacion` gasta una y devuelve cómo quedó.
+   Las dos devuelven null sin sesión: el que no tiene cuenta no tiene cupo que
+   consultar, y la pantalla resuelve ese caso mostrando el contador del
+   navegador, que es aproximado y está bien que lo sea mientras nadie tenga
+   motivo para esquivarlo.                                                  */
+export async function miCupo() {
+  if (!sesion?.uid) return null;
+  const f = await pedir("/rest/v1/rpc/mi_cupo", { metodo: "POST", cuerpo: {} });
+  return f?.[0] || { plan: "gratis", usadas: 0 };
+}
+
+export async function usarSimulacion() {
+  if (!sesion?.uid) return null;
+  const f = await pedir("/rest/v1/rpc/sumar_simulacion", { metodo: "POST", cuerpo: {} });
+  return f?.[0] || null;
+}
+
+export async function linkDePago(plan = "chico") {
   if (!sesion?.uid) throw new Error("Hay que entrar primero.");
   const { url, anon } = cfg();
   const r = await fetch(url + "/functions/v1/crear-pago", {

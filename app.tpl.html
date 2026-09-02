@@ -1944,8 +1944,36 @@ async function elegirPartido(i){
   pintar();
 }
 
+/* Gasta una simulación y deja `CUPO` al día. Con cuenta, contra la base;
+   sin cuenta, contra el navegador. Si la red falla, la simulación sale
+   igual: quedarse sin poder jugar porque no se pudo contar es peor que
+   contar de menos. */
+async function gastarSimulacion(){
+  if(conBackend && typeof usarSimulacion === "function"){
+    try{
+      const r = await usarSimulacion();
+      if(r){ CUPO = { plan: r.plan || "gratis", usadas: r.usadas | 0,
+                      hasta: r.hasta || null }; return; }
+    }catch(e){}
+  }
+  CUPO = { plan: CUPO.plan || "gratis", usadas: sumarLocal(), hasta: CUPO.hasta };
+}
+
 async function simular11(){
   if(J.animando) return;
+
+  /* El freno, antes de gastar nada. Con `bloquea` apagado esto nunca corta;
+     el mensaje aparece igual cuando se pasó del tope, así la persona sabe
+     que hay un tope antes de que empiece a existir. */
+  const antes = estadoCupo({ ...CUPO, bloquea: CUPO_CFG.bloquea });
+  if(!antes.puedeSimular){
+    J.err = textoCupo(antes, CUPO.hasta) + " Mirá los planes acá abajo para seguir.";
+    pintar();
+    document.getElementById("cuenta")?.scrollIntoView({behavior:"smooth",block:"start"});
+    return;
+  }
+
+  await gastarSimulacion();
   await momentoDeAviso();
   const t=tacticas(J.K);
 
@@ -2190,6 +2218,166 @@ function anotarAviso(t){
   try{ localStorage.setItem(AVISO.LLAVE, String(t)); }catch(e){}
 }
 let simulacionesHechas = 0;
+
+/* ══════════════════ EL CUPO DE SIMULACIONES ══════════════════════════════
+   Diez por mes son gratis y llevan publicidad. De ahí en adelante hay que
+   tener un plan: 40, 100 o sin límite.
+
+   DOS ACLARACIONES QUE CONVIENE TENER ESCRITAS, porque cambian cómo se
+   cuenta esto en pantalla:
+
+   1. UNA SIMULACIÓN NO CUESTA NADA. Corre en el teléfono, con datos que ya
+      están bajados. El tope no está recuperando un costo: separa al que le
+      saca jugo del que pasa a mirar. Es una razón perfectamente buena para
+      cobrar — pero es esa, así que la pantalla no dice "el servidor se
+      satura", porque sería mentira y alguien lo iba a notar.
+
+   2. EL QUE NO TIENE CUENTA SE CUENTA EN EL NAVEGADOR, y eso se esquiva
+      borrando los datos del sitio. Está bien que se esquive: bloquear al
+      anónimo con algo serio significaría pedirle cuenta para simular una
+      vez, y eso ahuyenta justo al que todavía no sabe si le gusta. El que
+      quiere que le cuenten bien, entra.
+
+   `bloquea` viene de sitio.json y hoy está en false: durante la prueba
+   cerrada el contador CUENTA Y SE MUESTRA pero no frena a nadie. Un tester
+   frenado a la mitad no puede probar nada, y catorce días son catorce días.
+   Se prende cambiando un booleano.                                       */
+const CUPO_CFG = Object.assign({ gratis: 10, bloquea: false, cobrando: false },
+                               (window.SITIO && window.SITIO.cupo) || {});
+const TOPES = { gratis: CUPO_CFG.gratis, chico: 40, medio: 100, libre: Infinity };
+const LLAVE_CUPO = "armaEl11.cupo";
+
+/* Pura, para poder probarla con casos concretos. */
+function estadoCupo({ plan, usadas, bloquea }){
+  const tope = TOPES[plan] ?? TOPES.gratis;
+  const ilimitado = tope === Infinity;
+  const quedan = ilimitado ? Infinity : Math.max(0, tope - usadas);
+  return {
+    plan, tope, usadas, quedan, ilimitado,
+    seAcabo: !ilimitado && quedan === 0,
+    /* Con el freno apagado se puede simular igual: lo único que cambia es
+       que la pantalla avisa que se pasó. */
+    puedeSimular: ilimitado || quedan > 0 || !bloquea,
+  };
+}
+
+/* ── EL CICLO NO ES EL MES DEL CALENDARIO ────────────────────────────────
+   Primero esto se contaba por mes calendario y estaba mal de una forma que
+   se ve sola con un ejemplo: el que compraba el 30 se llevaba cuarenta
+   simulaciones por un día, y el 1 le entraban cuarenta más. Un plan que se
+   paga el 20 dura hasta el 20 del mes que viene.
+
+   EL ANCLA es el día del pago; para el que nunca pagó, el día que empezó a
+   usar la app. El ciclo se calcula SIEMPRE desde el ancla sumando meses
+   enteros, nunca sumándole un mes al ciclo anterior. La diferencia aparece
+   con los días 29, 30 y 31: el 31 de enero más un mes es el 28 de febrero,
+   y sumando de a uno ese 28 se quedaría clavado para siempre. Contando
+   desde el ancla, marzo vuelve a caer 31. Es la misma cuenta que hace
+   Postgres del otro lado, y tiene que serlo: si las dos no coinciden, el
+   contador que muestra la pantalla no es el que cuenta el servidor.      */
+function sumarMeses(d, n){
+  const dia = d.getDate();
+  const r = new Date(d.getTime());
+  r.setDate(1);
+  r.setMonth(r.getMonth() + n);
+  const ultimo = new Date(r.getFullYear(), r.getMonth() + 1, 0).getDate();
+  r.setDate(Math.min(dia, ultimo));
+  return r;
+}
+
+function inicioDeCiclo(ancla, ahora = new Date()){
+  const a = new Date(ancla);
+  let n = (ahora.getFullYear() - a.getFullYear()) * 12 +
+          (ahora.getMonth() - a.getMonth());
+  if(sumarMeses(a, n) > ahora) n--;
+  return sumarMeses(a, Math.max(0, n));
+}
+
+/* La fecha EN LA ZONA DEL TELÉFONO, no en UTC. Con `toISOString`, alguien en
+   Madrid que abre la app a las 00:30 del día 20 tendría guardado el 19: la
+   conversión a UTC le corre el día para atrás. El ciclo de una persona tiene
+   que ser el día que esa persona ve en su calendario. */
+const enDia = d => d.getFullYear() + "-" +
+  String(d.getMonth() + 1).padStart(2, "0") + "-" +
+  String(d.getDate()).padStart(2, "0");
+
+/* El contador del que no tiene cuenta. Guarda el ancla —el día de su primera
+   simulación— junto al ciclo que está corriendo: al cambiar de ciclo vuelve
+   a cero solo, sin ninguna tarea programada. */
+function guardadoLocal(){
+  try{ return JSON.parse(localStorage.getItem(LLAVE_CUPO) || "{}") || {}; }
+  catch(e){ return {}; }
+}
+function usoLocal(){
+  const g = guardadoLocal();
+  if(!g.ancla) return 0;
+  return g.ciclo === enDia(inicioDeCiclo(new Date(g.ancla))) ? (g.usadas | 0) : 0;
+}
+/* Hasta cuándo corre el ciclo del que no tiene cuenta. Sin esto, el que
+   vuelve al día siguiente ve el contador bien y la fecha vacía. */
+function hastaLocal(){
+  const g = guardadoLocal();
+  if(!g.ancla) return null;
+  return enDia(sumarMeses(inicioDeCiclo(new Date(g.ancla)), 1));
+}
+function sumarLocal(){
+  const g = guardadoLocal();
+  const ancla = g.ancla ? new Date(g.ancla) : new Date();
+  const usadas = usoLocal() + 1;
+  const ciclo = inicioDeCiclo(ancla);
+  try{ localStorage.setItem(LLAVE_CUPO, JSON.stringify({
+       ancla: ancla.toISOString(), ciclo: enDia(ciclo), usadas })); }catch(e){}
+  CUPO.hasta = enDia(sumarMeses(ciclo, 1));
+  return usadas;
+}
+
+/* Arranca con lo que sepa el navegador. Si hay cuenta, `arrancarCuenta` lo
+   pisa con lo que dice la base, que es lo que vale. */
+let CUPO = { plan:"gratis", usadas: usoLocal(), hasta: hastaLocal() };
+
+/* "hasta el 20 de octubre" y no "el 1 de cada mes": el ciclo arranca el día
+   que se pagó, así que la fecha es distinta para cada persona y hay que
+   decirla, no darla por sabida. */
+/* `diaDe` ya existe y sirve para el feed: dice "Hoy", "Ayer", "Martes". Acá
+   hace falta lo contrario —una fecha futura, siempre con día y mes—, así que
+   va con su propio nombre en vez de agrandar aquella con un modo. */
+const diaFuturo = iso => {
+  if(!iso) return "";
+  const d = new Date(iso + (String(iso).length === 10 ? "T12:00:00" : ""));
+  return isNaN(d) ? "" : d.toLocaleDateString("es-AR", { day:"numeric", month:"long" });
+};
+
+function textoCupo(e, hasta){
+  const cuando = diaFuturo(hasta);
+  const renueva = cuando ? " Se renueva el " + cuando + "." : "";
+  if(e.ilimitado) return "Simulaciones sin límite.";
+  if(e.seAcabo)   return "Usaste las " + e.tope + " simulaciones de este mes." + renueva;
+  return "Te quedan " + e.quedan + " de " + e.tope + " simulaciones." + renueva;
+}
+
+/* ── EL CONTADOR Y LOS PRECIOS, ABAJO DEL BOTÓN DE SIMULAR ───────────────
+   Van acá y no adentro del panel de cuenta por una razón concreta: ese panel
+   solo se abre si la persona ya tiene cuenta, y el que está probando la app
+   por primera vez —que es exactamente a quien hay que contarle que esto
+   algún día se paga— no la tiene. El precio se ve donde se siente el tope. */
+function bloqueCupo(){
+  const e = estadoCupo({ ...CUPO, bloquea: CUPO_CFG.bloquea });
+  if(e.ilimitado)
+    return `<p class="aviso" style="margin-top:10px">${esc(textoCupo(e, CUPO.hasta))}</p>`;
+
+  const lista = PLANES.length
+    ? `<div class="otras" style="margin-top:8px">${PLANES.map(p=>
+        `<span><b>${esc(p.nombre || (p.cupo ? p.cupo + " simulaciones" : "Sin límite"))}</b>
+         ${esc(plata(p.precio))}</span>`).join("")}</div>`
+    : "";
+
+  return `<p class="aviso" style="margin-top:10px">
+      <b>${esc(textoCupo(e, CUPO.hasta))}</b>
+      ${CUPO_CFG.cobrando
+        ? "Con un plan simulás más y sin avisos."
+        : "Cuando se pase de diez va a hacer falta un plan; todavía no se cobra nada."}
+    </p>${lista}`;
+}
 
 /* Pura y sin efectos, para poder probarla con casos concretos. */
 function tocaAviso({ hayRed, hechas, ultimo, ahora, premium }){
@@ -2672,7 +2860,8 @@ function vistaJuego(){
         <button class="acc" id="bsim" style="flex:1">${
           J.desde.minuto>0?"Simular desde el "+J.desde.minuto+"'":"Simular mi once"}</button>
         <button class="gh" id="bauto">Los mejores</button>
-      </div>`;
+      </div>
+      ${bloqueCupo()}`;
 
     const deOtraLiga = J.liga && (window.LIGAS||{})[J.liga];
     let out = (deOtraLiga
@@ -2934,10 +3123,24 @@ async function arrancarCuenta(){
      renovar con el mismo refresh, que es de un solo uso. */
   if(quienSoy() && typeof asegurarSesion==="function"){ try{ await asegurarSesion(); }catch(e){} }
   if(quienSoy()){ try{ miNombre=await miUsuario(); }catch(e){} }
+
+  /* LOS PRECIOS SE PIDEN SIEMPRE, tenga cuenta o no. Estaban adentro del
+     `if(quienSoy())` y el efecto era exactamente el contrario del que se
+     busca: el único que veía cuánto sale era el que ya se había registrado,
+     y al que recién prueba la app —el que tiene que enterarse de que esto
+     algún día se paga— no le aparecía nada. El endpoint es público a
+     propósito: los precios no son un secreto, lo que no se puede es
+     elegirlos. */
+  try{ PLANES = await planesPremium(); }catch(e){}
+
   pintarCuenta();
+  pintar();
   if(quienSoy()){
     try{ PREMIUM = (await miPremium()) || PREMIUM; }catch(e){}
-    try{ PLANES = await planesPremium(); }catch(e){}
+    /* El cupo del que tiene cuenta lo sabe el servidor. El del anónimo lo
+       lleva el navegador y ya quedó leído al arrancar. */
+    try{ const c = await miCupo();
+         if(c) CUPO = { plan:c.plan||"gratis", usadas:c.usadas|0, hasta:c.hasta||null }; }catch(e){}
     pintarCuenta();
     await traerMiEquipo();
     await cargarLigas();
@@ -3121,29 +3324,48 @@ const cuantoFalta = hasta => {
 
 const plata = n => "$" + Number(n).toLocaleString("es-AR");
 
+/* ── LOS PLANES, A LA VISTA DE TODOS ─────────────────────────────────────
+   Se muestran SIEMPRE, incluso ahora que no se cobra nada. Dos razones: el
+   que prueba la app tiene que poder ver adónde va esto sin que se lo cuenten
+   aparte, y un precio que aparece el día que empieza a cobrarse se lee como
+   una trampa. Mientras `cobrando` esté apagado, los botones no compran: la
+   pantalla dice que todavía es gratis y los deja de adorno informativo. */
 function bloquePremium(){
   if(!conBackend) return "";
+
+  const e = estadoCupo({ ...CUPO, bloquea: CUPO_CFG.bloquea });
+  const contador = `<p class="aviso" style="margin-top:12px">
+      <b>${esc(textoCupo(e, CUPO.hasta))}</b></p>`;
 
   if(PREMIUM.activo)
     return `<div class="pendiente" style="margin-top:14px">
       <b>Tenés el pase</b> ${esc(cuantoFalta(PREMIUM.hasta))}. Simulás sin espera
-      y sin avisos.</div>`;
+      y sin avisos.</div>${contador}`;
 
-  if(!PLANES.length) return "";
+  if(!PLANES.length) return contador;
+
+  /* Los precios y los cupos salen del servidor, nunca de acá: si estuvieran
+     escritos en la app, el día que cambie uno la pantalla diría un número y
+     Mercado Pago cobraría otro. */
+  const tarjeta = p => `<button class="boton flaco" data-plan="${esc(p.id)}"
+      ${comprando || !CUPO_CFG.cobrando ? "disabled" : ""}
+      style="flex:1 1 150px;text-align:left;line-height:1.35">
+      <b>${esc(p.nombre || (p.cupo ? p.cupo + " simulaciones" : "Sin límite"))}</b><br>
+      <span style="opacity:.75">${esc(plata(p.precio))} por mes</span></button>`;
 
   return `<div class="pendiente" style="margin-top:14px">
-      <b>Simular sin espera</b><br>
-      La simulación tarda veinte segundos porque ahí es donde entra la
-      publicidad. El pase saca las dos cosas: el partido se juega en seis
-      segundos y no aparece ningún aviso.
+      <b>Los planes</b><br>
+      Diez simulaciones por mes son gratis y llevan un aviso. Con un plan
+      simulás más, el partido se juega en seis segundos en vez de veinte y no
+      aparece ningún aviso.
     </div>
-    <div class="par" style="margin-top:10px;flex-wrap:wrap">
-      ${PLANES.map(p=>`<button class="boton flaco" data-plan="${esc(p.id)}"
-         ${comprando?"disabled":""}>${p.meses===1?"1 mes":p.meses+" meses"}
-         · ${esc(plata(p.precio))}</button>`).join("")}
+    ${contador}
+    <div class="par" style="margin-top:10px;flex-wrap:wrap;gap:8px">
+      ${PLANES.map(tarjeta).join("")}
     </div>
-    <p class="aviso" style="margin-top:8px">Se paga con Mercado Pago. Se vence
-       solo: no queda nada debitándose todos los meses.</p>`;
+    <p class="aviso" style="margin-top:8px">${CUPO_CFG.cobrando
+      ? "Se paga con Mercado Pago. Se vence solo: no queda nada debitándose todos los meses."
+      : "<b>Todavía no se cobra nada.</b> Los precios están acá para que sepas de antemano cuánto va a salir cuando se prenda."}</p>`;
 }
 
 function engancharPremium(){

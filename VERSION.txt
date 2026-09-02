@@ -1,3 +1,142 @@
+Armá el 11 — versión 2026-09-02 y16 (el ciclo empieza el día que pagás)
+
+  · EL CUPO NO SE CUENTA POR MES CALENDARIO. Se contaba así y estaba mal de
+    una forma que se ve sola con un ejemplo: el que compraba el 30 se llevaba
+    cuarenta simulaciones por un día, y el 1 le entraban cuarenta más. Un plan
+    que se paga el 20 tiene que durar hasta el 20 del mes que viene.
+
+  · EL ANCLA. Para el que paga es el día del pago (`perfil.plan_desde`, que lo
+    escribe `poner_plan` cuando Mercado Pago confirma); para el que no pagó
+    nunca, el día que empezó. El ciclo se calcula SIEMPRE desde el ancla
+    sumando meses enteros — `ancla + n meses` — y nunca sumándole un mes al
+    ciclo anterior.
+
+    LA DIFERENCIA APARECE CON LOS DÍAS 29, 30 Y 31. El 31 de enero más un mes
+    es el 28 de febrero, porque el 31 no existe. Sumando de a uno, ese 28
+    quedaría clavado para siempre y el que pagó un día 31 terminaría cobrando
+    tres días antes cada mes. Contando desde el ancla, marzo vuelve a caer 31.
+    Hay tres casos que lo fijan.
+
+  · LA MISMA CUENTA DE LOS DOS LADOS. `inicio_de_ciclo` en Postgres y
+    `inicioDeCiclo` en el navegador tienen que dar lo mismo: si no coinciden,
+    el contador que muestra la pantalla no es el que cuenta el servidor.
+
+  · Y LA FECHA SE DICE. "Te quedan 9 de 10 simulaciones. Se renueva el 2 de
+    octubre." Antes decía "se reinicia el 1 de cada mes", que ahora sería
+    mentira: el día es distinto para cada persona, así que hay que decirlo.
+
+  · Dos errores propios en el camino, los dos del mismo tipo —algo que ya
+    existía y no miré—:
+
+      · `diaDe` ya estaba, y sirve para el feed: dice "Hoy", "Ayer",
+        "Martes". La declaré de nuevo para una fecha futura y la página entera
+        murió con "Identifier 'diaDe' has already been declared". Ahora la
+        nueva se llama `diaFuturo`.
+      · `toISOString` para guardar el día. Alguien en Madrid que abre la app a
+        las 00:30 del 20 habría quedado guardado el 19: la conversión a UTC le
+        corre el día para atrás. El ciclo de una persona es el día que esa
+        persona ve en su calendario, así que la fecha se arma con la zona del
+        teléfono.
+
+  · Y la prueba de las funciones con llave maestra volvió a hacer su trabajo,
+    dos veces. Primero se puso roja con las nuevas; después descubrió que su
+    propia forma de detectarlas estaba mal —un `[\s\S]*?security definer`
+    corrido le hacía atribuir la llave de una función a la anterior—. Una
+    prueba de seguridad que se equivoca de función no protege nada. Ahora
+    corta el SQL en definiciones y mira cada una por separado, y las que NO
+    necesitan llave están en una lista aparte con el motivo.
+
+  · 160 casos en el navegador, 46 en el backend, 34 en pagos. Todo en verde.
+
+
+Armá el 11 — versión 2026-09-02 y15 (el cupo de simulaciones)
+
+  · LOS PRECIOS NUEVOS, en la función de cobro, que sigue siendo el único
+    lugar del proyecto donde vive un precio:
+
+        chico   $5.500    40 simulaciones por mes
+        medio  $12.000   100 simulaciones por mes
+        libre  $20.000   sin límite
+
+    Y diez por mes gratis, con un aviso.
+
+  · EL CONTADOR AHORA EXISTE. El que había era una variable de JavaScript:
+    se borraba al recargar la página, o sea que el tope se reiniciaba solo.
+    Un tope que se reinicia solo no es un tope.
+
+      · Con cuenta, el contador vive en la base, en `uso_mes`. Esa tabla NO
+        tiene política de escritura: la única forma de moverlo es la función
+        `sumar_simulacion`. Si hubiera política de update, el tope sería una
+        sugerencia.
+      · Sin cuenta, lo lleva el navegador junto con el mes, así se reinicia
+        solo el 1 y nadie tiene que correr nada. Eso se esquiva borrando los
+        datos del sitio, Y ESTÁ BIEN QUE SE ESQUIVE: pedirle cuenta a alguien
+        para simular una vez ahuyenta justo al que todavía no sabe si le
+        gusta.
+      · `perfil.plan` tiene el update revocado por columna, igual que
+        `premium_hasta`. Las políticas de RLS son por FILA y la de perfil deja
+        que cada uno edite la suya —la necesita para el nombre de usuario—,
+        así que sin el revoke cualquiera se pone plan 'libre' desde la
+        consola. Es la misma lección, clavada ahora para las dos columnas.
+
+  · LOS PRECIOS SE VEN DESDE ANTES DE QUE SE COBRE. Abajo del botón de
+    simular, para todos, tengan cuenta o no. Un precio que aparece el día que
+    empieza a cobrarse se lee como una trampa; este se ve desde el primer día
+    con el cartel de que todavía es gratis.
+
+    Y ahí apareció un error que valía la pena: los planes se pedían adentro
+    del `if(quienSoy())`, así que el ÚNICO que veía cuánto sale era el que ya
+    se había registrado. Justo al revés de para quién es el precio.
+
+  · DOS INTERRUPTORES, LOS DOS APAGADOS, en sitio.json:
+
+      cupo.bloquea = false    el contador cuenta y se muestra, pero no frena
+      cupo.cobrando = false   los planes se ven y los botones están apagados
+
+    Durante la prueba cerrada tiene que ser así. Un tester frenado a la mitad
+    no puede probar nada, y los catorce días no se repiten. Se prenden
+    cambiando dos booleanos.
+
+  · La referencia del pago pasó de "<uuid>:<meses>" a "<uuid>:<meses>:<plan>".
+    El campo se agregó AL FINAL a propósito: un pago que ya estaba en vuelo,
+    hecho con la versión anterior, se sigue leyendo y se sigue acreditando.
+    Un plan desconocido se descarta en vez de viajar a la base — allá lo
+    rechazaría una excepción, el webhook contestaría 500 y Mercado Pago
+    reintentaría para siempre un pago que ya cobró.
+
+  · Y la prueba de las funciones con llave maestra hizo exactamente lo que
+    tenía que hacer: se puso roja al aparecer tres `security definer` nuevas.
+    Existe para que agregar una sea una decisión y no un descuido. Ahora son
+    once y cada una está explicada.
+
+  · 156 casos en el navegador, 31 en los de pagos. Todo en verde.
+
+
+Armá el 11 — versión 2026-09-01 y14 (el sitio autoriza a la app de Android)
+
+  · ASSETLINKS. Con el paquete `com.armael11.app` y la huella de firma que
+    generó PWABuilder, el sitio ya publica `.well-known/assetlinks.json`.
+    Es el archivo que le da permiso a la app de Android para abrir
+    armael11.com a pantalla completa, sin la barra del navegador arriba.
+
+  · FALTA LA SEGUNDA HUELLA. Google vuelve a firmar la app cuando se sube a
+    Play, así que la app que la gente instala NO está firmada con la llave de
+    PWABuilder sino con la de Google. Esa segunda huella sale de Play Console
+    → Configuración de la app → Integridad de la app → Firma de apps, y se
+    agrega al array `huella` de sitio.json. Hasta entonces la app funciona,
+    pero se ve con la barra del navegador.
+
+  · LA PRUEBA DEL ASSETLINKS CAMBIÓ DE PREGUNTA. Decía "no tiene que existir",
+    que era cierto mientras no había huella y se volvió falso el día que la
+    hubo. Ahora la regla es la que va a seguir siendo cierta: si el archivo
+    existe, tiene que estar bien — relación correcta, paquete con forma de
+    paquete y huellas SHA-256 enteras (32 bytes en hexa). Una huella copiada
+    a medias no falla en silencio: falla en la cara del usuario, con la barra
+    del navegador, y nadie sabe por qué.
+
+  · 139 casos en probar-sitio.cjs, todos en verde.
+
+
 Armá el 11 — versión 2026-09-01 y13 (el tanteador con nombres, y el gancho de la portada)
 
   · EL MARCADOR YA NO ES UN "2-0" PELADO. Dice "Talleres 2 - Belgrano 0",

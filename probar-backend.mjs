@@ -61,8 +61,16 @@ const politicasDe = tabla => [...SQL.matchAll(/create policy[\s\S]*?;/gi)]
    aparece una nueva sin que nadie lo note, la puerta quedó abierta.      */
 {
   const defs = [...SQL.matchAll(/create (?:or replace )?function\s+(\w+)/gi)].map(m => m[1]);
-  const conLlave = [...SQL.matchAll(/create (?:or replace )?function\s+(\w+)[\s\S]*?security definer/gi)]
-    .map(m => m[1]);
+  /* Se corta el SQL en definiciones y se mira CADA UNA por separado. Con un
+     `[\s\S]*?security definer` corrido, una función sin llave maestra se
+     lleva la de la que viene después y queda marcada de más — y, peor, la
+     que sí la tiene queda sin marcar. Una prueba de seguridad que se
+     equivoca de función no protege nada. */
+  const conLlave = SQL.split(/create (?:or replace )?function\s+/i).slice(1)
+    .map(t => [ (t.match(/^(\w+)/) || [])[1],
+                t.slice(0, t.indexOf("$$")) ])
+    .filter(([nom, cabeza]) => nom && /security definer/i.test(cabeza))
+    .map(([nom]) => nom);
   /* Este caso existe para que agregar una función con llave maestra sea una
      DECISIÓN y no un descuido: `security definer` corre con permisos que el
      usuario no tiene, así que cada una hay que poder explicarla.
@@ -78,13 +86,23 @@ const politicasDe = tabla => [...SQL.matchAll(/create policy[\s\S]*?;/gi)]
        es_de_zona      rompe la misma recursión que es_miembro, en zona
        tabla_zona      arma la tabla de la zona en un solo pedido, y solo
                        si el que pregunta está en esa zona
-     Las ocho comparten la misma defensa: o no reciben nada, o lo que
+       mi_cupo         lee el cupo del que pregunta y de nadie más: la tabla
+                       `uso_mes` no tiene política de escritura, así que sin
+                       esto no habría forma de mirar el propio contador.
+       sumar_simulacion gasta una del cupo. Es la ÚNICA forma de mover el
+                       contador: si `uso_mes` tuviera política de update, el
+                       tope sería una sugerencia.
+       poner_plan      cambia el plan de alguien, y no se la puede llamar
+                       desde el navegador: se le revoca a todos. Es la misma
+                       defensa que `acreditar_premium`, por la misma razón.
+     Las once comparten la misma defensa: o no reciben nada, o lo que
      reciben ya lo tenía el que llama, o directamente no se les puede
      llamar desde afuera. */
-  caso("las funciones con llave maestra son las ocho conocidas",
-       conLlave.length === 8 &&
+  caso("las funciones con llave maestra son las once conocidas",
+       conLlave.length === 11 &&
        ["es_miembro", "entrar_a_liga", "tabla_liga", "borrar_mi_cuenta",
-        "acreditar_premium", "registrar_pago", "es_de_zona", "tabla_zona"]
+        "acreditar_premium", "registrar_pago", "es_de_zona", "tabla_zona",
+        "mi_cupo", "sumar_simulacion", "poner_plan"]
          .every(f => conLlave.includes(f)),
        conLlave.join(", "));
 
@@ -152,8 +170,21 @@ const politicasDe = tabla => [...SQL.matchAll(/create policy[\s\S]*?;/gi)]
        /liga_dueno_fkey[\s\S]*?on delete set null/i.test(SQL));
   caso("y todas fijan el search_path (si no, se les puede cambiar el piso)",
        conLlave.every(f => new RegExp("function\\s+" + f + "[\\s\\S]*?set search_path", "i").test(SQL)));
-  caso("no hay funciones sueltas sin revisar", defs.length === conLlave.length,
-       defs.join(", "));
+  /* Toda función del esquema tiene que estar revisada: o lleva llave maestra
+     y está explicada arriba, o está acá abajo con el motivo por el que NO la
+     necesita. Lo que no puede haber es una que no esté en ninguna lista.
+       inicio_de_ciclo  es aritmética sobre su propio argumento: recibe una
+                        fecha y devuelve otra. No lee ni escribe ninguna
+                        tabla, así que darle llave maestra sería darle
+                        permisos para nada. */
+  const sinLlave = ["inicio_de_ciclo"];
+  const sueltas = defs.filter(f => !conLlave.includes(f) && !sinLlave.includes(f));
+  caso("no hay funciones sueltas sin revisar", sueltas.length === 0,
+       sueltas.join(", ") || defs.join(", "));
+  /* Y al revés: si una de las que decidimos que no necesita llave un día la
+     recibe, esto se pone rojo. La lista tiene que seguir siendo cierta. */
+  caso("y las que decidimos sin llave maestra siguen sin tenerla",
+       sinLlave.every(f => !conLlave.includes(f)), sinLlave.join(", "));
 }
 
 /* ── EL ARCHIVO TIENE QUE SOBREVIVIR AL VIAJE ────────────────────────────

@@ -834,11 +834,37 @@ srv.listen(8099, async () => {
     caso("el ícono " + i.sizes + " " + i.purpose + " existe de verdad",
          (await traer(i.src)).estado === 200);
 
-  /* El assetlinks NO se escribe hasta tener la huella de la firma. Uno con
-     datos inventados no falla en silencio: falla en la cara del usuario cada
-     vez que abre la app. */
-  caso("sin la huella de la firma, no hay assetlinks de mentira",
-       (await traer('/.well-known/assetlinks.json')).estado === 404);
+  /* ── EL ASSETLINKS ────────────────────────────────────────────────────
+     Es el archivo que autoriza a la app de Android a abrir el sitio a
+     pantalla completa. Uno con datos inventados NO falla en silencio: falla
+     en la cara del usuario, con la barra del navegador arriba, cada vez que
+     abre la app. Así que la regla no es "tiene que existir": es que si
+     existe, tiene que estar bien. Sin bloque `android` en sitio.json no se
+     escribe, y eso también está bien. */
+  {
+    const al = await traer('/.well-known/assetlinks.json');
+    if (al.estado === 404) {
+      caso("sin la huella de la firma, no hay assetlinks de mentira", true);
+    } else {
+      let j = null; try { j = JSON.parse(al.texto); } catch (e) {}
+      const t = j && j[0] && j[0].target;
+      caso("el assetlinks es una lista con un target de android_app",
+           !!t && t.namespace === "android_app", al.texto.slice(0, 120));
+      caso("y pide el permiso que corresponde",
+           !!j && (j[0].relation || []).includes("delegate_permission/common.handle_all_urls"));
+      caso("con un paquete con forma de paquete",
+           !!t && /^[a-z][a-z0-9_]*(\.[a-z0-9_]+)+$/.test(t.package_name || ""),
+           t && t.package_name);
+      /* Una huella SHA-256 son 32 bytes en hexa separados por dos puntos.
+         Cualquier otra cosa —una copiada a medias, una de SHA-1— deja la
+         app con la barra del navegador y nadie sabe por qué. */
+      const hs = (t && t.sha256_cert_fingerprints) || [];
+      const mal = hs.filter(h => !/^([0-9A-F]{2}:){31}[0-9A-F]{2}$/.test(String(h).toUpperCase()));
+      caso("y al menos una huella SHA-256 entera, ninguna torcida",
+           hs.length > 0 && mal.length === 0,
+           hs.length + " huellas, torcidas: " + (mal.join(", ") || "ninguna"));
+    }
+  }
 
   const priv = await traer('/privacidad.html');
   caso("la política de privacidad se publica", priv.estado === 200);
@@ -938,6 +964,131 @@ srv.listen(8099, async () => {
      que la configuración esté efectivamente apagada. */
   caso("y hoy la publicidad está apagada en el sitio publicado",
        await pg.evaluate(() => !(window.SITIO && window.SITIO.publicidad)));
+
+  /* ── EL CUPO DE SIMULACIONES ──────────────────────────────────────────
+     Diez por mes gratis, y después los planes. Lo que se prueba acá es la
+     regla, con casos concretos, igual que con la publicidad: cuántas quedan,
+     cuándo se acabó, y —lo más importante— que con el freno apagado NADIE
+     quede sin poder simular. Durante la prueba cerrada eso no es un detalle:
+     un tester frenado a la mitad no puede probar nada y los catorce días no
+     se repiten. */
+  const cupos = await pg.evaluate(() => {
+    const e = (plan, usadas, bloquea) => estadoCupo({ plan, usadas, bloquea });
+    return {
+      topes:        TOPES,
+      reciente:     e("gratis", 3,  true),
+      justo:        e("gratis", 10, true),
+      pasado:       e("gratis", 12, true),
+      sinFreno:     e("gratis", 99, false),
+      chico:        e("chico", 39, true),
+      libre:        e("libre", 5000, true),
+      desconocido:  e("platino", 0, true),
+      /* El ciclo del 31 de enero: un mes después cae 28 de febrero (el 31 no
+         existe), y DOS meses después vuelve a caer 31 de marzo. Ese rebote es
+         la razón de contar siempre desde el ancla en vez de sumarle un mes al
+         ciclo anterior — sumando de a uno, febrero 28 quedaría clavado. */
+      feb20:        enDia(inicioDeCiclo(new Date(2026,0,31), new Date(2026,1,20))),
+      feb28:        enDia(inicioDeCiclo(new Date(2026,0,31), new Date(2026,1,28))),
+      mar:          enDia(inicioDeCiclo(new Date(2026,0,31), new Date(2026,2,31))),
+      /* Comprado el 20: el 19 del mes siguiente todavía es el mismo ciclo. */
+      dia19:        enDia(inicioDeCiclo(new Date(2026,8,20), new Date(2026,9,19))),
+      dia20:        enDia(inicioDeCiclo(new Date(2026,8,20), new Date(2026,9,20))),
+      cfg:          CUPO_CFG,
+      texto:        textoCupo(e("gratis", 3, true)),
+    };
+  });
+
+  caso("el plan gratis son diez simulaciones por mes", cupos.topes.gratis === 10,
+       JSON.stringify(cupos.topes));
+  /* El tope del libre es Infinity. Playwright lo trae tal cual, pero un
+     JSON.stringify por el camino lo convertiría en null: se aceptan los dos
+     para que la prueba mida el tope y no el transporte. */
+  caso("y los pagos son 40, 100 y sin límite",
+       cupos.topes.chico === 40 && cupos.topes.medio === 100 &&
+       (cupos.topes.libre === null || cupos.topes.libre === Infinity),
+       JSON.stringify(cupos.topes));
+  caso("con tres usadas quedan siete", cupos.reciente.quedan === 7,
+       JSON.stringify(cupos.reciente));
+  caso("con diez usadas se acabó", cupos.justo.seAcabo === true && !cupos.justo.puedeSimular);
+  /* Pasarse no puede dar un número negativo en pantalla. */
+  caso("y pasarse no deja el contador en negativo", cupos.pasado.quedan === 0,
+       String(cupos.pasado.quedan));
+  caso("CON EL FRENO APAGADO SIEMPRE SE PUEDE SIMULAR",
+       cupos.sinFreno.puedeSimular === true && cupos.sinFreno.seAcabo === true,
+       JSON.stringify(cupos.sinFreno));
+  caso("el plan libre no se acaba nunca",
+       cupos.libre.ilimitado === true && cupos.libre.puedeSimular === true);
+  /* Un plan que la base no conozca no puede volverse ilimitado por accidente:
+     cae al tope de gratis, que es el más chico. */
+  caso("un plan desconocido cae al tope más chico, no al más grande",
+       cupos.desconocido.tope === 10, String(cupos.desconocido.tope));
+  /* ── EL CICLO ARRANCA EL DÍA QUE SE PAGA ──────────────────────────────
+     Se contaba por mes calendario y el que compraba el 30 se llevaba
+     cuarenta simulaciones por un día. */
+  caso("comprado el 20, el 19 del mes siguiente sigue siendo el mismo ciclo",
+       cupos.dia19 === "2026-09-20", cupos.dia19);
+  caso("y el 20 empieza uno nuevo", cupos.dia20 === "2026-10-20", cupos.dia20);
+  /* El 31 no existe en febrero. Lo que no puede pasar es que, por eso, el
+     ciclo se quede clavado el 28 para siempre. */
+  caso("el 20 de febrero todavía corre el ciclo que empezó el 31 de enero",
+       cupos.feb20 === "2026-01-31", cupos.feb20);
+  caso("el 28 arranca el siguiente, recortado porque el 31 no existe",
+       cupos.feb28 === "2026-02-28", cupos.feb28);
+  caso("y en marzo vuelve a caer 31: no queda clavado en el 28",
+       cupos.mar === "2026-03-31", cupos.mar);
+  caso("y el contador se dice en castellano",
+       /te quedan 7 de 10/i.test(cupos.texto), cupos.texto);
+
+  /* Los dos interruptores, en el sitio que se publica hoy. */
+  caso("hoy el cupo no frena a nadie", cupos.cfg.bloquea === false,
+       JSON.stringify(cupos.cfg));
+  caso("y todavía no se cobra", cupos.cfg.cobrando === false,
+       JSON.stringify(cupos.cfg));
+
+  /* Que la cuenta CORRA. Sin sesión el contador lo lleva el navegador, y esa
+     es justo la rama que hay que mirar: es la que va a usar la mayoría de los
+     que prueben la app. Un contador que se muestra y no se mueve es peor que
+     no tenerlo, porque nadie lo revisa dos veces. */
+  {
+    const antes = await pg.evaluate(() => CUPO.usadas);
+    await pg.locator('#bsim').click();
+    await pg.waitForSelector('#bguardar', { timeout: 40000 }).catch(() => {});
+    await pg.waitForTimeout(1200);
+    const despues = await pg.evaluate(() => CUPO.usadas);
+    caso("cada simulación descuenta una del cupo", despues === antes + 1,
+         antes + " → " + despues);
+
+    /* Y sobrevive al recargar. El contador que había era una variable de
+       JavaScript: se borraba con F5, o sea que el tope se reiniciaba solo. */
+    const guardado = await pg.evaluate(() => {
+      try { return JSON.parse(localStorage.getItem("armaEl11.cupo") || "null"); }
+      catch (e) { return null; }
+    });
+    caso("y queda guardada, así el tope no se reinicia recargando",
+         !!guardado && guardado.usadas === despues,
+         JSON.stringify(guardado));
+
+    /* Con el mes anotado al lado, el 1 de cada mes vuelve a cero sin que
+       nadie tenga que correr nada. */
+    /* Con el ancla anotada al lado, el ciclo se recalcula solo y vuelve a
+       cero el día que corresponde, sin ninguna tarea programada. */
+    caso("con el ancla y el ciclo anotados, para que se reinicie solo",
+         !!guardado && !!guardado.ancla &&
+         /^\d{4}-\d{2}-\d{2}$/.test(guardado.ciclo || ""),
+         JSON.stringify(guardado));
+  }
+
+  /* El precio a la vista del que NO tiene cuenta. Es el caso que importa:
+     esta prueba corre sin sesión, que es como llega el que prueba la app por
+     primera vez. Si el contador solo apareciera con cuenta, el único
+     enterado del precio sería el que ya se registró. */
+  {
+    const texto = await pg.evaluate(() => document.body.innerText);
+    caso("sin cuenta, el contador de simulaciones está a la vista",
+         /te quedan \d+ de \d+ simulaciones/i.test(texto));
+    caso("y dice que todavía no se cobra nada",
+         /todavía no se cobra nada/i.test(texto));
+  }
 
   /* El número grande tiene que ser el partido que acaba de ver, no el
      marcador más probable: mostraba 0-1 después de un 0-2 y confundía. */

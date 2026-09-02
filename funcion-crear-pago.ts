@@ -8,8 +8,8 @@
    ─── LAS DOS REGLAS ──────────────────────────────────────────────────────
 
    1. EL PRECIO LO PONE EL SERVIDOR. El navegador manda un nombre de plan
-      —"mes", "trimestre"— y nada más. Si mandara el precio, alguien abre la
-      consola, cambia 2500 por 1, paga un peso y Mercado Pago confirma un
+      —"chico", "libre"— y nada más. Si mandara el precio, alguien abre la
+      consola, cambia 5500 por 1, paga un peso y Mercado Pago confirma un
       pago legítimo de un peso: el webhook haría todo bien y acreditaría. No
       hay forma de arreglar eso más adelante; hay que no dejarlo entrar.
 
@@ -20,8 +20,8 @@
       otro lo acredite a él, que no lo es.
 
    El id del perfil viaja a Mercado Pago en `external_reference` con la
-   forma "<uuid>:<meses>", que es lo que `pago-avisado` lee al volver. Es el
-   único hilo que une el pago con la persona, y por eso lo escribe el
+   forma "<uuid>:<meses>:<plan>", que es lo que `pago-avisado` lee al volver.
+   Es el único hilo que une el pago con la persona, y por eso lo escribe el
    servidor de los dos lados.
 
    ─── QUÉ CONFIGURAR ──────────────────────────────────────────────────────
@@ -45,10 +45,15 @@ const SITIO = Deno.env.get("SITIO_URL") || "https://armael11.com";
    desplegar cambia el precio en todos lados: la app pide esta misma lista
    para dibujar los botones, así que no hay dos precios que puedan quedar
    distintos.                                                             */
-const PLANES: Record<string, { meses: number; precio: number; titulo: string }> = {
-  mes:        { meses: 1,  precio: 2500,  titulo: "Armá el 11 · un mes sin espera" },
-  trimestre:  { meses: 3,  precio: 6000,  titulo: "Armá el 11 · tres meses sin espera" },
-  ano:        { meses: 12, precio: 20000, titulo: "Armá el 11 · un año sin espera" },
+const PLANES: Record<string, {
+  meses: number; precio: number; cupo: number | null; titulo: string; nombre: string;
+}> = {
+  chico: { meses: 1, precio: 5500,  cupo: 40,
+           nombre: "40 simulaciones",  titulo: "Armá el 11 · 40 simulaciones por mes" },
+  medio: { meses: 1, precio: 12000, cupo: 100,
+           nombre: "100 simulaciones", titulo: "Armá el 11 · 100 simulaciones por mes" },
+  libre: { meses: 1, precio: 20000, cupo: null,
+           nombre: "Sin límite",       titulo: "Armá el 11 · simulaciones sin límite" },
 };
 
 const CORS = {
@@ -68,7 +73,8 @@ Deno.serve(async (req) => {
      elegirlos. */
   if (req.method === "GET")
     return json({ planes: Object.entries(PLANES).map(([id, p]) =>
-      ({ id, meses: p.meses, precio: p.precio, moneda: "ARS" })) });
+      ({ id, meses: p.meses, precio: p.precio, cupo: p.cupo,
+         nombre: p.nombre, moneda: "ARS" })) });
 
   if (req.method !== "POST") return json({ error: "método" }, 405);
   if (!MP) return json({ error: "falta configurar el cobro" }, 500);
@@ -87,7 +93,8 @@ Deno.serve(async (req) => {
   /* ─── 2. QUÉ PLAN ────────────────────────────────────────────────────── */
   let pedido: any = {};
   try { pedido = await req.json(); } catch (_e) { pedido = {}; }
-  const plan = PLANES[String(pedido?.plan || "mes")];
+  const idPlan = String(pedido?.plan || "chico");
+  const plan = PLANES[idPlan];
   if (!plan) return json({ error: "Ese plan no existe." }, 400);
 
   /* ─── 3. LA PREFERENCIA ──────────────────────────────────────────────
@@ -99,7 +106,11 @@ Deno.serve(async (req) => {
       id: "premium", title: plan.titulo, quantity: 1,
       unit_price: plan.precio, currency_id: "ARS",
     }],
-    external_reference: perfil + ":" + plan.meses,
+    /* "<uuid>:<meses>:<plan>". El tercer campo es nuevo: sin el, el webhook
+       acredita el pase pero no sabe QUE cupo comprar la persona. Se agrega
+       al final a proposito, para que un aviso viejo de dos campos siga
+       leyendose bien. */
+    external_reference: perfil + ":" + plan.meses + ":" + idPlan,
     notification_url: SB_URL + "/functions/v1/pago-avisado",
     back_urls: {
       success: SITIO + "/gracias.html",
@@ -132,5 +143,5 @@ Deno.serve(async (req) => {
      devuelven las dos y la app usa la de producción: así probar con las
      credenciales de prueba no obliga a tocar código. */
   return json({ link: p.init_point, prueba: p.sandbox_init_point,
-                meses: plan.meses, precio: plan.precio });
+                meses: plan.meses, precio: plan.precio, cupo: plan.cupo });
 });

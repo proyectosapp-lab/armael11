@@ -74,10 +74,18 @@ function idDelAviso(url: URL, cuerpo: any): { tipo: string; id: string } {
    —los hay, si alguien cobra por un link suelto— tiene que terminar en un
    pago anotado sin perfil, no en un error de Postgres. */
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-export function leerReferencia(ref: string | null): { perfil: string | null; meses: number } {
-  const [p, m] = String(ref || "").split(":");
+const PLANES_VALIDOS = ["gratis", "chico", "medio", "libre"];
+
+export function leerReferencia(ref: string | null):
+    { perfil: string | null; meses: number; plan: string | null } {
+  const [p, m, pl] = String(ref || "").split(":");
   const meses = Math.min(24, Math.max(1, parseInt(m, 10) || 1));
-  return { perfil: UUID.test(p || "") ? p.toLowerCase() : null, meses };
+  /* El tercer campo es nuevo y puede no venir: los pagos hechos con la
+     version anterior de `crear-pago` traen dos. Un plan desconocido se
+     descarta en vez de viajar a la base, que lo rechazaria con una excepcion
+     y dejaria a Mercado Pago reintentando para siempre un pago que ya cobro. */
+  const plan = PLANES_VALIDOS.includes(String(pl || "")) ? String(pl) : null;
+  return { perfil: UUID.test(p || "") ? p.toLowerCase() : null, meses, plan };
 }
 
 Deno.serve(async (req) => {
@@ -111,10 +119,11 @@ Deno.serve(async (req) => {
   }
 
   const pago = await r.json();
-  const { perfil, meses } = leerReferencia(pago.external_reference);
+  const { perfil, meses, plan } = leerReferencia(pago.external_reference);
 
   console.log("pago " + id + " · " + pago.status + " · " +
-              (perfil ? "perfil " + perfil.slice(0, 8) + "… · " + meses + " mes(es)"
+              (perfil ? "perfil " + perfil.slice(0, 8) + "… · " + meses +
+                        " mes(es) · plan " + (plan || "(sin plan)")
                       : "SIN perfil (external_reference: " + pago.external_reference + ")"));
 
   /* ─── 2. ANOTARLO Y ACREDITARLO, EN UN SOLO MOVIMIENTO ───────────────
@@ -131,7 +140,7 @@ Deno.serve(async (req) => {
     headers: { apikey: SB_KEY, Authorization: "Bearer " + SB_KEY,
                "Content-Type": "application/json" },
     body: JSON.stringify({
-      p_id: String(pago.id), p_perfil: perfil, p_meses: meses,
+      p_id: String(pago.id), p_perfil: perfil, p_meses: meses, p_plan: plan,
       p_estado: String(pago.status || "?"),
       p_monto: pago.transaction_amount ?? null,
       p_moneda: pago.currency_id ?? null,

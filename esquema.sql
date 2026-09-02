@@ -407,7 +407,7 @@ revoke all on function acreditar_premium(uuid, int) from public, anon, authentic
    ========================================================================== */
 create or replace function registrar_pago(
     p_id text, p_perfil uuid, p_meses int, p_estado text,
-    p_monto numeric, p_moneda text, p_crudo jsonb)
+    p_monto numeric, p_moneda text, p_crudo jsonb, p_plan text default null)
   returns timestamptz
   language plpgsql security definer set search_path = public as $$
 declare falta boolean;
@@ -430,12 +430,18 @@ begin
   if p_perfil is null or p_estado <> 'approved' or not falta then return null; end if;
 
   update pago set acreditado = true where id = p_id;
+  /* El plan viene del tercer campo de la referencia y puede no venir: los
+     pagos hechos con la version anterior de `crear-pago` traen dos campos y
+     se siguen acreditando igual, solo que sin tocar el plan. `poner_plan`
+     se define mas abajo, en la seccion del cupo; plpgsql resuelve el nombre
+     al ejecutar, no al crear la funcion. */
+  if p_plan is not null then perform poner_plan(p_perfil, p_plan); end if;
   return acreditar_premium(p_perfil, greatest(p_meses, 1));
 end; $$;
 
 /* Como la de acreditar: no se la puede llamar desde ningun telefono. La
    llama la funcion del webhook, que corre con la clave de servicio. */
-revoke all on function registrar_pago(text, uuid, int, text, numeric, text, jsonb)
+revoke all on function registrar_pago(text, uuid, int, text, numeric, text, jsonb, text)
   from public, anon, authenticated;
 
 
@@ -545,3 +551,156 @@ create or replace function tabla_zona(z uuid, f int default null)
    group by p.usuario, m.viene_de
    order by 2 desc, 1;
 $$;
+
+
+/* ==========================================================================
+   11. EL CUPO DE SIMULACIONES
+
+   QUE SE COBRA, EXACTAMENTE. Diez simulaciones por mes son gratis y llevan
+   publicidad. De ahi en adelante hay que tener un plan. Los topes:
+
+     gratis   10 por mes, con avisos
+     chico    40 por mes
+     medio   100 por mes
+     libre    sin tope
+
+   POR QUE EL CONTADOR VIVE ACA Y NO EN EL NAVEGADOR. El que habia era una
+   variable de JavaScript: se borraba al recargar la pagina. Un tope que se
+   reinicia solo no es un tope. Igual conviene decirlo de frente: UNA
+   SIMULACION NO CUESTA NADA -corre en el telefono, con datos ya bajados-,
+   asi que este contador no esta recuperando un costo. Separa al que le saca
+   jugo del que pasa a mirar, que es una razon distinta y perfectamente
+   buena, pero es esa y no la otra.
+
+   EL MES ES TEXTO, '2026-09'. Podria ser un rango de fechas y seria mas
+   elegante; seria tambien mas facil de equivocar en la zona horaria. Con el
+   texto, el mes de una fila es el mes que dice la fila.
+   ========================================================================== */
+
+/* El plan de cada uno. Va en `perfil` y NO lo puede escribir su duenio, por
+   la misma razon que `premium_hasta`: las politicas de RLS son por fila y la
+   de perfil deja que cada uno edite la suya. Sin este revoke, cualquiera se
+   pone plan 'libre' desde la consola del navegador. */
+alter table perfil add column if not exists plan text not null default 'gratis'
+  check (plan in ('gratis','chico','medio','libre'));
+revoke update (plan) on perfil from authenticated, anon;
+
+/* ── EL CICLO NO ES EL MES DEL CALENDARIO ────────────────────────────────
+   Primero esto se conto por mes calendario y estaba mal de una forma que se
+   ve sola con un ejemplo: el que compraba el 30 se llevaba cuarenta
+   simulaciones por un dia, y el 1 le entraban cuarenta mas. Un plan que se
+   paga el 20 tiene que durar hasta el 20 del mes que viene.
+
+   EL ANCLA. Para el que paga es el dia que pago; para el que no, el dia que
+   se hizo la cuenta. Uno solo, y el ciclo se calcula siempre DESDE EL ANCLA
+   sumando meses enteros: `ancla + n meses`, nunca "sumarle un mes al ciclo
+   anterior". La diferencia aparece con los dias 29, 30 y 31 - Postgres
+   recorta el 31 de enero mas un mes al 28 de febrero, y si se fuera sumando
+   de a uno, ese dia 28 se quedaria clavado para siempre. Contando desde el
+   ancla, marzo vuelve a caer 31.                                          */
+alter table perfil add column if not exists plan_desde timestamptz;
+
+/* Cuando arranco el ciclo que corre ahora. Es la clave del contador. */
+/* `stable` y no `immutable`: usa now(), asi que su resultado cambia con el
+   tiempo. Declararla immutable seria mentirle al planificador. */
+create or replace function inicio_de_ciclo(ancla timestamptz)
+  returns date
+  language sql stable set search_path = public as $$
+  select (ancla + (
+    (extract(year  from age(now(), ancla)) * 12 +
+     extract(month from age(now(), ancla)))::int || ' months')::interval)::date;
+$$;
+
+create table if not exists uso_ciclo (
+  perfil        uuid not null references perfil(id) on delete cascade,
+  ciclo         date not null,
+  simulaciones  int  not null default 0,
+  primary key (perfil, ciclo)
+);
+alter table uso_ciclo enable row level security;
+
+/* Se lee el propio y nada mas. Cuantas veces simulo el vecino no le importa
+   a nadie, y es justo el dato con el que se arma un ranking que nadie pidio. */
+drop policy if exists "cada uno ve su uso" on uso_ciclo;
+create policy "cada uno ve su uso"
+  on uso_ciclo for select using (auth.uid() = perfil);
+
+/* Ni insert ni update para nadie: la unica forma de mover el contador es la
+   funcion de abajo. Si hubiera politica de update, el tope seria una
+   sugerencia. */
+
+/* Cuantas le quedan, sin gastar ninguna. La usa la pantalla para mostrar
+   "te quedan 7 de 10" y hasta cuando, sin tener que simular para enterarse. */
+create or replace function mi_cupo()
+  returns table (plan text, usadas int, ciclo date, hasta date)
+  language sql security definer set search_path = public stable as $$
+  select coalesce(p.plan, 'gratis'),
+         coalesce(u.simulaciones, 0),
+         inicio_de_ciclo(coalesce(p.plan_desde, p.creado)),
+         (inicio_de_ciclo(coalesce(p.plan_desde, p.creado)) + interval '1 month')::date
+    from perfil p
+    left join uso_ciclo u
+      on u.perfil = p.id
+     and u.ciclo = inicio_de_ciclo(coalesce(p.plan_desde, p.creado))
+   where p.id = auth.uid();
+$$;
+revoke all on function mi_cupo() from public, anon;
+grant execute on function mi_cupo() to authenticated;
+
+/* Gastar una. Devuelve como quedo el contador DESPUES de sumar, que es lo
+   que la pantalla necesita para decir "te quedan 6".
+
+   El insert con on conflict es todo el candado: dos simulaciones a la vez
+   no pueden leer las dos el mismo numero y escribir el mismo. La segunda
+   espera y suma sobre lo que dejo la primera. */
+create or replace function sumar_simulacion()
+  returns table (plan text, usadas int, ciclo date, hasta date)
+  language plpgsql security definer set search_path = public as $$
+declare c date; quien uuid;
+begin
+  quien := auth.uid();
+  if quien is null then raise exception 'sin sesion'; end if;
+  select inicio_de_ciclo(coalesce(plan_desde, creado)) into c
+    from perfil where id = quien;
+  if c is null then raise exception 'ese perfil no existe'; end if;
+
+  insert into uso_ciclo (perfil, ciclo, simulaciones) values (quien, c, 1)
+  on conflict (perfil, ciclo) do update
+     set simulaciones = uso_ciclo.simulaciones + 1;
+
+  return query
+    select coalesce(p.plan,'gratis'), u.simulaciones, c,
+           (c + interval '1 month')::date
+      from perfil p join uso_ciclo u on u.perfil = p.id and u.ciclo = c
+     where p.id = quien;
+end; $$;
+revoke all on function sumar_simulacion() from public, anon;
+grant execute on function sumar_simulacion() to authenticated;
+
+/* Poner el plan. Como `acreditar_premium`: solo la clave de servicio.
+
+   MUEVE EL ANCLA AL DIA DEL PAGO, y ese es el punto: el que paga el 20
+   arranca su ciclo el 20. El que renueva estando adentro del ciclo tambien
+   lo mueve, asi que paga un mes y tiene un mes: no se le suman dos cupos
+   sobre el mismo mes ni se le pisa el que estaba usando. */
+create or replace function poner_plan(p uuid, nuevo text)
+  returns void
+  language plpgsql security definer set search_path = public as $$
+begin
+  if nuevo not in ('gratis','chico','medio','libre') then
+    raise exception 'plan desconocido: %', nuevo;
+  end if;
+  update perfil set plan = nuevo, plan_desde = now() where id = p;
+end; $$;
+revoke all on function poner_plan(uuid, text) from public, anon, authenticated;
+
+/* La tabla vieja, la que contaba por mes calendario. Se borra en vez de
+   migrarse: nunca llego a producirse un dato: el contador se publico y se
+   corrigio el mismo dia. Si algun dia esto corre sobre una base que si tenia
+   filas, esta linea hay que mirarla antes de ejecutarla. */
+drop table if exists uso_mes;
+
+/* Cuando el pase se vence, el plan vuelve a gratis. No hay cron: lo mira la
+   app al arrancar contra `premium_hasta`, y el servidor lo corrige la
+   proxima vez que alguien paga. Es suficiente para lo unico que decide el
+   plan, que es cuantas simulaciones entran. */
