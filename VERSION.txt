@@ -1,3 +1,94 @@
+Arma el 11 - version 2026-09-02 y21 (el tipo se resuelve al crear, no al correr)
+
+  · "type liga does not exist", y la tabla `liga` existe hace meses.
+
+  · La linea `set search_path = public` que llevan todas nuestras funciones
+    vale cuando la funcion CORRE. Pero el TIPO que devuelve se resuelve
+    cuando la funcion se CREA, y ahi manda el search_path de la sesion que la
+    esta creando - el del editor SQL de Supabase, que viene acotado. Asi que
+    `returns setof liga` no encontraba la tabla, aunque estuviera ahi.
+
+  · El mensaje engania: suena a que falta la tabla. No falta: no la esta
+    buscando donde esta. Ahora dice `returns setof public.liga`.
+
+  · Es la misma leccion que veniamos teniendo toda la tarde, en otra forma:
+    un nombre solo significa algo dentro de un contexto, y el contexto de
+    cuando se escribe una funcion no es el de cuando se ejecuta.
+
+Arma el 11 - version 2026-09-02 y20 (la funcion devuelve una fila de liga)
+
+  · Tercer intento con el mismo torneo. El anterior tapaba el problema; este
+    lo saca.
+
+  · `returns table (id uuid, nombre text, codigo text)` DECLARA tres
+    variables con esos nombres adentro de la funcion. Con `codigo` siendo a
+    la vez columna de `liga` y variable de salida, cualquier mencion suelta
+    de `codigo` tiene dos significados y Postgres corta.
+
+  · Se puede tapar de dos formas -escribiendo `liga.codigo` en todos lados, o
+    con la directiva `#variable_conflict use_column`- y las dos funcionan.
+    Pero lo que la funcion devuelve ES una fila de `liga`. Decirlo asi,
+    `returns setof liga`, saca el problema de raiz: no hay variables de
+    salida, no hay con que chocar. Ademas, el dia que la tabla tenga una
+    columna nueva, la devuelve sin tocar nada. El navegador ya pedia
+    `liga?select=*` en la otra consulta, asi que recibe exactamente lo mismo.
+
+  · La regla que queda: cuando una funcion devuelve una fila de una tabla que
+    ya existe, se dice `setof esa tabla`. Inventar una lista de columnas es
+    repetir algo que ya estaba escrito, y lo repetido se desincroniza.
+
+  · `sumar_simulacion` SI necesita la directiva y la tiene: devuelve columnas
+    de dos tablas distintas, asi que no hay una sola tabla que nombrar, y
+    `ciclo` -que es columna Y variable de salida- aparece solo en el
+    `on conflict (perfil, ciclo)`, donde la columna va sola por obligacion.
+    Ese iba a explotar la primera vez que alguien simulara con cuenta.
+
+  · La prueba nueva se corrigio dos veces mientras se escribia, y las dos
+    valen anotarse. La primera version buscaba `returns table` con un salto
+    corrido y se colaba hasta la funcion SIGUIENTE: marcaba `es_de_zona`,
+    que devuelve un booleano. La segunda encontraba `returns table` DENTRO
+    del comentario que explica por que ya no dice `returns table`. Ahora se
+    corta por definicion y se leen las definiciones sin sus comentarios: una
+    prueba que busca texto en un archivo que habla de si mismo tiene que
+    mirar el codigo y no la explicacion.
+
+  · 50 pruebas en el esquema, todas en verde.
+
+Arma el 11 - version 2026-09-02 y19 (el nombre de salida tambien es una variable)
+
+  · "column reference codigo is ambiguous". La funcion ya existia -eso del
+    y18 funciono- pero se caia adentro.
+
+  · POR QUE. `returns table (id uuid, nombre text, codigo text)` no solo
+    describe lo que sale: DECLARA tres variables con esos nombres adentro de
+    la funcion. Entonces cuando el cuerpo dice `where codigo = c`, Postgres
+    ve dos cosas llamadas `codigo` -la columna de la tabla `liga` y la
+    variable de salida- y en vez de elegir una, corta.
+
+  · Es la misma clase de error que la clase `.gol` repetida en el CSS: un
+    nombre que ya estaba, usado de nuevo para otra cosa. Ahi el numero se
+    volvia invisible; aca la funcion se cae. Nunca es el nombre nuevo el que
+    esta mal: es que el viejo no se miro.
+
+  · EL ARREGLO, en dos capas. La columna se escribe con la tabla adelante
+    -`liga.codigo`-, que es lo que habria que haber hecho desde el principio.
+    Y arriba de cada funcion plpgsql que devuelve una tabla va la directiva
+    `#variable_conflict use_column`: ante la duda, gana la columna. Hace
+    falta porque hay lugares donde la columna va sola por obligacion y no se
+    le puede poner la tabla adelante: el `on conflict (perfil, ciclo)` de
+    `sumar_simulacion` es exactamente eso, y `ciclo` es columna Y variable de
+    salida. Ese iba a explotar la primera vez que alguien simulara.
+
+  · UNA PRUEBA MAS (50 en total): toda funcion plpgsql que devuelve una tabla
+    tiene que declarar la directiva, tenga hoy el choque o no. El choque
+    aparece el dia que agregamos una columna que se llama igual que algo que
+    ya devolviamos, y ese dia nadie se va a acordar de esto.
+
+  · Lo que quedo claro de los tres intentos seguidos: las pruebas leen el SQL,
+    no lo corren. Un error de Postgres -tipo de retorno, nombre ambiguo,
+    funcion duplicada- solo aparece al pegarlo. Cuando haya un rato, la
+    prueba que falta es una base de verdad, aunque sea vacia.
+
 Armá el 11 — versión 2026-09-02 y18 (el archivo entero se caía por una función)
 
   · SEGUIMOS SIN PODER CREAR TORNEOS después del y17, con el mismo cartel:

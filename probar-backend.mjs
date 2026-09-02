@@ -16,6 +16,13 @@ const SQL = readFileSync(new URL("./esquema.sql", import.meta.url), "utf8");
 const casos = [];
 const caso = (nom, ok, detalle = "") => casos.push([nom, ok, detalle]);
 
+/* El SQL sin sus comentarios. Hace falta porque los comentarios de este
+   archivo EXPLICAN el SQL, y para explicarlo lo citan: el de `crear_liga`
+   cuenta por que ya no dice `returns table`, y decirlo obliga a escribirlo.
+   Una prueba que busca texto en un archivo que habla de si mismo tiene que
+   mirar el codigo y no la explicacion, o termina encontrando fantasmas. */
+const pelado = t => t.replace(/\/\*[\s\S]*?\*\//g, " ");
+
 /* Todo lo que sea una tabla nuestra tiene que tener el candado puesto. Sin
    RLS, una política es un cartel: está escrita y no la lee nadie.        */
 const TABLAS = ["perfil", "fechas", "equipo", "puntaje", "liga", "liga_miembro"];
@@ -130,9 +137,17 @@ const politicasDe = tabla => [...SQL.matchAll(/create policy[\s\S]*?;/gi)]
      puede borrar sin llevarse la política puesta. Esas se reemplazan y
      listo, que además nunca cambian de forma: devuelven un booleano. */
   {
-    const tablas = [...SQL.matchAll(
-      /create (?:or replace )?function\s+(\w+)\s*\(([^)]*)\)\s*\n?\s*returns table/gi)]
-      .map(m => m[1]);
+    /* Se corta por definición, igual que arriba: un `[\s\S]*?returns table`
+       corrido se cuela hasta la función SIGUIENTE y marca funciones que
+       devuelven un booleano. La cabeza de cada una termina en `$$`. */
+    const defsTabla = SQL.split(/create (?:or replace )?function\s+/i).slice(1)
+      .map(t => {
+        const corte = t.indexOf("$$");
+        return { nom: (t.match(/^(\w+)/) || [])[1],
+                 cabeza: t.slice(0, corte), cuerpo: t.slice(corte) };
+      })
+      .filter(d => d.nom && /returns\s+(?:table|setof)/i.test(pelado(d.cabeza)));
+    const tablas = defsTabla.map(d => d.nom);
     const sinDrop = tablas.filter(f =>
       !new RegExp("drop function if exists\\s+" + f + "\\s*\\(", "i").test(SQL));
     caso("cada función que devuelve una tabla se borra antes de crearse",
@@ -154,6 +169,36 @@ const politicasDe = tabla => [...SQL.matchAll(/create policy[\s\S]*?;/gi)]
        reemplaza a la vieja: la deja al lado, y a partir de ahí una llamada
        con los parámetros de antes no sabe a cuál ir. `registrar_pago` pasó
        de siete a ocho, así que la de siete se borra a mano. */
+    /* ── EL NOMBRE DE SALIDA TAMBIÉN ES UNA VARIABLE ─────────────────────
+       El segundo error del mismo día: "column reference codigo is
+       ambiguous". `returns table (id, nombre, codigo)` no solo describe lo
+       que sale — declara tres VARIABLES con esos nombres adentro de la
+       función. Así que `where codigo = c` deja de tener un solo significado
+       y Postgres, en vez de elegir, corta.
+
+       En una función `sql` se arregla escribiendo `tabla.columna` en todos
+       lados, que es lo que ya hacen `mi_cupo`, `tabla_liga` y `tabla_zona`.
+       En una `plpgsql` no alcanza: hay lugares donde la columna va sola y no
+       se le puede poner apellido — el `on conflict (perfil, ciclo)` de
+       `sumar_simulacion` es exactamente eso. Para esos está la directiva
+       `#variable_conflict use_column`: ante la duda, gana la columna. Que es
+       siempre lo que queremos, porque las variables de salida se llenan al
+       final y no se leen en el medio.
+
+       Se pide en TODAS las plpgsql que devuelven tabla, tengan hoy el choque
+       o no: el choque aparece el día que alguien agrega una columna que se
+       llama igual que algo que ya devolvíamos, y ese día nadie se acuerda
+       de esto. */
+    {
+      const sinRed = defsTabla
+        .filter(d => /returns\s+table/i.test(pelado(d.cabeza))
+                  && /language plpgsql/i.test(pelado(d.cabeza)))
+        .filter(d => !/#variable_conflict\s+use_column/i.test(d.cuerpo))
+        .map(d => d.nom);
+      caso("las funciones plpgsql que devuelven tabla no confunden columna con variable",
+           sinRed.length === 0, sinRed.join(", "));
+    }
+
     caso("la registrar_pago vieja, la de siete parámetros, se borra",
          /drop function if exists registrar_pago\s*\(\s*text\s*,\s*uuid\s*,\s*int\s*,\s*text\s*,\s*numeric\s*,\s*text\s*,\s*jsonb\s*\)/i.test(SQL));
   }

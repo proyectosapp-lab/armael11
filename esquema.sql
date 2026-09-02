@@ -271,7 +271,27 @@ end; $$;
    pisar lo viejo, no chocar con ello. */
 drop function if exists crear_liga(text);
 create or replace function crear_liga(p_nombre text)
-  returns table (id uuid, nombre text, codigo text)
+  /* DEVUELVE UNA FILA DE `liga`, NO UNA TABLA INVENTADA. Antes decia
+     `returns table (id uuid, nombre text, codigo text)`, y eso no solo
+     describe lo que sale: DECLARA tres variables con esos nombres adentro
+     de la funcion. Con `codigo` siendo a la vez columna de `liga` y variable
+     de salida, `where codigo = c` dejaba de tener un solo significado y
+     Postgres cortaba con "column reference codigo is ambiguous".
+
+     Se puede tapar escribiendo `liga.codigo` en todos lados, y se puede
+     tapar con la directiva `#variable_conflict use_column`. Pero lo que la
+     funcion devuelve ES una fila de `liga`: decirlo asi saca el problema de
+     raiz en vez de esquivarlo, y ademas el dia que la tabla tenga una
+     columna nueva, esto la devuelve sin tocar nada. El navegador ya pide
+     `liga?select=*` en la otra consulta, asi que recibe lo mismo. */
+  /* `public.liga`, con el esquema adelante, y no `liga` a secas. El
+     `set search_path = public` de la linea de abajo vale cuando la funcion
+     CORRE; el tipo que devuelve se resuelve cuando la funcion se CREA, y ahi
+     manda el search_path de quien la esta creando. El editor SQL de Supabase
+     corre con uno acotado, asi que `liga` a secas da "type liga does not
+     exist" -que suena a que falta la tabla y no es eso: es que no la esta
+     buscando donde esta-. */
+  returns setof public.liga
   language plpgsql security definer set search_path = public as $$
 declare
   /* Sin vocales, asi ningun codigo sale diciendo una palabra que despues
@@ -290,7 +310,7 @@ begin
     for i in 1..6 loop
       c := c || substr(alfabeto, floor(random() * char_length(alfabeto))::int + 1, 1);
     end loop;
-    exit when not exists (select 1 from liga where codigo = c);
+    exit when not exists (select 1 from liga where liga.codigo = c);
     c := null;
   end loop;
   if c is null then raise exception 'no pude generar un codigo, proba de nuevo'; end if;
@@ -299,7 +319,7 @@ begin
     returning liga.id into l;
   insert into liga_miembro (liga, perfil) values (l, auth.uid());
 
-  return query select l, n, c;
+  return query select * from liga where liga.id = l;
 end; $$;
 revoke all on function crear_liga(text) from public, anon;
 grant execute on function crear_liga(text) to authenticated;
@@ -736,6 +756,10 @@ drop function if exists sumar_simulacion();
 create or replace function sumar_simulacion()
   returns table (plan text, usadas int, ciclo date, hasta date)
   language plpgsql security definer set search_path = public as $$
+#variable_conflict use_column
+/* Misma red que en `crear_liga`. Aca el que muerde es `ciclo`: es columna de
+   `uso_ciclo` y a la vez variable de salida, y aparece bare en el
+   `on conflict (perfil, ciclo)`, donde la columna va sola por obligacion. */
 declare c date; quien uuid;
 begin
   quien := auth.uid();
