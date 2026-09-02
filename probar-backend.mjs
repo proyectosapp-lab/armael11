@@ -111,6 +111,53 @@ const politicasDe = tabla => [...SQL.matchAll(/create policy[\s\S]*?;/gi)]
          .every(f => conLlave.includes(f)),
        conLlave.join(", "));
 
+  /* ── EL ARCHIVO SE TIENE QUE PODER PEGAR DOS VECES ─────────────────────
+     Esto lo aprendimos con el torneo que no se creaba. `create or replace`
+     NO puede cambiarle a una función lo que devuelve: si ya existe una con
+     el mismo nombre y otra forma, Postgres corta con "cannot change return
+     type of existing function". Y el editor de Supabase corre TODO el
+     archivo dentro de una sola transacción, así que ese único error tira
+     abajo el archivo entero: no se crea nada, ni siquiera lo que no tenía
+     ningún problema. Desde afuera se ve como si el archivo no se hubiera
+     pegado nunca.
+
+     La regla, entonces: toda función que devuelve una TABLA -que son las
+     que cambian de forma cuando les agregamos una columna- lleva su
+     `drop function if exists` justo antes.
+
+     Ojo con querer extender esto a todas: `es_miembro` y `es_de_zona` las
+     usan las políticas, y una función de la que depende una política no se
+     puede borrar sin llevarse la política puesta. Esas se reemplazan y
+     listo, que además nunca cambian de forma: devuelven un booleano. */
+  {
+    const tablas = [...SQL.matchAll(
+      /create (?:or replace )?function\s+(\w+)\s*\(([^)]*)\)\s*\n?\s*returns table/gi)]
+      .map(m => m[1]);
+    const sinDrop = tablas.filter(f =>
+      !new RegExp("drop function if exists\\s+" + f + "\\s*\\(", "i").test(SQL));
+    caso("cada función que devuelve una tabla se borra antes de crearse",
+         tablas.length >= 5 && sinDrop.length === 0,
+         sinDrop.length ? "sin drop: " + sinDrop.join(", ") : tablas.join(", "));
+
+    /* El drop tiene que estar ANTES, no en cualquier lado: un drop escrito
+       después de la creación borra justamente lo que se acaba de crear. */
+    const tarde = tablas.filter(f => {
+      const d = SQL.search(new RegExp("drop function if exists\\s+" + f + "\\s*\\(", "i"));
+      const c = SQL.search(new RegExp("create (?:or replace )?function\\s+" + f + "\\s*\\(", "i"));
+      return d < 0 || d > c;
+    });
+    caso("y el borrado va antes de la creación, no después",
+         tarde.length === 0, tarde.join(", "));
+
+    /* La otra forma de romperlo: agregarle un parámetro a una función que ya
+       existe. Un parámetro nuevo -aunque tenga valor por defecto- NO
+       reemplaza a la vieja: la deja al lado, y a partir de ahí una llamada
+       con los parámetros de antes no sabe a cuál ir. `registrar_pago` pasó
+       de siete a ocho, así que la de siete se borra a mano. */
+    caso("la registrar_pago vieja, la de siete parámetros, se borra",
+         /drop function if exists registrar_pago\s*\(\s*text\s*,\s*uuid\s*,\s*int\s*,\s*text\s*,\s*numeric\s*,\s*text\s*,\s*jsonb\s*\)/i.test(SQL));
+  }
+
   /* ── LAS FASES ─────────────────────────────────────────────────────────
      Todo esto lo escribe el servidor, como los puntos. Si alguna de estas
      tablas tuviera política de escritura, cualquiera se anotaría en la

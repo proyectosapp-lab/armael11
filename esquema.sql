@@ -262,6 +262,14 @@ end; $$;
    reintentaba cinco veces si chocaba con uno repetido: eso es hacer del
    `unique` un mecanismo de reintento a traves de la red. Aca el sorteo y la
    comprobacion pasan en el mismo lugar.                                  */
+/* El `drop` de antes no es adorno. `create or replace` NO puede cambiarle a
+   una funcion lo que devuelve: si ya existe una `crear_liga(text)` con otra
+   forma, Postgres corta con "cannot change return type of existing function"
+   -y como el editor de Supabase corre todo el archivo en UNA transaccion,
+   ese unico error tira abajo el archivo entero, incluidas las cosas que si
+   habrian andado-. Un archivo que se pega de nuevo cada vez tiene que poder
+   pisar lo viejo, no chocar con ello. */
+drop function if exists crear_liga(text);
 create or replace function crear_liga(p_nombre text)
   returns table (id uuid, nombre text, codigo text)
   language plpgsql security definer set search_path = public as $$
@@ -304,6 +312,7 @@ grant execute on function crear_liga(text) to authenticated;
    como funcion para que el telefono pida una sola cosa y no arme el join.
    ========================================================================== */
 
+drop function if exists tabla_liga(uuid, int);
 create or replace function tabla_liga(l uuid, f int default null)
   returns table (usuario text, puntos numeric)
   language sql security definer stable set search_path = public as $$
@@ -463,6 +472,12 @@ revoke all on function acreditar_premium(uuid, int) from public, anon, authentic
    Devuelve la fecha hasta cuando quedo el premium, o null si no habia nada
    que acreditar. Ese null es la respuesta a "esto ya lo cobre".
    ========================================================================== */
+/* La version vieja tenia siete parametros; esta tiene ocho, y el octavo
+   viene con valor por defecto. Eso NO reemplaza a la anterior: la deja al
+   lado. Y con las dos vivas, una llamada de siete argumentos no sabe a cual
+   ir - Postgres contesta "function is not unique" y el pago no se acredita-.
+   Se borra la de siete a mano, que es la unica forma. */
+drop function if exists registrar_pago(text, uuid, int, text, numeric, text, jsonb);
 create or replace function registrar_pago(
     p_id text, p_perfil uuid, p_meses int, p_estado text,
     p_monto numeric, p_moneda text, p_crudo jsonb, p_plan text default null)
@@ -594,6 +609,7 @@ create policy "veo las zonas donde estoy" on zona for select using (es_de_zona(i
    usuarios y puntos. Es la misma regla del torneo pago: usuarios y
    puntajes, nada mas. */
 
+drop function if exists tabla_zona(uuid, int);
 create or replace function tabla_zona(z uuid, f int default null)
   returns table (usuario text, puntos numeric, viene_de text)
   language sql security definer stable set search_path = public as $$
@@ -661,6 +677,7 @@ alter table perfil add column if not exists plan_desde timestamptz;
 /* Cuando arranco el ciclo que corre ahora. Es la clave del contador. */
 /* `stable` y no `immutable`: usa now(), asi que su resultado cambia con el
    tiempo. Declararla immutable seria mentirle al planificador. */
+drop function if exists inicio_de_ciclo(timestamptz);
 create or replace function inicio_de_ciclo(ancla timestamptz)
   returns date
   language sql stable set search_path = public as $$
@@ -689,6 +706,10 @@ create policy "cada uno ve su uso"
 
 /* Cuantas le quedan, sin gastar ninguna. La usa la pantalla para mostrar
    "te quedan 7 de 10" y hasta cuando, sin tener que simular para enterarse. */
+/* Mismo motivo que en `crear_liga`: la primera version de esto contaba por
+   mes calendario y devolvia otra cosa. Sin este drop, quien haya corrido
+   aquella se come el error y pierde el archivo entero. */
+drop function if exists mi_cupo();
 create or replace function mi_cupo()
   returns table (plan text, usadas int, ciclo date, hasta date)
   language sql security definer set search_path = public stable as $$
@@ -711,6 +732,7 @@ grant execute on function mi_cupo() to authenticated;
    El insert con on conflict es todo el candado: dos simulaciones a la vez
    no pueden leer las dos el mismo numero y escribir el mismo. La segunda
    espera y suma sobre lo que dejo la primera. */
+drop function if exists sumar_simulacion();
 create or replace function sumar_simulacion()
   returns table (plan text, usadas int, ciclo date, hasta date)
   language plpgsql security definer set search_path = public as $$

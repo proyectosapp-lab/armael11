@@ -1,3 +1,52 @@
+Armá el 11 — versión 2026-09-02 y18 (el archivo entero se caía por una función)
+
+  · SEGUIMOS SIN PODER CREAR TORNEOS después del y17, con el mismo cartel:
+    "Could not find the function public.crear_liga(p_nombre) in the schema
+    cache". O sea: el sitio estaba al día y la base no.
+
+  · POR QUÉ NO ENTRÓ EL SQL. El editor de Supabase corre TODO lo que uno pega
+    dentro de UNA transacción. Un solo error en cualquier línea deshace el
+    archivo completo — no se crea nada, ni siquiera lo que estaba perfecto.
+    Y había un error garantizado para el que ya había corrido la versión
+    anterior: `create or replace function` NO puede cambiarle a una función
+    lo que devuelve. `mi_cupo` y `sumar_simulacion` cambiaron de forma cuando
+    el cupo pasó de mes calendario a ciclo desde la fecha de pago, así que
+    Postgres cortaba con "cannot change return type of existing function" y
+    se llevaba puesto a `crear_liga`, que venía cientos de líneas antes y no
+    tenía nada que ver.
+
+  · DESDE AFUERA ESO SE VE COMO SI EL ARCHIVO NUNCA SE HUBIERA PEGADO. No hay
+    forma de darse cuenta salvo leer el renglón rojo del final. Es el peor
+    tipo de falla: la acción se hizo, se ve hecha, y no quedó nada.
+
+  · EL ARREGLO. Toda función que devuelve una TABLA lleva ahora su
+    `drop function if exists` justo antes: crear_liga, tabla_liga, tabla_zona,
+    mi_cupo, sumar_simulacion. Son las que cambian de forma cuando les
+    agregamos una columna. Ahora el archivo se puede pegar de nuevo cuantas
+    veces haga falta, que era la idea desde el principio.
+
+  · Y LA OTRA MITAD DEL MISMO PROBLEMA: `registrar_pago` pasó de siete
+    parámetros a ocho. Un parámetro nuevo —aunque tenga valor por defecto— no
+    reemplaza a la función vieja: la deja al lado. Con las dos vivas, una
+    llamada de siete argumentos no sabe a cuál ir y Postgres contesta
+    "function is not unique". Un pago que no se acredita porque hay dos
+    funciones con el mismo nombre es exactamente el tipo de cosa que se
+    descubre el día que alguien paga. Se borra la de siete a mano.
+
+  · NO se pueden borrar todas por las dudas: `es_miembro` y `es_de_zona` las
+    usan las políticas de seguridad, y una función de la que depende una
+    política no se borra sin llevarse la política puesta. Esas se reemplazan
+    y ya está, que además nunca cambian de forma: devuelven sí o no.
+
+  · TRES PRUEBAS NUEVAS en probar-backend.mjs (49 en total): que cada función
+    que devuelve una tabla tenga su borrado, que el borrado esté ANTES de la
+    creación —uno escrito después borra justo lo que se acaba de crear— y que
+    la registrar_pago de siete parámetros se borre.
+
+  · LO QUE HAY QUE HACER: pegar `esquema.sql` de nuevo, entero, en el SQL
+    Editor de Supabase. No hace falta volver a empaquetar la app para Play:
+    el .aab envuelve la dirección del sitio, no el código.
+
 Armá el 11 — versión 2026-09-02 y17 (crear un torneo estaba roto)
 
   · NO SE PODÍA CREAR UN TORNEO DE AMIGOS, y el mensaje que salía mandaba a
