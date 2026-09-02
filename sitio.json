@@ -23,8 +23,9 @@
  "android": {
   "paquete": "com.armael11.app",
   "huella": [
-   "E3:4B:54:94:9D:8D:85:28:6A:52:D4:55:93:95:8B:A2:A0:E5:CA:02:C0:4B:CA:8B:C0:B6:B0:89:B0:98:A2:E7"
+   "E3:4B:54:94:9D:8D:85:28:6A:52:D4:55:93:95:8B:A2:A0:E5:CA:02:C0:4B:CA:8B:C0:B6:B0:89:B0:98:A2:E7",
+   "F6:C7:D2:0C:1B:FA:35:6A:3A:25:00:D6:3C:3F:CB:71:B5:19:B6:57:64:22:08:A3:B8:6A:91:91:6E:7F:87:6C"
   ]
  },
- "_android": "El paquete y las huellas SHA-256 que autorizan a la app de Android a abrir armael11.com a pantalla completa, sin la barra del navegador. Con esto se escribe sitio/.well-known/assetlinks.json. Van DOS huellas y las dos son públicas (son certificados, no llaves): la primera es la de firma que generó PWABuilder, y falta la segunda, la que Google le pone al firmar la app —Play Console → Configuración de la app → Integridad de la app → Firma de apps→, que es la que de verdad tiene la app que la gente instala desde Play. Hasta que esté esa segunda, la app abre igual pero con la barra del navegador arriba. Si el bloque 'android' se saca, el archivo se borra del sitio."
+ "_android": "El paquete y las huellas SHA-256 que autorizan a la app de Android a abrir armael11.com a pantalla completa, sin la barra del navegador. Con esto se escribe sitio/.well-known/assetlinks.json. Van DOS huellas y las dos son públicas (son certificados, no llaves). La primera es la de CARGA: la generó PWABuilder y es con la que se firma el .aab que se sube. La segunda es la de FIRMA DE LA APP: Google reemplaza la firma al distribuir, así que es la que de verdad tiene la app instalada desde Play, y se saca de Play Console → Protegido con Play → Firma de apps, columna 'Clave clásica' (la poscuántica NO sirve para esto: Android todavía no la usa acá). Con las dos puestas la app abre a pantalla completa; con una sola abre igual, pero con la barra del navegador arriba. Si el bloque 'android' se saca, el archivo se borra del sitio."
 }

@@ -1,3 +1,21 @@
+Arma el 11 - version 2026-09-02 y22 (la segunda huella)
+
+  · Entro la huella SHA-256 de la clave con la que GOOGLE firma la app, que es
+    la que de verdad tiene el telefono que la instala desde Play. La primera
+    -la de PWABuilder- es la de CARGA: sirve para subir el .aab y nada mas.
+    Google reemplaza la firma al distribuir, asi que sin esta segunda huella
+    el assetlinks no coincide y la app abre con la barra del navegador arriba.
+
+  · Se saca de Play Console → Protegido con Play → Firma de apps, columna
+    "Clave clasica". La columna de al lado, la poscuantica, NO sirve para
+    esto: Android todavia no la usa para verificar los enlaces.
+
+  · Las dos huellas son PUBLICAS: son certificados, no llaves. Van en
+    sitio.json a proposito, y de ahi sale .well-known/assetlinks.json.
+
+  · Solo cambia sitio.json. No hay que reempaquetar la app: el .aab envuelve
+    la direccion del sitio, y el archivo que autoriza vive en el sitio.
+
 Arma el 11 - version 2026-09-02 y21 (el tipo se resuelve al crear, no al correr)
 
   · "type liga does not exist", y la tabla `liga` existe hace meses.
