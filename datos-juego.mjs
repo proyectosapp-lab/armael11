@@ -116,6 +116,14 @@ for (const club of conApi) {
     guardar(await api("/players/squads", { team: club.apiId }));
     guardar(await api("/players/squads", { team: rivalId }));
 
+    /* Las transferencias, un pedido por equipo. Es lo unico que contesta la
+       pregunta "este todavia esta aca": la lista oficial de arriba se
+       equivoca para los dos lados -deja gente que se fue y se olvida de
+       gente que juega-, y sacar al que no jugo se lleva puesto al lesionado
+       y al recien llegado. Dos pedidos mas por club sobre mil doscientos. */
+    guardar(await api("/transfers", { team: club.apiId }));
+    guardar(await api("/transfers", { team: rivalId }));
+
     /* Y para el que ya se jugó, lo que hace falta para revelar. */
     if (JUGADO(fx)) {
       guardar(await api("/fixtures/lineups", { fixture: fx.fixture.id }));

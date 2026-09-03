@@ -366,39 +366,77 @@ ${RAIZ ? `<meta property="og:url" content="${RAIZ}/">\n<link rel="canonical" hre
 <link rel="icon" href="${icono({color:"#101418", ini:"11"})}">
 <link rel="manifest" href="/app.webmanifest">
 <style>
-  :root{ --fondo:#F7F8FA; --papel:#FFFFFF; --texto:#101418; --suave:#57606E; --borde:#E3E6EC; }
+  :root{ --fondo:#F4F6F9; --papel:#FFFFFF; --texto:#0D1117; --suave:#57606E; --borde:#DDE3EC;
+    --verde:#177A40; --verde2:#1E8A4A;
+    --display:"Poppins",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    --sombra:0 1px 2px rgba(10,15,25,.05), 0 10px 28px -18px rgba(10,15,25,.25) }
   @media (prefers-color-scheme: dark){
-    :root{ --fondo:#0D1013; --papel:#161A1F; --texto:#F2F4F7; --suave:#98A2B3; --borde:#242A31; } }
+    :root{ --fondo:#08090C; --papel:#12161D; --texto:#F2F5FA; --suave:#8B95A6; --borde:#232A35;
+      --sombra:0 1px 2px rgba(0,0,0,.4), 0 10px 28px -18px rgba(0,0,0,.8) } }
+  @font-face{font-family:"Poppins";font-weight:700;font-display:swap;src:url("datos/poppins-bold.woff") format("woff")}
+  @font-face{font-family:"Poppins";font-weight:500;font-display:swap;src:url("datos/poppins-medium.woff") format("woff")}
   *{box-sizing:border-box}
   body{margin:0;background:var(--fondo);color:var(--texto);
     font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
-    padding:28px 18px 60px;-webkit-font-smoothing:antialiased}
-  .caja{max-width:760px;margin:0 auto}
-  h1{font-size:26px;letter-spacing:-.02em;margin:0 0 4px}
-  p.baja{color:var(--suave);margin:0 0 26px;font-size:15px}
+    padding:0 0 60px;-webkit-font-smoothing:antialiased}
+  .caja{max-width:760px;margin:0 auto;padding:0 18px}
+
+  /* La marca arriba, sobre césped. Es lo único de la portada que no cambia
+     con el club, así que es lo único que puede tener color propio. */
+  .marca{background:
+      radial-gradient(120% 80% at 50% 0%, rgba(255,255,255,.14), transparent 60%),
+      repeating-linear-gradient(180deg, rgba(255,255,255,.035) 0 34px, transparent 34px 68px),
+      linear-gradient(180deg, var(--verde2), var(--verde));
+    color:#fff;padding:34px 18px 30px;position:relative;overflow:hidden}
+  .marca::after{content:"";position:absolute;left:50%;bottom:-140px;width:360px;height:360px;
+    border:2px solid rgba(255,255,255,.18);border-radius:50%;transform:translateX(-50%)}
+  .marca .in{max-width:760px;margin:0 auto;position:relative}
+  .marca .logo{font-family:var(--display);font-weight:700;font-size:38px;letter-spacing:-1.2px;
+    line-height:1;margin:0;display:flex;align-items:center;gap:12px}
+  .marca .logo em{font-style:normal;background:#fff;color:var(--verde);border-radius:12px;
+    padding:2px 10px 0;font-size:34px;letter-spacing:-1px;box-shadow:0 8px 22px -10px rgba(0,0,0,.5)}
+  .marca .lema{margin:12px 0 0;font-size:16px;line-height:1.45;opacity:.92;max-width:34ch}
+  .marca .lema b{font-family:var(--display);font-weight:500}
+
+  h1{font-family:var(--display);font-weight:700;font-size:13px;letter-spacing:1.4px;text-transform:uppercase;
+    color:var(--suave);margin:30px 4px 4px}
+  p.baja{color:var(--suave);margin:0 4px 14px;font-size:14px}
   .grilla{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
-  .club{display:flex;align-items:center;gap:11px;padding:11px 13px;border-radius:13px;
-    background:var(--papel);border:1px solid var(--borde);text-decoration:none;color:inherit}
-  .club:hover{border-color:var(--c)}
-  .mono{width:34px;height:34px;flex:none;border-radius:9px;background:var(--c);color:var(--t);
-    display:grid;place-items:center;font-weight:800;font-size:16px;
-    box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--c2) 55%,transparent)}
+  .club{display:flex;align-items:center;gap:12px;padding:12px 13px;border-radius:16px;
+    background:var(--papel);box-shadow:var(--sombra);text-decoration:none;color:inherit;
+    transition:transform .12s ease, box-shadow .12s ease}
+  .club:hover{transform:translateY(-2px);box-shadow:0 2px 6px rgba(10,15,25,.06), 0 18px 44px -20px rgba(10,15,25,.35)}
+  .club:active{transform:scale(.985)}
+  .mono{width:40px;height:40px;flex:none;border-radius:12px;color:var(--t);
+    display:grid;place-items:center;font-family:var(--display);font-weight:700;font-size:18px;
+    background:linear-gradient(160deg, color-mix(in srgb, var(--c) 82%, white), var(--c) 55%, color-mix(in srgb, var(--c) 80%, black));
+    box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--c2) 55%,transparent), 0 6px 16px -8px var(--c)}
   .txt{display:flex;flex-direction:column;min-width:0;line-height:1.25}
-  .nom{font-weight:650;letter-spacing:-.01em}
+  .nom{font-family:var(--display);font-weight:500;font-size:15px;letter-spacing:-.1px}
   .ciu{color:var(--suave);font-size:12px;margin-top:1px}
-  footer{margin-top:34px;color:var(--suave);font-size:13px;line-height:1.7}
+  footer{margin-top:34px;color:var(--suave);font-size:13px;line-height:1.7;padding:0 4px}
   footer b{color:var(--texto);font-weight:600}
-  .gancho{margin-top:30px;padding:20px 20px 17px;border-radius:15px;
-    background:var(--papel);border:1px solid var(--borde)}
-  .gancho h2{margin:0 0 7px;font-size:21px;letter-spacing:-.025em;line-height:1.2}
-  .gancho p{margin:0;color:var(--texto);font-size:16px;line-height:1.55}
-  .gancho b{font-weight:700}
-  .gancho .chica{margin-top:11px;color:var(--suave);font-size:11.5px;line-height:1.5;
-    font-weight:500}
+  footer a{color:var(--suave)}
+
+  /* El gancho: oscuro, con el número grande. Es una afirmación, no un párrafo. */
+  .gancho{margin-top:26px;padding:24px 22px 20px;border-radius:20px;
+    background:linear-gradient(160deg,#151B26,#0D1117);color:#F2F5FA;
+    box-shadow:0 2px 6px rgba(10,15,25,.08), 0 24px 50px -24px rgba(10,15,25,.5);position:relative;overflow:hidden}
+  .gancho::before{content:"";position:absolute;right:-60px;top:-60px;width:200px;height:200px;border-radius:50%;
+    background:radial-gradient(circle, color-mix(in srgb, var(--verde2) 55%, transparent), transparent 70%)}
+  .gancho h2{margin:0 0 8px;font-family:var(--display);font-weight:700;font-size:24px;letter-spacing:-.5px;line-height:1.15;position:relative}
+  .gancho p{margin:0;color:#DDE3EC;font-size:16px;line-height:1.55;position:relative}
+  .gancho b{font-family:var(--display);font-weight:500;color:#fff}
+  .gancho .chica{margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,.12);
+    color:#98A2B3;font-size:11.5px;line-height:1.5;font-weight:500}
 </style></head><body>
+<header class="marca"><div class="in">
+  <p class="logo">Armá <em>el 11</em></p>
+  <p class="lema"><b>Simulá y decidí.</b> Tu partido, jugado 6.000 veces con los goles reales de cada liga. Y todo lo que se dice de tu club, en un solo lugar.</p>
+</div></header>
 <div class="caja">
   <h1>Elegí tu equipo</h1>
-  <p class="baja">Todo lo que se dice de tu club, en un solo lugar. ${orden.length} equipos.</p>
+  <p class="baja">${orden.length} equipos del fútbol argentino.</p>
   <div class="grilla">${orden.map(tarjeta).join("\n")}</div>
 
   <!-- DOS FRASES Y LA LETRA CHICA. La versión larga explicaba el modelo en
@@ -615,6 +653,17 @@ else console.log("  ⚠ falta sw.js: sin él la app no pasa el control de calida
       la forma de cada teléfono sin comerse las puntas. Los genera
       `iconos.cjs`, a mano y cada muerte de obispo. */
 const ICONOS = ["sitio-icono-192.png", "sitio-icono-512.png", "sitio-icono-mask-512.png"];
+
+/* ── LA TIPOGRAFÍA, ALOJADA ACÁ ──────────────────────────────────────────
+   Poppins, en dos pesos y solo el alfabeto latino: veinte kilobytes entre
+   las dos. Se sirven desde el propio sitio y no desde Google Fonts, por la
+   misma razón que el contador de visitas está apagado: ningún pedido a un
+   tercero por el solo hecho de abrir la página. Y si los archivos no están,
+   el CSS cae a la letra del sistema y nada se rompe: la fuente es acabado,
+   no estructura. Licencia OFL, redistribuible. */
+const FUENTES = ["poppins-bold.woff", "poppins-medium.woff"];
+for (const f of FUENTES)
+  if (existsSync(aca("./" + f))) copyFileSync(aca("./" + f), new URL(f, DATOS));
 const iconosListos = ICONOS.every(f => existsSync(aca("./" + f)));
 if (iconosListos) for (const f of ICONOS) copyFileSync(aca("./" + f), new URL(f, SITIO));
 else console.log("  ⚠ faltan los íconos PNG: la app se puede envolver igual, " +

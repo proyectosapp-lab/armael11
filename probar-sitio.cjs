@@ -36,9 +36,15 @@ fs.mkdirSync(path.join(RAIZ, 'datos'), { recursive: true });
 const nombres = ["Unsaín","Riquelme","Galarza","Fernández","Cristaldo","Maidana","Chamorro",
   "Depietri","Martínez","Barticciotto","Rick","Portilla","Girotti","Herrera","Navarro","Bustos"];
 const POS = ["G","D","D","D","D","M","M","M","F","F","F","D","M","F","M","G"];
+/* Quiénes salieron de entrada. Se eligen a propósito para que den 5-3-2 y
+   NO 4-3-3: si el dibujo deducido fuera igual al de respaldo, la prueba de
+   que se deduce pasaría sola sin deducir nada. Es la misma trampa del
+   marcador empatado. */
+const TITULARES = new Set([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 11]);
 const jug = (pref, base) => nombres.map((n, i) => ({
   player: { id: pref * 100 + i, name: (pref === 1 ? "" : "R ") + n },
-  statistics: [{ games: { minutes: 90, position: POS[i], rating: (base + (i % 5) * 0.1).toFixed(1) } }] }));
+  statistics: [{ games: { minutes: 90, position: POS[i], rating: (base + (i % 5) * 0.1).toFixed(1),
+                          substitute: !TITULARES.has(i) } }] }));
 
 const A = 456, B = 1066;
 const jugados = Array.from({ length: 5 }, (_, i) => ({
@@ -64,6 +70,32 @@ const squad = pref => ({ team:{ id: pref===1?A:B }, players:
 cache[`/players/squads?team=${A}`] = [squad(1)];
 cache[`/players/squads?team=${B}`] = [squad(2)];
 
+/* ── LOS QUE SE FUERON ────────────────────────────────────────────────────
+   Primera queja de los testers: jugadores que se fueron en el mercado de
+   pases seguían en el plantel. Salían por la lista oficial, que los deja
+   puestos varias semanas.
+
+   Dos casos en un solo dato, porque el segundo es el que puede romper algo:
+     Vendido  se fue el 20 de julio y no volvió a jugar → NO va.
+     Unsaín   figura yéndose el 1 de febrero, pero jugó los cinco partidos,
+              el último el 14 de julio → SÍ va. Los minutos jugados le ganan
+              a la ficha: un dato de transferencia equivocado que nos borra
+              un titular es un error más visible que el que arreglamos.
+   Y el equipo B no tiene esta clave a propósito: sin datos no se saca a
+   nadie, que es como se comportaba antes.                               */
+const VENDIDO = 191;
+cache[`/players/squads?team=${A}`][0].players.push(
+  { id: VENDIDO, name: "Vendido", position: "Attacker" });
+cache[`/players/squads?team=${B}`][0].players.push(
+  { id: 2 * 100 + 91, name: "R Vendido", position: "Attacker" });
+cache[`/transfers?team=${A}`] = [
+  { player: { id: VENDIDO, name: "Vendido" }, transfers: [
+    { date: "2025-01-10", teams: { in: { id: A }, out: { id: 777 } } },
+    { date: "2026-07-20", teams: { in: { id: 777 }, out: { id: A } } } ] },
+  { player: { id: 100, name: "Unsaín" }, transfers: [
+    { date: "2026-02-01", teams: { in: { id: 777 }, out: { id: A } } } ] },
+];
+
 cache[`/fixtures/lineups?fixture=904`] =
   [{ team: { id: A }, formation: "4-4-2", startXI: nombres.slice(0, 11).map(n => ({ player: { name: n, pos: "M" } })) }];
 cache[`/fixtures/events?fixture=904`] = [];
@@ -88,6 +120,30 @@ const srv = http.createServer((q, s) => {
 
 const casos = [];
 const caso = (n, ok) => casos.push([n, ok]);
+
+/* ── LA PÁGINA TIENE QUE COMPILAR ANTES DE ABRIRLA ────────────────────────
+   Van TRES veces en este proyecto que una página entera dejó de arrancar por
+   un nombre repetido: `tintaSobre`, `diaDe` y ahora `bv`. Dos `const` con el
+   mismo nombre en el mismo bloque no dan un aviso: dan una página muerta.
+
+   Y lo peor es cómo se veía desde acá. El navegador abría, ningún script
+   corría, y la prueba fallaba con "tab is not defined" en un caso que no
+   tenía nada que ver. Media hora buscando en el lugar equivocado, que es
+   exactamente lo que costó el error del SQL esta misma semana.
+
+   `new Function(src)` compila sin ejecutar: no toca el DOM ni la red, y
+   levanta los nombres repetidos, que es todo lo que hace falta. Va ANTES de
+   abrir el navegador para que el mensaje diga lo que pasa.               */
+for (const club of ['talleres-cba']) {
+  const html = fs.readFileSync(path.join(RAIZ, club + '.html'), 'utf8');
+  const bloques = [...html.matchAll(/<script(?![^>]*src)[^>]*>([\s\S]*?)<\/script>/g)];
+  let error = "";
+  bloques.forEach((b, i) => {
+    try { new Function(b[1]); } catch (e) { error = error || ("bloque " + i + ": " + e.message); }
+  });
+  caso("los scripts de la página compilan (nada declarado dos veces)", !error, error);
+  caso("y la página trae los scripts que esperamos", bloques.length >= 2);
+}
 
 /* El tanteador dice "Talleres 2 - Belgrano 0": los goles son los dos <b> y
    los nombres los dos .eq. Leerlo con `textContent` daría todo pegado. */
@@ -388,6 +444,42 @@ srv.listen(8099, async () => {
   caso("pero ese no es titular",
        !once.some(p => /Refuerzo/.test(p.nombre)));
 
+  /* ── EL QUE SE FUE NO ESTÁ, EL QUE JUGÓ SÍ ────────────────────────────
+     Los tres casos de la misma regla. El del medio es el que importa: sin
+     él, un dato de transferencia equivocado nos borra un titular, que es
+     peor que el problema original. */
+  caso("el que se fue en el mercado de pases no aparece en el plantel",
+       !await pg.evaluate(() => J.pool.A.some(p => /^Vendido/.test(p.nombre))));
+  caso("pero el que siguió jugando después de irse se queda",
+       await pg.evaluate(() => J.pool.A.some(p => /Unsaín/.test(p.nombre))));
+  caso("y sin datos de transferencias no se saca a nadie",
+       await pg.evaluate(() => J.pool.B.some(p => /R Vendido/.test(p.nombre))));
+  /* ── CADA EQUIPO CON SU DIBUJO ────────────────────────────────────────
+     Segunda queja: "toma todas las formaciones como 4-3-3". Los titulares
+     del cache sintético son cinco defensores, tres volantes y dos
+     delanteros, así que tiene que salir 5-3-2 sin que nadie lo elija. */
+  caso("la formación sale de cómo se paró el equipo, no de un valor fijo",
+       await pg.evaluate(() => J.formA) === "5-3-2",
+       await pg.evaluate(() => J.formA));
+  caso("y el rival también tiene la suya",
+       await pg.evaluate(() => J.formB) === "5-3-2");
+  caso("el once respeta el dibujo deducido",
+       await pg.evaluate(() => J.xiA.filter(p => p && p.slotCat === "D").length) === 5);
+
+  /* ── LOS CINCO DE VERDAD ──────────────────────────────────────────────
+     El plantel propio se armaba con UN partido: "los últimos cinco" salían
+     de la lista ya recortada a los dos jugables. El rival sí tenía cinco.
+     Con un partido de muestra, el nivel es ruido y la mitad del plantel
+     sale "sin minutos". El cache sintético tiene cinco jugados antes del
+     próximo: los titulares tienen que aparecer cinco veces. */
+  caso("el plantel propio se arma con los últimos cinco partidos, no con uno",
+       await pg.evaluate(() => Math.max(...J.pool.A.map(p => p.apar)) === 5));
+  caso("y el rival, con los suyos",
+       await pg.evaluate(() => Math.max(...J.pool.B.map(p => p.apar)) === 5));
+
+  caso("el que jugó tiene anotada la fecha de su último partido",
+       await pg.evaluate(() => J.pool.A.filter(p => p.mins > 0).every(p => !!p.ultimo)));
+
   /* ── EL BLOQUE TIENE QUE CRUZAR LA MITAD ──────────────────────────────
      Fausto: "los globitos no pasan la mitad de la cancha". Era estructural.
      Las formaciones ocupan el 36% del alto —el de abajo del 93 al 57— y el
@@ -422,6 +514,12 @@ srv.listen(8099, async () => {
         reposoArriba: Math.min(...deA(reposo).map(p => p.y)),
         atacandoArriba: Math.min(...deA(atacando).map(p => p.y)),
         cruzan: deA(atacando).filter(p => p.y < 50).length,
+        /* Dónde queda la LÍNEA de defensores atacando: el más atrasado de
+           los que no son arquero ni delantero ni volante. */
+        defensaAtacando: Math.max(...deA(atacando).filter(p => p.cat === "D").map(p => p.y)),
+        volantesAtacando: Math.max(...deA(atacando).filter(p => p.cat === "M").map(p => p.y)),
+        noDefensores: deA(atacando).filter(p => p.cat !== "D").length,
+        noDefensoresQueCruzan: deA(atacando).filter(p => p.cat !== "D" && p.y < 50).length,
         defendiendoArriba: Math.min(...deA(defendiendo).map(p => p.y)),
         fuera: atacando.concat(defendiendo)
                  .filter(p => p.y < 0 || p.y > 100 || p.x < 0 || p.x > 100).length,
@@ -439,6 +537,29 @@ srv.listen(8099, async () => {
          donde.reposoArriba > 50, "el más adelantado en " + donde.reposoArriba.toFixed(1));
     caso("pero atacando el bloque cruza la mitad",
          donde.cruzan >= 4, donde.cruzan + " jugadores pasan la mitad");
+    /* ── SEGUNDA VEZ LA MISMA QUEJA ───────────────────────────────────────
+       "Los globitos volvieron a moverse dentro de su mitad." La prueba de
+       arriba pasaba: con la pelota en el área rival, cuatro cruzaban. Pero
+       MEDIDO EN EL PARTIDO ANIMADO -donde la pelota rara vez llega al
+       fondo- el defensor más adelantado llegaba a 64, el volante a 46 y solo
+       el delantero cruzaba. Cuatro que cruzan con la pelota en el área no
+       es un equipo atacando: es un delantero y tres que asoman.
+
+       Lo que se ve como "un equipo que ataca" es el BLOQUE en campo rival:
+       la línea de defensores pisando la mitad y los volantes bien adentro.
+       Eso es lo que se mide acá: con la pelota en el área rival, TODOS los
+       volantes y delanteros del otro lado, y los defensores pisando la
+       mitad -no cruzándola, que un central en el área rival es otro
+       error-. */
+    caso("y no cruzan cuatro: cruzan todos los volantes y delanteros",
+         donde.noDefensoresQueCruzan === donde.noDefensores,
+         donde.noDefensoresQueCruzan + " de " + donde.noDefensores);
+    caso("la línea de defensores sube hasta la mitad",
+         donde.defensaAtacando < 60,
+         "el defensor más atrasado queda en " + donde.defensaAtacando.toFixed(1));
+    caso("y los volantes entran claramente en campo rival",
+         donde.volantesAtacando < 45,
+         "el volante más atrasado queda en " + donde.volantesAtacando.toFixed(1));
     caso("y alguien llega al borde del área rival",
          donde.atacandoArriba < 30, "el más adelantado en " + donde.atacandoArriba.toFixed(1));
     /* El bloque se ESTIRA, no se muda entero: el que más sube atacando es
@@ -698,7 +819,9 @@ srv.listen(8099, async () => {
   await pg.evaluate(() => { J.K = { linea:0, presion:0, ancho:0, ritmo:0 };
     J.desde = { minuto:70, golesA:2, golesB:0, rojasA:0, rojasB:0 }; pintar(); });
   caso("el botón de simular lo dice también",
-       /Simular desde el 70/.test(await pg.locator('#bsim').innerText()));
+       /Simular desde el 70/.test(await pg.locator('#bflash').innerText()));
+  caso("y el de verlo jugar, que simula lo mismo, también",
+       /desde el 70/.test(await pg.locator('#bsim').innerText()));
 
   /* Un minuto imposible no puede pasar. */
   const topeado = await pg.evaluate(() => {
@@ -1166,6 +1289,51 @@ srv.listen(8099, async () => {
          !empate && !!corriendo && corriendo === final,
          "en vivo " + (corriendo || "(no se vio)") + " · tarjeta " + final +
          (empate ? " · ocho simulaciones y todas empate" : ""));
+  }
+
+  /* ── EL MODO FLASH ────────────────────────────────────────────────────
+     "Tarda mucho prepararla" y "me da paja" son la misma queja dicha dos
+     veces. Nadie dijo que no se entendía: entendieron y no quisieron.
+
+     Las tres cosas que tienen que ser ciertas a la vez, y la tercera es la
+     que hace que el trato sea justo:
+       1. el resultado sale sin los veinte segundos,
+       2. gasta una del cupo, como cualquier otra,
+       3. volver a ver ESE partido no gasta otra ni mueve los números.   */
+  {
+    const antes = await pg.evaluate(() => CUPO.usadas);
+    const t0 = Date.now();
+    await pg.locator('#bflash').click();
+    await pg.waitForFunction(() => J.paso === "resultado" && !J.animando, null, { timeout: 8000 });
+    const tardo = Date.now() - t0;
+    caso("el flash devuelve el resultado sin esperar el partido", tardo < 6000, tardo + " ms");
+    caso("y gasta una del cupo igual que cualquier otra",
+         await pg.evaluate(() => CUPO.usadas) === antes + 1);
+    caso("el botón dice cuántas quedan, en el botón y no al costado",
+         /te quedan \d+/i.test(await pg.locator('#bflash').innerText()),
+         await pg.locator('#bflash').innerText());
+
+    /* El partido existe aunque no se haya mirado: por eso se puede ofrecer
+       verlo. Si se generara al mirarlo, "ver" sería "simular de nuevo". */
+    caso("el partido queda guardado para poder verlo",
+         await pg.evaluate(() => !!(J.partido && J.partido.eventos)));
+    caso("y se ofrece verlo sin gastar otra",
+         await pg.locator('#bver').count() === 1);
+
+    const numeros = () => pg.evaluate(() =>
+      [J.sim.win, J.sim.draw, J.sim.loss, J.sim.xgA, J.sim.xgB,
+       J.sim.estaVez.A, J.sim.estaVez.B].join("|"));
+    const antesDeVer = await numeros();
+    const usadasAntes = await pg.evaluate(() => CUPO.usadas);
+    await pg.locator('#bver').click();
+    await pg.waitForTimeout(1200);
+    caso("mirarlo no gasta una simulación",
+         await pg.evaluate(() => CUPO.usadas) === usadasAntes);
+    await pg.waitForFunction(() => !J.animando, null, { timeout: 40000 }).catch(() => {});
+    caso("y el partido que se ve es el mismo: los números no se mueven",
+         await numeros() === antesDeVer);
+    caso("una vez visto, ya no se ofrece verlo de nuevo",
+         await pg.locator('#bver').count() === 0);
   }
 
   caso("el navegador NUNCA llamó a api-sports.io", apiTocada.length === 0);

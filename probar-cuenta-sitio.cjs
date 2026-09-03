@@ -83,7 +83,23 @@ const srv = http.createServer((q, s) => {
     caso('y el feed se pintó igual', await pg.locator('.tarjeta.portada').count() === 1);
     await pg.click('#barra button[data-tab="juego"]');
     await pg.waitForTimeout(150);
-    caso('sin haberle pedido nada al backend todavía', llamados.length === 0, llamados.join(' | '));
+    /* ── QUÉ SE LE PUEDE PEDIR AL BACKEND ANTES DE QUE ALGUIEN TOQUE NADA ──
+       Antes acá decía "nada", y estaba bien mientras los precios solo se
+       veían con la cuenta abierta. Cambió a propósito: el que prueba la app
+       tiene que ver los precios ANTES de registrarse -un precio que aparece
+       recién el día que empieza a cobrarse se lee como una trampa-, así que
+       la lista de planes se pide al abrir.
+
+       Esa lista es pública y no dice nada de nadie: va con la clave pública,
+       no lleva sesión y solo devuelve nombres y precios. Lo que se sigue
+       exigiendo es lo que de verdad importaba: que no se pida NADA SOBRE LA
+       PERSONA -su perfil, su equipo, su cupo, su premium- ni se escriba nada
+       antes de que la persona haga algo. */
+    const sobreLaPersona = llamados.filter(x => !/GET \/functions\/v1\/crear-pago/.test(x));
+    caso('sin pedirle al backend nada sobre la persona todavía',
+         sobreLaPersona.length === 0, sobreLaPersona.join(' | '));
+    caso('lo único que se pide al abrir es la lista pública de precios',
+         llamados.every(x => /GET \/functions\/v1\/crear-pago/.test(x)), llamados.join(' | '));
 
     /* ── 2. CREAR CUENTA Y ENTRAR ───────────────────────────────────────
        El link por mail dejó de ser el camino principal, y no fue un
@@ -269,8 +285,13 @@ const srv = http.createServer((q, s) => {
     caso('con los precios que dio el servidor, no con unos escritos en la app',
          /1\.234/.test(venta.t1) && /9\.876/.test(venta.t1),
          venta.t1.replace(/\n/g, ' | ').slice(0, 160));
-    caso('y dice qué se compra: sin espera y sin avisos',
-         /sin espera/i.test(venta.t1) && /aviso/i.test(venta.t1));
+    /* Un precio sin una frase que diga qué se lleva es una lista de números.
+       No importa con qué palabras esté escrito -cambió cuando entraron los
+       tres planes-, importa que estén las dos cosas que se compran: más
+       simulaciones y ningún aviso. */
+    caso('y dice qué se compra: más simulaciones y sin avisos',
+         /simulaci/i.test(venta.t1) && /aviso/i.test(venta.t1),
+         venta.t1.replace(/\n/g, ' | ').slice(0, 200));
     caso('al que ya lo tiene no se le vuelve a ofrecer',
          !venta.sigueOfreciendo && /39 días|40 días/.test(venta.t2),
          venta.t2.replace(/\n/g, ' | ').slice(0, 120));

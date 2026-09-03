@@ -112,6 +112,50 @@ const uno = (pg, sel) => pg.locator(sel).first();
     caso('el primero que entra queda de capitán',
          (await uno(pg, '.fjug .fcam').innerText()).trim().startsWith('C'));
 
+    /* ── EL HUECO ABRE LA LISTA, NO MANDA A BUSCARLA ────────────────────
+       "Es engorroso ir hasta abajo para scrollear un jugador." Tocar el
+       hueco YA filtraba la lista por ese puesto, pero la lista vive abajo de
+       la cancha, del banco, del presupuesto y de los avisos: filtrar algo
+       que hay que ir a buscar no ahorra nada. Ahora abre encima. */
+    {
+      const hueco = pg.locator('.fvacio[data-puesto="D"]').first();
+      await hueco.click(); await pg.waitForTimeout(150);
+      caso('tocar un hueco abre la lista encima', await pg.locator('.picker').count() === 1);
+      const titulo = await uno(pg, '.picker h4').innerText();
+      caso('y pregunta por el puesto de ese hueco', /defensor/i.test(titulo), titulo);
+      const puestos = await pg.evaluate(() => {
+        const ids = [...document.querySelectorAll('.picker [data-sum]')].map(e => +e.dataset.sum);
+        return ids.map(id => (FCH.jugadores.find(j => j.id === id) || {}).puesto);
+      });
+      caso('solo ofrece jugadores de ese puesto',
+           puestos.length > 0 && puestos.every(x => x === 'D'), puestos.join(","));
+      caso('dice cuánta plata queda, ahí mismo',
+           /te quedan/i.test(await uno(pg, '.picker .aviso').innerText()));
+
+      /* Tres y no uno: una sugerencia lo bastante buena como para tomarla
+         siempre hace que los once equipos del torneo salgan parecidos. Y con
+         el criterio escrito, en vez de obedecer se elige por dónde mirar. */
+      const cab = await pg.evaluate(() =>
+        [...document.querySelectorAll('.picker .flab')].map(e => e.innerText.trim()));
+      caso('sugiere tres, con el criterio a la vista',
+           cab.some(t => /^Tres /i.test(t)), cab.join(" | "));
+      caso('y el criterio se puede cambiar',
+           await pg.locator('.picker [data-cri]').count() >= 3);
+
+      const antes = await pg.locator('.fjug').count();
+      const elegido = +await pg.locator('.picker [data-sum]').first().getAttribute('data-sum');
+      await pg.locator('.picker [data-sum]').first().click();
+      await pg.waitForTimeout(150);
+      caso('elegir uno lo mete en la cancha y cierra la hoja',
+           await pg.locator('.fjug').count() === antes + 1 &&
+           await pg.locator('.picker').count() === 0);
+      /* Se lo saca para que lo que sigue arranque como arrancaba. Una prueba
+         que le deja el equipo armado a la siguiente hace fallar a la otra y
+         manda a buscar el problema al lugar equivocado. */
+      await pg.evaluate(id => { quitar(id); }, elegido);
+      await pg.waitForTimeout(120);
+    }
+
     /* ── la formación ───────────────────────────────────────────────────── */
     caso('están las siete formaciones para elegir',
          await pg.locator('[data-form]').count() === 7);

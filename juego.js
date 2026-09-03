@@ -87,6 +87,61 @@ export function slotsDe(f){
   return s;
 }
 
+/* ── DE CUÁNTOS SALIERON, AL DIBUJO ──────────────────────────────────────
+   Segunda queja de los testers: "toma todas las formaciones como 4-3-3, no
+   las adapta al equipo". Tenían razón y era literal: el simulador arrancaba
+   con "4-3-3" clavado para los dos lados.
+
+   El dato para arreglarlo ya estaba bajado. Cada `/fixtures/players` trae,
+   por jugador, si fue titular y en qué categoría jugó (G/D/M/F). Contar los
+   titulares de cada categoría da el dibujo sin pedir nada nuevo: mirando el
+   cache real de Talleres, el último partido fue 3 defensores, 4 volantes y 3
+   delanteros. O sea 3-4-3, no 4-3-3.
+
+   ELEGIR ENTRE 4-2-3-1, 4-5-1 y 4-1-4-1 NO CAMBIA LA SIMULACIÓN. Los tres
+   son cuatro defensores, cinco volantes y un delantero, y el modelo agrupa
+   por categoría: lo único que cambia es cómo se dibuja en la cancha. Por eso
+   el desempate es el orden de FORMS y no hace falta discutirlo.        */
+export function formaDe(d, m, f){
+  let mejor = FORMS[0], dist = Infinity;
+  for(const F of FORMS){
+    const c = { D:0, M:0, F:0 };
+    for(const l of slotsDe(F)) if(l.cat !== "G") c[l.cat] += l.n;
+    const dd = Math.abs(c.D-d) + Math.abs(c.M-m) + Math.abs(c.F-f);
+    if(dd < dist){ dist = dd; mejor = F; }
+  }
+  return mejor;
+}
+
+/* El dibujo de un equipo en UN partido, leído de la respuesta que ya
+   bajamos. Devuelve null si el dato no alcanza -menos de diez titulares, o
+   ninguna categoría-, y ahí el que llama decide qué hacer. Nunca inventa. */
+export function formacionDeSalida(resp, teamId){
+  const t = (resp || []).find(x => x.team?.id === teamId);
+  if(!t) return null;
+  const tit = (t.players || []).filter(p => p.statistics?.[0]?.games?.substitute === false);
+  if(tit.length < 10) return null;
+  const c = { D:0, M:0, F:0 };
+  for(const p of tit){ const pos = p.statistics[0].games.position; if(pos in c) c[pos]++; }
+  if(!c.D || !c.M) return null;
+  return formaDe(c.D, c.M, c.F);
+}
+
+/* La de los últimos partidos: la que MÁS se repite, no la del último. Un
+   equipo que juega 4-4-2 todo el año y una vez se paró con tres atrás
+   porque iba perdiendo no cambió de dibujo. Empate: gana la más reciente,
+   que por eso se recorre al revés. */
+export function formacionHabitual(formas){
+  const buenas = (formas || []).filter(Boolean);
+  if(!buenas.length) return null;
+  const cuenta = new Map();
+  for(const f of buenas) cuenta.set(f, (cuenta.get(f) || 0) + 1);
+  let mejor = null, max = 0;
+  for(const f of [...buenas].reverse())
+    if(cuenta.get(f) > max){ max = cuenta.get(f); mejor = f; }
+  return mejor;
+}
+
 export function lineas(xi){
   const g = x => xi.filter(p=>p&&p.slotCat===x).map(p => fuerza(p).v - penalPuesto(p.pos,p.slotCat));
   const m = a => a.length ? a.reduce((x,y)=>x+y,0)/a.length : LIGA.media;

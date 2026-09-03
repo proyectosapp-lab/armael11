@@ -1,3 +1,226 @@
+Arma el 11 - version 2026-09-03 y26 (el acabado, y el bloque que cruza)
+
+  · LOS GLOBITOS VOLVIERON A QUEDARSE EN SU MITAD. Segunda vez la misma
+    queja, y esta vez con la prueba en verde: con la pelota en el area rival,
+    cuatro cruzaban. Pero MEDIDO EN EL PARTIDO ANIMADO -donde la pelota rara
+    vez llega al fondo- el defensor mas adelantado llegaba a 64, el volante a
+    46 y solo el delantero cruzaba. Cuatro que cruzan con la pelota en el
+    area no es un equipo atacando: es un delantero y tres que asoman.
+
+  · DOS CAUSAS. La fase era lineal: la pelota a veinte puntos de la mitad
+    daba 0,4 de ataque, y como la pelota casi nunca va al fondo, el equipo
+    atacaba "a medias" todo el partido. Ahora la pelota a un tercio del campo
+    rival ya es fase entera: un equipo que tiene la pelota en campo rival YA
+    esta volcado. Y los factores de estirado eran cortos: subieron a 1,0 /
+    1,2 / 1,5 y el empuje a 30. Medido de nuevo en el partido animado: el
+    defensor llega a 49, el volante a 28, el delantero a 12.
+
+  · TRES PRUEBAS NUEVAS que miden lo que se ve: con la pelota en el area
+    rival, TODOS los volantes y delanteros del otro lado, la linea de
+    defensores pisando la mitad -no cruzandola: un central en el area rival
+    es otro error-, y los volantes bien adentro.
+
+  · EL PLANTEL PROPIO SE ARMABA CON UN PARTIDO. Aparecio buscando lo otro.
+    "Los ultimos cinco" del club propio salian de la lista ya recortada a los
+    dos partidos jugables, asi que eran UNO; el rival si tenia cinco. Con el
+    cache real de Talleres: 16 jugadores con minutos y una aparicion cada
+    uno, contra 26 y cinco del rival. Nivel de ruido, medio plantel "sin
+    minutos" y el dibujo del ultimo partido en vez del habitual. Ahora los dos
+    lados se arman igual, con sus cinco. Dos pruebas.
+
+  · EL ACABADO. Todo lo de abajo sigue igual -colores del club, tokens, hoja
+    con el patron-; cambio como se ve:
+      TIPOGRAFIA PROPIA. Poppins en dos pesos, alojada en el sitio (veinte
+        kilobytes) y no en Google Fonts: ningun pedido a un tercero por abrir
+        la pagina. Va en lo que se lee de un vistazo -nombres, numeros,
+        titulos, botones-; el texto corrido sigue en la letra del sistema.
+      TARJETAS QUE SE APOYAN CON SOMBRA, no con un borde de un pixel. Radios
+        de 10, 14 y 20. Nada mas.
+      LA CANCHA COMO PIEZA CENTRAL: cesped con luz, lineas mas finas,
+        globitos con anillo y sombra, el apellido en un cartel oscuro que se
+        lee sobre cualquier color, y el marcador como una tira de television
+        arriba del cesped, con el reloj en el medio.
+      EL RESULTADO en numero grande. Los porcentajes en su barra.
+      LA BARRA DE ABAJO con iconos dibujados en vez de simbolos de texto, y
+        una marca arriba de la pestana activa.
+      LA PORTADA con la marca sobre cesped y el gancho en oscuro, como una
+        afirmacion y no como un parrafo.
+      Botones con relieve y respuesta al toque; hojas que suben; la vista
+        que entra con un desvanecido.
+
+  · EL COLOR QUE EMPUJA. River es blanco, y un boton blanco sobre una pagina
+    clara no es un boton, es un hueco. Para lo que tiene que resaltar
+    -botones, chips prendidos, el monograma, la marca de la pestana- se elige
+    entre los dos colores del club el que mas contrasta con el fondo. En
+    Boca sigue siendo el azul; en River pasa a ser el rojo de la banda.
+
+  · LAS CUATRO CAPTURAS DE PLAY se regeneraron con el acabado nuevo. Estan en
+    png/play-*.png, listas para reemplazar las de la ficha.
+
+  · TODO EN VERDE: 183 en el navegador, 78 en el fantasy, 34 en la cuenta, 74
+    en el motor.
+
+Arma el 11 - version 2026-09-03 y25 (el modo flash y el hueco que abre la lista)
+
+  · Las dos quejas de los testers eran la misma dicha dos veces: "tarda mucho
+    prepararla" y "me da paja ir hasta abajo para scrollear un jugador".
+    Nadie dijo que no se entendia. Entendieron y no quisieron.
+
+  · PRIMERO PASA EL PARTIDO, DESPUES SE MIRA. Estaban pegados: los goles se
+    sorteaban adentro de la animacion, asi que la unica forma de saber como
+    termino era mirar los veinte segundos, y la unica forma de volver a verlo
+    era simular de nuevo -gastando otra del cupo por un partido que ya estaba
+    pagado-. Ahora `generarPartido` sortea el guion y `mostrarPartido` lo pone
+    en escena. De esa separacion salen gratis las dos funciones nuevas.
+
+  · MODO FLASH. Un boton que simula con el once y el planteo que ya vienen
+    puestos y muestra el resultado sin los veinte segundos. Y un atajo en la
+    lista de partidos: "Simular ya" al lado del proximo hace de un toque lo
+    que antes eran cuatro.
+
+  · GASTA UNA DEL CUPO, como cualquier otra, Y EL BOTON LO DICE: "Simular ya
+    · te quedan 7". Un contador al costado no lo mira nadie antes de apretar;
+    en el boton, si. Un toque sin querer que se come una de diez es de las
+    cosas que hacen desinstalar.
+
+  · UNA SIMULACION ES UN PARTIDO, Y ESE PARTIDO SE MIRA LAS VECES QUE UNO
+    QUIERA. Despues del flash aparece "Ver este partido", que no gasta nada y
+    no mueve ningun numero: es el mismo partido. Si mirarlo costara otra, el
+    que quiere ver lo que simulo pagaria dos veces por lo mismo.
+
+  · EL AVISO PUBLICITARIO NO SE ROMPE. `tocaAviso` mide TIEMPO desde el
+    ultimo, no simulaciones, asi que tres flashes seguidos no muestran tres
+    avisos: muestran menos. Es un problema de ingreso, no de politica.
+
+  · EL HUECO ABRE LA LISTA ENCIMA. Tocar un hueco de la cancha del fantasy ya
+    filtraba la lista por ese puesto - pero la lista vive abajo de la cancha,
+    del banco, del presupuesto y de los avisos. Filtrar algo que hay que ir a
+    buscar no ahorra nada. Ahora abre una hoja como la del simulador, que
+    hace exactamente esto desde el primer dia.
+
+  · TRES SUGERIDOS, NO UNO, Y CON EL CRITERIO ESCRITO. Si la sugerencia es
+    buena y todos la aceptan, los once equipos del torneo salen parecidos y
+    el juego se convierte en un empate: una sugerencia lo bastante buena como
+    para tomarla siempre le saca la gracia al juego. Y "recomendado" a secas
+    no dice segun que, asi que no se puede discutir. Van tres, se ve si es
+    por rinde, por puntos o por precio, y se cambia.
+
+  · LOS QUE NO ENTRAN SE MUESTRAN, apagados y con el motivo: "te pasas por
+    1,2", "ya tenes 3 de Boca". Esconderlos deja al que arma preguntandose
+    por que no esta su jugador; mostrarlos con el motivo ensena la regla sola.
+
+  · UNA PRUEBA NUEVA QUE NO ES DE ESTO Y VALE MAS QUE VARIAS. Van TRES veces
+    que una pagina entera deja de arrancar por un nombre repetido:
+    `tintaSobre`, `diaDe` y hoy `bv`. Dos const con el mismo nombre en el
+    mismo bloque no dan un aviso: dan una pagina muerta. Y se ve horrible
+    desde afuera: el navegador abria, ningun script corria, y la prueba
+    fallaba con "tab is not defined" en un caso que no tenia nada que ver.
+    Ahora, antes de abrir el navegador, se compilan los scripts de la pagina
+    con `new Function` -que compila sin ejecutar- y el mensaje dice lo que
+    pasa.
+
+  · DOS PRUEBAS QUE VENIAN EN ROJO DE ANTES, arregladas: una exigia que al
+    abrir no se le pidiera NADA al backend, y desde que los precios se
+    muestran sin cuenta se pide la lista publica de planes. Se acoto a lo que
+    de verdad importaba: que no se pida nada SOBRE LA PERSONA. La otra
+    buscaba una frase de la oferta que cambio cuando entraron los tres
+    planes; ahora exige lo que la frase tiene que decir, no como.
+
+  · 178 pruebas en el navegador, 78 en el fantasy, 34 en la cuenta, 74 en el
+    motor. Todas en verde.
+
+Arma el 11 - version 2026-09-03 y24 (cada equipo con su dibujo)
+
+  · Segunda devolucion: "toma todas las formaciones como 4-3-3, no las adapta
+    al equipo". Era literal. El simulador arrancaba con esa cadena escrita a
+    mano para los DOS equipos, y como la mayoria entra antes de que salgan las
+    formaciones oficiales, esa era la que se veia casi siempre.
+
+  · EL DATO YA ESTABA BAJADO. Cada /fixtures/players trae, por jugador, si fue
+    titular y en que categoria jugo. Contar los titulares por categoria da el
+    dibujo sin pedir nada nuevo: cero pedidos de mas.
+
+  · CONTRA EL CACHE DE VERDAD:
+      Talleres        3-4-3, 3-4-3, 4-2-3-1, 4-2-3-1, 4-4-2, 3-4-3  →  3-4-3
+      Central Cordoba 4-4-2, 4-2-3-1, 4-2-3-1, 4-2-3-1, 3-4-3, 3-4-3 → 4-2-3-1
+    Ninguno de los dos era 4-3-3.
+
+  · SE TOMA LA QUE MAS SE REPITE, no la del ultimo partido. Un equipo que
+    juega 4-4-2 todo el año y una vez se paro con tres atras porque iba
+    perdiendo no cambio de dibujo. Si empatan, gana la mas reciente.
+
+  · ELEGIR ENTRE 4-2-3-1, 4-5-1 Y 4-1-4-1 NO CAMBIA LA SIMULACION. Los tres
+    son cuatro defensores, cinco volantes y un delantero, y el modelo agrupa
+    por categoria: lo unico que cambia es como se dibuja. El desempate es el
+    orden de la lista, y esta escrito que es una decision y no un descuido.
+
+  · CUANDO EL DATO NO ALCANZA no se inventa: menos de diez titulares, o
+    ninguna categoria reconocible, devuelve null y recien ahi entra el dibujo
+    de respaldo. Que ahora se llama FORMA_DE_RESPALDO y es solo eso.
+
+  · EN LOS PARTIDOS DE OTRAS LIGAS se vuelve al de respaldo en vez de
+    arrastrar el del club de la pagina: el archivo de liga no trae quien fue
+    titular, y un partido de la Premier dibujado con la forma de Talleres es
+    peor que uno dibujado con la forma por defecto.
+
+  · TRECE PRUEBAS NUEVAS: 74 en el motor, 167 en el navegador. Los titulares
+    del cache sintetico estan elegidos a proposito para que den 5-3-2 y NO
+    4-3-3: si el dibujo deducido fuera igual al de respaldo, la prueba pasaria
+    sola sin deducir nada. Es la misma trampa del marcador empatado.
+
+  · Se sigue pudiendo cambiar la formacion a mano, igual que siempre.
+
+Arma el 11 - version 2026-09-03 y23 (los que ya no estan)
+
+  · Primera devolucion de los testers: hay jugadores en el plantel que se
+    fueron en este mercado de pases. Es la queja mas grave de las cuatro, y no
+    por el jugador: el argumento entero de la app es que los datos son reales,
+    asi que un nombre que se fue en julio no se lee como "falta actualizar el
+    plantel", se lee como que TODO esta viejo. Ensucia los numeros, que no
+    tienen nada que ver.
+
+  · POR QUE PASABA. El plantel se arma con los que jugaron los ultimos cinco
+    partidos MAS la lista oficial de la API, que se agrego a proposito para
+    que no falte el lesionado ni el que acaba de llegar. Esa lista oficial se
+    actualiza tarde.
+
+  · MIRANDO EL CACHE DE VERDAD DE TALLERES: la lista oficial trae 31
+    jugadores, 6 sin un minuto en los ultimos cinco partidos - y al mismo
+    tiempo hay 3 que SI jugaron y no figuran en la lista. Se equivoca para los
+    dos lados. No se puede usar sola ni tirarla.
+
+  · LO QUE NO SE HIZO, y es la tentacion facil: sacar al que no jugo. Eso se
+    lleva puesto al lesionado y al recien llegado, que es justo para lo que la
+    lista oficial existe. Tampoco una lista de transferencias mantenida a
+    mano: la regla del proyecto es que ningun nombre de club esta escrito en
+    el codigo, y por la misma razon no puede haber ninguno de jugador.
+
+  · LO QUE SE HIZO: se pregunta lo que se quiere saber. Un pedido de
+    /transfers por equipo. De cada jugador se mira su movimiento MAS RECIENTE
+    con ese club; si ese movimiento lo saca, se fue.
+
+  · LA VALVULA, que es la mitad importante: si despues de esa fecha volvio a
+    jugar para nosotros, se queda. El dato de transferencia puede estar mal, o
+    el tipo puede haber vuelto, pero los minutos jugados no se discuten. Sin
+    esa valvula un dato equivocado en la API nos borra un titular - un error
+    mucho MAS visible que el que estamos arreglando. Para poder compararlo,
+    ahora cada jugador guarda la fecha de su ultimo partido.
+
+  · Y si el pedido falla o viene vacio no cambia nada: se sigue como antes.
+
+  · DE PASO, en el selector de jugador: los que no sumaron un minuto van al
+    final y con un cartelito "sin minutos". Su fuerza es la media de la liga
+    porque no hay con que calcularla, y sin el cartel eso se lee como un
+    jugador promedio en vez de como lo que es: un jugador del que no sabemos
+    nada.
+
+  · CUATRO PRUEBAS NUEVAS (164 en el navegador). Y se probaron al reves antes
+    de darlas por buenas: apagando el filtro, la del que se fue falla. Una
+    prueba que pasa igual con el arreglo apagado no prueba nada, que ya nos
+    paso con el marcador empatado.
+
+  · Costo: dos pedidos mas por club, sobre mil doscientos de una corrida.
+
 Arma el 11 - version 2026-09-02 y22 (la segunda huella)
 
   · Entro la huella SHA-256 de la clave con la que GOOGLE firma la app, que es

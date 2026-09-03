@@ -11,10 +11,49 @@ import { autoXI, slotsDe, fuerza, penalPuesto,
          usarLiga, ligaActual, LIGA_POR_DEFECTO, constantesDeLiga, MINIMO_PARTIDOS,
          simDesde, aplicarIndicaciones, lineas, INDICACIONES,
          INDICACIONES_POR_DEFECTO, PLANTEOS, planteoDe, planteo,
-         planteoSugerido, tacticas, KNOBS } from "./juego.js";
+         planteoSugerido, tacticas, KNOBS,
+         formaDe, formacionDeSalida, formacionHabitual, FORMS } from "./juego.js";
 
 const casos = [];
 const caso = (n, ok, extra = "") => casos.push([n, ok, extra]);
+
+/* ── EL DIBUJO SALE DE LA CANCHA ──────────────────────────────────────────
+   "Toma todas las formaciones como 4-3-3, no las adapta al equipo." Era
+   literal: el simulador arrancaba con esa cadena escrita a mano para los dos
+   equipos. El dato para deducirlo ya venía bajado en cada partido.       */
+{
+  caso("tres atrás, cuatro en el medio y tres arriba es 3-4-3",
+       formaDe(3, 4, 3) === "3-4-3", formaDe(3, 4, 3));
+  caso("cinco defensores no se confunden con cuatro",
+       formaDe(5, 3, 2) === "5-3-2", formaDe(5, 3, 2));
+  caso("un reparto que no existe en la lista cae en el más parecido",
+       FORMS.includes(formaDe(3, 3, 4)), formaDe(3, 3, 4));
+
+  /* Los tres dibujos de cuatro-cinco-uno son el MISMO equipo para el modelo:
+     cambia dónde se paran en la pantalla, no cuántos hay por línea. Que el
+     desempate sea el orden de la lista es una decisión, no un descuido. */
+  caso("cuatro, cinco y uno da un dibujo de esa familia",
+       ["4-2-3-1", "4-5-1", "4-1-4-1"].includes(formaDe(4, 5, 1)), formaDe(4, 5, 1));
+
+  const salida = (posiciones, id = 7) => ([{ team: { id }, players: posiciones.map((p, i) =>
+    ({ player: { id: i }, statistics: [{ games: { position: p, substitute: false } }] })) }]);
+  caso("un once titular se lee entero",
+       formacionDeSalida(salida(["G","D","D","D","D","M","M","M","M","F","F"]), 7) === "4-4-2");
+  caso("los suplentes no cuentan",
+       formacionDeSalida([{ team:{id:7}, players:
+         [...salida(["G","D","D","D","D","M","M","M","M","F","F"])[0].players,
+          { player:{id:99}, statistics:[{ games:{ position:"F", substitute:true } }] }] }], 7) === "4-4-2");
+  caso("con menos de diez titulares no se inventa nada",
+       formacionDeSalida(salida(["G","D","D","M","M"]), 7) === null);
+  caso("un equipo que no está en la respuesta tampoco",
+       formacionDeSalida(salida(["G","D","D","D","D","M","M","M","M","F","F"]), 999) === null);
+
+  caso("la habitual es la que más se repite, no la última",
+       formacionHabitual(["4-4-2", "4-4-2", "3-4-3"]) === "4-4-2");
+  caso("y si empatan gana la más reciente",
+       formacionHabitual(["4-4-2", "3-4-3"]) === "3-4-3");
+  caso("sin datos no hay habitual", formacionHabitual([null, null]) === null);
+}
 
 /* Un plantel como los de verdad: dos arqueros, seis defensores, siete
    volantes y cinco delanteros, con niveles despatarrados a propósito.  */
