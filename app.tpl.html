@@ -606,6 +606,28 @@ th{font-family:var(--display);font-weight:500;letter-spacing:.8px}
   background:color-mix(in srgb, var(--acento) 5%, transparent);border-color:color-mix(in srgb, var(--acento) 22%, transparent)}
 .err{border-radius:var(--r-m)}
 
+/* ── simular: una decisión, no dos botones ────────────────────────────── */
+.simbox{margin-top:14px;display:grid;gap:9px}
+.simbox .acc{width:100%}
+.segm{display:flex;background:color-mix(in srgb, var(--tinta) 6%, transparent);border-radius:var(--r-m);padding:3px;gap:3px}
+.segm button{flex:1;border:0;border-radius:calc(var(--r-m) - 3px);padding:9px 10px;cursor:pointer;
+  font-family:var(--display);font-weight:500;font-size:13px;color:var(--tinta-2);background:transparent;
+  transition:background .15s, color .15s, box-shadow .15s}
+.segm button small{font-size:11px;opacity:.7;font-weight:500;margin-left:3px}
+.segm button[aria-pressed="true"]{background:var(--papel);color:var(--tinta);box-shadow:var(--sombra-1)}
+.conque{margin:0;font-size:12.5px;line-height:1.5;color:var(--tinta-3);padding:0 4px}
+.res-conque{margin:8px 0 2px;text-align:center;font-family:var(--display);font-weight:500;color:var(--tinta-2)}
+.fx .chev{color:var(--tinta-3);font-size:18px;line-height:1;flex:none;opacity:.6;margin-left:auto}
+.fxp{padding:12px 4px 4px;display:grid;gap:8px}
+.fxp-meta{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--tinta-3);
+  font-family:var(--display);font-weight:500}
+.fxp-eq{font-family:var(--display);font-weight:700;font-size:19px;letter-spacing:-.3px;line-height:1.25}
+.fxp-eq i{font-style:normal;font-weight:500;color:var(--tinta-3);font-size:14px;margin:0 2px}
+.fxp-acc{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px}
+.fxp-acc .acc{padding:12px 10px;font-size:14px}
+.fxp-acc .gh{padding:12px 10px}
+.fxp + .fxp{border-top:1px solid var(--borde);margin-top:6px;padding-top:14px}
+
 /* ── movimiento ───────────────────────────────────────────────────────── */
 @media (prefers-reduced-motion: no-preference){
   .vista{animation:entrar .2s ease-out}
@@ -2003,6 +2025,15 @@ const J={ key:"", reqs:0, temporada:2026, fixtures:[], fx:null, pool:{A:[],B:[]}
   IND: { ...INDICACIONES_POR_DEFECTO },
   /* Desde dónde se simula. Minuto 0 es "desde el arranque", que es lo normal. */
   desde: { minuto:0, golesA:0, golesB:0, rojasA:0, rojasB:0 },
+  /* Si el partido se MIRA o se va derecho al resultado. Es una elección de
+     cómo verlo, no de qué se simula: las dos usan el mismo once, la misma
+     formación y las mismas perillas. Que antes fueran dos botones distintos
+     -"Simular ya" y "Simular y verlo jugar"- hacía creer que eran dos
+     simulaciones distintas, y que las perillas solo valían para una. */
+  ver: true,
+  /* Lo que la app puso sola al elegir el partido. Se guarda para poder decir
+     después qué cambió la persona y qué no. */
+  auto: { xiA:[], formA:null },
   /* Qué liga se está simulando: null es la del club de esta página. */
   liga: null,
   sim:null, real:null, paso:"key", msg:"", err:"" };
@@ -2273,8 +2304,11 @@ function simularDeLiga(slug, fixtureId){
      club de la página: un partido de la Premier dibujado con la forma de
      Talleres es peor que uno dibujado con la forma por defecto. */
   J.formA = FORMA_DE_RESPALDO; J.formB = FORMA_DE_RESPALDO;
+  J.K = { linea:0, presion:0, ancho:0, ritmo:0 }; J.KB = { linea:0, presion:0, ancho:0, ritmo:0 };
+  J.IND = { ...INDICACIONES_POR_DEFECTO };
   J.xiA = autoXI(J.pool.A, J.formA);
   J.xiB = autoXI(J.pool.B, J.formB);
+  J.auto = { xiA: J.xiA.filter(Boolean).map(p=>p.id), formA: J.formA };
   J.msg = L.nombre + " · " + (L.calibrada
     ? "calibrada con " + L.calibrada.partidos + " partidos de " + L.calibrada.temporada
     : "sin calibrar todavía: uso los números de respaldo");
@@ -2335,9 +2369,12 @@ async function elegirPartido(i){
        respaldo. Se puede cambiar a mano igual que siempre. */
     J.formA = pa.forma || FORMA_DE_RESPALDO;
     J.formB = pb.forma || FORMA_DE_RESPALDO;
+    J.K = { linea:0, presion:0, ancho:0, ritmo:0 }; J.KB = { linea:0, presion:0, ancho:0, ritmo:0 };
+    J.IND = { ...INDICACIONES_POR_DEFECTO };
     if(J.pool.A.length<11||J.pool.B.length<11)
       throw new Error("No hay suficientes partidos previos. Elegí uno más avanzado en la temporada.");
     J.xiA=autoXI(J.pool.A,J.formA); J.xiB=autoXI(J.pool.B,J.formB);
+    J.auto = { xiA: J.xiA.filter(Boolean).map(p=>p.id), formA: J.formA };
     J.msg=J.pool.A.length+" jugadores tuyos · "+J.pool.B.length+" del rival · "+J.reqs+" pedidos";
     J.paso="armar";
   }catch(e){ J.err=e.message; J.msg=""; }
@@ -2426,6 +2463,7 @@ async function simular11(flash){
       : simular(xgA,xgB);
     J.sim.notas=[...t.notas, ...ind.notas];
     J.sim.estaVez=marc;
+    J.sim.ajustes=ajustes(); J.sim.conQue=conQue(J.sim.ajustes);
     J.paso="resultado"; pintar();
     setTimeout(()=>document.querySelector(".res")?.scrollIntoView({behavior:"smooth",block:"center"}),90);
   };
@@ -2807,6 +2845,37 @@ function bloqueCupo(){
         ? "Con un plan simulás más y sin avisos."
         : "Cuando se pase de diez va a hacer falta un plan; todavía no se cobra nada."}
     </p>${lista}`;
+}
+
+/* ── QUE TOCASTE ──────────────────────────────────────────────────────────
+   La lista de lo que la persona cambio respecto de lo que la app puso sola.
+   Vacia = "tal cual viene". Se muestra debajo del boton ANTES de simular y
+   en la tarjeta del resultado DESPUES, y es lo que hace visible que las
+   perillas, el once y la formacion entran en la cuenta: si simulaste con
+   presion alta, el resultado dice "con presion alta". Sin esto, la relacion
+   entre tocar una perilla y el numero que sale era un acto de fe. */
+function ajustes(){
+  const a = [];
+  const ids = J.xiA.filter(Boolean).map(p=>p.id);
+  const cambiados = ids.filter(id=>!J.auto.xiA.includes(id)).length;
+  if(J.auto.xiA.length && cambiados) a.push(cambiados===1 ? "1 cambio en el once" : cambiados+" cambios en el once");
+  if(J.auto.formA && J.formA!==J.auto.formA) a.push("formación "+J.formA);
+  const pl = planteoDe(J.K), plB = planteoDe(J.KB);
+  if(pl && pl!=="normal") a.push("planteo: "+(PLANTEOS.find(x=>x.id===pl)||{}).n.toLowerCase());
+  else if(!pl) a.push("perillas propias");
+  if(plB && plB!=="normal") a.push("rival: "+(PLANTEOS.find(x=>x.id===plB)||{}).n.toLowerCase());
+  else if(!plB) a.push("perillas del rival");
+  const ind = Object.keys(INDICACIONES_POR_DEFECTO).filter(k=>J.IND[k]!==INDICACIONES_POR_DEFECTO[k]).length;
+  if(ind) a.push(ind===1 ? "1 indicación" : ind+" indicaciones");
+  const d = J.desde;
+  if(d.minuto>0||d.golesA||d.golesB||d.rojasA||d.rojasB) a.push("desde el "+d.minuto+"'");
+  return a;
+}
+
+/* La frase de "con que se simulo". Una sola linea, sin bullets. */
+function conQue(lista){
+  if(!lista.length) return "Tal cual viene: el once que viene jugando, formación "+J.formA+" y planteo normal.";
+  return "Con tus ajustes: "+lista.join(" · ")+".";
 }
 
 /* Cuantas quedan, para escribirlo EN EL BOTON. Un contador al costado de la
@@ -3248,7 +3317,21 @@ function vistaJuego(){
         ${ya?`<span class="lv">${f.goals.home}-${f.goals.away}</span>`
             :`<span class="sello">próximo</span>`}
         <span class="lv">${loc?"local":"visita"}</span>
-        <button class="ya" data-ya="${i}">Simular ya</button></div>`;};
+        <span class="chev" aria-hidden="true">›</span></div>`;};
+    /* El partido que viene es una tarjeta y no un renglon: hay que elegir
+       entre dos caminos, y dos caminos en un renglon de treinta caracteres no
+       se leen. Los ya jugados siguen siendo renglones, que ahi no hay
+       decision: se tocan y listo. */
+    const proximoHTML=(f,i)=>{const loc=f.teams.home.id===J.id.A;
+      return `<div class="fxp" data-fxp="${i}">
+        <div class="fxp-meta"><span class="sello">próximo</span>
+          <span>${f.fixture.date.slice(8,10)}/${f.fixture.date.slice(5,7)}</span><span>·</span>
+          <span>${loc?"de local":"de visitante"}</span></div>
+        <div class="fxp-eq">${esc(f.teams.home.name)} <i>vs</i> ${esc(f.teams.away.name)}</div>
+        <div class="fxp-acc">
+          <button class="gh" data-fx="${i}">Armar mi partido <span aria-hidden="true">›</span></button>
+          <button class="acc" data-ya="${i}">Simular tal cual</button>
+        </div></div>`;};
     const porVenir=J.fixtures.map((f,i)=>[f,i]).filter(([f])=>!JUGADO(f)).slice(0,4);
     const jugados =J.fixtures.map((f,i)=>[f,i]).filter(([f])=>JUGADO(f)).reverse().slice(0,12);
     /* Las otras ligas van DESPUÉS de lo que viene y ANTES de los doce
@@ -3260,9 +3343,9 @@ function vistaJuego(){
     return `
     ${porVenir.length?`<h3 class="sec">Lo que viene</h3>
       <div class="tarjeta">
-        <p class="bajada" style="margin-top:0">Armá tu once ANTES de que se juegue. Cuando termine
-        el partido volvés con tu link y comparás.</p>
-        ${porVenir.map(([f,i])=>fila(f,i)).join("")}
+        <p class="bajada" style="margin-top:0"><b>Armalo vos</b> —el once, la formación y el
+        planteo cambian el resultado— o <b>simulá tal cual viene</b>, sin tocar nada.</p>
+        ${porVenir.map(([f,i])=>proximoHTML(f,i)).join("")}
       </div>`:""}
     ${otrasLigas()}
     <h3 class="sec">Ya jugados</h3>
@@ -3282,6 +3365,9 @@ function vistaJuego(){
           <select id="fA">${FORMS.map(f=>`<option${f===J.formA?" selected":""}>${f}</option>`).join("")}</select></div>
         <div><label>La del rival</label>
           <select id="fB">${FORMS.map(f=>`<option${f===J.formB?" selected":""}>${f}</option>`).join("")}</select></div>
+      </div>
+      <div style="display:flex;justify-content:flex-end;margin-top:8px">
+        <button class="gh" id="bauto" style="padding:8px 12px;font-size:13px">Volver a los que vienen jugando</button>
       </div>
       ${tarjetaPlanteo("A")}
       ${tarjetaPlanteo("B")}
@@ -3338,15 +3424,16 @@ function vistaJuego(){
           decir.</p>`:""}
       </div>
 
-      <div style="display:flex;gap:9px;margin-top:14px">
-        <button class="acc" id="bflash" style="flex:1">${
-          J.desde.minuto>0?"Simular desde el "+J.desde.minuto+"'":"Simular ya"}<span
+      <div class="simbox">
+        <div class="segm" role="group" aria-label="Cómo verlo">
+          <button data-ver="1" aria-pressed="${J.ver}">Ver el partido <small>20 s</small></button>
+          <button data-ver="0" aria-pressed="${!J.ver}">Solo el resultado</button>
+        </div>
+        <button class="acc" id="bsim">${
+          J.desde.minuto>0?"Simular desde el "+J.desde.minuto+"'":"Simular"}<span
             class="cuantas">${esc(restanEnBoton())}</span></button>
-      </div>
-      <div style="display:flex;gap:9px;margin-top:9px">
-        <button class="gh" id="bsim" style="flex:1">${
-          J.desde.minuto>0?"Verlo jugar desde el "+J.desde.minuto+"'":"Simular y verlo jugar"}</button>
-        <button class="gh" id="bauto">Los mejores</button>
+        <p class="conque" id="conque">${esc(conQue(ajustes()))}${
+          ajustes().length ? "" : " Tocá un jugador, la formación o las perillas de arriba para cambiarlo: todo entra en la cuenta."}</p>
       </div>
       ${bloqueCupo()}`;
 
@@ -3372,13 +3459,16 @@ function vistaJuego(){
         ${s.estaVez ? tanteador(s.estaVez.A, s.estaVez.B)
                     : tanteador(...String(s.marcador).split("-"))}
         <div class="meta" style="justify-content:center">${s.estaVez
-          ? "el partido que acabás de ver"
+          ? (J.visto ? "el partido que acabás de ver" : "el partido simulado")
           : "marcador más probable · "+s.probMarcador.toFixed(0)+"%"} ·
           xG ${s.xgA.toFixed(2)} a ${s.xgB.toFixed(2)}</div>
+        <p class="conque res-conque">${esc(s.conQue || "")}</p>
         ${s.notas.map(n=>`<p class="nota">${esc(n)}</p>`).join("")}
         ${J.partido && !J.visto ? `<button class="gh" id="bver" style="width:100%;margin-top:10px">
             Ver este partido</button>
           <p class="aviso" style="margin:6px 0 0">Es el mismo partido, no gasta otra simulación.</p>` : ""}
+        ${s.ajustes && !s.ajustes.length ? `<button class="gh" id="bplanteo" style="width:100%;margin-top:10px">
+            Cambiar el once o el planteo y volver a simular</button>` : ""}
         ${J.paso!=="revelado" ? (J.jugado
           ? `<button class="acc" id="brev" style="width:100%;margin-top:12px">
               Revelar el once del DT y lo que pasó</button>`
@@ -3468,7 +3558,7 @@ function enganchar(){
   const t=$("temp"); if(t) t.onchange=e=>J.temporada=+e.target.value;
   const bc=$("bcargar"); if(bc) bc.onclick=()=>{
     if(!J.key){ J.err="Pegá la API key primero."; pintar(); return; } cargarTemporada(); };
-  document.querySelectorAll(".fx").forEach(el=>el.onclick=()=>{
+  document.querySelectorAll(".fx, .fxp [data-fx]").forEach(el=>el.onclick=()=>{
     el.setAttribute("aria-selected","true"); elegirPartido(+el.dataset.fx); });
   /* El boton vive DENTRO de la fila, asi que hay que frenar el click ahi
      mismo: si no, la fila tambien lo escucha y se arma el partido dos veces,
@@ -3524,8 +3614,10 @@ function enganchar(){
   /* Con `onclick=simular11` el navegador le pasa el evento del click como
      primer argumento, y un evento es un objeto: siempre verdadero. O sea que
      el boton de ver el partido habria simulado en modo flash. */
-  const bs=$("bsim"); if(bs) bs.onclick=()=>simular11(false);
-  const bf=$("bflash"); if(bf) bf.onclick=()=>simular11(true);
+  const bs=$("bsim"); if(bs) bs.onclick=()=>simular11(!J.ver);
+  document.querySelectorAll("[data-ver]").forEach(b=>b.onclick=()=>{ J.ver = b.dataset.ver==="1"; pintar(); });
+  const bpl=$("bplanteo"); if(bpl) bpl.onclick=()=>{
+    document.querySelector(".planteo, #campo")?.scrollIntoView({behavior:"smooth",block:"start"}); };
   /* `bver` y no `bv`: `bv` ya era el de volver a mi club, veinte lineas mas
      abajo, y dos const con el mismo nombre en el mismo bloque no es un aviso,
      es la pagina entera que no arranca. Van tres veces en este proyecto. */

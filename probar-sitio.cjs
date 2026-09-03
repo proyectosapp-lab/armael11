@@ -423,13 +423,30 @@ srv.listen(8099, async () => {
   await pg.click('#barra button[data-tab="juego"]');
   await pg.waitForTimeout(900);
   caso("NO pide la API key", await pg.locator('#k').count() === 0);
-  caso("lista los partidos solo", await pg.locator('.fx').count() > 0);
+  /* El que viene es una TARJETA con dos caminos; los jugados, renglones. */
+  caso("lista los partidos solo", await pg.locator('.fx, .fxp').count() > 0);
 
-  /* "Lo que viene" se pinta ARRIBA de los jugados, así que el próximo es el
-     primero del DOM aunque sea el último de la temporada. */
+  /* ── DOS CAMINOS, DICHOS CON TODAS LAS LETRAS ─────────────────────────
+     Fausto: "no se entiende que el flash es como una simulación estándar y
+     que con la tradicional hay perillas que modifican el resultado". Tenía
+     razón: "Simular ya" y "Simular y verlo jugar" se leían como dos
+     simulaciones distintas -una rápida y una lenta-, cuando la diferencia
+     era solo si se mira. Ahora el partido que viene ofrece los dos caminos
+     por lo que HACEN: armarlo vos, o simular tal cual viene. */
+  {
+    const t = pg.locator('.fxp').first();
+    caso("el partido que viene ofrece armarlo o simularlo tal cual",
+         await t.locator('[data-fx]').count() === 1 && await t.locator('[data-ya]').count() === 1);
+    caso("y los dos caminos se llaman por lo que hacen",
+         /armar/i.test(await t.locator('[data-fx]').innerText()) &&
+         /tal cual/i.test(await t.locator('[data-ya]').innerText()));
+    caso("los ya jugados no ofrecen el atajo: ahí se revela",
+         await pg.locator('.fx [data-ya]').count() === 0);
+  }
+
   const idx = await pg.evaluate(() => J.fixtures.findIndex(f => f.fixture.status.short === "NS"));
-  caso("solo ofrece los partidos que tienen datos", await pg.locator('.fx').count() === 2);
-  await pg.locator('.fx[data-fx="' + idx + '"]').click();
+  caso("solo ofrece los partidos que tienen datos", await pg.locator('.fx, .fxp').count() === 2);
+  await pg.locator('.fxp [data-fx="' + idx + '"]').click();
   await pg.waitForTimeout(900);
   caso("la cancha se arma con 22 jugadores", await pg.locator('.jug').count() === 22);
 
@@ -819,9 +836,9 @@ srv.listen(8099, async () => {
   await pg.evaluate(() => { J.K = { linea:0, presion:0, ancho:0, ritmo:0 };
     J.desde = { minuto:70, golesA:2, golesB:0, rojasA:0, rojasB:0 }; pintar(); });
   caso("el botón de simular lo dice también",
-       /Simular desde el 70/.test(await pg.locator('#bflash').innerText()));
-  caso("y el de verlo jugar, que simula lo mismo, también",
-       /desde el 70/.test(await pg.locator('#bsim').innerText()));
+       /Simular desde el 70/.test(await pg.locator('#bsim').innerText()));
+  caso("y la línea de 'con qué' también",
+       /desde el 70/.test(await pg.locator('#conque').innerText()));
 
   /* Un minuto imposible no puede pasar. */
   const topeado = await pg.evaluate(() => {
@@ -1301,17 +1318,45 @@ srv.listen(8099, async () => {
        2. gasta una del cupo, como cualquier otra,
        3. volver a ver ESE partido no gasta otra ni mueve los números.   */
   {
+    /* ── UNA SOLA SIMULACIÓN, DOS FORMAS DE VERLA ─────────────────────────
+       Un botón "Simular" y un selector "Ver el partido / Solo el resultado".
+       Las perillas, el once y la formación entran igual en las dos: por eso
+       es un selector de cómo verlo y no un segundo botón de simular. */
+    caso("hay un solo botón de simular y un selector de cómo verlo",
+         await pg.locator('#bsim').count() === 1 && await pg.locator('[data-ver]').count() === 2);
+    /* Y debajo del botón dice CON QUÉ se va a simular. Es lo que hace
+       visible que tocar una perilla cambia la cuenta. */
+    await pg.evaluate(() => { J.K = { linea:0, presion:0, ancho:0, ritmo:0 };
+      J.desde = { minuto:0, golesA:0, golesB:0, rojasA:0, rojasB:0 }; pintar(); });
+    caso("sin tocar nada, dice que simula tal cual viene",
+         /tal cual viene/i.test(await pg.locator('#conque').innerText()),
+         await pg.locator('#conque').innerText());
+    await pg.evaluate(() => { J.K.presion = 60; pintar(); });
+    caso("y con una perilla movida, lo dice antes de simular",
+         /ajustes|perillas|planteo/i.test(await pg.locator('#conque').innerText()),
+         await pg.locator('#conque').innerText());
+    await pg.evaluate(() => { J.K.presion = 0; pintar(); });
+
+    await pg.click('[data-ver="0"]'); await pg.waitForTimeout(120);
     const antes = await pg.evaluate(() => CUPO.usadas);
     const t0 = Date.now();
-    await pg.locator('#bflash').click();
+    await pg.locator('#bsim').click();
     await pg.waitForFunction(() => J.paso === "resultado" && !J.animando, null, { timeout: 8000 });
     const tardo = Date.now() - t0;
     caso("el flash devuelve el resultado sin esperar el partido", tardo < 6000, tardo + " ms");
     caso("y gasta una del cupo igual que cualquier otra",
          await pg.evaluate(() => CUPO.usadas) === antes + 1);
     caso("el botón dice cuántas quedan, en el botón y no al costado",
-         /te quedan \d+/i.test(await pg.locator('#bflash').innerText()),
-         await pg.locator('#bflash').innerText());
+         /te quedan \d+/i.test(await pg.locator('#bsim').innerText()),
+         await pg.locator('#bsim').innerText());
+    /* La tarjeta del resultado repite con qué se simuló, y si fue tal cual,
+       ofrece el camino a las perillas. Es el momento en que se aprende que
+       existen. */
+    caso("el resultado dice con qué se simuló",
+         await pg.locator('.res-conque').count() === 1 &&
+         /tal cual viene/i.test(await pg.locator('.res-conque').innerText()));
+    caso("y si fue tal cual, ofrece cambiar el planteo y volver a simular",
+         await pg.locator('#bplanteo').count() === 1);
 
     /* El partido existe aunque no se haya mirado: por eso se puede ofrecer
        verlo. Si se generara al mirarlo, "ver" sería "simular de nuevo". */

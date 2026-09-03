@@ -1,3 +1,54 @@
+Arma el 11 - version 2026-09-03 y27 (dos caminos, dichos con todas las letras)
+
+  · Fausto, sobre el flash: "no se entiende que es como una simulacion
+    estandar, y que con la tradicional hay perillas que modifican el
+    resultado". Tenia razon, y el error era de nombres: "Simular ya" y
+    "Simular y verlo jugar" se leian como DOS simulaciones -una rapida y una
+    lenta-, cuando la unica diferencia era si se mira. Y como las perillas
+    estaban arriba de los dos botones, no habia forma de saber a cual le
+    entraban. Les entraban a los dos.
+
+  · LA DECISION QUE IMPORTA NO ES CUANTO TARDA: ES SI LO ARMAS VOS. Asi que
+    el partido que viene dejo de ser un renglon y paso a ser una tarjeta con
+    los dos caminos dichos por lo que hacen:
+        Armar mi partido ›     el once, la formacion y el planteo son tuyos
+        Simular tal cual       sin tocar nada, como viene
+    La bajada de arriba lo dice en una frase: el once, la formacion y el
+    planteo CAMBIAN EL RESULTADO.
+
+  · ADENTRO, UN SOLO BOTON DE SIMULAR. Y un selector de como verlo: "Ver el
+    partido (20 s)" o "Solo el resultado". Es un selector y no un segundo
+    boton porque es lo que es: una eleccion de como mirarlo, no de que se
+    simula. Con eso desaparece la duda de a cual boton le entran las
+    perillas.
+
+  · DEBAJO DEL BOTON DICE CON QUE SE VA A SIMULAR. Sin tocar nada: "Tal cual
+    viene: el once que viene jugando, formacion 4-2-3-1 y planteo normal.
+    Toca un jugador, la formacion o las perillas para cambiarlo: todo entra
+    en la cuenta". Con algo tocado: "Con tus ajustes: 2 cambios en el once ·
+    planteo: va a buscarlo · 1 indicacion". Se actualiza con cada toque. Es
+    lo que hace visible la relacion entre mover una perilla y el numero que
+    sale, que hasta ahora era un acto de fe.
+
+  · Y LA TARJETA DEL RESULTADO LO REPITE. "Tal cual viene: ..." o "Con tus
+    ajustes: ...". Si fue tal cual, ofrece "Cambiar el once o el planteo y
+    volver a simular": ese es el momento en que el que vino por el atajo se
+    entera de que las perillas existen. "El partido que acabas de ver" solo
+    se dice si de verdad lo vio; si no, "el partido simulado".
+
+  · Al elegir un partido se resetean las perillas, las indicaciones y la
+    foto de lo automatico. Antes las perillas del partido anterior quedaban
+    puestas para el siguiente sin que nadie lo viera.
+
+  · "Los mejores" paso a decir "Volver a los que vienen jugando" y vive junto
+    a las formaciones, que es de lo que habla.
+
+  · Nueve pruebas nuevas en el navegador (191): que el partido que viene
+    ofrece los dos caminos y los llama por lo que hacen; que hay un solo
+    boton de simular y un selector; que la linea de "con que" dice tal cual
+    sin tocar nada y cambia con una perilla; que el resultado repite con que
+    se simulo y ofrece el camino a las perillas.
+
 Arma el 11 - version 2026-09-03 y26 (el acabado, y el bloque que cruza)
 
   · LOS GLOBITOS VOLVIERON A QUEDARSE EN SU MITAD. Segunda vez la misma

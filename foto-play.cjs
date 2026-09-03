@@ -133,7 +133,7 @@ async function armar(pg, id) {
   }
 
   /* Los tres del juego arrancan igual: elegir un partido. */
-  const fx = pg.locator('.fx').first();
+  const fx = pg.locator('.fxp [data-fx], .fx').first();
   if (await fx.count()) { await fx.click(); await esperar(900); }
 
   if (id === 'once') {
