@@ -12,10 +12,31 @@ import { autoXI, slotsDe, fuerza, penalPuesto,
          simDesde, aplicarIndicaciones, lineas, INDICACIONES,
          INDICACIONES_POR_DEFECTO, PLANTEOS, planteoDe, planteo,
          planteoSugerido, tacticas, KNOBS,
-         formaDe, formacionDeSalida, formacionHabitual, FORMS } from "./juego.js";
+         formaDe, formacionDeSalida, formacionHabitual, FORMS,
+         azarDe, semillaDe, simular } from "./juego.js";
 
 const casos = [];
 const caso = (n, ok, extra = "") => casos.push([n, ok, extra]);
+
+/* ── EL AZAR CON SEMILLA ─────────────────────────────────────────────────
+   Mismos ajustes → misma semilla → mismos porcentajes. Y sin semilla, todo
+   sigue como antes: el backtest y las pruebas viejas no cambian.         */
+{
+  const a = simular(1.3, 1.1, 6000, azarDe(semillaDe("misma firma")));
+  const b = simular(1.3, 1.1, 6000, azarDe(semillaDe("misma firma")));
+  const c = simular(1.3, 1.1, 6000, azarDe(semillaDe("otra firma")));
+  caso("la misma semilla da exactamente los mismos porcentajes",
+       a.win === b.win && a.draw === b.draw && a.marcador === b.marcador);
+  caso("y otra semilla da otros, aunque parecidos",
+       a.win !== c.win && Math.abs(a.win - c.win) < 3, a.win.toFixed(2) + " vs " + c.win.toFixed(2));
+  const d1 = simDesde({ xgA:1.3, xgB:1.1, minuto:60, golesA:1, rnd: azarDe(7) });
+  const d2 = simDesde({ xgA:1.3, xgB:1.1, minuto:60, golesA:1, rnd: azarDe(7) });
+  caso("simDesde también acepta la semilla", d1.win === d2.win && d1.marcador === d2.marcador);
+  caso("la semilla de un texto es estable", semillaDe("hola") === semillaDe("hola") && semillaDe("hola") !== semillaDe("holb"));
+  const r = azarDe(123); const xs = Array.from({length:1000}, r);
+  caso("el generador da números en [0,1)", xs.every(x => x >= 0 && x < 1));
+  caso("y no se queda pegado", new Set(xs).size > 990);
+}
 
 /* ── EL DIBUJO SALE DE LA CANCHA ──────────────────────────────────────────
    "Toma todas las formaciones como 4-3-3, no las adapta al equipo." Era

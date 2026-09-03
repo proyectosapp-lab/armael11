@@ -2413,6 +2413,26 @@ async function simular11(flash){
   /* El freno, antes de gastar nada. Con `bloquea` apagado esto nunca corta;
      el mensaje aparece igual cuando se pasó del tope, así la persona sabe
      que hay un tope antes de que empiece a existir. */
+  /* ── NADA CAMBIO, NADA QUE SIMULAR ────────────────────────────────────
+     El video del tester: doce veces "Simular" sin tocar nada, doce marcadores
+     distintos, y la conclusion obvia -"es un dado"-. Con la semilla puesta
+     los porcentajes ya salen identicos, pero ademas no tiene sentido cobrar
+     una simulacion por repetir la misma cuenta. Asi que si no cambio nada y
+     se pide solo el resultado, no se simula: se explica. El que quiere VER
+     otro de los 6.000 partidos posibles tiene el otro boton, y ese si es
+     otro partido. */
+  const firma = firmaDeAjustes();
+  if(flash && J.sim && J.ultimaFirma === firma){
+    J.err = "";
+    J.msg = "No cambiaste nada desde la última simulación, así que el resultado es el mismo: " +
+            "con los mismos datos el modelo da los mismos números. Movés una perilla, un jugador " +
+            "o la formación y volvés a simular. Si querés ver cómo se juega uno de los 6.000 " +
+            "partidos posibles, elegí «Ver el partido».";
+    pintar();
+    setTimeout(()=>document.querySelector(".res")?.scrollIntoView({behavior:"smooth",block:"center"}),60);
+    return;
+  }
+
   const antes = estadoCupo({ ...CUPO, bloquea: CUPO_CFG.bloquea });
   if(!antes.puedeSimular){
     J.err = textoCupo(antes, CUPO.hasta) + " Mirá los planes acá abajo para seguir.";
@@ -2457,10 +2477,13 @@ async function simular11(flash){
 
   const cerrar = marc => {
     J.animando=false;
+    /* Con semilla: los mismos ajustes dan los mismos porcentajes. */
+    const rnd = azarDe(semillaDe(firma));
     J.sim = empezado
       ? simDesde({ xgA, xgB, minuto:d.minuto, golesA:d.golesA, golesB:d.golesB,
-                   rojasA:d.rojasA, rojasB:d.rojasB })
-      : simular(xgA,xgB);
+                   rojasA:d.rojasA, rojasB:d.rojasB, rnd })
+      : simular(xgA, xgB, 6000, rnd);
+    J.ultimaFirma = firma;
     J.sim.notas=[...t.notas, ...ind.notas];
     J.sim.estaVez=marc;
     J.sim.ajustes=ajustes(); J.sim.conQue=conQue(J.sim.ajustes);
@@ -2870,6 +2893,22 @@ function ajustes(){
   const d = J.desde;
   if(d.minuto>0||d.golesA||d.golesB||d.rojasA||d.rojasB) a.push("desde el "+d.minuto+"'");
   return a;
+}
+
+/* ── LA FIRMA DE LOS AJUSTES ──────────────────────────────────────────────
+   Todo lo que entra en la cuenta, en un solo texto: el partido, los dos
+   onces en su orden, las dos formaciones, las perillas de los dos, las
+   indicaciones y desde donde se simula. Dos usos:
+     1. es la SEMILLA del azar de las 6.000 simulaciones -mismos ajustes,
+        mismos porcentajes, hasta el decimal-;
+     2. y es lo que permite saber si algo cambio desde la ultima vez. */
+function firmaDeAjustes(){
+  const ids = xi => xi.map(p=>p?p.id:0).join(",");
+  const k = K => [K.linea,K.presion,K.ancho,K.ritmo].join(",");
+  const d = J.desde;
+  return [J.fx?.fixture?.id || J.liga || "", J.id.A, J.id.B, ids(J.xiA), ids(J.xiB), J.formA, J.formB,
+          k(J.K), k(J.KB), Object.keys(INDICACIONES_POR_DEFECTO).map(x=>J.IND[x]).join(","),
+          d.minuto, d.golesA, d.golesB, d.rojasA, d.rojasB].join("|");
 }
 
 /* La frase de "con que se simulo". Una sola linea, sin bullets. */
@@ -3456,17 +3495,22 @@ function vistaJuego(){
           <div style="flex:${s.loss};background:#D64550">${s.loss.toFixed(0)}%</div>
         </div>
         <div class="meta"><b>${veredicto}</b><span>·</span><span>ganás / empatás / perdés</span></div>
-        ${s.estaVez ? tanteador(s.estaVez.A, s.estaVez.B)
-                    : tanteador(...String(s.marcador).split("-"))}
-        <div class="meta" style="justify-content:center">${s.estaVez
-          ? (J.visto ? "el partido que acabás de ver" : "el partido simulado")
-          : "marcador más probable · "+s.probMarcador.toFixed(0)+"%"} ·
+        ${J.visto && s.estaVez ? tanteador(s.estaVez.A, s.estaVez.B)
+                              : tanteador(...String(s.marcador).split("-"))}
+        <div class="meta" style="justify-content:center">${J.visto && s.estaVez
+          ? "el partido que acabás de ver · uno de los 6.000 posibles"
+          : "el marcador más probable · sale "+s.probMarcador.toFixed(0)+"% de las veces"} ·
           xG ${s.xgA.toFixed(2)} a ${s.xgB.toFixed(2)}</div>
+        ${J.visto && s.estaVez ? `<div class="meta" style="justify-content:center;margin-top:-2px">
+          el más probable era ${esc(String(s.marcador).replace("-"," - "))} (${s.probMarcador.toFixed(0)}%)</div>` : ""}
         <p class="conque res-conque">${esc(s.conQue || "")}</p>
         ${s.notas.map(n=>`<p class="nota">${esc(n)}</p>`).join("")}
         ${J.partido && !J.visto ? `<button class="gh" id="bver" style="width:100%;margin-top:10px">
-            Ver este partido</button>
-          <p class="aviso" style="margin:6px 0 0">Es el mismo partido, no gasta otra simulación.</p>` : ""}
+            Ver uno de los 6.000 partidos posibles</button>
+          <p class="aviso" style="margin:6px 0 0">Ya está sorteado con estas probabilidades. No gasta otra simulación.</p>` : ""}
+        ${!J.visto ? `<p class="aviso" style="margin:8px 0 0"><b>Mismos ajustes, mismo resultado.</b>
+          Estos números salen de 6.000 partidos simulados con tu once y tu planteo: si no cambiás nada,
+          no cambian. Cambiá algo y volvé a simular para ver cuánto mueve.</p>` : ""}
         ${s.ajustes && !s.ajustes.length ? `<button class="gh" id="bplanteo" style="width:100%;margin-top:10px">
             Cambiar el once o el planteo y volver a simular</button>` : ""}
         ${J.paso!=="revelado" ? (J.jugado

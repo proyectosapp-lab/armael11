@@ -393,14 +393,51 @@ export function xgDe(A,B,esLocal,mult,anchoA){
   return Math.max(.18, Math.min(3.4, base*Math.exp(0.30*z)*mult*anchoA));
 }
 
-export const poissonUno = l => { const L=Math.exp(-l); let k=0,p=1;
-  do { k++; p*=Math.random(); } while(p>L); return k-1; };
+/* ── EL AZAR CON SEMILLA ─────────────────────────────────────────────────
+   Un tester grabó un video: apretaba "Simular" doce veces seguidas sin tocar
+   nada y el marcador grande salía 4-4, 1-1, 0-3, 4-1, 0-0... Los porcentajes
+   casi no se movían -eso ES el modelo- pero el número grande cambiaba cada
+   vez, y el número grande es lo que se mira. Conclusión del que mira: "es un
+   dado". Justo lo que la portada promete que no es.
+
+   Dos arreglos, y este es el primero: las 6.000 simulaciones se sortean con
+   un generador CON SEMILLA, y la semilla sale de los datos de entrada -el
+   once, la formacion, las perillas, las indicaciones, el partido-. Mismos
+   datos, misma semilla, mismo resultado, hasta el ultimo decimal. Cambias
+   una perilla y cambia. Es lo que convierte "simular" en una cuenta que se
+   puede repetir, en vez de una tirada.
+
+   El partido que se MIRA sigue siendo al azar a proposito: es uno de los
+   6.000, y ver otro distinto con las mismas probabilidades es exactamente lo
+   que significa "uno de los 6.000". El segundo arreglo esta en la pantalla:
+   en el modo sin animacion el numero grande es el marcador MAS PROBABLE, que
+   es el que no se mueve, y no una realizacion suelta.
+
+   mulberry32: chico, rapido y suficiente para esto. No es criptografia. */
+export function azarDe(semilla){
+  let a = (semilla >>> 0) || 1;
+  return () => {
+    a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+/* De un texto -la firma de los ajustes- a un entero. FNV-1a de 32 bits. */
+export function semillaDe(texto){
+  let h = 0x811C9DC5;
+  for(let i = 0; i < texto.length; i++){ h ^= texto.charCodeAt(i); h = Math.imul(h, 0x01000193); }
+  return h >>> 0;
+}
+
+export const poissonUno = (l, rnd = Math.random) => { const L=Math.exp(-l); let k=0,p=1;
+  do { k++; p*=rnd(); } while(p>L); return k-1; };
 const poisson = poissonUno;
 
-export function simular(xgA, xgB, n=6000){
+export function simular(xgA, xgB, n=6000, rnd=Math.random){
   let w=0,d=0,l=0; const marc={};
   for(let i=0;i<n;i++){
-    const a=poisson(xgA), b=poisson(xgB);
+    const a=poisson(xgA, rnd), b=poisson(xgB, rnd);
     if(a>b)w++; else if(a===b)d++; else l++;
     const k=a+"-"+b; marc[k]=(marc[k]||0)+1;
   }
@@ -451,7 +488,7 @@ export function simExpulsion(xgA, xgB, rojas){
 export const ROJA = { ataca: 0.68, concede: 1.42 };
 
 export function simDesde({ xgA, xgB, minuto = 0, golesA = 0, golesB = 0,
-                           rojasA = 0, rojasB = 0, n = 6000 }){
+                           rojasA = 0, rojasB = 0, n = 6000, rnd = Math.random }){
   const min = Math.max(0, Math.min(90, Math.round(minuto)));
   const resto = (90 - min) / 90;
   let a = xgA * resto, b = xgB * resto;
@@ -463,7 +500,7 @@ export function simDesde({ xgA, xgB, minuto = 0, golesA = 0, golesB = 0,
 
   let w = 0, d = 0, l = 0; const marc = {};
   for(let i = 0; i < n; i++){
-    const ga = golesA + poissonUno(a), gb = golesB + poissonUno(b);
+    const ga = golesA + poissonUno(a, rnd), gb = golesB + poissonUno(b, rnd);
     if(ga > gb) w++; else if(ga === gb) d++; else l++;
     const k = ga + "-" + gb; marc[k] = (marc[k] || 0) + 1;
   }

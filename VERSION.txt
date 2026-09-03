@@ -1,3 +1,56 @@
+Arma el 11 - version 2026-09-03 y28 (no es un dado)
+
+  · Un tester grabo un video: doce veces "Simular" seguidas, sin tocar nada,
+    con "Solo el resultado". Doce marcadores distintos: 4-4, 1-1, 0-3, 4-1,
+    0-0... Los porcentajes casi no se movian -eso ES el modelo-, pero el
+    numero grande cambiaba cada vez, y el numero grande es lo que se mira.
+    Conclusion del que mira: "es un dado que siempre cae distinto". Justo lo
+    que la portada promete que no es.
+
+  · EL ERROR ERA NUESTRO, NO DEL TESTER. En el modo sin animacion el numero
+    grande era UNA realizacion suelta -uno de los 6.000 partidos- presentada
+    como "el resultado". Cuando se mira el partido eso tiene sentido: viste
+    un partido, ese es su marcador. Cuando no se mira, es una tirada
+    disfrazada de respuesta.
+
+  · TRES ARREGLOS, y los tres apuntan a lo mismo: que simular sea una cuenta
+    que se repite, no una tirada.
+
+    1. SEMILLA. Las 6.000 simulaciones se sortean con un generador con
+       semilla, y la semilla sale de los datos: el partido, los dos onces, las
+       formaciones, las perillas de los dos, las indicaciones, desde donde. Los
+       mismos ajustes dan los mismos porcentajes hasta el ultimo decimal;
+       cambias una perilla y cambian. El partido que se MIRA sigue siendo al
+       azar a proposito: es uno de los 6.000, y ver otro distinto con las
+       mismas probabilidades es exactamente lo que eso significa.
+
+    2. EL NUMERO GRANDE ES EL QUE NO SE MUEVE. Sin ver el partido, el
+       tanteador muestra el marcador MAS PROBABLE, con cuantas veces sale.
+       Cuando se vio un partido, muestra ese, dice "uno de los 6.000 posibles"
+       y debajo cual era el mas probable.
+
+    3. NADA CAMBIO, NADA QUE SIMULAR. Apretar "Simular" sin haber tocado nada
+       ya no gasta ni cambia: explica. "No cambiaste nada desde la ultima
+       simulacion, asi que el resultado es el mismo: con los mismos datos el
+       modelo da los mismos numeros." Y ofrece ver uno de los 6.000 partidos
+       posibles, que si es otro. Tambien protege el cupo: el del video se
+       comio las diez en veinticinco segundos.
+
+  · La tarjeta lo dice con todas las letras: "Mismos ajustes, mismo
+    resultado. Cambia algo y volve a simular para ver cuanto mueve". Que es
+    ademas la invitacion correcta: la gracia del simulador es comparar.
+
+  · Sin semilla, todo sigue como antes: el backtest y las pruebas viejas
+    llaman a simular() igual que siempre y siguen dando lo mismo.
+
+  · Ocho pruebas nuevas en el navegador (199) y siete en el motor (81).
+
+  · APARTE, VISTO EN EL MISMO VIDEO: los tres planes decian "Sin limite" con
+    precios $2.500, $6.000 y $20.000. Esos son los nombres de respaldo y los
+    precios viejos: la funcion crear-pago que esta corriendo en Supabase es
+    la anterior. Hay que pegar funcion-crear-pago.ts de nuevo en Edge
+    Functions. No es de esta version; es un despliegue que quedo atras.
+
 Arma el 11 - version 2026-09-03 y27 (dos caminos, dichos con todas las letras)
 
   · Fausto, sobre el flash: "no se entiende que es como una simulacion

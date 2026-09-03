@@ -1337,6 +1337,9 @@ srv.listen(8099, async () => {
          await pg.locator('#conque').innerText());
     await pg.evaluate(() => { J.K.presion = 0; pintar(); });
 
+    /* Algo tiene que haber cambiado desde la simulación anterior: si no, la
+       app -con razón- no vuelve a simular. Un toque de ancho alcanza. */
+    await pg.evaluate(() => { J.K.ancho = 15; pintar(); });
     await pg.click('[data-ver="0"]'); await pg.waitForTimeout(120);
     const antes = await pg.evaluate(() => CUPO.usadas);
     const t0 = Date.now();
@@ -1354,9 +1357,10 @@ srv.listen(8099, async () => {
        existen. */
     caso("el resultado dice con qué se simuló",
          await pg.locator('.res-conque').count() === 1 &&
-         /tal cual viene/i.test(await pg.locator('.res-conque').innerText()));
-    caso("y si fue tal cual, ofrece cambiar el planteo y volver a simular",
-         await pg.locator('#bplanteo').count() === 1);
+         /con tus ajustes/i.test(await pg.locator('.res-conque').innerText()),
+         await pg.locator('.res-conque').innerText());
+    caso("y con ajustes no hace falta ofrecer las perillas: ya las encontró",
+         await pg.locator('#bplanteo').count() === 0);
 
     /* El partido existe aunque no se haya mirado: por eso se puede ofrecer
        verlo. Si se generara al mirarlo, "ver" sería "simular de nuevo". */
@@ -1364,6 +1368,59 @@ srv.listen(8099, async () => {
          await pg.evaluate(() => !!(J.partido && J.partido.eventos)));
     caso("y se ofrece verlo sin gastar otra",
          await pg.locator('#bver').count() === 1);
+
+    /* ── NO ES UN DADO ────────────────────────────────────────────────────
+       El video del tester: doce "Simular" seguidos sin tocar nada, doce
+       marcadores distintos. Tres cosas tienen que ser ciertas para que eso
+       no vuelva a pasar:
+         1. sin ver el partido, el número grande es el MÁS PROBABLE, que no
+            se mueve -no una realización suelta-;
+         2. volver a simular sin cambiar nada no gasta ni cambia: explica;
+         3. con los mismos ajustes, los porcentajes son idénticos. */
+    {
+      const grande = (await tanteador(pg)).goles;
+      const probable = await pg.evaluate(() => J.sim.marcador);
+      caso("sin ver el partido, el número grande es el marcador más probable",
+           grande === probable, "grande " + grande + " · probable " + probable);
+      const antesRep = await pg.evaluate(() => ({ u: CUPO.usadas, w: J.sim.win, m: J.sim.marcador }));
+      await pg.locator('#bsim').click(); await pg.waitForTimeout(400);
+      const despRep = await pg.evaluate(() => ({ u: CUPO.usadas, w: J.sim.win, m: J.sim.marcador, msg: J.msg }));
+      caso("volver a simular sin cambiar nada no gasta una simulación",
+           despRep.u === antesRep.u, antesRep.u + " → " + despRep.u);
+      caso("y no cambia el resultado: lo explica",
+           despRep.w === antesRep.w && despRep.m === antesRep.m && /no cambiaste nada/i.test(despRep.msg),
+           (despRep.msg || "").slice(0, 80));
+      caso("la tarjeta dice que mismos ajustes dan el mismo resultado",
+           /mismos ajustes, mismo resultado/i.test(await pg.locator('.res').locator('..').innerText()));
+      /* Cambiar algo SÍ vuelve a simular, y con la semilla nueva. */
+      await pg.evaluate(() => { J.K.presion = 40; pintar(); });
+      await pg.locator('#bsim').click();
+      await pg.waitForFunction(() => J.paso === "resultado" && !J.animando, null, { timeout: 8000 });
+      const conCambio = await pg.evaluate(() => ({ u: CUPO.usadas, w: J.sim.win }));
+      caso("cambiar una perilla sí simula de nuevo",
+           conCambio.u === antesRep.u + 1 && conCambio.w !== antesRep.w,
+           antesRep.w.toFixed(2) + " → " + conCambio.w.toFixed(2));
+      /* Y volver exactamente a como estaba devuelve exactamente los mismos
+         números: es una cuenta, no una tirada. */
+      await pg.evaluate(() => { J.K.presion = 0; pintar(); });
+      await pg.locator('#bsim').click();
+      await pg.waitForFunction(() => J.paso === "resultado" && !J.animando, null, { timeout: 8000 });
+      const deVuelta = await pg.evaluate(() => [J.sim.win, J.sim.draw, J.sim.loss, J.sim.marcador].join("|"));
+      caso("con los mismos ajustes, los porcentajes son idénticos hasta el decimal",
+           deVuelta === [antesRep.w, await pg.evaluate(() => J.sim.draw), await pg.evaluate(() => J.sim.loss), antesRep.m].join("|"),
+           deVuelta);
+
+      /* Y tal cual viene -sin un solo ajuste- la tarjeta lo dice y ofrece el
+         camino a las perillas: es donde el que vino por el atajo se entera
+         de que existen. */
+      await pg.evaluate(() => { J.K.ancho = 0; pintar(); });
+      await pg.locator('#bsim').click();
+      await pg.waitForFunction(() => J.paso === "resultado" && !J.animando, null, { timeout: 8000 });
+      caso("tal cual viene, el resultado lo dice",
+           /tal cual viene/i.test(await pg.locator('.res-conque').innerText()));
+      caso("y ofrece cambiar el planteo y volver a simular",
+           await pg.locator('#bplanteo').count() === 1);
+    }
 
     const numeros = () => pg.evaluate(() =>
       [J.sim.win, J.sim.draw, J.sim.loss, J.sim.xgA, J.sim.xgB,
