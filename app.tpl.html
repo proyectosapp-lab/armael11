@@ -628,6 +628,26 @@ th{font-family:var(--display);font-weight:500;letter-spacing:.8px}
 .fxp-acc .gh{padding:12px 10px}
 .fxp + .fxp{border-top:1px solid var(--borde);margin-top:6px;padding-top:14px}
 
+/* ── tu once contra el del DT ─────────────────────────────────────────── */
+.vsdt{margin-top:14px;padding-top:12px;border-top:1px solid var(--borde);display:grid;gap:10px}
+.vsdt-cab{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  font-family:var(--display);font-weight:700;font-size:15px}
+.vsdt-forma{display:flex;gap:8px;align-items:center;font-size:12.5px;color:var(--tinta-3);
+  font-family:var(--display);font-weight:500}
+.vsdt-forma b{color:var(--tinta);font-weight:700}
+.vsdt-forma i{font-style:normal;opacity:.5}
+.vsdt-t{display:block;font-size:11px;letter-spacing:.8px;text-transform:uppercase;font-weight:700;
+  color:var(--tinta-3);font-family:var(--display);margin-bottom:6px}
+.vsdt-chips{display:flex;flex-wrap:wrap;gap:6px}
+.vsdt-chip{display:inline-flex;align-items:center;gap:5px;padding:5px 9px 5px 6px;border-radius:999px;
+  font-size:12.5px;background:color-mix(in srgb, var(--tinta) 6%, transparent);color:var(--tinta-2)}
+.vsdt-chip b{font-family:var(--display);font-weight:700;font-size:10px;width:18px;height:18px;border-radius:50%;
+  display:grid;place-items:center;background:var(--papel);color:var(--tinta-3)}
+.vsdt-chip.dt{background:color-mix(in srgb, var(--acento) 12%, transparent);color:var(--tinta)}
+.vsdt-chip.dt b{background:var(--acento);color:var(--sobre-acento)}
+.vsdt-chip.vos{background:color-mix(in srgb, #DC3F4A 10%, transparent);color:var(--tinta)}
+.vsdt-chip.vos b{background:#DC3F4A;color:#fff}
+
 /* ── movimiento ───────────────────────────────────────────────────────── */
 @media (prefers-reduced-motion: no-preference){
   .vista{animation:entrar .2s ease-out}
@@ -2911,6 +2931,28 @@ function firmaDeAjustes(){
           d.minuto, d.golesA, d.golesB, d.rojasA, d.rojasB].join("|");
 }
 
+/* ── TU ONCE CONTRA EL DEL DT ────────────────────────────────────────────
+   Se cruza por id cuando la API lo trae -que es siempre en las formaciones
+   reales- y por apellido sin tildes cuando no, que es lo que pasa en las
+   pruebas y en algun dato viejo. Devuelve tres listas que suman once. */
+/* "G. Baez Corradi" es Baez Corradi, no Corradi: se sacan las iniciales de
+   adelante y se deja el resto. "M. A. Galarza" queda Galarza. */
+function apellidoDe(n){
+  const t=String(n||"").trim().split(/\s+/).filter(Boolean);
+  while(t.length>1 && /^[A-ZÁÉÍÓÚÑ]\.?$/.test(t[0])) t.shift();
+  return t.length>2 ? t[t.length-1] : t.join(" ");
+}
+const plano2 = t => String(t||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+function compararOnces(mio, dt){
+  const mios = (mio||[]).filter(Boolean), suyos = dt||[];
+  const igual = (a,b) => (a.id && b.id) ? a.id===b.id
+    : plano2(apellidoDe(a.nombre||a.name)) === plano2(apellidoDe(b.name||b.nombre));
+  const coinciden = suyos.filter(p=>mios.some(m=>igual(m,p)));
+  const soloDT   = suyos.filter(p=>!mios.some(m=>igual(m,p)));
+  const soloVos  = mios.filter(m=>!suyos.some(p=>igual(m,p)));
+  return { coinciden, soloDT, soloVos };
+}
+
 /* La frase de "con que se simulo". Una sola linea, sin bullets. */
 function conQue(lista){
   if(!lista.length) return "Tal cual viene: el once que viene jugando, formación "+J.formA+" y planteo normal.";
@@ -3389,7 +3431,8 @@ function vistaJuego(){
     ${otrasLigas()}
     <h3 class="sec">Ya jugados</h3>
     <div class="tarjeta">
-      <p class="bajada" style="margin-top:0">Acá podés revelar el once del DT enseguida.</p>
+      <p class="bajada" style="margin-top:0"><b>Armá tu once, simulá, y compará</b> con el once que
+        puso el DT y con lo que pasó de verdad. Acá se revela enseguida.</p>
       ${jugados.map(([f,i])=>fila(f,i)).join("")}
       ${msg}${cab}
     </div>`;
@@ -3518,8 +3561,8 @@ function vistaJuego(){
               Revelar el once del DT y lo que pasó</button>`
           : !J.fx ? "" : `<div class="pendiente" style="margin-top:12px">
               <b>Este partido todavía no se jugó.</b><br>
-              Tu pronóstico queda guardado en el link de abajo. Cuando termine el partido,
-              abrilo de nuevo y la app te muestra el once del DT y qué pasó.
+              Tu pronóstico queda guardado en el link de abajo. Cuando termine, abrilo de
+              nuevo: vas a ver tu once al lado del que puso el DT, y el resultado de verdad.
              </div>
              <button class="acc" id="bguardar" style="width:100%;margin-top:10px">
                Copiar el link de mi pronóstico</button>
@@ -3532,20 +3575,45 @@ function vistaJuego(){
       const acerto = (gano&&J.sim.win>J.sim.loss&&J.sim.win>J.sim.draw)
                    || (empate&&J.sim.draw>=J.sim.win&&J.sim.draw>=J.sim.loss)
                    || (!gano&&!empate&&J.sim.loss>J.sim.win);
+      const cmp = compararOnces(J.xiA, R.once);
+      const nombre = p => esc(apellidoDe(p.name || p.nombre || ""));
       out+=`<h3 class="sec">La realidad</h3><div class="tarjeta">
         ${tanteador(R.misG, R.susG)}
-        ${R.formacion?`<div class="meta" style="justify-content:center">el DT puso ${esc(R.formacion)}</div>`:""}
-        ${R.once.length?`<div class="otras" style="margin-top:12px">${R.once.map(p=>
-          `<span><b>${esc(p.pos||"")}</b> ${esc(p.name)}</span>`).join("")}</div>`:""}
+        <div class="meta" style="justify-content:center">lo que pasó de verdad</div>
+
+        <!-- TU ONCE CONTRA EL DEL DT. Esto es la razón de ser de la
+             pestaña: elegís, después ves qué eligió el técnico, y después
+             el resultado le da la razón a uno, al otro o a ninguno. Era
+             una lista de nombres y no se veía la comparación. -->
+        <div class="vsdt">
+          <div class="vsdt-cab">
+            <b>Tu once contra el del DT</b>
+            <span class="sello">${cmp.coinciden.length} de 11</span>
+          </div>
+          <div class="vsdt-forma">
+            <span>Vos <b>${esc(J.formA)}</b></span><i>·</i>
+            <span>El DT <b>${esc(R.formacion || "?")}</b></span>
+          </div>
+          ${cmp.soloDT.length ? `<div class="vsdt-grupo"><span class="vsdt-t">El DT puso y vos no</span>
+            <div class="vsdt-chips">${cmp.soloDT.map(p=>`<span class="vsdt-chip dt">${p.pos?`<b>${esc(p.pos)}</b>`:""}${nombre(p)}</span>`).join("")}</div></div>` : ""}
+          ${cmp.soloVos.length ? `<div class="vsdt-grupo"><span class="vsdt-t">Vos pusiste y el DT no</span>
+            <div class="vsdt-chips">${cmp.soloVos.map(p=>`<span class="vsdt-chip vos">${p.pos?`<b>${esc(p.pos)}</b>`:""}${nombre(p)}</span>`).join("")}</div></div>` : ""}
+          ${cmp.coinciden.length ? `<div class="vsdt-grupo"><span class="vsdt-t">Los dos</span>
+            <div class="vsdt-chips">${cmp.coinciden.map(p=>`<span class="vsdt-chip">${p.pos?`<b>${esc(p.pos)}</b>`:""}${nombre(p)}</span>`).join("")}</div></div>` : ""}
+          ${!R.once.length ? `<p class="aviso">Todavía no está la formación de este partido.</p>` : ""}
+        </div>
         ${R.rojas.length?`<p class="nota"><b>Expulsión:</b> ${R.rojas.map(r=>
           esc(r.quien||"")+" ("+(r.esMio?"tuyo":"del rival")+", "+r.min+"')").join(" · ")}.
           ${R.simConRojas?`Con eso adentro, la simulación pasa a
           ${R.simConRojas.win.toFixed(0)}% / ${R.simConRojas.draw.toFixed(0)}% / ${R.simConRojas.loss.toFixed(0)}%.`:""}</p>`:""}
         ${R.penales.length?`<p class="nota"><b>Penal errado:</b> ${R.penales.map(p=>
           esc(p.quien||"")+" ("+(p.esMio?"tuyo":"del rival")+", "+p.min+"')").join(" · ")}.</p>`:""}
-        <p class="nota">${acerto
-          ? "El pronóstico dio en el resultado."
-          : "Le erramos. Sin excusas: el modelo dijo otra cosa y el partido dijo esta."}</p>
+        <p class="nota"><b>Tu simulación decía</b> ${J.sim.win.toFixed(0)}% ganar, ${J.sim.draw.toFixed(0)}% empatar,
+          ${J.sim.loss.toFixed(0)}% perder${J.visto && J.sim.estaVez ? ", y el partido que viste terminó "+J.sim.estaVez.A+"-"+J.sim.estaVez.B : ""}.
+          ${acerto
+          ? "Dio en el resultado."
+          : "Le erró. Sin excusas: el modelo dijo otra cosa y el partido dijo esta."}
+          ${cmp.soloVos.length ? " Con tu once, no con el del DT: la simulación es de LO QUE VOS ELEGISTE." : ""}</p>
         ${cab}
       </div>`;
     }

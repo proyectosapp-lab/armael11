@@ -1438,6 +1438,45 @@ srv.listen(8099, async () => {
          await pg.locator('#bver').count() === 0);
   }
 
+  /* ── TU ONCE CONTRA EL DEL DT ─────────────────────────────────────────
+     Fausto: "estaba la opción de elegir tu once, después poner el once que
+     eligió el técnico y después contrastar ambos con el resultado. Ahora no
+     la veo". Estaba, pero era una lista de nombres al final: no se veía la
+     comparación. Ahora se cruzan los dos onces y se dice cuántos coinciden,
+     a quién puso el DT y vos no, y al revés. */
+  {
+    const jugado = await pg.evaluate(() => J.fixtures.findIndex(f => f.fixture.status.short === "FT"));
+    await pg.click('#barra button[data-tab="juego"]');
+    await pg.evaluate(() => { J.paso = "fixture"; J.sim = null; J.real = null; pintar(); });
+    await pg.waitForTimeout(200);
+    caso("los partidos jugados invitan a comparar con el DT",
+         /compar/i.test(await pg.locator('.tarjeta', { hasText: /jugados|revela/i }).first().innerText()));
+    await pg.locator('.fx[data-fx="' + jugado + '"]').click();
+    await pg.waitForTimeout(900);
+    await pg.evaluate(() => { J.K.ancho = 5; pintar(); });   /* que haya algo distinto */
+    await pg.click('[data-ver="0"]');
+    await pg.locator('#bsim').click();
+    await pg.waitForFunction(() => J.paso === "resultado" && !J.animando, null, { timeout: 8000 });
+    caso("en un partido jugado, el resultado ofrece revelar el once del DT",
+         await pg.locator('#brev').count() === 1);
+    await pg.locator('#brev').click();
+    await pg.waitForFunction(() => J.paso === "revelado", null, { timeout: 8000 });
+    const v = await pg.evaluate(() => {
+      const c = compararOnces(J.xiA, J.real.once);
+      return { hay: !!document.querySelector('.vsdt'),
+               sello: document.querySelector('.vsdt .sello')?.textContent.trim(),
+               coinciden: c.coinciden.length, dt: c.soloDT.length, vos: c.soloVos.length,
+               suman: c.coinciden.length + c.soloDT.length,
+               formas: document.querySelector('.vsdt-forma')?.textContent.replace(/\s+/g, ' ').trim(),
+               veredicto: /Tu simulación decía/.test(document.body.innerText) };
+    });
+    caso("y al revelar aparece tu once contra el del DT", v.hay);
+    caso("con cuántos coinciden, y suman once", v.sello === v.coinciden + " de 11" && v.suman === 11,
+         JSON.stringify(v));
+    caso("y las dos formaciones, la tuya y la del DT", /Vos .* El DT/.test(v.formas || ""), v.formas);
+    caso("y el veredicto dice qué decía tu simulación y qué pasó", v.veredicto);
+  }
+
   caso("el navegador NUNCA llamó a api-sports.io", apiTocada.length === 0);
   caso("sin errores de JavaScript", errs.length === 0);
 

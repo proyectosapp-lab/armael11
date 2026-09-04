@@ -1,3 +1,35 @@
+Arma el 11 - version 2026-09-03 y29 (tu once contra el del DT)
+
+  · Fausto: "estaba la opcion de elegir tu once, despues poner el once que
+    eligio el tecnico y despues contrastar ambos con el resultado. Ahora no la
+    veo". Estaba -en los partidos ya jugados, el boton "Revelar el once del
+    DT"- pero se habia vuelto invisible por dos lados: los renglones de
+    jugados no decian para que tocarlos, y al revelar salia una lista de once
+    nombres. Una lista no es una comparacion.
+
+  · AHORA SE CRUZAN LOS DOS ONCES. "Tu once contra el del DT · 6 de 11". Las
+    dos formaciones, la tuya y la del DT. Y tres grupos de fichas: el DT puso
+    y vos no, vos pusiste y el DT no, los dos. Se cruza por id cuando la API
+    lo trae -siempre, en las formaciones reales- y por apellido cuando no.
+
+  · EL VEREDICTO DICE LAS DOS COSAS: que decia tu simulacion (los tres
+    porcentajes, y el marcador si viste el partido) y que paso. Y cuando tu
+    once no era el del DT, lo aclara: la simulacion es de LO QUE VOS
+    ELEGISTE. Ese es el juego entero en una frase.
+
+  · Los partidos jugados ahora lo dicen arriba: "Arma tu once, simula, y
+    compara con el once que puso el DT y con lo que paso de verdad". Y la
+    tarjeta del partido futuro promete lo mismo para cuando vuelvas con el
+    link.
+
+  · Los apellidos compuestos no se cortan: "G. Baez Corradi" es Baez Corradi,
+    no Corradi. Se sacan las iniciales de adelante y se deja el resto.
+
+  · Seis pruebas nuevas en el navegador (205): que los jugados invitan a
+    comparar, que el resultado ofrece revelar, que al revelar aparece la
+    comparacion, que los grupos suman once, que estan las dos formaciones y
+    que el veredicto dice que decia la simulacion.
+
 Arma el 11 - version 2026-09-03 y28 (no es un dado)
 
   · Un tester grabo un video: doce veces "Simular" seguidas, sin tocar nada,
