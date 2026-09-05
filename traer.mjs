@@ -238,9 +238,38 @@ export function urlDe(f) {
    En paralelo, y una que falle no voltea a las demás: cada fuente devuelve
    sus ítems o su error, nunca revienta el proceso entero.                   */
 
-export async function traerTodas(fuentes, log = () => {}) {
+/* ── DE A POCAS ────────────────────────────────────────────────────────────
+   Corre `fn` sobre cada elemento de la lista con a lo sumo `limite` a la vez,
+   y devuelve los resultados EN EL ORDEN de la lista, como haria Promise.all.
+
+   Por que existe: `traerTodas` disparaba las 148 fuentes juntas, en una sola
+   rafaga. En la maquina de GitHub eso se convirtio en corridas donde 94 de
+   148 contestaban "fetch failed" -no un HTTP 4xx del medio: un fallo de red
+   de nuestro lado, tipico de una rafaga de resoluciones de DNS que el
+   resolvedor del runner no aguanta-. Una corrida si y una no. El freno de
+   mano hizo su trabajo y no publico nada roto, pero el sitio quedo sin
+   refrescar la mitad de las veces.
+
+   Dieciseis a la vez tarda unos segundos mas que todas juntas, y no rompe
+   nada. */
+export async function deAPocas(lista, limite, fn) {
+  const out = new Array(lista.length);
+  let i = 0;
+  const obrero = async () => {
+    while (i < lista.length) { const k = i++; out[k] = await fn(lista[k], k); }
+  };
+  await Promise.all(Array.from({ length: Math.max(1, Math.min(limite, lista.length)) }, obrero));
+  return out;
+}
+
+/* Lo que dice `fetch` cuando el que fallo es nuestro lado y no el medio:
+   sin DNS, conexion cortada, tiempo agotado. Un HTTP 404 o un "feed vacio"
+   NO entran aca: esos son del medio y reintentarlos no cambia nada. */
+export const esFallaDeRed = e => /fetch failed|ECONN|ENOTFOUND|EAI_AGAIN|ETIMEDOUT|abort|socket|timeout/i.test(String(e || ""));
+
+export async function traerTodas(fuentes, log = () => {}, limite = 16) {
   const activas = fuentes.filter(f => f.activo !== false && urlDe(f));
-  return Promise.all(activas.map(async f => {
+  return deAPocas(activas, limite, async f => {
     const url = urlDe(f);
     try {
       let xml = await bajar(url);
@@ -285,5 +314,5 @@ export async function traerTodas(fuentes, log = () => {}) {
       log("  ✗ " + f.nom + " — " + e.message);
       return { fuente: f, items: [], error: e.message };
     }
-  }));
+  });
 }

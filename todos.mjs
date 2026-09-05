@@ -10,7 +10,7 @@
    Esta es también la forma que va a tener la ingesta cuando corra sola.
    ══════════════════════════════════════════════════════════════════════════ */
 import { readFileSync, writeFileSync } from "node:fs";
-import { traerTodas } from "./traer.mjs";
+import { traerTodas, esFallaDeRed } from "./traer.mjs";
 import { construirFeed } from "./pipeline.mjs";
 
 const aca  = p => new URL(p, import.meta.url);
@@ -28,7 +28,25 @@ console.log("  BAJANDO " + activas.length + " FUENTES  (una sola vez cada una)")
 console.log("═".repeat(74) + "\n");
 
 const t0 = Date.now();
-const crudos = await traerTodas(activas, console.log);
+let crudos = await traerTodas(activas, console.log);
+
+/* ─── la segunda vuelta ──────────────────────────────────────────────────
+   Si muchas fallaron POR RED -"fetch failed", no un 404 del medio-, el
+   problema es de este lado y suele durar segundos. En vez de tirar la
+   corrida, se espera un rato y se vuelven a pedir solo esas, de a pocas.
+   El 5/9/2026 esto pasaba una corrida si y una no: 94 de 148 con "fetch
+   failed", y el freno de mano de abajo cortaba la publicacion entera. */
+const deRed = crudos.filter(c => c.error && esFallaDeRed(c.error));
+if (deRed.length >= 5) {
+  console.log("\n  " + deRed.length + " fallaron por red, no por el medio. Espero 20 segundos y las" +
+              " vuelvo a pedir, de a seis.");
+  await new Promise(r => setTimeout(r, 20000));
+  const otraVez = await traerTodas(deRed.map(c => c.fuente), console.log, 6);
+  const porFuente = new Map(otraVez.map(c => [c.fuente, c]));
+  crudos = crudos.map(c => porFuente.get(c.fuente) || c);
+  const siguen = crudos.filter(c => c.error && esFallaDeRed(c.error)).length;
+  console.log("  Segunda vuelta: " + (deRed.length - siguen) + " de " + deRed.length + " contestaron.");
+}
 const seg = Math.round((Date.now() - t0) / 1000);
 
 const vivas   = crudos.filter(c => !c.error && c.items.length);

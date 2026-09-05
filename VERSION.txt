@@ -1,3 +1,31 @@
+Arma el 11 - version 2026-09-05 y30 (la bajada de a pocas)
+
+  · Las corridas automaticas venian fallando una si y una no. El log decia:
+    94 de 148 fuentes con "fetch failed", el freno de mano cortaba -"NO
+    escribo nada, para no pisar los feeds que ya estaban"- y la corrida
+    terminaba en rojo a los 45 segundos. El freno hizo su trabajo: el sitio
+    nunca se publico roto. Pero se quedo sin refrescar la mitad de las veces.
+
+  · "fetch failed" no es un 404 del medio: es una falla de red DE NUESTRO
+    LADO -sin DNS, conexion cortada-. Y 94 medios distintos no se caen
+    juntos. Lo que si se cae junto es una rafaga: `traerTodas` disparaba las
+    148 fuentes al mismo tiempo, y el resolvedor de DNS de la maquina de
+    GitHub no aguanta 148 consultas en el mismo instante.
+
+  · DOS ARREGLOS. Las fuentes se piden de a dieciseis, no todas juntas:
+    tarda unos segundos mas y no rompe nada. Y si igual muchas fallan por
+    red, se espera veinte segundos y se vuelven a pedir SOLO esas, de a seis.
+    Un 404 o un feed vacio no se reintentan: esos son del medio, y pedirlos
+    de nuevo no cambia nada.
+
+  · Cinco pruebas nuevas en probar.mjs: que el tope de concurrencia se
+    respeta, que el orden se conserva aunque terminen desordenadas, y que se
+    distingue una falla de red de una del medio.
+
+  · Lo que NO cambio: el freno de mano sigue ahi. Si despues de la segunda
+    vuelta contesta menos de la mitad, no se publica. Ese dia el problema es
+    otro.
+
 Arma el 11 - version 2026-09-03 y29 (tu once contra el del DT)
 
   · Fausto: "estaba la opcion de elegir tu once, despues poner el once que

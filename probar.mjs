@@ -5,6 +5,20 @@
    ══════════════════════════════════════════════════════════════════════════ */
 import { readFileSync } from "node:fs";
 import { construirFeed } from "./pipeline.mjs";
+import { deAPocas, esFallaDeRed } from "./traer.mjs";
+
+/* ── LA BAJADA DE A POCAS ──────────────────────────────────────────────────
+   Las 148 fuentes se pedían todas juntas y en la máquina de GitHub eso daba
+   corridas con 94 "fetch failed": una ráfaga que el resolvedor de DNS no
+   aguanta. Ahora van de a dieciséis, y las que fallan por red se vuelven a
+   pedir de a seis después de esperar. Esto prueba la herramienta, que es lo
+   que se puede probar sin red: que respeta el tope y devuelve en orden. */
+let enVuelo = 0, tope = 0;
+const bajada = await deAPocas([5, 4, 3, 2, 1, 0, 9, 8], 3, async (x) => {
+  enVuelo++; tope = Math.max(tope, enVuelo);
+  await new Promise(r => setTimeout(r, 5 + x * 2));   /* distintos tiempos, a propósito */
+  enVuelo--; return x * 10;
+});
 
 const FIX  = JSON.parse(readFileSync(new URL("./fixtures.json", import.meta.url)));
 const PACK = JSON.parse(readFileSync(new URL("./desambiguacion.json", import.meta.url)));
@@ -55,6 +69,12 @@ const casos = [
       feed.clusters.some(c => c.nFuentes >= 2 && c.principal.titulo.includes("Sforza"))],
   ["los ex jugadores en el CARD quedaron agrupados",
       feed.clusters.some(c => c.nFuentes >= 2 && /CARD|ex-?jugadores/i.test(c.principal.titulo))],
+  ["de a pocas: nunca más de tres a la vez",                       tope === 3],
+  ["de a pocas: devuelve en el orden de la lista aunque terminen desordenadas",
+      bajada.join(",") === "50,40,30,20,10,0,90,80"],
+  ["'fetch failed' es falla de red: se reintenta",                  esFallaDeRed("fetch failed")],
+  ["un HTTP 404 es del medio: no se reintenta",                     !esFallaDeRed("HTTP 404")],
+  ["un feed vacío tampoco",                                          !esFallaDeRed("feed vacío")],
 ];
 console.log("\n" + linea);
 let mal = 0;
