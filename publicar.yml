@@ -1,0 +1,122 @@
+# ══════════════════════════════════════════════════════════════════════════
+#  TSTE — traer todo y publicar
+#
+#  ESTE ARCHIVO NO SE SUBE ARRASTRANDO. `.github` empieza con punto: el
+#  explorador la esconde y no se sube nunca. Aprendido dos veces, la segunda
+#  en silencio: la corrida salió verde con un paso que no existía en el
+#  archivo que GitHub leía. Cuando haya que cambiarlo, se edita EN GITHUB,
+#  con el lápiz, pegando el contenido de `publicar.yml` de la raíz -que es
+#  una copia de este, y viaja en el zip-. Se cambió una vez, el 7/9/2026,
+#  para la ronda corta de formaciones. Todo lo demás va en publicar.mjs.
+#
+#  La API key vive como SECRETO del repositorio. Se usa para bajar datos y lo
+#  que se publica son las respuestas ya bajadas: nunca llega al navegador.
+# ══════════════════════════════════════════════════════════════════════════
+name: Traer y publicar
+
+on:
+  schedule:
+    # Cada 15 minutos. NO baja todo cada 15 minutos: publicar.mjs decide.
+    # La ronda CORTA solo mira si salió el once del DT del partido que está
+    # por empezar (veinte segundos, y publica solo si encontró algo). La
+    # COMPLETA —feeds, planteles, ligas, tabla— sigue siendo cada tres
+    # horas, por sello: la primera ronda que pasa después de 2 h 50 min
+    # desde la última completa, es completa. Así no importa cuánto atrase
+    # GitHub las corridas programadas, que es siempre.
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  publicar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Al subir por la web es fácil que todo quede dentro de una carpeta
+      # en vez de suelto en la raíz. Se acomoda solo.
+      - name: Acomodar los archivos si quedaron dentro de una carpeta
+        shell: bash
+        run: |
+          if [ ! -f publicar.mjs ] && [ -f tste/publicar.mjs ]; then
+            echo "Los archivos están en tste/. Los subo un nivel."
+            cp -a tste/. . && rm -rf tste
+          fi
+          ls publicar.mjs todos.mjs construir-sitio.mjs clubes.json medios.json >/dev/null
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      # ══════════════════════════════════════════════════════════════════
+      #  LO QUE YA BAJAMOS, GUARDADO ENTRE CORRIDAS
+      #
+      #  El 31/8/2026 nos comimos los 7.500 pedidos diarios de la API en una
+      #  tarde. No fue por usuarios: fue por publicar. Cada corrida baja TODO
+      #  de nuevo —seis ligas, treinta clubes, la tabla— y eso son unos 1.200
+      #  pedidos. Esto corre cada 3 horas Y en cada push, así que seis
+      #  versiones publicadas en una tarde más las ocho del reloj dieron
+      #  catorce corridas: dieciséis mil pedidos.
+      #
+      #  Con esto, lo bajado sobrevive de una corrida a la otra y publicar
+      #  deja de costar. `publicar.mjs` mira los sellos y saltea lo que
+      #  todavía sirve; sin este bloque los sellos estarían siempre vacíos y
+      #  no serviría de nada.
+      #
+      #  La clave lleva el número de corrida para que SIEMPRE se guarde una
+      #  copia nueva; `restore-keys` hace que cada corrida levante la más
+      #  reciente. Es el patrón normal para un cache que se actualiza solo.
+      # ══════════════════════════════════════════════════════════════════
+      - name: Traer lo que ya habíamos bajado
+        uses: actions/cache@v4
+        with:
+          path: |
+            sitio/datos
+            stats-liga.json
+            stats-liga.js
+            fecha-actual.json
+            .sellos.json
+          key: datos-api-${{ github.run_id }}
+          restore-keys: |
+            datos-api-
+
+      - name: Correr todo
+        id: correr
+        env:
+          API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          # La clave privada de los avisos al teléfono (VAPID). Sin ella la
+          # ronda corta guarda la formación igual, solo que no avisa.
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          # Para que publicar.mjs sepa si esto lo disparó una subida (y
+          # entonces conviene reusar lo bajado) o el botón de "Run workflow"
+          # (y entonces se trae todo de nuevo a propósito).
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+        run: node publicar.mjs
+
+      # Se publica solo si publicar.mjs dijo que hay algo nuevo. En la ronda
+      # corta sin formaciones nuevas, esto se saltea y el sitio queda como
+      # estaba: publicar lo mismo cada quince minutos no aporta nada y gasta
+      # la cuota de despliegues de Pages.
+      - uses: actions/upload-pages-artifact@v3
+        if: steps.correr.outputs.publicar == 'si'
+        with:
+          path: ./sitio
+
+      - id: deployment
+        if: steps.correr.outputs.publicar == 'si'
+        uses: actions/deploy-pages@v4
+
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}

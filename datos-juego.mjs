@@ -128,6 +128,14 @@ for (const club of conApi) {
     if (JUGADO(fx)) {
       guardar(await api("/fixtures/lineups", { fixture: fx.fixture.id }));
       guardar(await api("/fixtures/events",  { fixture: fx.fixture.id }));
+    } else {
+      /* La formacion del PROXIMO tambien se pide. Casi siempre viene vacia
+         -sale una hora antes del partido- pero pedirla aca tiene dos
+         motivos: si esta corrida cae justo en esa hora, ya queda; y si no,
+         la ronda corta (formaciones.mjs) la mete en este mismo cache, y
+         cuando esta corrida lo rehace no la pisa con nada, la vuelve a
+         pedir. Un pedido por club. */
+      guardar(await api("/fixtures/lineups", { fixture: fx.fixture.id }));
     }
   }
 

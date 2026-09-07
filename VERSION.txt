@@ -1,3 +1,106 @@
+Arma el 11 - version 2026-09-07 y32 (salio el once del DT: antes del partido, y al telefono)
+
+  · Fausto: "la simulacion del DT deberia poder hacerse antes del partido;
+    despues ya no tiene gracia". Tenia razon y el problema era de reloj: las
+    formaciones oficiales aparecen en la API una hora antes del pitazo, y la
+    corrida completa pasaba cada tres horas y solo las bajaba de los partidos
+    ya terminados. Para cuando el sitio las tenia, el partido habia terminado.
+
+  · LA RONDA CORTA. El workflow pasa de cada tres horas a cada QUINCE
+    MINUTOS, pero no para bajar todo: `formaciones.mjs` mira, club por club,
+    si el proximo partido esta por empezar -entre dos horas antes y una
+    despues- y si si, pide la formacion. Si la API la tiene, la mete en el
+    cache del club con la MISMA clave que la app ya busca, y publica. Si no,
+    termina en veinte segundos y no publica nada. Cuesta unos cien pedidos
+    en un domingo de ocho partidos, sobre 7.500.
+
+  · La COMPLETA sigue siendo cada tres horas, y se decide por sello y no por
+    reloj: GitHub atrasa las corridas programadas diez, veinte, treinta
+    minutos, asi que "la de las 9 en punto" a veces corre a las 9:25. La
+    primera ronda que pasa despues de dos horas cincuenta desde la ultima
+    completa, es completa. Subir un zip o Run workflow siempre es completa.
+
+  · datos-juego.mjs ahora tambien pide la formacion del PROXIMO partido -un
+    pedido por club-, asi cuando rehace el cache no pisa lo que la ronda
+    corta habia metido.
+
+  · EN LA APP. Cuando la formacion esta, la tarjeta del resultado dice
+    "Salio el once del DT" y ofrece simularlo. Se simula con la misma cuenta
+    de siempre, se muestran las dos columnas -tu once, el del DT- y la
+    pregunta abierta: "con tu once el modelo te da 6 puntos mas de ganar que
+    con el del DT". La tercera columna, lo que paso, llega cuando termina. No
+    gasta del cupo. La seccion se llama "El once del DT" y no "La realidad",
+    porque todavia no paso nada.
+
+  · Y EL AVISO AL TELEFONO. Un boton en la tarjeta del partido que viene:
+    "Avisame cuando salga el once del DT". Web Push, sin ninguna libreria:
+    este proyecto no tiene node_modules y no lo va a tener por una funcion.
+    Lo que hace `web-push` es criptografia estandar que Node trae adentro:
+    una firma ES256 para probar que el que manda somos nosotros (VAPID) y un
+    cifrado con la clave del telefono para que ni Google ni Mozilla puedan
+    leer el mensaje (RFC 8291). Son sesenta lineas en `avisos.mjs`.
+
+  · Y SE PUEDE PROBAR QUE ESTA BIEN SIN MANDAR NADA: el RFC 8291 trae un
+    ejemplo completo con todas las claves y el resultado esperado byte por
+    byte. probar-avisos.mjs lo reproduce: identico. Es la forma mas fuerte
+    de probar criptografia que existe. Tambien se verifica la firma con la
+    clave publica, como hace Google, y el envio con una red de mentira: la
+    suscripcion que contesta 410 se borra.
+
+  · LO QUE SE GUARDA de cada telefono es lo minimo: la direccion que le dio
+    Google o Mozilla, las dos claves de cifrado, y el club. Sin usuario, a
+    proposito: el aviso no necesita cuenta y con eso no se puede saber quien
+    es la persona. Tabla `aviso`, seccion 12 de esquema.sql. Nadie la lee
+    desde el navegador: la lee el workflow con la clave de servicio.
+
+  · TRES COSAS QUE HAY QUE HACER A MANO, en este orden (estan en el chat):
+      1. El secreto VAPID_PRIVATE_KEY en GitHub, con el contenido de
+         vapid-privada.txt. Ese archivo NO va al repo.
+      2. Pegar esquema.sql en Supabase (tabla `aviso`).
+      3. Editar .github/workflows/publicar.yml EN GITHUB, con el lapiz,
+         pegando el contenido de publicar.yml de la raiz.
+
+  · El service worker sube a v3 para que los telefonos tomen el nuevo
+    enseguida. Pruebas nuevas: 13 en formaciones, 15 en avisos, 11 en el
+    navegador (218) y 4 en la cuenta (38). Todo en verde.
+
+Arma el 11 - version 2026-09-07 y31 (tu once, el del DT, lo que paso)
+
+  · Fausto, por segunda vez: "armo el mio, lo simulo, armo las formaciones
+    oficiales, simulo, y despues veo el resultado final. Sigo sin verla ni
+    estar claro". Tenia razon en lo que faltaba: el paso del medio. Al
+    revelar se mostraba el once del DT pero NO SE LO SIMULABA. Entonces la
+    comparacion era "mi simulacion contra el resultado", que es la mitad de
+    la gracia. La gracia entera es "con los mios ganabamos?", contestada con
+    un numero.
+
+  · AHORA AL REVELAR SE SIMULA EL ONCE DEL DT. Se arma con los mismos
+    jugadores del plantel -asi tienen su nivel-, en los puestos de la
+    formacion oficial, y se corre la MISMA cuenta que corrio el tuyo: mismo
+    rival, mismas perillas, mismas indicaciones, semilla propia. Lo unico que
+    cambia es quien juega. Un juvenil que debuta y no esta en el plantel
+    entra con el nivel medio de la liga, que es lo que el modelo sabe de el.
+    No gasta del cupo: es la segunda mitad de la simulacion que ya pagaste.
+
+  · TRES COLUMNAS: tu once, el del DT, lo que paso. Ganas / empatas / perdes,
+    el marcador mas probable y el xG, con un tilde en la fila que se dio.
+
+  · QUIEN LEYO MEJOR EL PARTIDO. No "quien acerto el ganador" -con tres
+    resultados posibles es casi una moneda- sino cuanto le daba cada once a
+    LO QUE PASO. "Tu once leyo mejor: le daba 34% a lo que paso; el del DT,
+    27%". Con menos de tres puntos de diferencia, empate tecnico.
+
+  · El calculo del gol esperado salio de adentro de `simular11` a una
+    funcion propia, para poder correrlo con otro once. `simular11` no cambio
+    de comportamiento.
+
+  · Los apellidos: "G. Baez Corradi" es Baez Corradi; "Santiago Fernandez"
+    es Fernandez. Antes las dos reglas se pisaban.
+
+  · Cinco pruebas nuevas en el navegador (209): que se simula el once del
+    DT con sus once, que los porcentajes suman cien, que la tabla tiene las
+    dos columnas, que dice quien leyo mejor, y que no gasta del cupo.
+
 Arma el 11 - version 2026-09-05 y30 (la bajada de a pocas)
 
   · Las corridas automaticas venian fallando una si y una no. El log decia:

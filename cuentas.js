@@ -472,3 +472,57 @@ export async function borrarMiCuenta() {
   salir();
   return true;
 }
+
+
+/* ─── LOS AVISOS: "salió el once del DT" ────────────────────────────────────
+   No necesitan cuenta. Lo que se guarda es la suscripción de push del
+   navegador -una URL de Google o Mozilla y dos claves que solo sirven para
+   ese teléfono- y el club que le interesa. No hay forma de saber quién es la
+   persona a partir de eso, y por eso la tabla `aviso` no tiene usuario.
+
+   Se manda con la clave pública (`sinToken`) a propósito: el que no tiene
+   cuenta también puede querer el aviso, y es la mayoría.                  */
+const b64uABytes = t => {
+  const s = (t + "=".repeat((4 - t.length % 4) % 4)).replace(/-/g, "+").replace(/_/g, "/");
+  return Uint8Array.from(atob(s), c => c.charCodeAt(0));
+};
+
+export const avisosDisponibles = () =>
+  typeof window !== "undefined" && "serviceWorker" in navigator && "PushManager" in window &&
+  "Notification" in window && !!(window.SITIO?.avisos?.vapidPublica) && !!cfg().url;
+
+export async function avisoActivo() {
+  if (!avisosDisponibles()) return false;
+  try {
+    const reg = await navigator.serviceWorker.ready;
+    return !!(await reg.pushManager.getSubscription());
+  } catch (e) { return false; }
+}
+
+export async function activarAviso(club) {
+  if (!avisosDisponibles()) throw new Error("Este navegador no puede recibir avisos.");
+  const permiso = await Notification.requestPermission();
+  if (permiso !== "granted") throw new Error("Sin permiso no hay aviso. Se puede dar después, desde la configuración del sitio.");
+  const reg = await navigator.serviceWorker.ready;
+  const sus = (await reg.pushManager.getSubscription()) ||
+    (await reg.pushManager.subscribe({ userVisibleOnly: true,
+      applicationServerKey: b64uABytes(window.SITIO.avisos.vapidPublica) }));
+  const j = sus.toJSON();
+  /* Se pisa si ya estaba: el mismo teléfono puede cambiar de club. */
+  await pedir("/rest/v1/aviso", { metodo: "POST", sinToken: true,
+    cabeceras: { Prefer: "resolution=merge-duplicates,return=minimal" },
+    cuerpo: { endpoint: j.endpoint, claves: j.keys, club } });
+  return true;
+}
+
+export async function desactivarAviso() {
+  if (!avisosDisponibles()) return;
+  const reg = await navigator.serviceWorker.ready;
+  const sus = await reg.pushManager.getSubscription();
+  if (!sus) return;
+  /* Se borra de la base primero. Si esto falla, el push service igual va a
+     contestar 410 al próximo envío y el servidor la va a limpiar. */
+  try { await pedir("/rest/v1/aviso?endpoint=eq." + encodeURIComponent(sus.endpoint),
+                    { metodo: "DELETE", sinToken: true }); } catch (e) {}
+  await sus.unsubscribe();
+}

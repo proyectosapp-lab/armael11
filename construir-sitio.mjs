@@ -255,6 +255,9 @@ for (const club of CLUBES) {
           bloquea:  !!CFG.cupo.bloquea,
           cobrando: !!CFG.cupo.cobrando,
         } : undefined,
+        /* La clave PUBLICA de los avisos. Es pública por definición: el
+           teléfono la necesita para suscribirse y no sirve para mandar. */
+        avisos: CFG.avisos?.vapidPublica ? { vapidPublica: CFG.avisos.vapidPublica } : undefined,
       }) + '</script>',
     HAY_BACKEND ? '<script src="datos/cuentas.js"></script>' : null,
     FECHA ? '<script src="datos/fantasy.js"></script>' : null,

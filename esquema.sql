@@ -808,3 +808,40 @@ drop table if exists uso_mes;
    app al arrancar contra `premium_hasta`, y el servidor lo corrige la
    proxima vez que alguien paga. Es suficiente para lo unico que decide el
    plan, que es cuantas simulaciones entran. */
+
+
+/* ==========================================================================
+   12. LOS AVISOS: "salio el once del DT"
+
+   La suscripcion de push de un telefono: la direccion que le dio Google o
+   Mozilla y las dos claves con las que se cifra cada aviso. Y el club.
+
+   NO TIENE USUARIO A PROPOSITO. El aviso no necesita cuenta -la mayoria de
+   los que lo van a querer no la tienen- y con lo que hay aca no se puede
+   saber quien es la persona. Es el dato menos identificable que guardamos.
+
+   Politicas: cualquiera puede anotarse y darse de baja (por endpoint, que
+   es una direccion larga y al azar que solo conoce ese telefono). NADIE
+   puede LEER la lista desde el navegador: la lee el workflow con la clave
+   de servicio, que se saltea las politicas, y es el unico que manda.
+   ========================================================================== */
+create table if not exists aviso (
+  endpoint  text primary key,
+  claves    jsonb not null,
+  club      text not null,
+  creado    timestamptz not null default now()
+);
+alter table aviso enable row level security;
+
+drop policy if exists "cualquiera se anota" on aviso;
+create policy "cualquiera se anota"
+  on aviso for insert with check (true);
+
+drop policy if exists "y cambia de club" on aviso;
+create policy "y cambia de club"
+  on aviso for update using (true) with check (true);
+
+drop policy if exists "y se da de baja" on aviso;
+create policy "y se da de baja"
+  on aviso for delete using (true);
+/* (sin politica de select: la lista no se lee desde el navegador) */

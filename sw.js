@@ -30,8 +30,10 @@
 
 /* Cambiá este número para tirar TODO lo guardado en todos los teléfonos.
    v2: la app se veía vieja después de publicar. Este número es la salida de
-   emergencia que dejamos escrita para exactamente eso. */
-const VERSION = "v2";
+   emergencia que dejamos escrita para exactamente eso.
+   v3: entran los avisos (push). Subirlo hace que los teléfonos tomen el
+   service worker nuevo enseguida, sin esperar a que cierren la app. */
+const VERSION = "v3";
 const CACHE = "armael11-" + VERSION;
 
 /* Nada se precarga a propósito. Precargar una lista de archivos obliga a
@@ -109,5 +111,39 @@ self.addEventListener("fetch", e => {
          pantalla en blanco creyendo que no hay nada, en vez de avisar. */
       throw e;
     }
+  })());
+});
+
+
+/* ── LOS AVISOS ───────────────────────────────────────────────────────────
+   "Salió el once del DT". Llega cifrado desde la ronda corta del workflow
+   (formaciones.mjs → avisos.mjs) y acá solo se muestra. El contenido es un
+   JSON con título, cuerpo y a dónde abrir. Si viene cualquier otra cosa,
+   se muestra un aviso genérico antes que nada: un push que se recibe y no
+   se muestra hace que Chrome le retire el permiso al sitio. */
+self.addEventListener("push", e => {
+  let d = {};
+  try { d = e.data ? e.data.json() : {}; } catch (x) { d = { cuerpo: e.data ? e.data.text() : "" }; }
+  const titulo = d.titulo || "Armá el 11";
+  e.waitUntil(self.registration.showNotification(titulo, {
+    body: d.cuerpo || "Salió el once del DT.",
+    icon: "/sitio-icono-192.png",
+    badge: "/sitio-icono-192.png",
+    tag: "once-dt",                 /* uno por vez: el nuevo pisa al anterior */
+    renotify: true,
+    data: { url: d.url || "/" },
+  }));
+});
+
+self.addEventListener("notificationclick", e => {
+  e.notification.close();
+  const url = (e.notification.data && e.notification.data.url) || "/";
+  e.waitUntil((async () => {
+    const abiertas = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    for (const c of abiertas) {
+      if (new URL(c.url).pathname === new URL(url, self.location.origin).pathname && "focus" in c)
+        return c.focus();
+    }
+    return self.clients.openWindow(url);
   })());
 });

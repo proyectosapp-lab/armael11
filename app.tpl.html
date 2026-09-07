@@ -648,6 +648,21 @@ th{font-family:var(--display);font-weight:500;letter-spacing:.8px}
 .vsdt-chip.vos{background:color-mix(in srgb, #DC3F4A 10%, transparent);color:var(--tinta)}
 .vsdt-chip.vos b{background:#DC3F4A;color:#fff}
 
+.pendiente.salio{border-color:var(--acento);background:color-mix(in srgb, var(--acento) 10%, transparent);
+  border-style:solid}
+/* ── el aviso ─────────────────────────────────────────────────────────── */
+.baviso{width:100%;margin-top:10px;display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap}
+.baviso.chico{margin-top:8px;padding:10px 12px;font-size:13.5px}
+.baviso small{font-size:11px;opacity:.7;font-weight:500}
+.baviso .campana{font-size:15px;line-height:1}
+/* ── tu once · el del DT · lo que pasó ────────────────────────────────── */
+.tres-t th,.tres-t td{text-align:center;padding:7px 6px}
+.tres-t th.l,.tres-t td.l{text-align:left}
+.tres-t thead th{font-family:var(--display);font-weight:700;font-size:11.5px;letter-spacing:.6px;text-transform:uppercase}
+.tres-t tbody th{font-weight:600;color:var(--tinta-2);font-size:13px;white-space:nowrap;
+  text-transform:none;letter-spacing:0;font-family:inherit}
+.tres-t td{font-family:var(--display);font-weight:700;font-size:15px;font-variant-numeric:tabular-nums}
+
 /* ── movimiento ───────────────────────────────────────────────────────── */
 @media (prefers-reduced-motion: no-preference){
   .vista{animation:entrar .2s ease-out}
@@ -2202,6 +2217,7 @@ function fusionar(pool, lista){
 }
 
 async function cargarTemporada(){
+  leerAviso();                    /* en paralelo: no frena nada */
   J.err=""; J.msg="Cargando la temporada…"; pintar();
   try{
     const fx=await api("/fixtures",{team:J.id.A,season:J.temporada,league:LEAGUE});
@@ -2427,6 +2443,129 @@ async function gastarSimulacion(){
    Y el aviso publicitario no se rompe: `tocaAviso` mide TIEMPO desde el
    ultimo, no simulaciones, asi que tres flashes seguidos no muestran tres
    avisos. Muestran menos, que es un problema de ingreso y no de politica. */
+/* El gol esperado de un partido entre dos onces, con las perillas y las
+   indicaciones que estan puestas. Antes vivia adentro de `simular11`; se
+   saco para poder correrlo con OTRO once -el del DT- y comparar. */
+function golEsperadoDe(xiA, xiB){
+  const t=tacticas(J.K);
+  /* Las líneas primero, las indicaciones después: una indicación no cambia
+     quién juega, cambia a qué se dedica. Y devuelve sus propias notas, que
+     es lo que permite discutir el número en vez de creerlo. */
+  const tB=tacticas(J.KB);
+  const ind=aplicarIndicaciones(lineas(xiA), lineas(xiB), J.IND, xiA, xiB);
+  const LA=ind.A, LB=ind.B;
+  /* Cada planteo pesa sobre su propio ataque y sobre el del otro. Con el
+     rival en neutro, `tacticas` devuelve todo en 1 y la cuenta queda
+     exactamente igual a la de antes: nada de lo viejo se movió. */
+  const xgA=xgDe(LA,LB, J.esLocalA, t.mine*tB.theirs, bonusAncho(xiA,t.ancho))
+            + tB.theirsFlat;
+  const xgB=xgDe(LB,LA,!J.esLocalA, tB.mine*t.theirs, bonusAncho(xiB,tB.ancho))
+            + t.theirsFlat + ind.regalo;
+  return { xgA, xgB, t, ind };
+}
+
+/* ── EL ONCE DEL DT, SIMULADO ────────────────────────────────────────────
+   Fausto: "armo el mio, lo simulo, armo las formaciones oficiales, simulo, y
+   despues veo el resultado final". Esa es la funcion para el hincha medio:
+   tres columnas -tu once, el del DT, lo que paso- y la pregunta de siempre,
+   "con los mios ganabamos?", contestada con un numero.
+
+   Faltaba el del medio: al revelar se mostraba el once del DT pero no se lo
+   simulaba. Aca se arma el once del DT con los mismos jugadores del plantel
+   -asi tienen su nivel-, en los puestos que dice la formacion oficial, y se
+   corre la MISMA cuenta que corrio el tuyo: mismo rival, mismas perillas,
+   mismas indicaciones. Lo unico que cambia es quien juega. No gasta del
+   cupo: es la segunda mitad de la simulacion que ya pagaste. */
+function simularOnceDelDT(once){
+  if(!once || once.length < 10) return null;
+  const xi = once.map(x => {
+    const p = J.pool.A.find(q => q.id === x.id) ||
+              J.pool.A.find(q => plano2(apellidoDe(q.nombre)) === plano2(apellidoDe(x.name)));
+    /* Si no esta en el plantel -un juvenil que debuta- entra con el nivel
+       medio de la liga, que es lo que el modelo sabe de el: nada. */
+    const base = p || { id: x.id, nombre: x.name, pos: x.pos || "M", ratings: [], mins: 0, apar: 0 };
+    return { ...base, slotCat: x.pos || base.pos || "M" };
+  });
+  const { xgA, xgB } = golEsperadoDe(xi, J.xiB);
+  const rnd = azarDe(semillaDe(firmaDeAjustes() + "|DT"));
+  const s = simular(xgA, xgB, 6000, rnd);
+  s.xi = xi;
+  return s;
+}
+
+/* ── EL AVISO: "salió el once del DT" ────────────────────────────────────
+   Un botón, dos estados. Se muestra solo si el navegador puede recibir
+   avisos y el sitio tiene la clave pública; si no, no aparece nada -un
+   botón que no puede hacer lo que dice es peor que ninguno-. */
+let AVISO_ON = false, avisoOcupado = false, avisoMsg = "";
+async function leerAviso(){
+  if(typeof avisoActivo !== "function") return;
+  try{ AVISO_ON = await avisoActivo(); }catch(e){ AVISO_ON = false; }
+  pintar();
+}
+function bloqueAviso(chico){
+  if(typeof avisosDisponibles !== "function" || !avisosDisponibles()) return "";
+  const txt = avisoOcupado ? "Un momento…"
+    : AVISO_ON ? "Te avisamos cuando salga el once del DT" : "Avisame cuando salga el once del DT";
+  return `<button class="${AVISO_ON ? "gh" : "acc"} baviso${chico ? " chico" : ""}" data-aviso="1"
+      ${avisoOcupado ? "disabled" : ""} aria-pressed="${AVISO_ON}">
+      <span class="campana" aria-hidden="true">${AVISO_ON ? "🔔" : "🔕"}</span>${txt}${
+      AVISO_ON ? `<small>tocá para apagarlo</small>` : ""}</button>
+    ${avisoMsg ? `<p class="aviso">${esc(avisoMsg)}</p>` : ""}`;
+}
+async function tocarAviso(){
+  if(avisoOcupado) return;
+  avisoOcupado = true; avisoMsg = ""; pintar();
+  try{
+    if(AVISO_ON){ await desactivarAviso(); AVISO_ON = false; avisoMsg = "Listo, sin avisos."; }
+    else { await activarAviso(CLUB.id); AVISO_ON = true;
+           avisoMsg = "Listo. Cuando salga el once de " + CLUB.nom + ", te llega al teléfono."; }
+  }catch(e){ avisoMsg = e.message; }
+  avisoOcupado = false; pintar();
+}
+
+/* ¿Ya salió el once del DT de este partido? Se mira en lo bajado, sin pedir
+   nada: la ronda corta del workflow lo mete en el cache cuando aparece,
+   unos sesenta minutos antes del pitazo. Vacío = todavía no. */
+function hayOnceDelDT(){
+  if(!J.fx) return false;
+  const clave = "/fixtures/lineups?fixture=" + J.fx.fixture.id;
+  const al = window.CACHE?.[clave];
+  return Array.isArray(al) && al.some(x => x.team?.id === J.id.A && (x.startXI||[]).length >= 10);
+}
+
+/* Lo que va al pie de la tarjeta del resultado, segun el momento:
+     jugado            → revelar el once del DT y lo que paso
+     por jugar, salio  → simular el once del DT (y guardar el link)
+     por jugar, no     → explicar que sale una hora antes (y guardar el link) */
+function pieDelResultado(){
+  if(!J.fx) return "";
+  if(J.jugado) return `<button class="acc" id="brev" style="width:100%;margin-top:12px">
+      Revelar el once del DT y lo que pasó</button>`;
+  const link = (clase) => `<button class="${clase}" id="bguardar" style="width:100%;margin-top:10px">
+      Copiar el link de mi pronóstico</button><p class="aviso" id="avisoLink"></p>`;
+  if(hayOnceDelDT()) return `<div class="pendiente salio" style="margin-top:12px">
+      <b>¡Salió el once del DT!</b> Todavía no se jugó, pero la formación ya está.
+      Simulala contra la tuya y decidí antes que el árbitro.</div>
+    <button class="acc" id="brev" style="width:100%;margin-top:10px">Simular el once del DT</button>
+    ${link("gh")}`;
+  return `<div class="pendiente" style="margin-top:12px">
+      <b>Este partido todavía no se jugó.</b><br>
+      El once del DT sale una hora antes: cuando aparezca, acá mismo vas a poder
+      simularlo contra el tuyo. Y cuando termine, ver el resultado de verdad.</div>
+    ${bloqueAviso(false)}
+    ${link(AVISO_ON ? "acc" : "gh")}`;
+}
+
+/* Cuanta probabilidad le daba cada simulacion a LO QUE PASO. Es la vara
+   justa para decir quien leyo mejor el partido: no "acerto el ganador", que
+   con tres resultados posibles es casi una moneda, sino cuanto se jugo por
+   el resultado que finalmente se dio. */
+function leyoMejor(sim, misG, susG){
+  if(!sim) return null;
+  return misG > susG ? sim.win : misG === susG ? sim.draw : sim.loss;
+}
+
 async function simular11(flash){
   if(J.animando) return;
 
@@ -2463,22 +2602,7 @@ async function simular11(flash){
 
   await gastarSimulacion();
   await momentoDeAviso();
-  const t=tacticas(J.K);
-
-  /* Las líneas primero, las indicaciones después: una indicación no cambia
-     quién juega, cambia a qué se dedica. Y devuelve sus propias notas, que
-     es lo que permite discutir el número en vez de creerlo. */
-  const tB=tacticas(J.KB);
-  const ind=aplicarIndicaciones(lineas(J.xiA), lineas(J.xiB), J.IND, J.xiA, J.xiB);
-  const LA=ind.A, LB=ind.B;
-
-  /* Cada planteo pesa sobre su propio ataque y sobre el del otro. Con el
-     rival en neutro, `tacticas` devuelve todo en 1 y la cuenta queda
-     exactamente igual a la de antes: nada de lo viejo se movió. */
-  const xgA=xgDe(LA,LB, J.esLocalA, t.mine*tB.theirs, bonusAncho(J.xiA,t.ancho))
-            + tB.theirsFlat;
-  const xgB=xgDe(LB,LA,!J.esLocalA, tB.mine*t.theirs, bonusAncho(J.xiB,tB.ancho))
-            + t.theirsFlat + ind.regalo;
+  const { xgA, xgB, t, ind } = golEsperadoDe(J.xiA, J.xiB);
 
   const d=J.desde, empezado=d.minuto>0||d.golesA||d.golesB||d.rojasA||d.rojasB;
 
@@ -2535,21 +2659,29 @@ async function revelar(){
      primera, así que el aviso sale. El resumen con el resultado, no: eso se
      ve gratis siempre. */
   await momentoDeAviso();
-  J.err=""; J.msg="Buscando el once del DT y lo que pasó…"; pintar();
+  J.err=""; J.msg=J.jugado ? "Buscando el once del DT y lo que pasó…" : "Buscando el once del DT…"; pintar();
   try{
+    /* ANTES DEL PARTIDO no hay eventos ni goles: solo la formación. Es el
+       momento con más gracia -"salió el once, ¿con los míos ganábamos?"- y
+       antes no se podía porque el sitio recién tenía la formación después
+       del partido. Ahora la ronda corta la trae una hora antes. */
     const [al,ev]=await Promise.all([
       api("/fixtures/lineups",{fixture:J.fx.fixture.id}),
-      api("/fixtures/events",{fixture:J.fx.fixture.id}),
+      J.jugado ? api("/fixtures/events",{fixture:J.fx.fixture.id}) : Promise.resolve([]),
     ]);
     const mio=al.find(x=>x.team.id===J.id.A);
+    if(!mio || !(mio.startXI||[]).length)
+      throw new Error(J.jugado ? "Todavía no tengo la formación de este partido."
+        : "El once del DT todavía no salió. Suele aparecer una hora antes del partido; volvé a entrar un rato antes.");
     const rojas=(ev||[]).filter(e=>e.type==="Card"&&/Red/i.test(e.detail))
       .map(e=>({min:e.time?.elapsed||45, esMio:e.team.id===J.id.A, quien:e.player?.name}));
     const penales=(ev||[]).filter(e=>e.type==="Goal"&&/Missed Penalty/i.test(e.detail))
       .map(e=>({min:e.time?.elapsed, esMio:e.team.id===J.id.A, quien:e.player?.name}));
     const g=J.fx.goals, misG=J.esLocalA?g.home:g.away, susG=J.esLocalA?g.away:g.home;
     J.real={ once:(mio?.startXI||[]).map(x=>x.player), formacion:mio?.formation,
-      misG, susG, rojas, penales,
+      misG, susG, rojas, penales, pendiente: !J.jugado,
       simConRojas: rojas.length? simExpulsion(J.sim.xgA,J.sim.xgB,rojas) : null };
+    J.real.simDT = simularOnceDelDT(J.real.once);
     J.msg=""; J.paso="revelado";
   }catch(e){ J.err=e.message; J.msg=""; }
   pintar();
@@ -2939,8 +3071,12 @@ function firmaDeAjustes(){
    adelante y se deja el resto. "M. A. Galarza" queda Galarza. */
 function apellidoDe(n){
   const t=String(n||"").trim().split(/\s+/).filter(Boolean);
-  while(t.length>1 && /^[A-ZÁÉÍÓÚÑ]\.?$/.test(t[0])) t.shift();
-  return t.length>2 ? t[t.length-1] : t.join(" ");
+  let iniciales=0;
+  while(t.length>1 && /^[A-ZÁÉÍÓÚÑ]\.?$/.test(t[0])){ t.shift(); iniciales++; }
+  /* "G. Baez Corradi" trae iniciales: lo que queda es el apellido entero.
+     "Santiago Fernandez" no trae: lo primero es el nombre, y se saca. */
+  if(iniciales) return t.length>2 ? t[t.length-1] : t.join(" ");
+  return t[t.length-1];
 }
 const plano2 = t => String(t||"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
 function compararOnces(mio, dt){
@@ -3412,7 +3548,8 @@ function vistaJuego(){
         <div class="fxp-acc">
           <button class="gh" data-fx="${i}">Armar mi partido <span aria-hidden="true">›</span></button>
           <button class="acc" data-ya="${i}">Simular tal cual</button>
-        </div></div>`;};
+        </div>
+        ${bloqueAviso(true)}</div>`;};
     const porVenir=J.fixtures.map((f,i)=>[f,i]).filter(([f])=>!JUGADO(f)).slice(0,4);
     const jugados =J.fixtures.map((f,i)=>[f,i]).filter(([f])=>JUGADO(f)).reverse().slice(0,12);
     /* Las otras ligas van DESPUÉS de lo que viene y ANTES de los doce
@@ -3556,17 +3693,7 @@ function vistaJuego(){
           no cambian. Cambiá algo y volvé a simular para ver cuánto mueve.</p>` : ""}
         ${s.ajustes && !s.ajustes.length ? `<button class="gh" id="bplanteo" style="width:100%;margin-top:10px">
             Cambiar el once o el planteo y volver a simular</button>` : ""}
-        ${J.paso!=="revelado" ? (J.jugado
-          ? `<button class="acc" id="brev" style="width:100%;margin-top:12px">
-              Revelar el once del DT y lo que pasó</button>`
-          : !J.fx ? "" : `<div class="pendiente" style="margin-top:12px">
-              <b>Este partido todavía no se jugó.</b><br>
-              Tu pronóstico queda guardado en el link de abajo. Cuando termine, abrilo de
-              nuevo: vas a ver tu once al lado del que puso el DT, y el resultado de verdad.
-             </div>
-             <button class="acc" id="bguardar" style="width:100%;margin-top:10px">
-               Copiar el link de mi pronóstico</button>
-             <p class="aviso" id="avisoLink"></p>`) : ""}
+        ${J.paso!=="revelado" ? pieDelResultado() : ""}
         ${msg}${cab}
       </div>`;
     }
@@ -3577,9 +3704,10 @@ function vistaJuego(){
                    || (!gano&&!empate&&J.sim.loss>J.sim.win);
       const cmp = compararOnces(J.xiA, R.once);
       const nombre = p => esc(apellidoDe(p.name || p.nombre || ""));
-      out+=`<h3 class="sec">La realidad</h3><div class="tarjeta">
-        ${tanteador(R.misG, R.susG)}
-        <div class="meta" style="justify-content:center">lo que pasó de verdad</div>
+      out+=`<h3 class="sec">${R.pendiente ? "El once del DT" : "La realidad"}</h3><div class="tarjeta">
+        ${R.pendiente ? `<div class="meta" style="justify-content:center">
+            <b>Salió la formación oficial.</b> El partido todavía no se juega.</div>`
+          : tanteador(R.misG, R.susG) + `<div class="meta" style="justify-content:center">lo que pasó de verdad</div>`}
 
         <!-- TU ONCE CONTRA EL DEL DT. Esto es la razón de ser de la
              pestaña: elegís, después ves qué eligió el técnico, y después
@@ -3608,12 +3736,61 @@ function vistaJuego(){
           ${R.simConRojas.win.toFixed(0)}% / ${R.simConRojas.draw.toFixed(0)}% / ${R.simConRojas.loss.toFixed(0)}%.`:""}</p>`:""}
         ${R.penales.length?`<p class="nota"><b>Penal errado:</b> ${R.penales.map(p=>
           esc(p.quien||"")+" ("+(p.esMio?"tuyo":"del rival")+", "+p.min+"')").join(" · ")}.</p>`:""}
-        <p class="nota"><b>Tu simulación decía</b> ${J.sim.win.toFixed(0)}% ganar, ${J.sim.draw.toFixed(0)}% empatar,
-          ${J.sim.loss.toFixed(0)}% perder${J.visto && J.sim.estaVez ? ", y el partido que viste terminó "+J.sim.estaVez.A+"-"+J.sim.estaVez.B : ""}.
-          ${acerto
-          ? "Dio en el resultado."
-          : "Le erró. Sin excusas: el modelo dijo otra cosa y el partido dijo esta."}
-          ${cmp.soloVos.length ? " Con tu once, no con el del DT: la simulación es de LO QUE VOS ELEGISTE." : ""}</p>
+        ${(() => {
+          const D = R.simDT, S = J.sim;
+          if(R.pendiente){
+            /* Antes del partido: dos columnas y la pregunta abierta. La
+               tercera llega cuando termine. */
+            const pct = k => s => s[k].toFixed(0) + "%";
+            const fila = (n, f) => `<tr><th class="l">${n}</th><td>${f(S)}</td>${D ? `<td>${f(D)}</td>` : ""}</tr>`;
+            const dif = D ? (S.win - D.win) : 0;
+            const frase = !D ? ""
+              : Math.abs(dif) < 3 ? "Con tu once y con el del DT el partido pinta casi igual."
+              : dif > 0 ? `<b>Con tu once el modelo te da ${dif.toFixed(0)} puntos más de ganar</b> que con el del DT.`
+              : `<b>Con el once del DT el modelo da ${(-dif).toFixed(0)} puntos más de ganar</b> que con el tuyo.`;
+            return `<div class="tres">
+              <div class="flab" style="margin-top:14px">Tu once · el del DT</div>
+              <div class="wrap"><table class="tres-t">
+                <thead><tr><th class="l"></th><th>Tu once</th>${D ? "<th>El del DT</th>" : ""}</tr></thead>
+                <tbody>
+                  ${fila("Ganás", pct("win"))}${fila("Empatás", pct("draw"))}${fila("Perdés", pct("loss"))}
+                  ${fila("Más probable", s => String(s.marcador).replace("-", " - "))}
+                  ${fila("xG", s => s.xgA.toFixed(2) + " a " + s.xgB.toFixed(2))}
+                </tbody></table></div>
+              <p class="nota" style="margin-top:8px">${frase} Cuando termine el partido, la tercera columna
+                dice quién leyó mejor: guardá el link y volvé.</p>
+              <button class="acc" id="bguardar" style="width:100%;margin-top:10px">Copiar el link de mi pronóstico</button>
+              <p class="aviso" id="avisoLink"></p>
+            </div>`;
+          }
+          const paso = gano ? "ganó" : empate ? "empató" : "perdió";
+          const fila = (n, f) => `<tr><th class="l">${n}</th><td>${f(S)}</td>${D ? `<td>${f(D)}</td>` : ""}</tr>`;
+          const pct = k => s => s[k].toFixed(0) + "%";
+          const marca = k => (gano && k==="win") || (empate && k==="draw") || (!gano && !empate && k==="loss") ? " ✓" : "";
+          const tuya = leyoMejor(S, R.misG, R.susG), suya = leyoMejor(D, R.misG, R.susG);
+          const veredicto = !D ? ""
+            : Math.abs(tuya - suya) < 3 ? "Los dos onces le daban casi lo mismo a lo que pasó: empate técnico."
+            : tuya > suya ? `<b>Tu once leyó mejor el partido:</b> le daba ${tuya.toFixed(0)}% a lo que pasó; el del DT, ${suya.toFixed(0)}%.`
+            : `<b>El DT leyó mejor el partido:</b> su once le daba ${suya.toFixed(0)}% a lo que pasó; el tuyo, ${tuya.toFixed(0)}%.`;
+          return `<div class="tres">
+            <div class="flab" style="margin-top:14px">Tu once · el del DT · lo que pasó</div>
+            <div class="wrap"><table class="tres-t">
+              <thead><tr><th class="l"></th><th>Tu once</th>${D ? "<th>El del DT</th>" : ""}</tr></thead>
+              <tbody>
+                ${fila("Ganás" + marca("win"), pct("win"))}
+                ${fila("Empatás" + marca("draw"), pct("draw"))}
+                ${fila("Perdés" + marca("loss"), pct("loss"))}
+                ${fila("Más probable", s => String(s.marcador).replace("-", " - "))}
+                ${fila("xG", s => s.xgA.toFixed(2) + " a " + s.xgB.toFixed(2))}
+              </tbody></table></div>
+            <p class="nota" style="margin-top:8px">${esc(J.nom.A)} <b>${paso} ${R.misG}-${R.susG}</b>.
+              ${veredicto}
+              ${!D ? (acerto ? " Tu simulación dio en el resultado." : " Tu simulación le erró.") : ""}
+              ${D ? "" : ""}</p>
+            ${D ? `<p class="aviso" style="margin:6px 0 0">El once del DT se simuló con el mismo rival, las mismas perillas y
+              las mismas indicaciones que el tuyo: lo único que cambia es quién juega. No gasta una simulación.</p>` : ""}
+          </div>`;
+        })()}
         ${cab}
       </div>`;
     }
@@ -3728,6 +3905,7 @@ function enganchar(){
      el boton de ver el partido habria simulado en modo flash. */
   const bs=$("bsim"); if(bs) bs.onclick=()=>simular11(!J.ver);
   document.querySelectorAll("[data-ver]").forEach(b=>b.onclick=()=>{ J.ver = b.dataset.ver==="1"; pintar(); });
+  document.querySelectorAll("[data-aviso]").forEach(b=>b.onclick=e=>{ e.stopPropagation(); tocarAviso(); });
   const bpl=$("bplanteo"); if(bpl) bpl.onclick=()=>{
     document.querySelector(".planteo, #campo")?.scrollIntoView({behavior:"smooth",block:"start"}); };
   /* `bver` y no `bv`: `bv` ya era el de volver a mi club, veinte lineas mas

@@ -304,6 +304,43 @@ const srv = http.createServer((q, s) => {
          await pg.evaluate(() => { try { return localStorage.getItem('tste.sesion'); }
                                    catch (e) { return 'no pude leer'; } }) === null);
 
+    /* ── EL AVISO "SALIÓ EL ONCE DEL DT" ────────────────────────────────
+       Un botón en la tarjeta del partido que viene. Acá no hay servicio de
+       push de verdad, así que se prueba lo que se puede sin él: que el
+       botón está, que sin permiso explica en vez de romperse, y que con
+       una suscripción de mentira manda a la base exactamente lo que la
+       ronda corta va a leer: endpoint, claves y club. */
+    {
+      await pg.click('#barra button[data-tab="juego"]');
+      await pg.evaluate(() => { J.paso = "fixture"; pintar(); });
+      await pg.waitForTimeout(250);
+      caso('el partido que viene ofrece avisar cuando salga el once del DT',
+           await pg.locator('.fxp [data-aviso]').count() === 1 &&
+           /avisame/i.test(await pg.locator('.fxp [data-aviso]').innerText()));
+      /* Sin permiso: el navegador de prueba no lo da. Tiene que explicarlo. */
+      await pg.locator('.fxp [data-aviso]').click();
+      await pg.waitForTimeout(400);
+      caso('sin permiso, lo dice en vez de fallar',
+           /permiso/i.test(await pg.locator('.fxp').first().innerText()));
+      /* Con una suscripción de mentira, lo que llega a la base es lo justo. */
+      const antes = llamados.length;
+      await pg.evaluate(() => {
+        Notification.requestPermission = async () => "granted";
+        const falsa = { endpoint: "https://push.example/abc", toJSON(){ return { endpoint: this.endpoint,
+          keys: { p256dh: "p", auth: "a" } }; }, unsubscribe: async () => true };
+        navigator.serviceWorker.ready.then = undefined;
+        Object.defineProperty(navigator.serviceWorker, "ready", { value: Promise.resolve({
+          pushManager: { getSubscription: async () => null, subscribe: async () => falsa } }) });
+      });
+      await pg.locator('.fxp [data-aviso]').click();
+      await pg.waitForTimeout(500);
+      const alta = llamados.slice(antes).find(x => /POST \/rest\/v1\/aviso/.test(x));
+      caso('al aceptar, se anota en la tabla aviso con el club',
+           !!alta, llamados.slice(antes).join(' | '));
+      caso('y el botón pasa a "te avisamos"',
+           /te avisamos/i.test(await pg.locator('.fxp [data-aviso]').innerText()));
+    }
+
     caso('sin errores de JavaScript en todo el recorrido', errs.length === 0, errs.join(' | '));
 
   } catch (e) {

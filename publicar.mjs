@@ -15,7 +15,7 @@
      node publicar.mjs --sin-red    solo las pruebas
    ══════════════════════════════════════════════════════════════════════════ */
 import { spawnSync } from "node:child_process";
-import { existsSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync, appendFileSync, rmSync } from "node:fs";
 import { enHoraArgentina } from "./fantasy.mjs";
 import { CADA_HORAS, hayQueCorrer, leerSellos, sellar, hayAlguno } from "./frescura.mjs";
 
@@ -44,6 +44,29 @@ const SELLOS_EN = new URL("./.sellos.json", import.meta.url);
 const sellos = leerSellos(SELLOS_EN);
 const EVENTO = process.env.GITHUB_EVENT_NAME || "a mano";
 const FORZAR = EVENTO === "workflow_dispatch" || process.argv.includes("--todo");
+
+/* ─── DOS RONDAS: LA CORTA Y LA COMPLETA ─────────────────────────────────
+   El reloj del workflow pasó de cada tres horas a cada quince minutos, pero
+   NO para bajar todo cada quince minutos: para mirar si salió el once del
+   DT del partido que está por empezar. Esa es la ronda CORTA: veinte
+   segundos, un pedido por partido en ventana, y publica solo si encontró
+   una formación nueva.
+
+   La COMPLETA -feeds, planteles, ligas, tabla, fantasy- sigue siendo cada
+   tres horas. Se decide por sello y no por la hora del reloj: GitHub atrasa
+   las corridas programadas diez, veinte, treinta minutos, y "la de las 9 en
+   punto" a veces corre a las 9:25. Con el sello, la primera ronda que pasa
+   después de dos horas y cincuenta desde la última completa, es completa.
+
+   Subir un zip o apretar Run workflow siempre es completa, como antes.  */
+const HACE_COMPLETA = 2.83 * 36e5;
+const ultimaCompleta = sellos.completa || 0;
+const MODO = (EVENTO === "schedule" && (Date.now() - ultimaCompleta) < HACE_COMPLETA)
+  ? "corta" : "completa";
+const salidaWorkflow = (nombre, valor) => {
+  if (process.env.GITHUB_OUTPUT)
+    appendFileSync(process.env.GITHUB_OUTPUT, nombre + "=" + valor + "\n");
+};
 const dat = f => new URL("./sitio/datos/" + f, import.meta.url);
 const datosDe = pre => { try {
   return readdirSync(new URL("./sitio/datos/", import.meta.url))
@@ -109,6 +132,7 @@ const IMPRESCINDIBLES = [
   "probar-backend.mjs", "probar-cuentas.mjs", "probar-fantasy.mjs",
   "probar-pagos.mjs", "probar-fases.mjs", "probar-publicidad.mjs",
   "probar-frescura.mjs", "frescura.mjs",
+  "formaciones.mjs", "probar-formaciones.mjs", "avisos.mjs", "probar-avisos.mjs",
 ];
 const faltan = IMPRESCINDIBLES.filter(f => !existsSync(aca("./" + f)));
 if (faltan.length) {
@@ -128,10 +152,33 @@ if (faltan.length) {
 for (const t of ["probar.mjs", "probar-clubes.mjs", "probar-once.mjs", "probar-stats.mjs",
                  "probar-backend.mjs", "probar-cuentas.mjs", "probar-fantasy.mjs",
                  "probar-pagos.mjs", "probar-fases.mjs", "probar-publicidad.mjs",
-                 "probar-frescura.mjs"])
+                 "probar-frescura.mjs", "probar-formaciones.mjs", "probar-avisos.mjs"])
   paso("Pruebas · " + t, t, { obligatorio: true });
 
 if (soloPruebas) { console.log("\n  Solo pruebas. Listo.\n"); process.exit(0); }
+
+if (MODO === "corta") {
+  console.log("\n" + linea);
+  console.log("  RONDA CORTA · última completa hace " +
+              Math.round((Date.now() - ultimaCompleta) / 6e4) + " min · solo miro formaciones");
+  console.log(linea);
+  const r = spawnSync(process.execPath, [new URL("./formaciones.mjs", import.meta.url).pathname],
+                      { stdio: "inherit", env: process.env });
+  const nuevas = r.status === 0 && existsSync(new URL("./.formaciones-nuevas", import.meta.url));
+  /* formaciones.mjs deja este archivo cuando encontró algo. Es más simple
+     que leer su salida, y funciona igual en una máquina común. */
+  if (nuevas) {
+    rmSync(new URL("./.formaciones-nuevas", import.meta.url), { force: true });
+    paso("Armar el sitio", "construir-sitio.mjs", { obligatorio: true });
+    salidaWorkflow("publicar", "si");
+    console.log("\n  Salió una formación: se publica.\n");
+  } else {
+    salidaWorkflow("publicar", "no");
+    console.log("\n  Nada nuevo: no se publica.\n");
+  }
+  process.exit(0);
+}
+salidaWorkflow("publicar", "si");
 
 /* ─── 2. las fuentes ─────────────────────────────────────────────────────── */
 paso("Resolver los canales de YouTube", "resolver-youtube.mjs");
@@ -173,6 +220,9 @@ if (!hayKey) {
 
 /* ─── 4. el sitio ────────────────────────────────────────────────────────── */
 paso("Armar el sitio", "construir-sitio.mjs", { obligatorio: true });
+/* La completa deja su sello: es lo que hace que las próximas rondas sean
+   cortas hasta dentro de tres horas. */
+sellar(SELLOS_EN, sellos, "completa");
 
 /* ─── 5. decir en voz alta con qué se publicó ────────────────────────────
    La tabla vieja se publicó una semana sin que nadie se enterara, porque

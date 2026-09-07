@@ -1474,7 +1474,77 @@ srv.listen(8099, async () => {
     caso("con cuántos coinciden, y suman once", v.sello === v.coinciden + " de 11" && v.suman === 11,
          JSON.stringify(v));
     caso("y las dos formaciones, la tuya y la del DT", /Vos .* El DT/.test(v.formas || ""), v.formas);
-    caso("y el veredicto dice qué decía tu simulación y qué pasó", v.veredicto);
+    /* ── Y EL ONCE DEL DT, SIMULADO ──────────────────────────────────────
+       "Armo el mío, lo simulo, armo las formaciones oficiales, simulo, y
+       después veo el resultado final". Faltaba el del medio. Ahora al
+       revelar se simula el once del DT con la misma cuenta -mismo rival,
+       mismas perillas- y se muestran las tres columnas. Sin gastar. */
+    const usadasAntesDT = await pg.evaluate(() => CUPO.usadas);
+    const dt = await pg.evaluate(() => {
+      const D = J.real.simDT;
+      return { hay: !!D, suma: D ? Math.round(D.win + D.draw + D.loss) : 0,
+               once: D ? D.xi.length : 0,
+               tabla: !!document.querySelector('.tres-t'),
+               columnas: [...document.querySelectorAll('.tres-t thead th')].map(t => t.textContent.trim()).filter(Boolean),
+               veredicto: /leyó mejor|empate técnico/i.test(document.body.innerText),
+               distinto: D && (D.win !== J.sim.win || D.marcador !== J.sim.marcador) };
+    });
+    caso("al revelar se simula también el once del DT", dt.hay && dt.once === 11, JSON.stringify(dt));
+    caso("y sus porcentajes suman cien", dt.suma === 100, "" + dt.suma);
+    caso("la tabla tiene las dos columnas: tu once y el del DT",
+         dt.tabla && dt.columnas.length === 2 && /DT/.test(dt.columnas[1]), dt.columnas.join(" | "));
+    caso("y dice quién leyó mejor el partido", dt.veredicto);
+    caso("simular el once del DT no gasta del cupo",
+         await pg.evaluate(() => CUPO.usadas) === usadasAntesDT);
+  }
+
+  /* ── ANTES DEL PARTIDO, QUE ES CUANDO TIENE GRACIA ────────────────────
+     Fausto: "la simulación del DT debería poder hacerse antes del partido;
+     después ya no tiene gracia". La ronda corta del workflow mete la
+     formación en el cache una hora antes; acá se simula esa llegada
+     inyectándola en window.CACHE, y se mira que la app la vea y la ofrezca
+     sin pedirle nada a nadie. */
+  {
+    const prox = await pg.evaluate(() => J.fixtures.findIndex(f => f.fixture.status.short === "NS"));
+    await pg.evaluate(() => { J.paso = "fixture"; J.sim = null; J.real = null; pintar(); });
+    await pg.waitForTimeout(150);
+    await pg.locator('.fxp [data-fx="' + prox + '"]').click();
+    await pg.waitForTimeout(900);
+    await pg.click('[data-ver="0"]');
+    await pg.locator('#bsim').click();
+    await pg.waitForFunction(() => J.paso === "resultado" && !J.animando, null, { timeout: 8000 });
+    caso("antes de que salga el once, la tarjeta dice que sale una hora antes",
+         /sale una hora antes/i.test(await pg.locator('.tarjeta', { hasText: /todavía no se jugó/i }).first().innerText()));
+    caso("y no ofrece simularlo", await pg.locator('#brev').count() === 0);
+
+    /* Llega la formación: es lo que hace la ronda corta, con la misma clave. */
+    await pg.evaluate(() => {
+      const fid = J.fx.fixture.id;
+      const once = J.pool.A.slice(0, 11).map(p => ({ player: { id: p.id, name: p.nombre, pos: p.pos } }));
+      window.CACHE["/fixtures/lineups?fixture=" + fid] = [{ team: { id: J.id.A }, formation: "4-4-2", startXI: once }];
+      pintar();
+    });
+    caso("cuando llega, la tarjeta avisa que salió el once del DT",
+         /salió el once del DT/i.test(await pg.locator('.pendiente.salio').innerText()));
+    caso("y ofrece simularlo", /simular el once del DT/i.test(await pg.locator('#brev').innerText()));
+    const usadas = await pg.evaluate(() => CUPO.usadas);
+    await pg.locator('#brev').click();
+    await pg.waitForFunction(() => J.paso === "revelado", null, { timeout: 8000 });
+    const pre = await pg.evaluate(() => ({
+      pendiente: J.real.pendiente, dt: !!J.real.simDT,
+      columnas: [...document.querySelectorAll('.tres-t thead th')].map(t => t.textContent.trim()).filter(Boolean).length,
+      sinResultado: !document.querySelector('.tarjeta .marcador') ||
+        ![...document.querySelectorAll('h3.sec')].some(h => /realidad/i.test(h.textContent)),
+      titulo: [...document.querySelectorAll('h3.sec')].map(h => h.textContent.trim()).join(" | "),
+      link: !!document.getElementById('bguardar'),
+    }));
+    caso("se simula el once del DT antes del partido", pre.pendiente && pre.dt);
+    caso("con dos columnas, sin inventar un resultado que no existe",
+         pre.columnas === 2 && pre.sinResultado, JSON.stringify(pre));
+    caso("la sección se llama por lo que es: el once del DT, no la realidad",
+         /El once del DT/.test(pre.titulo) && !/realidad/i.test(pre.titulo), pre.titulo);
+    caso("y deja guardar el link para volver cuando termine", pre.link);
+    caso("tampoco gasta del cupo", await pg.evaluate(() => CUPO.usadas) === usadas);
   }
 
   caso("el navegador NUNCA llamó a api-sports.io", apiTocada.length === 0);
