@@ -508,10 +508,11 @@ export async function activarAviso(club) {
     (await reg.pushManager.subscribe({ userVisibleOnly: true,
       applicationServerKey: b64uABytes(window.SITIO.avisos.vapidPublica) }));
   const j = sus.toJSON();
-  /* Se pisa si ya estaba: el mismo teléfono puede cambiar de club. */
-  await pedir("/rest/v1/aviso", { metodo: "POST", sinToken: true,
-    cabeceras: { Prefer: "resolution=merge-duplicates,return=minimal" },
-    cuerpo: { endpoint: j.endpoint, claves: j.keys, club } });
+  /* Por función y no por insert directo: la tabla no tiene políticas, y un
+     upsert desde el navegador chocaba con la de select que no existe. La
+     función pisa si ya estaba: el mismo teléfono puede cambiar de club. */
+  await pedir("/rest/v1/rpc/anotar_aviso", { metodo: "POST", sinToken: true,
+    cuerpo: { p_endpoint: j.endpoint, p_claves: j.keys, p_club: club } });
   return true;
 }
 
@@ -522,7 +523,7 @@ export async function desactivarAviso() {
   if (!sus) return;
   /* Se borra de la base primero. Si esto falla, el push service igual va a
      contestar 410 al próximo envío y el servidor la va a limpiar. */
-  try { await pedir("/rest/v1/aviso?endpoint=eq." + encodeURIComponent(sus.endpoint),
-                    { metodo: "DELETE", sinToken: true }); } catch (e) {}
+  try { await pedir("/rest/v1/rpc/borrar_aviso", { metodo: "POST", sinToken: true,
+                    cuerpo: { p_endpoint: sus.endpoint } }); } catch (e) {}
   await sus.unsubscribe();
 }

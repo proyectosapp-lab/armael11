@@ -820,10 +820,22 @@ drop table if exists uso_mes;
    los que lo van a querer no la tienen- y con lo que hay aca no se puede
    saber quien es la persona. Es el dato menos identificable que guardamos.
 
-   Politicas: cualquiera puede anotarse y darse de baja (por endpoint, que
-   es una direccion larga y al azar que solo conoce ese telefono). NADIE
-   puede LEER la lista desde el navegador: la lee el workflow con la clave
-   de servicio, que se saltea las politicas, y es el unico que manda.
+   POR QUE DOS FUNCIONES Y NINGUNA POLITICA DE ESCRITURA. La primera version
+   tenia politicas de insert, update y delete abiertas y ninguna de select,
+   para que nadie pudiera leer la lista desde el navegador. Y fallo en el
+   primer telefono de verdad: "new row violates row-level security policy".
+   La razon es una regla de Postgres que no es obvia: un UPDATE o un DELETE
+   con WHERE, y el ON CONFLICT DO UPDATE de un upsert, necesitan LEER la fila
+   que ya esta -y eso pasa por la politica de SELECT-. Sin select no se puede
+   ni pisar la propia suscripcion ni darse de baja, aunque las politicas de
+   escritura digan que si.
+
+   La salida es la misma que en `entrar_a_liga`: una funcion con permisos
+   propios que hace exactamente una cosa y no deja mirar nada. `anotar_aviso`
+   escribe o pisa; `borrar_aviso` borra por endpoint, que es una direccion
+   larga y al azar que solo conoce ese telefono. La tabla no tiene NINGUNA
+   politica: desde el navegador no se lee ni se escribe directo. La lee el
+   workflow con la clave de servicio, que se saltea todo esto.
    ========================================================================== */
 create table if not exists aviso (
   endpoint  text primary key,
@@ -832,16 +844,37 @@ create table if not exists aviso (
   creado    timestamptz not null default now()
 );
 alter table aviso enable row level security;
-
+/* Las politicas de la primera version, por si quedaron en alguna base. */
 drop policy if exists "cualquiera se anota" on aviso;
-create policy "cualquiera se anota"
-  on aviso for insert with check (true);
-
 drop policy if exists "y cambia de club" on aviso;
-create policy "y cambia de club"
-  on aviso for update using (true) with check (true);
-
 drop policy if exists "y se da de baja" on aviso;
-create policy "y se da de baja"
-  on aviso for delete using (true);
-/* (sin politica de select: la lista no se lee desde el navegador) */
+
+create or replace function anotar_aviso(p_endpoint text, p_claves jsonb, p_club text)
+  returns void
+  language plpgsql security definer set search_path = public as $$
+begin
+  /* Lo minimo para que no entre basura: una direccion con forma de
+     direccion, las dos claves, y un club con forma de id de club. */
+  if p_endpoint is null or p_endpoint !~ '^https://' or length(p_endpoint) > 2000 then
+    raise exception 'endpoint invalido';
+  end if;
+  if p_claves is null or (p_claves->>'p256dh') is null or (p_claves->>'auth') is null then
+    raise exception 'claves invalidas';
+  end if;
+  if p_club is null or p_club !~ '^[a-z0-9-]{2,40}$' then
+    raise exception 'club invalido';
+  end if;
+  insert into aviso (endpoint, claves, club) values (p_endpoint, p_claves, p_club)
+  on conflict (endpoint) do update set claves = excluded.claves, club = excluded.club;
+end; $$;
+revoke all on function anotar_aviso(text, jsonb, text) from public;
+grant execute on function anotar_aviso(text, jsonb, text) to anon, authenticated;
+
+create or replace function borrar_aviso(p_endpoint text)
+  returns void
+  language plpgsql security definer set search_path = public as $$
+begin
+  delete from aviso where endpoint = p_endpoint;
+end; $$;
+revoke all on function borrar_aviso(text) from public;
+grant execute on function borrar_aviso(text) to anon, authenticated;

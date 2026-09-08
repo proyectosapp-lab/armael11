@@ -334,8 +334,8 @@ const srv = http.createServer((q, s) => {
       });
       await pg.locator('.fxp [data-aviso]').click();
       await pg.waitForTimeout(500);
-      const alta = llamados.slice(antes).find(x => /POST \/rest\/v1\/aviso/.test(x));
-      caso('al aceptar, se anota en la tabla aviso con el club',
+      const alta = llamados.slice(antes).find(x => /POST \/rest\/v1\/rpc\/anotar_aviso/.test(x));
+      caso('al aceptar, se anota por la función anotar_aviso (no por insert directo)',
            !!alta, llamados.slice(antes).join(' | '));
       caso('y el botón pasa a "te avisamos"',
            /te avisamos/i.test(await pg.locator('.fxp [data-aviso]').innerText()));

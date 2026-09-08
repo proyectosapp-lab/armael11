@@ -110,11 +110,16 @@ const politicasDe = tabla => [...SQL.matchAll(/create policy[\s\S]*?;/gi)]
      Las doce comparten la misma defensa: o no reciben nada, o lo que
      reciben ya lo tenía el que llama, o directamente no se les puede
      llamar desde afuera. */
-  caso("las funciones con llave maestra son las doce conocidas",
-       conLlave.length === 12 &&
+  /*   anotar_aviso    escribe o pisa la suscripcion de push de un telefono.
+                       La tabla `aviso` no tiene politicas: sin select, un
+                       upsert directo choca con Postgres (el ON CONFLICT
+                       necesita leer la fila que esta). Solo valida y escribe.
+       borrar_aviso    borra por endpoint, que solo conoce ese telefono.  */
+  caso("las funciones con llave maestra son las catorce conocidas",
+       conLlave.length === 14 &&
        ["es_miembro", "entrar_a_liga", "crear_liga", "tabla_liga", "borrar_mi_cuenta",
         "acreditar_premium", "registrar_pago", "es_de_zona", "tabla_zona",
-        "mi_cupo", "sumar_simulacion", "poner_plan"]
+        "mi_cupo", "sumar_simulacion", "poner_plan", "anotar_aviso", "borrar_aviso"]
          .every(f => conLlave.includes(f)),
        conLlave.join(", "));
 

@@ -1,3 +1,38 @@
+Arma el 11 - version 2026-09-08 y33 (la campanita: "new row violates row-level security policy for table aviso")
+
+  · El error del telefono al tocar "Avisame cuando salga el once del DT".
+    La tabla `aviso` tenia politicas de INSERT, UPDATE y DELETE para el
+    anonimo, pero ninguna de SELECT, a proposito: nadie tiene por que leer
+    las suscripciones de los demas. Lo que no sabia es que Postgres, para
+    hacer un UPDATE o un DELETE con WHERE -y para el ON CONFLICT DO UPDATE
+    de un upsert- primero tiene que LEER la fila que ya esta, y esa lectura
+    pasa por la politica de SELECT. Sin ella, la fila es invisible, el
+    upsert cree que es nueva, va por el INSERT... y ahi choca. Por eso el
+    mensaje habla de "new row".
+
+  · La salida NO es abrir el SELECT: seria regalar la lista de telefonos
+    suscriptos a cualquiera con la clave anon. Se hace lo mismo que con
+    crear_liga y sumar_simulacion: dos funciones `security definer`,
+    `anotar_aviso(endpoint, claves, club)` y `borrar_aviso(endpoint)`, que
+    corren con permisos del dueno y validan lo que les llega (endpoint
+    https de hasta 2000 caracteres, claves con p256dh y auth, club con el
+    formato de los ids). La tabla queda con RLS prendido y SIN politicas: el
+    anonimo no puede tocarla directo de ninguna forma, solo a traves de
+    esas dos puertas. La clave de servicio, que usa el workflow para mandar
+    los avisos, salta RLS como siempre.
+
+  · cuentas.js: activar/desactivar llaman a /rest/v1/rpc/anotar_aviso y
+    /rest/v1/rpc/borrar_aviso en vez de escribir la tabla. Las pruebas
+    esperan eso (38/38) y el backend cuenta 14 funciones security definer
+    (50/50).
+
+  · HAY QUE VOLVER A PEGAR esquema.sql en el proyecto wbqxmoerzofzierurxfb
+    (el de siempre, no el otro). Es idempotente: borra las tres politicas
+    viejas si estan y crea las funciones. Nada mas cambia en la base.
+
+  · Todo lo pendiente de y32 sigue pendiente: secreto VAPID_PRIVATE_KEY,
+    el yml del workflow con el lapiz de GitHub, y funcion-crear-pago.ts.
+
 Arma el 11 - version 2026-09-07 y32 (salio el once del DT: antes del partido, y al telefono)
 
   · Fausto: "la simulacion del DT deberia poder hacerse antes del partido;
