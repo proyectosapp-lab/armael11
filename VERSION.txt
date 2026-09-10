@@ -1,3 +1,42 @@
+Arma el 11 - version 2026-09-10 y34 (el club se elige una vez; el boton Simular siempre a la vista)
+
+  · EL CLUB SE ELIGE UNA VEZ. La app instalada arranca en la portada, y la
+    portada preguntaba el club en CADA apertura: un peaje antes de llegar
+    a la pantalla de armar. Ahora la pagina de un club se anota en el
+    telefono (armaEl11.club) y la portada, si lo encuentra, manda derecho a
+    esa pagina antes de dibujarse. No hace falta reempaquetar la app de
+    Play: el start_url sigue siendo "/", la redireccion la hace la pagina.
+    Solo manda a clubes que existen en el sitio (un club anotado sin pagina
+    no puede mandar a un 404). Para cambiar, el pie de la app tiene
+    "Cambiar de club": abre la portada con ?elegir, que ahi no redirige y
+    dice "Ahora estas en X. Toca otro para cambiar, o volver a X".
+
+  · La campanita sigue al club. Un telefono es una suscripcion y una
+    suscripcion es un club: el que cambia de club ve la campanita apagada
+    en la pagina nueva aunque la suscripcion exista, y tocarla la pasa al
+    club nuevo (anotar_aviso pisa la fila). Antes se veia prendida y los
+    avisos seguian llegando del club viejo.
+
+  · EL BOTON SIMULAR SIEMPRE A LA VISTA. Los testers dijeron "engorroso" y
+    el motivo era el scroll: cinco pantallazos de perillas antes de poder
+    simular. La caja del boton es sticky al pie: se ve desde el primer
+    segundo, pegada arriba de la barra, con el renglon "con que estas
+    simulando" debajo; recien cuando el scroll llega a su lugar natural
+    -el final de los ajustes- se queda ahi y deja ver el resultado. La
+    eleccion "ver el partido / solo el resultado" quedo en su lugar de
+    siempre, arriba de la caja, que una preferencia no tiene por que
+    viajar pegada al pie. Mientras se ve el partido la caja se suelta:
+    taparia el tanteador del campo y no hay nada que apretar.
+
+  · Pruebas nuevas en probar-sitio (226): la caja es sticky y esta en
+    pantalla con la pagina arriba de todo; el club queda anotado; la
+    portada redirige; ?elegir no; un club sin pagina no redirige; el pie
+    tiene "Cambiar de club".
+
+  · No cambia nada en Supabase ni en el workflow. Sigue pendiente todo lo
+    de y32/y33: pegar esquema.sql, el secreto VAPID_PRIVATE_KEY, el yml y
+    funcion-crear-pago.ts.
+
 Arma el 11 - version 2026-09-08 y33 (la campanita: "new row violates row-level security policy for table aviso")
 
   · El error del telefono al tocar "Avisame cuando salga el once del DT".

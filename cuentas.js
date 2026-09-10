@@ -491,11 +491,19 @@ export const avisosDisponibles = () =>
   typeof window !== "undefined" && "serviceWorker" in navigator && "PushManager" in window &&
   "Notification" in window && !!(window.SITIO?.avisos?.vapidPublica) && !!cfg().url;
 
-export async function avisoActivo() {
+/* Con `club`, dice si el aviso está prendido PARA ESE CLUB. Un teléfono es
+   una suscripción y una suscripción es un club: si alguien cambia de club,
+   en la página nueva la campanita tiene que verse apagada aunque la
+   suscripción exista, y tocarla la pasa al club nuevo (anotar_aviso pisa
+   la fila). Sin `club`, como antes: hay suscripción o no. */
+export async function avisoActivo(club) {
   if (!avisosDisponibles()) return false;
   try {
     const reg = await navigator.serviceWorker.ready;
-    return !!(await reg.pushManager.getSubscription());
+    if (!(await reg.pushManager.getSubscription())) return false;
+    if (!club) return true;
+    let de = null; try { de = localStorage.getItem("armaEl11.avisoClub"); } catch (e) {}
+    return !de || de === club;
   } catch (e) { return false; }
 }
 
@@ -513,6 +521,7 @@ export async function activarAviso(club) {
      función pisa si ya estaba: el mismo teléfono puede cambiar de club. */
   await pedir("/rest/v1/rpc/anotar_aviso", { metodo: "POST", sinToken: true,
     cuerpo: { p_endpoint: j.endpoint, p_claves: j.keys, p_club: club } });
+  try { localStorage.setItem("armaEl11.avisoClub", club); } catch (e) {}
   return true;
 }
 
@@ -526,4 +535,5 @@ export async function desactivarAviso() {
   try { await pedir("/rest/v1/rpc/borrar_aviso", { metodo: "POST", sinToken: true,
                     cuerpo: { p_endpoint: sus.endpoint } }); } catch (e) {}
   await sus.unsubscribe();
+  try { localStorage.removeItem("armaEl11.avisoClub"); } catch (e) {}
 }

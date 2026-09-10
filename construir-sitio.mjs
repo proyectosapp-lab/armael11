@@ -355,6 +355,19 @@ const orden = [...CLUBES].filter(c => existsSync(aca("./feed-" + c.id + ".js")))
 writeFileSync(new URL("index.html", SITIO), `<!doctype html>
 <html lang="es"><head>
 <meta charset="utf-8">
+<!-- EL CLUB SE ELIGE UNA VEZ. La app instalada arranca acá, y acá se
+     preguntaba el club en cada apertura. Si la página de un club ya se
+     abrió alguna vez en este teléfono, quedó anotado y se va derecho. Va
+     antes de todo lo demás para que la portada ni se dibuje. No redirige
+     con ?elegir (es como se llega desde "Cambiar de club") ni cuando
+     vuelve el mail de acceso con el token en el hash: eso lo atiende el
+     rescate de sesión. Y solo manda a clubes que existen en este sitio:
+     un club anotado que hoy no tiene página no puede mandar a un 404. -->
+<script>(function(){try{
+  if(/[?&]elegir/.test(location.search)||/access_token=/.test(location.hash))return;
+  var c=localStorage.getItem("armaEl11.club");
+  if(c&&${JSON.stringify(orden.map(c => c.id))}.indexOf(c)>=0)location.replace(c+".html");
+}catch(e){}})();</script>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Armá el 11 · elegí tu equipo</title>
 <meta name="description" content="Todo lo que se dice de tu equipo del fútbol argentino, en un solo lugar: noticias, videos y números de los 30 clubes.">
@@ -404,6 +417,7 @@ ${RAIZ ? `<meta property="og:url" content="${RAIZ}/">\n<link rel="canonical" hre
   h1{font-family:var(--display);font-weight:700;font-size:13px;letter-spacing:1.4px;text-transform:uppercase;
     color:var(--suave);margin:30px 4px 4px}
   p.baja{color:var(--suave);margin:0 4px 14px;font-size:14px}
+  p.baja a{color:var(--texto);font-weight:600}
   .grilla{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
   .club{display:flex;align-items:center;gap:12px;padding:12px 13px;border-radius:16px;
     background:var(--papel);box-shadow:var(--sombra);text-decoration:none;color:inherit;
@@ -439,7 +453,18 @@ ${RAIZ ? `<meta property="og:url" content="${RAIZ}/">\n<link rel="canonical" hre
 </div></header>
 <div class="caja">
   <h1>Elegí tu equipo</h1>
-  <p class="baja">${orden.length} equipos del fútbol argentino.</p>
+  <p class="baja" id="baja">${orden.length} equipos del fútbol argentino.</p>
+  <!-- Cuando se llega con ?elegir, decir de dónde se viene y dejar volver
+       sin elegir. Se completa por script porque el club está en el
+       teléfono, no en esta página. -->
+  <script>(function(){try{
+    if(!/[?&]elegir/.test(location.search))return;
+    var c=localStorage.getItem("armaEl11.club"),N=${JSON.stringify(Object.fromEntries(orden.map(c => [c.id, c.nom])))};
+    if(!c||!N[c])return;
+    var a=document.createElement("a");a.href=c+".html";a.textContent="Volver a "+N[c];
+    var p=document.getElementById("baja");p.textContent="Ahora estás en "+N[c]+". Tocá otro para cambiar, o ";
+    p.appendChild(a);p.appendChild(document.createTextNode("."));
+  }catch(e){}})();</script>
   <div class="grilla">${orden.map(tarjeta).join("\n")}</div>
 
   <!-- DOS FRASES Y LA LETRA CHICA. La versión larga explicaba el modelo en

@@ -1547,6 +1547,56 @@ srv.listen(8099, async () => {
     caso("tampoco gasta del cupo", await pg.evaluate(() => CUPO.usadas) === usadas);
   }
 
+  /* ── EL BOTÓN SIEMPRE A LA VISTA ──────────────────────────────────────
+     "Engorroso" era el scroll: cinco pantallazos de perillas antes de
+     poder simular. La caja del botón es sticky al pie: con la página
+     arriba de todo, igual está en pantalla, pegada sobre la barra. */
+  {
+    await pg.evaluate(() => scrollTo(0, 0));
+    await pg.waitForTimeout(300);
+    const s = await pg.evaluate(() => {
+      const c = document.querySelector('.simbox'); if (!c) return null;
+      const r = c.getBoundingClientRect(), b = document.getElementById('barra').getBoundingClientRect();
+      return { pos: getComputedStyle(c).position, dentro: r.top >= 0 && r.bottom <= b.top + 1,
+               scroll: scrollY };
+    });
+    caso("la caja de Simular es sticky", !!s && s.pos === 'sticky', JSON.stringify(s));
+    caso("y con la página arriba de todo ya está en pantalla, sobre la barra",
+         !!s && s.dentro, JSON.stringify(s));
+  }
+
+  /* ── EL CLUB SE ELIGE UNA VEZ ─────────────────────────────────────────
+     La app instalada arranca en la portada, y la portada preguntaba el
+     club en cada apertura. Ahora la página del club se anota, la portada
+     manda derecho, y "Cambiar de club" (?elegir) es la única que no. */
+  {
+    caso("la página del club queda anotada en el teléfono",
+         await pg.evaluate(() => localStorage.getItem('armaEl11.club')) === CLUB);
+    await pg.goto('http://localhost:8099/index.html', { waitUntil: 'load' });
+    await pg.waitForTimeout(400);
+    caso("y la portada manda derecho al club, sin preguntar",
+         pg.url().endsWith('/' + CLUB + '.html'), pg.url());
+    await pg.goto('http://localhost:8099/index.html?elegir', { waitUntil: 'load' });
+    await pg.waitForTimeout(300);
+    const baja = await pg.locator('#baja').innerText();
+    caso("con ?elegir se queda, lista los clubes y dice de dónde se viene",
+         pg.url().includes('index.html?elegir') && await pg.locator('.club').count() > 0 &&
+         /Ahora estás en/.test(baja), baja);
+    caso("y deja volver sin elegir de nuevo",
+         await pg.locator('#baja a[href="' + CLUB + '.html"]').count() === 1);
+    /* Un club anotado que no tiene página en este sitio no puede mandar a
+       un 404: se ignora y se muestra la grilla. */
+    await pg.evaluate(() => localStorage.setItem('armaEl11.club', 'club-que-no-existe'));
+    await pg.goto('http://localhost:8099/index.html', { waitUntil: 'load' });
+    await pg.waitForTimeout(300);
+    caso("un club anotado sin página no redirige a un 404",
+         pg.url().endsWith('/index.html') && await pg.locator('.club').count() > 0, pg.url());
+    await pg.evaluate(c => localStorage.setItem('armaEl11.club', c), CLUB);
+    caso("y el pie de la app tiene 'Cambiar de club', que va a la portada con ?elegir",
+         await (async () => { await pg.goto('http://localhost:8099/' + CLUB + '.html', { waitUntil: 'load' });
+           return pg.locator('.pie a[href="index.html?elegir"]').count(); })() === 1);
+  }
+
   caso("el navegador NUNCA llamó a api-sports.io", apiTocada.length === 0);
   caso("sin errores de JavaScript", errs.length === 0);
 

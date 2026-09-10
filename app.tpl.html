@@ -159,6 +159,7 @@ body{margin:0;background:transparent;color:var(--tinta);
   font-weight:700;cursor:pointer;background:var(--acento);color:var(--sobre-acento);flex:none}
 .boton.flaco{background:transparent;color:var(--tinta-2);border:1px solid var(--borde)}
 .pie{padding:22px 6px 10px;font-size:11px;color:var(--tinta-3);line-height:1.6;text-align:center}
+.pie a{color:var(--tinta-2);font-weight:600;text-decoration:none;border-bottom:1px solid var(--borde)}
 
 
 /* ── FANTASY ──────────────────────────────────────────────────────────────
@@ -607,8 +608,14 @@ th{font-family:var(--display);font-weight:500;letter-spacing:.8px}
 .err{border-radius:var(--r-m)}
 
 /* ── simular: una decisión, no dos botones ────────────────────────────── */
-.simbox{margin-top:14px;display:grid;gap:9px}
+.simbox{margin-top:10px;display:grid;gap:6px;position:sticky;z-index:6;
+  bottom:calc(74px + env(safe-area-inset-bottom));
+  padding:10px 12px 9px;border-radius:var(--r-l);
+  background:color-mix(in srgb, var(--papel) 90%, transparent);backdrop-filter:blur(12px);
+  box-shadow:var(--sombra-1), 0 0 0 1px var(--borde)}
+.simbox.jugando{position:static}
 .simbox .acc{width:100%}
+.simbox .conque{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .segm{display:flex;background:color-mix(in srgb, var(--tinta) 6%, transparent);border-radius:var(--r-m);padding:3px;gap:3px}
 .segm button{flex:1;border:0;border-radius:calc(var(--r-m) - 3px);padding:9px 10px;cursor:pointer;
   font-family:var(--display);font-weight:500;font-size:13px;color:var(--tinta-2);background:transparent;
@@ -698,7 +705,7 @@ th{font-family:var(--display);font-weight:500;letter-spacing:.8px}
          desarrollador.
 
          Ahora se mira el pie y se sabe. Cuesta una línea. -->
-    <span class="ver">{{VERSION}}</span></p>
+    <span class="ver">{{VERSION}}</span> · <a href="index.html?elegir" id="bcambiar">Cambiar de club</a></p>
 </div>
 <!-- EL ORDEN NO ES DECORATIVO. Primero lo que hicimos nosotros: el
      simulador, el fantasy y los números salen de nuestro código. El feed
@@ -805,6 +812,13 @@ const TEMAS={
   oscuro:{fondo:"#08090C",papel:"#12161D",tinta:"#F2F5FA",tinta2:"#A4AEBE",tinta3:"#8B95A6",
          borde:"#232A35",barra:"rgba(12,15,20,.86)"}};
 const CLUB=window.CLUB, OP=.78;
+
+/* EL CLUB SE ELIGE UNA VEZ. La app instalada arranca en la portada, y la
+   portada preguntaba el club en CADA apertura: un peaje antes de llegar a
+   la pantalla de armar. Acá se anota el club de esta página; la portada,
+   si lo encuentra, manda derecho a él. Para cambiar, el pie tiene "Cambiar
+   de club", que abre la portada con ?elegir y ahí no redirige.        */
+try{ localStorage.setItem("armaEl11.club", CLUB.id); }catch(e){}
 const prefiere=window.matchMedia("(prefers-color-scheme: dark)");
 let tema="auto";
 const temaReal=()=>tema==="auto"?(prefiere.matches?"oscuro":"claro"):tema;
@@ -2500,7 +2514,7 @@ function simularOnceDelDT(once){
 let AVISO_ON = false, avisoOcupado = false, avisoMsg = "";
 async function leerAviso(){
   if(typeof avisoActivo !== "function") return;
-  try{ AVISO_ON = await avisoActivo(); }catch(e){ AVISO_ON = false; }
+  try{ AVISO_ON = await avisoActivo(CLUB.id); }catch(e){ AVISO_ON = false; }
   pintar();
 }
 function bloqueAviso(chico){
@@ -2639,6 +2653,9 @@ async function simular11(flash){
 
   J.animando=true; J.visto=true;
   const b=$("bsim"); if(b){ b.disabled=true; b.textContent="Jugando…"; }
+  /* Mientras se ve el partido, la caja pegada al pie taparia el tanteador
+     del campo. Se suelta: no hay nada que apretar hasta que termine. */
+  document.querySelector(".simbox")?.classList.add("jugando");
   document.getElementById("campo")?.scrollIntoView({behavior:"smooth",block:"center"});
   mostrarPartido(J.partido, cerrar);
 }
@@ -2649,6 +2666,7 @@ async function simular11(flash){
 function verElPartido(){
   if(J.animando || !J.partido) return;
   J.animando=true; J.visto=true;
+  document.querySelector(".simbox")?.classList.add("jugando");
   document.getElementById("campo")?.scrollIntoView({behavior:"smooth",block:"center"});
   mostrarPartido(J.partido, () => { J.animando=false; pintar(); });
 }
@@ -3643,16 +3661,21 @@ function vistaJuego(){
           decir.</p>`:""}
       </div>
 
+      <div class="segm" role="group" aria-label="Cómo verlo" style="margin-top:14px">
+        <button data-ver="1" aria-pressed="${J.ver}">Ver el partido <small>20 s</small></button>
+        <button data-ver="0" aria-pressed="${!J.ver}">Solo el resultado</button>
+      </div>
+      <!-- EL BOTÓN SIEMPRE A LA VISTA. Los testers dijeron "engorroso", y
+           el motivo era el scroll: cinco pantallazos de perillas antes de
+           poder simular. Esta caja es sticky al pie: se ve desde el primer
+           segundo, pegada arriba de la barra, y recién cuando el scroll
+           llega a su lugar natural -el final de los ajustes- se queda ahí
+           y deja ver el resultado que sale debajo. -->
       <div class="simbox">
-        <div class="segm" role="group" aria-label="Cómo verlo">
-          <button data-ver="1" aria-pressed="${J.ver}">Ver el partido <small>20 s</small></button>
-          <button data-ver="0" aria-pressed="${!J.ver}">Solo el resultado</button>
-        </div>
         <button class="acc" id="bsim">${
           J.desde.minuto>0?"Simular desde el "+J.desde.minuto+"'":"Simular"}<span
             class="cuantas">${esc(restanEnBoton())}</span></button>
-        <p class="conque" id="conque">${esc(conQue(ajustes()))}${
-          ajustes().length ? "" : " Tocá un jugador, la formación o las perillas de arriba para cambiarlo: todo entra en la cuenta."}</p>
+        <p class="conque" id="conque">${esc(conQue(ajustes()))}</p>
       </div>
       ${bloqueCupo()}`;
 
