@@ -130,6 +130,9 @@
 (function(){
   const URL_BASE = "{{SUPABASE_URL}}";
   const ANON = "{{SUPABASE_ANON}}";
+  /* Los ids de las ligas que están DE VERDAD en la app: se escriben acá al
+     construir el sitio, desde el mismo ligas.json que usa el simulador. */
+  const EN_LA_APP = {{LIGAS_EN_APP}};
   const CAB = { apikey: ANON, Authorization: "Bearer " + ANON, "Content-Type": "application/json" };
   const $ = id => document.getElementById(id);
   const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
@@ -185,9 +188,18 @@
     const ratings = r.ratings_total == null ? "" : r.ratings_con > 0
       ? `<span>👤 ${r.ratings_con} de ${r.ratings_total} con rating: se arma el once</span>`
       : `<span style="color:var(--mal)">sin rating por jugador: no se arma el once</span>`;
-    const sumar = r.ok
-      ? (r.sumada ? `<span class="pill bien">en la app</span>` : `<button class="gh chico" data-sumar="${r.liga_id}">Sumar a la app</button>`)
-      : "";
+    /* "En la app" se decide mirando el ligas.json PUBLICADO, no la marca que
+       dejó la base. El 16/9/2026 la base decía que Perú, México y Colombia
+       estaban adentro y en el repo no había pasado nada: el commit se había
+       perdido por un `git add` que abortaba. Una pantalla que le cree a la
+       intención en vez de al resultado esconde justo el error que importa.
+       Si la base la dio por sumada y en la app no está, lo dice y deja el
+       botón para volver a pedirla. */
+    const estaEnLaApp = EN_LA_APP.includes(+r.liga_id);
+    const sumar = !r.ok ? ""
+      : estaEnLaApp ? `<span class="pill bien">en la app</span>`
+      : `${r.sumada ? `<span class="pill meh">pedida, todavía no está</span>` : ""}
+         <button class="gh chico" data-sumar="${r.liga_id}">Sumar a la app</button>`;
     return `<div class="lig">
       <div class="arriba"><span class="nom">${esc(r.nombre)}<small>${esc(r.pais)} · id ${r.liga_id}</small></span><span class="pill ${cls}">${txt}</span></div>
       <div class="nums">

@@ -397,12 +397,23 @@ armarPagina({ id: "arma-el-11" }, {
 });
 
 /* La pantalla del backtest (backtest.tpl.html), solo si hay backend: sin
-   Supabase no tiene con que hablar. Lleva las dos claves PUBLICAS. */
-if (HAY_BACKEND && existsSync(aca("./backtest.tpl.html")))
+   Supabase no tiene con que hablar. Lleva las dos claves PUBLICAS.
+
+   Y ademas los ids de las ligas que estan DE VERDAD en la app: las que
+   figuran en ligas.json Y tienen sus datos bajados. Asi la pantalla dice "en
+   la app" mirando lo publicado y no la marca que quedo en la base, que el
+   16/9/2026 dijo que si cuando el commit se habia perdido. */
+if (HAY_BACKEND && existsSync(aca("./backtest.tpl.html"))) {
+  const idsEnLaApp = (() => { try {
+    const cfg = JSON.parse(readFileSync(aca("./ligas.json"), "utf8"));
+    return cfg.ligas.filter(l => LIGAS_LISTAS.includes(l.slug)).map(l => l.id);
+  } catch (e) { return []; } })();
   writeFileSync(new URL("backtest.html", SITIO),
     readFileSync(aca("./backtest.tpl.html"), "utf8")
       .replaceAll("{{SUPABASE_URL}}", CFG.supabase.url)
-      .replaceAll("{{SUPABASE_ANON}}", CFG.supabase.anon));
+      .replaceAll("{{SUPABASE_ANON}}", CFG.supabase.anon)
+      .replaceAll("{{LIGAS_EN_APP}}", JSON.stringify(idsEnLaApp)));
+}
 
 writeFileSync(new URL(".nojekyll", SITIO), "");
 

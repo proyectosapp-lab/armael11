@@ -3271,6 +3271,21 @@ const tanteador = (a, b) => `<div class="marcador">
     <b>${String(b).trim()}</b><span class="eq">${esc(J.nom.B)}</span>
   </div>`;
 
+/* ── CUÁN RARO FUE LO QUE ACABÁS DE VER ──────────────────────────────────
+   Un 3-0 abajo de una barra de "partido parejo" desconcierta hasta que
+   alguien dice cuánto de raro es. Con el número al lado deja de ser una
+   contradicción y pasa a ser información: "sale 1 de cada 22 veces".
+
+   Solo cuando el partido arrancó 0-0: si se simuló desde el minuto 60 con
+   1-0, la probabilidad que guardamos es la de los goles del resto, y
+   pegarla al marcador final diría una cosa por otra.                    */
+function cuanRaro(){
+  const p = J.partido && J.partido.prob, a = J.partido && J.partido.arranca;
+  if(!p || !a || a.A || a.B) return "";
+  const cada = Math.max(2, Math.round(1/p));
+  return " · este sale 1 de cada " + cada;
+}
+
 const CANCHA = { alto: [3, 97], ancho: [3, 97] };
 /* EL ARQUERO TIENE SU METRO Y NADIE MÁS LO PISA. Los de afuera llegan hasta
    el borde del área chica ajena y hasta el borde de la propia, pero no
@@ -3409,14 +3424,17 @@ function generarPartido(xgA, xgB, desde){
      1-0, y se juegan los treinta que faltan. */
   const D = desde || { minuto:0, golesA:0, golesB:0 };
   const desdeMin = Math.max(0, Math.min(89, D.minuto|0));
-  const gA=poissonUno(xgA), gB=poissonUno(xgB);
+  /* El sorteo pasa por `sortearMarcador`, que descarta las rarezas -menos de
+     1 en 100 con estos goles esperados- y devuelve cuán probable era el que
+     quedó. El porqué está escrito en juego.js. */
+  const { gA, gB, prob } = sortearMarcador(xgA, xgB);
   const queda = Math.max(1, 90-desdeMin);
   const minutos = n => Array.from({length:n},
     ()=>desdeMin+1+Math.floor(Math.random()*queda)).sort((a,b)=>a-b);
   const eventos=[...minutos(gA).map(m=>({m,lado:"A"})), ...minutos(gB).map(m=>({m,lado:"B"}))]
     .sort((a,b)=>a.m-b.m);
   return { eventos, desdeMin, posesion: xgA/(xgA+xgB), arranca:{ A:D.golesA|0, B:D.golesB|0 },
-           marc: { A:(D.golesA|0)+gA, B:(D.golesB|0)+gB } };
+           prob, marc: { A:(D.golesA|0)+gA, B:(D.golesB|0)+gB } };
 }
 
 function mostrarPartido(part, alTerminar){
@@ -3782,7 +3800,11 @@ function vistaJuego(){
           : "el marcador más probable · sale "+s.probMarcador.toFixed(0)+"% de las veces"} ·
           xG ${s.xgA.toFixed(2)} a ${s.xgB.toFixed(2)}</div>
         ${J.visto && s.estaVez ? `<div class="meta" style="justify-content:center;margin-top:-2px">
-          el más probable era ${esc(String(s.marcador).replace("-"," - "))} (${s.probMarcador.toFixed(0)}%)</div>` : ""}
+          el más probable era ${esc(String(s.marcador).replace("-"," - "))} (${s.probMarcador.toFixed(0)}%)${
+          cuanRaro()}</div>
+          <p class="nota">El partido que se dibuja es uno de los 6.000, sorteado con esas mismas
+          probabilidades. Si sale un marcador insólito —de esos de menos de uno cada cien— se sortea
+          otro que termine igual, así la barra de arriba sigue describiendo lo que acabás de ver.</p>` : ""}
         <p class="conque res-conque">${esc(s.conQue || "")}</p>
         ${s.notas.map(n=>`<p class="nota">${esc(n)}</p>`).join("")}
         ${J.partido && !J.visto ? `<button class="gh" id="bver" style="width:100%;margin-top:10px">

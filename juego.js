@@ -434,6 +434,72 @@ export const poissonUno = (l, rnd = Math.random) => { const L=Math.exp(-l); let 
   do { k++; p*=rnd(); } while(p>L); return k-1; };
 const poisson = poissonUno;
 
+/* Probabilidad EXACTA de que un equipo haga k goles teniendo l esperados.
+   Poisson a mano, sin factorial: se multiplica l/i en cada vuelta. */
+export const probGoles = (l, k) => { let p = Math.exp(-l); for(let i=1;i<=k;i++) p *= l/i; return p; };
+
+/* ── POR QUÉ EL PARTIDO QUE SE MIRA NO PUEDE SER CUALQUIERA ───────────────
+   El 16/9/2026, en LaLiga: Atlético 6-1 Osasuna con 1,66 y 1,26 de gol
+   esperado, y enseguida Depor 5-2 Sevilla. La barra estaba bien -47/24/29,
+   que es lo que dicen esos xG- y el sorteo también: con 1,66 esperados, meter
+   cinco o más pasa el 2,7% de las veces, y un 6-1 exacto es 1 de cada 500.
+   No había nada roto. Pero el que lo mira no ve una cola de la distribución:
+   ve un 6-1 abajo de una barra que decía "partido parejo" y concluye, con
+   razón desde su lugar, que el modelo está descalibrado.
+
+   Y ese es el problema de verdad, porque la promesa de la app es exactamente
+   la contraria: "no tira un dado". El 7% de los marcadores que salen de un
+   sorteo limpio son resultados de menos de 1 en 100. Uno de cada catorce
+   partidos mirados le rompe la confianza a la persona en todo lo demás.
+
+   Así que se poda la cola: si el marcador sorteado sale menos de una vez
+   cada cien con esos goles esperados, se sortea de nuevo -hasta tres veces-.
+   El 3-0 y el 1-3 siguen apareciendo porque son plausibles; el 6-1 no. Es una
+   poda chica y se DECLARA en pantalla, que es lo que la hace honesta: la
+   barra, el xG y el marcador más probable no se tocan -esos son el modelo-,
+   y lo único que cambia es qué partido se dibuja.
+
+   Se devuelve también la probabilidad del marcador que quedó, porque la
+   pantalla la usa para decir cuán raro fue ("1 de cada 60"). Contar la
+   rareza convierte la sorpresa en dato en vez de en desconfianza.
+
+   ── LO QUE NO SE PUEDE TOCAR AL PODAR ────────────────────────────────────
+   Sortear de nuevo a secas mueve la barra: las colas no son simétricas, así
+   que sacarlas subía los empates un punto y medio y bajaba las visitas otro
+   tanto. La barra dejaría de describir a los partidos que se dibujan.
+
+   Por eso el resortear es CONDICIONADO: si el marcador salió raro, se vuelve
+   a tirar hasta encontrar uno creíble QUE TERMINE IGUAL —ganaste, empataste
+   o perdiste—. El resultado es el que salió; lo único que se cambia es el
+   marcador insólito por uno normal del mismo signo. Así ganar / empatar /
+   perder sale exactamente de la distribución sin podar, y la barra sigue
+   siendo la verdad del partido que se ve.
+
+   El piso es 1 en 100, salvo cuando ni el marcador más probable llega a diez
+   veces eso (partidos de muchísimos goles esperados, donde toda la
+   distribución es chata): ahí el piso baja solo, porque si no se podaría
+   media distribución. Si después de veinticuatro intentos no aparece
+   ninguno creíble del mismo signo, se deja el raro: antes un marcador feo
+   que una barra mentirosa.                                               */
+export const RAREZA_MINIMA = 0.01;
+const signoDe = (a, b) => a > b ? 1 : a === b ? 0 : -1;
+
+export function sortearMarcador(xgA, xgB, rnd = Math.random, minimo = RAREZA_MINIMA, vueltas = 24){
+  const tirada = () => { const gA = poissonUno(xgA, rnd), gB = poissonUno(xgB, rnd);
+    return { gA, gB, prob: probGoles(xgA, gA) * probGoles(xgB, gB) }; };
+  /* El modo de un Poisson es la parte entera del gol esperado. */
+  const piso = Math.min(minimo,
+    0.10 * probGoles(xgA, Math.floor(xgA)) * probGoles(xgB, Math.floor(xgB)));
+  const salio = tirada();
+  if(salio.prob >= piso) return salio;
+  const signo = signoDe(salio.gA, salio.gB);
+  for(let i = 0; i < vueltas; i++){
+    const otro = tirada();
+    if(otro.prob >= piso && signoDe(otro.gA, otro.gB) === signo) return otro;
+  }
+  return salio;
+}
+
 export function simular(xgA, xgB, n=6000, rnd=Math.random){
   let w=0,d=0,l=0; const marc={};
   for(let i=0;i<n;i++){

@@ -13,7 +13,8 @@ import { autoXI, slotsDe, fuerza, penalPuesto,
          INDICACIONES_POR_DEFECTO, PLANTEOS, planteoDe, planteo,
          planteoSugerido, tacticas, KNOBS,
          formaDe, formacionDeSalida, formacionHabitual, FORMS,
-         azarDe, semillaDe, simular } from "./juego.js";
+         azarDe, semillaDe, simular,
+         sortearMarcador, probGoles, poissonUno, RAREZA_MINIMA } from "./juego.js";
 
 const casos = [];
 const caso = (n, ok, extra = "") => casos.push([n, ok, extra]);
@@ -346,6 +347,62 @@ for (const form of ["4-4-2", "4-3-3", "3-5-2", "4-2-3-1", "5-3-2"]) {
        planteoSugerido({ conUnoMenos:true, ganando:false }) === "contra");
   caso("y con once, no se sugiere nada",
        planteoSugerido({ conUnoMenos:false, ganando:true }) === null);
+}
+
+/* ─── EL PARTIDO QUE SE MIRA: SIN RAREZAS, Y SIN TOCAR LA BARRA ───────────
+   Fausto, 16/9/2026: "qué difícil estos resultados, algo se descalibró".
+   Eran un 6-1 y un 5-2 con xG de 1,66 y 1,54: nada roto, pero la cola de la
+   distribución le rompe la confianza a cualquiera que la vea. Se podan las
+   rarezas y, sobre todo, se poda SIN mover ganar/empatar/perder: eso es lo
+   que la barra promete.                                                  */
+{
+  const p = (l, k) => probGoles(l, k);
+  caso("las probabilidades de gol suman 1 y el 6-1 de LaLiga era 1 en 500",
+       Math.abs([...Array(25).keys()].reduce((s, k) => s + p(1.66, k), 0) - 1) < 1e-6 &&
+       Math.round(1 / (p(1.66, 6) * p(1.26, 1))) > 400,
+       "1 en " + Math.round(1 / (p(1.66, 6) * p(1.26, 1))));
+
+  const tirar = (a, b, n, f = () => {}) => {
+    const rnd = azarDe(semillaDe(a + "x" + b));
+    let raros = 0, W = 0, D = 0, L = 0, maxTotal = 0;
+    for (let i = 0; i < n; i++) {
+      const s = sortearMarcador(a, b, rnd);
+      if (s.prob < RAREZA_MINIMA) raros++;
+      if (s.gA > s.gB) W++; else if (s.gA === s.gB) D++; else L++;
+      maxTotal = Math.max(maxTotal, s.gA + s.gB);
+      f(s);
+    }
+    return { raros: raros / n, W: W / n, D: D / n, L: L / n, maxTotal };
+  };
+
+  const r = tirar(1.66, 1.26, 20000);
+  caso("con los xG de aquel Atlético-Osasuna, ya casi no salen marcadores de menos de 1 en 100",
+       r.raros < 0.005, (r.raros * 100).toFixed(2) + "% · marcador más abultado: " + r.maxTotal + " goles");
+
+  /* Lo que NO puede cambiar: la barra. Se compara contra el sorteo crudo. */
+  const crudo = (() => {
+    const rnd = azarDe(semillaDe("crudo"));
+    let W = 0, D = 0, L = 0, n = 60000;
+    for (let i = 0; i < n; i++) {
+      const a = poissonUno(1.66, rnd), b = poissonUno(1.26, rnd);
+      if (a > b) W++; else if (a === b) D++; else L++;
+    }
+    return { W: W / n, D: D / n, L: L / n };
+  })();
+  const podado = tirar(1.66, 1.26, 60000);
+  const lejos = Math.max(Math.abs(crudo.W - podado.W), Math.abs(crudo.D - podado.D),
+                         Math.abs(crudo.L - podado.L));
+  caso("y podar no mueve ganar/empatar/perder: la barra sigue describiendo lo que se ve",
+       lejos < 0.01,
+       `sin podar ${(crudo.W*100).toFixed(1)}/${(crudo.D*100).toFixed(1)}/${(crudo.L*100).toFixed(1)}` +
+       ` · podado ${(podado.W*100).toFixed(1)}/${(podado.D*100).toFixed(1)}/${(podado.L*100).toFixed(1)}`);
+
+  caso("un partido de muchos goles esperados no se poda de más (ahí un 4-3 es normal)",
+       tirar(3.2, 2.8, 5000).maxTotal >= 8);
+
+  caso("el sorteo devuelve qué tan probable era, que es lo que la pantalla cuenta",
+       (() => { const s = sortearMarcador(1.66, 1.26, azarDe(7));
+                return s.prob > 0 && s.prob < 1 && Number.isInteger(s.gA); })());
 }
 
 /* ─── resultado ──────────────────────────────────────────────────────────── */

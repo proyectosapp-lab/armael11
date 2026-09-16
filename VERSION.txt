@@ -1,3 +1,52 @@
+Arma el 11 - version 2026-09-16 y37 (el partido que se mira, sin rarezas; la liga que se suma, sin perderse)
+
+  · EL MARCADOR QUE SE VE. "Que dificil estos resultados, algo se
+    descalibro": un 6-1 y un 5-2 en LaLiga, con 1,66 y 1,54 de gol
+    esperado. Nada estaba roto -la barra y el xG eran correctos, y el
+    partido dibujado es UNA tirada: con 1,66 esperados, meter cinco o mas
+    pasa el 2,7% de las veces y un 6-1 exacto es 1 de cada 500-. Pero el
+    7% de los partidos dibujados eran marcadores de menos de 1 en 100, y
+    cada uno de esos le rompe la confianza a quien lo ve, justo en una app
+    cuya promesa es "no tira un dado".
+
+  · Ahora se podan: si el marcador sorteado sale menos de una vez cada
+    cien, se sortea otro. Y se poda SIN mover la barra: el que se vuelve a
+    tirar tiene que terminar igual -ganas, empatas o perdes-, asi que
+    ganar/empatar/perder sale exactamente de la distribucion sin podar y la
+    barra sigue describiendo lo que se ve. (Sortear de nuevo a secas subia
+    los empates punto y medio y bajaba las visitas otro tanto: las colas no
+    son simetricas.) En partidos de muchisimos goles esperados el piso baja
+    solo, porque ahi un 4-3 es normal. Hay pruebas de las dos cosas.
+
+  · Y la pantalla lo cuenta: abajo del marcador dice "este sale 1 de cada
+    N", y una nota explica que el insolito se vuelve a sortear. Contar la
+    rareza convierte la sorpresa en dato en vez de en desconfianza.
+
+  · LAS TRES LIGAS QUE SE PERDIERON EN SILENCIO. Peru, Mexico y Colombia
+    pasaron el backtest, se apreto "Sumar a la app", la base las marco
+    sumadas y la pantalla dijo "en la app". En el repo no habia pasado
+    nada: ligas.json sin tocar desde el 30/8 y la app con seis ligas.
+
+    El workflow agregaba las dos rutas juntas (ligas.json y backtests/) en
+    un solo git add. La carpeta backtests/ todavia no existe en el repo, y
+    cuando una ruta no existe git add ABORTA sin agregar NADA, ni siquiera
+    lo que si habia cambiado. El "|| true" tapaba el error, el commit salia
+    vacio y el paso de publicar igual se disparaba: por eso hubo una
+    corrida de "Traer y publicar" lanzada por el bot que publico lo mismo.
+
+    Ahora cada ruta se agrega por separado y, si el backtest dijo que sumo
+    una liga y no quedo nada para commitear, la corrida FALLA. Un error a
+    la vista antes que una liga que se pierde callada.
+
+  · Y la pantalla del backtest deja de creerle a la base: "en la app" sale
+    del ligas.json PUBLICADO (los ids se escriben al construir el sitio).
+    Si la base la dio por sumada y en la app no esta, lo dice -"pedida,
+    todavia no esta"- y deja el boton para volver a pedirla. Eso es lo que
+    hay que apretar para Peru, Mexico y Colombia.
+
+  · HAY QUE EDITAR backtest.yml EN GITHUB (no sube arrastrando): lapiz,
+    seleccionar todo, pegar el backtest.yml de este zip.
+
 Arma el 11 - version 2026-09-16 y36 (la pantalla del backtest, en el sitio)
 
   · La pantalla del backtest se MUDA a armael11.com/backtest.html. La

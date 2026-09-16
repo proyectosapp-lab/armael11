@@ -1614,6 +1614,10 @@ srv.listen(8099, async () => {
     caso("la pantalla del backtest se publica con el sitio", r.estado === 200 && /pedir_backtest/.test(r.texto));
     caso("y no lleva ninguna clave de servidor",
          !/service_role|SUPABASE_SERVICE|BACKTEST_CLAVE\s*=/.test(r.texto) && /"role":"anon"|eyJ/.test(r.texto));
+    /* "En la app" tiene que salir de lo PUBLICADO. El 16/9/2026 la base decía
+       que Perú, México y Colombia estaban adentro y en el repo no estaban. */
+    caso("y sabe qué ligas están de verdad en la app, sin preguntarle a la base",
+         !/\{\{LIGAS_EN_APP\}\}/.test(r.texto) && /const EN_LA_APP = \[/.test(r.texto));
   }
 
   caso("el navegador NUNCA llamó a api-sports.io", apiTocada.length === 0);

@@ -9,6 +9,8 @@
 import { probabilidades, brier, correr, veredicto, partidosDe, filaDeLiga, agregarALigas,
          ligaNueva, nuevaTemporada, sumar, fuerzas, pronosticar, informe, MODELO,
          clasificarPedido, filaResultado } from "./backtest.mjs";
+import { readFileSync, existsSync } from "node:fs";
+const aca = p => new URL(p, import.meta.url);
 
 const casos = [];
 const caso = (n, ok, d = "") => casos.push([n, ok, d]);
@@ -150,6 +152,28 @@ function ligaInventada({ temporadas, dispersion, semilla, local = 1.45, visita =
   caso("la fila para la base lleva los números redondeados y el veredicto",
        f.liga_id === 94 && f.tipo === "liga" && typeof f.t === "number" && f.ok === true && f.ratings_con === 27 && f.temporadas === "2023,2024",
        JSON.stringify(f).slice(0, 160));
+}
+
+/* ─── 8. el día que tres ligas se perdieron en silencio ───────────────────
+   16/9/2026. Perú, México y Colombia pasaron el backtest, se apretó "Sumar a
+   la app", la base las marcó sumadas... y ligas.json en el repo no se tocó.
+   El workflow hacía `git add ligas.json backtests/` y la carpeta backtests/
+   no existía todavía: cuando una ruta no existe, git add ABORTA y no agrega
+   NADA, ni siquiera lo que sí cambió. El `|| true` tapaba el error y el
+   commit salía vacío. Estas dos pruebas son para que no vuelva a pasar en
+   silencio: se agrega cada ruta por separado, y si no quedó nada para
+   commitear habiendo dicho que sumó, la corrida falla.                   */
+{
+  const yml = existsSync(aca("./backtest.yml")) ? readFileSync(aca("./backtest.yml"), "utf8") : "";
+  caso("el workflow ya no agrega una carpeta que puede no existir junto con ligas.json",
+       yml !== "" && !/git add ligas\.json backtests/.test(yml) && /if \[ -d backtests \]/.test(yml));
+  caso("y si dijo que sumó y no cambió nada, la corrida FALLA en vez de callarse",
+       /git diff --cached --quiet/.test(yml) && /exit 1/.test(yml));
+
+  const pant = existsSync(aca("./backtest.tpl.html")) ? readFileSync(aca("./backtest.tpl.html"), "utf8") : "";
+  caso('la pantalla dice "en la app" mirando el ligas.json publicado, no la marca de la base',
+       /\{\{LIGAS_EN_APP\}\}/.test(pant) && /EN_LA_APP\.includes/.test(pant) &&
+       /pedida, todavía no está/.test(pant));
 }
 
 const linea = "─".repeat(70);
