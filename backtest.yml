@@ -88,13 +88,32 @@ jobs:
 
       # Los commits hechos con el token de Actions NO disparan otros workflows
       # (regla de GitHub), por eso la publicación se dispara a mano abajo.
+      #
+      # ── 16/9/2026, EL DÍA QUE TRES LIGAS SE PERDIERON EN SILENCIO ────────
+      # Las dos rutas se agregaban juntas en un solo `git add`, con `|| true`
+      # al final para que no molestara. La carpeta `backtests/`
+      # no existe hasta que corre un backtest completo, y cuando una ruta no
+      # existe `git add` ABORTA SIN AGREGAR NADA: ni siquiera ligas.json, que
+      # sí había cambiado. El `|| true` se comía el error, `git commit` decía
+      # "nada que sumar", y el paso de publicar igual salía. Resultado: la
+      # pantalla marcaba Perú, México y Colombia como "en la app", la base
+      # también, y en el repo no había pasado nada.
+      #
+      # Ahora cada ruta se agrega por separado y, si después de eso no quedó
+      # nada para commitear habiendo dicho que sí, la corrida FALLA. Un error
+      # a la vista es siempre mejor que una liga que se pierde callada.
       - name: Sumar la liga al repo
         if: steps.correr.outputs.sumada == 'si'
         run: |
           git config user.name "backtest"
           git config user.email "backtest@armael11.com"
-          git add ligas.json backtests/ || true
-          git commit -m "Sumar liga(s) que pasaron el backtest" || echo "nada que sumar"
+          git add ligas.json
+          if [ -d backtests ]; then git add backtests; fi
+          if git diff --cached --quiet; then
+            echo "::error::El backtest dijo que sumó una liga y ligas.json no cambió."
+            exit 1
+          fi
+          git commit -m "Sumar liga(s) que pasaron el backtest"
           git push
 
       - name: Publicar con la liga nueva
