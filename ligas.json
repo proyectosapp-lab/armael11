@@ -62,6 +62,13 @@
       "nombre": "Primera División",
       "pais": "Peru",
       "ventajaBacktest": 0.0538
+    },
+    {
+      "id": 239,
+      "slug": "colombia-primera-a",
+      "nombre": "Primera A",
+      "pais": "Colombia",
+      "ventajaBacktest": 0.0245
     }
   ]
 }
