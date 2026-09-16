@@ -22,5 +22,13 @@
   "nombre": "Primera A",
   "pais": "Colombia",
   "ventajaBacktest": 0.0245
+ },
+ {
+  "cuando": "2026-09-16T23:41:08.321Z",
+  "id": 262,
+  "slug": "mexico-liga-mx",
+  "nombre": "Liga MX",
+  "pais": "Mexico",
+  "ventajaBacktest": 0.0406
  }
 ]

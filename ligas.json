@@ -69,6 +69,13 @@
       "nombre": "Primera A",
       "pais": "Colombia",
       "ventajaBacktest": 0.0245
+    },
+    {
+      "id": 262,
+      "slug": "mexico-liga-mx",
+      "nombre": "Liga MX",
+      "pais": "Mexico",
+      "ventajaBacktest": 0.0406
     }
   ]
 }
