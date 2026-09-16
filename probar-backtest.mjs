@@ -8,7 +8,7 @@
    ══════════════════════════════════════════════════════════════════════════ */
 import { probabilidades, brier, correr, veredicto, partidosDe, filaDeLiga, agregarALigas,
          ligaNueva, nuevaTemporada, sumar, fuerzas, pronosticar, informe, MODELO,
-         clasificarPedido, filaResultado } from "./backtest.mjs";
+         clasificarPedido, filaResultado, registroDeSumadas } from "./backtest.mjs";
 import { readFileSync, existsSync } from "node:fs";
 const aca = p => new URL(p, import.meta.url);
 
@@ -169,6 +169,19 @@ function ligaInventada({ temporadas, dispersion, semilla, local = 1.45, visita =
        yml !== "" && !/git add ligas\.json backtests/.test(yml) && /if \[ -d backtests \]/.test(yml));
   caso("y si dijo que sumó y no cambió nada, la corrida FALLA en vez de callarse",
        /git diff --cached --quiet/.test(yml) && /exit 1/.test(yml));
+
+  /* El segundo cinturón: aunque el workflow siga siendo el viejo, la carpeta
+     backtests/ existe cada vez que hay algo para sumar, así que aquel
+     `git add ligas.json backtests/` no aborta y la liga entra igual. */
+  const fila = filaDeLiga({ id: 78, nombre: "Bundesliga", pais: "Germany" }, { ventaja: 0.0531 });
+  const uno = registroDeSumadas(null, [fila], "2026-09-16T21:00:00.000Z");
+  const dos = registroDeSumadas(uno, [filaDeLiga({ id: 71, nombre: "Serie A", pais: "Brazil" }, { ventaja: 0.03 })],
+                                "2026-09-17T10:00:00.000Z");
+  caso("cada liga sumada queda registrada con su fecha, sin pisar las anteriores",
+       uno.length === 1 && dos.length === 2 && dos[0].slug === "germany-bundesliga" &&
+       dos[1].id === 71 && dos[0].cuando !== dos[1].cuando, JSON.stringify(dos[1]));
+  caso("y un registro ilegible se trata como vacío en vez de tumbar la corrida",
+       registroDeSumadas("esto no es json", [fila], "x").length === 1);
 
   const pant = existsSync(aca("./backtest.tpl.html")) ? readFileSync(aca("./backtest.tpl.html"), "utf8") : "";
   caso('la pantalla dice "en la app" mirando el ligas.json publicado, no la marca de la base',

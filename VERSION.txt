@@ -1,3 +1,26 @@
+Arma el 11 - version 2026-09-16 y38 (que sumar una liga funcione aunque el workflow sea el viejo)
+
+  · El arreglo de y37 obliga a editar a mano .github/workflows/backtest.yml,
+    que no sube arrastrando. Fausto lo edito dos veces y las dos veces cayo
+    en la COPIA de la raiz -mismo nombre, un directorio mas arriba-: el
+    segundo commit dice "0 files changed" porque pego encima lo mismo que ya
+    habia dejado el zip. El workflow de verdad seguia en su primera version.
+    Culpa del diseno, no de el: la cadena entera colgaba de un archivo
+    escondido en una carpeta con punto.
+
+  · Ahora backtest.mjs, cada vez que suma una liga, escribe tambien
+    backtests/sumadas.json (que liga entro y cuando). Con eso la carpeta
+    backtests/ EXISTE siempre que haya algo para sumar, y aquel
+    `git add ligas.json backtests/` de la version vieja del workflow ya no
+    aborta: la liga entra igual, con el yml viejo o con el nuevo.
+
+  · Dos arreglos para el mismo agujero, a proposito: el de y37 hace que la
+    corrida FALLE cuando dice que sumo y no sumo; este hace que no falle. El
+    yml nuevo sigue valiendo la pena, pero ya no es el unico camino.
+
+  · El registro sirve por si mismo: queda escrito que liga se sumo, cuando y
+    con cuanta ventaja. Dos pruebas nuevas (34 en total).
+
 Arma el 11 - version 2026-09-16 y37 (el partido que se mira, sin rarezas; la liga que se suma, sin perderse)
 
   · EL MARCADOR QUE SE VE. "Que dificil estos resultados, algo se

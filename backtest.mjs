@@ -264,6 +264,27 @@ export function agregarALigas(cfg, fila) {
   return { cfg: { ...cfg, ligas: [...cfg.ligas, fila] }, agregada: true };
 }
 
+/* ── EL REGISTRO DE LO SUMADO, Y POR QUÉ NO ES SOLO UN REGISTRO ───────────
+   Sirve para saber qué liga entró y cuándo, que ya es motivo suficiente.
+   Pero nace de otra cosa: el 16/9/2026 Perú, México y Colombia se perdieron
+   porque el workflow hacía `git add ligas.json backtests/` y esa carpeta
+   todavía no existía en el repo —cuando una ruta no existe, git add aborta
+   y no agrega NADA, ni siquiera ligas.json, que sí había cambiado—.
+
+   El workflow ya está arreglado, pero arreglarlo obliga a editar a mano un
+   archivo que vive en `.github`, que no sube arrastrando y que es fácil de
+   confundir con su copia de la raíz (pasó dos veces el mismo día). Dejar la
+   cadena entera colgando de ese paso es frágil. Con este archivo, la carpeta
+   existe siempre que haya algo para sumar, así que la versión VIEJA del
+   workflow también funciona. Dos arreglos para el mismo agujero, a
+   propósito: el de arriba avisa cuando falla, el de abajo hace que no
+   falle.                                                                 */
+export function registroDeSumadas(previo, nuevas, cuando) {
+  const antes = Array.isArray(previo) ? previo : [];
+  return [...antes, ...nuevas.map(f => ({ cuando, id: f.id, slug: f.slug,
+    nombre: f.nombre, pais: f.pais, ventajaBacktest: f.ventajaBacktest }))];
+}
+
 /* ─── correr una liga, de punta a punta ──────────────────────────────── */
 async function correrLiga(id, temporadas, log = console.log) {
   const info = (await api("/leagues", { id }))[0];
@@ -334,7 +355,7 @@ async function desdeBase() {
   const pedidos = await B.leer("backtest_pedido?estado=eq.pendiente&order=creado.asc&limit=5");
   console.log(pedidos.length + " pedido(s) pendiente(s).");
   const CFG = JSON.parse(readFileSync(aca("./ligas.json")));
-  let cfg = CFG, algunaSumada = false;
+  let cfg = CFG, algunaSumada = false; const sumadasAhora = [];
   for (const p of pedidos) {
     const c = clasificarPedido(p, CLAVE);
     const marcar = (estado, nota = "") => B.escribir("backtest_pedido?id=eq." + p.id, { estado, nota }, "PATCH");
@@ -347,6 +368,7 @@ async function desdeBase() {
         const fila = filaDeLiga({ id: res.liga_id, nombre: res.nombre, pais: res.pais }, { ventaja: +res.ventaja });
         const { cfg: cfg2, agregada } = agregarALigas(cfg, fila);
         cfg = cfg2; algunaSumada ||= agregada;
+        if (agregada) sumadasAhora.push(fila);
         await B.escribir("backtest_resultado?id=eq." + res.id, { sumada: true }, "PATCH");
         await marcar("hecho", agregada ? "sumada como " + fila.slug : "ya estaba en ligas.json");
         console.log("  pedido " + p.id + ": " + (agregada ? "sumada " + fila.slug : "ya estaba"));
@@ -369,9 +391,18 @@ async function desdeBase() {
       try { await marcar("error", String(e.message).slice(0, 200)); } catch (x) {}
     }
   }
-  if (algunaSumada) writeFileSync(aca("./ligas.json"), JSON.stringify(cfg, null, 2) + "\n");
+  if (algunaSumada) {
+    writeFileSync(aca("./ligas.json"), JSON.stringify(cfg, null, 2) + "\n");
+    /* El registro —y la garantía de que backtests/ exista— arriba de todo. */
+    mkdirSync(aca("./backtests/"), { recursive: true });
+    let previo = [];
+    try { previo = JSON.parse(readFileSync(aca("./backtests/sumadas.json"), "utf8")); } catch (e) {}
+    writeFileSync(aca("./backtests/sumadas.json"),
+      JSON.stringify(registroDeSumadas(previo, sumadasAhora, new Date().toISOString()), null, 1) + "\n");
+    console.log("  sumadas: " + sumadasAhora.map(f => f.slug).join(", "));
+  }
   salidaWorkflow("sumada", algunaSumada ? "si" : "no");
-  console.log(`${pedidos} pedidos a la API.`);
+  console.log(pedidos.length + " pedido(s) atendido(s).");
 }
 
 /* ─── main ────────────────────────────────────────────────────────────── */
