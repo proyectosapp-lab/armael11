@@ -55,6 +55,13 @@
       "nombre": "Serie A",
       "pais": "Brazil",
       "ventajaBacktest": 0.0193
+    },
+    {
+      "id": 281,
+      "slug": "peru-primera-division",
+      "nombre": "Primera División",
+      "pais": "Peru",
+      "ventajaBacktest": 0.0538
     }
   ]
 }

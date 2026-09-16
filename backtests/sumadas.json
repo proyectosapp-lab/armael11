@@ -6,5 +6,13 @@
   "nombre": "Serie A",
   "pais": "Brazil",
   "ventajaBacktest": 0.0193
+ },
+ {
+  "cuando": "2026-09-16T23:14:22.826Z",
+  "id": 281,
+  "slug": "peru-primera-division",
+  "nombre": "Primera División",
+  "pais": "Peru",
+  "ventajaBacktest": 0.0538
  }
 ]
