@@ -7,28 +7,54 @@
   },
   "ligas": [
     {
-      "id": 128, "slug": "argentina", "nombre": "Liga Profesional",
-      "pais": "Argentina", "propia": true, "ventajaBacktest": 0.0046
+      "id": 128,
+      "slug": "argentina",
+      "nombre": "Liga Profesional",
+      "pais": "Argentina",
+      "propia": true,
+      "ventajaBacktest": 0.0046
     },
     {
-      "id": 94, "slug": "portugal", "nombre": "Primeira Liga",
-      "pais": "Portugal", "ventajaBacktest": 0.0979
+      "id": 94,
+      "slug": "portugal",
+      "nombre": "Primeira Liga",
+      "pais": "Portugal",
+      "ventajaBacktest": 0.0979
     },
     {
-      "id": 135, "slug": "italia", "nombre": "Serie A",
-      "pais": "Italia", "ventajaBacktest": 0.0676
+      "id": 135,
+      "slug": "italia",
+      "nombre": "Serie A",
+      "pais": "Italia",
+      "ventajaBacktest": 0.0676
     },
     {
-      "id": 39, "slug": "inglaterra", "nombre": "Premier League",
-      "pais": "Inglaterra", "ventajaBacktest": 0.0519
+      "id": 39,
+      "slug": "inglaterra",
+      "nombre": "Premier League",
+      "pais": "Inglaterra",
+      "ventajaBacktest": 0.0519
     },
     {
-      "id": 140, "slug": "espana", "nombre": "LaLiga",
-      "pais": "España", "ventajaBacktest": 0.0505
+      "id": 140,
+      "slug": "espana",
+      "nombre": "LaLiga",
+      "pais": "España",
+      "ventajaBacktest": 0.0505
     },
     {
-      "id": 61, "slug": "francia", "nombre": "Ligue 1",
-      "pais": "Francia", "ventajaBacktest": 0.0466
+      "id": 61,
+      "slug": "francia",
+      "nombre": "Ligue 1",
+      "pais": "Francia",
+      "ventajaBacktest": 0.0466
+    },
+    {
+      "id": 71,
+      "slug": "brazil-serie-a",
+      "nombre": "Serie A",
+      "pais": "Brazil",
+      "ventajaBacktest": 0.0193
     }
   ]
 }
