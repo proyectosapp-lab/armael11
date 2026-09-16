@@ -172,71 +172,78 @@ srv.listen(8099, async () => {
     r.abort();
   });
 
+  /* ══ LA PORTADA ES ARMÁ EL 11 ══════════════════════════════════════
+     Desde y35 la portada es la app en modo PORTADA: abre en El 11 con el
+     resumen de dos líneas y la lista de ligas; la grilla de clubes vive en
+     la pestaña "Tu club". Es la decisión de Fausto tras la prueba cerrada:
+     "la principal función es simular; que la portada sea Armá el 11". */
   await pg.goto('http://localhost:8099/index.html', { waitUntil: 'networkidle' });
-  caso("la portada lista los clubes", await pg.locator('.club').count() > 0);
+  caso("la portada abre en El 11, no en los clubes",
+       await pg.evaluate(() => document.querySelector('#barra [aria-pressed="true"]').dataset.tab) === 'juego');
+  caso("y no pide ninguna API key: es el simulador de ligas",
+       await pg.locator('#k').count() === 0 && await pg.locator('h3.sec', { hasText: /Elegí la liga/i }).count() === 1);
 
-  /* ── EL GANCHO DEL SIMULADOR ──────────────────────────────────────────
-     La portada tiene que contar que el resultado no sale de un dado, y
-     tiene que contarlo con los números que están efectivamente medidos y
-     anotados en `claude/modelo-backtest.md`. No hay forma automática de
-     verificar que una promesa sea cierta; lo que sí se puede fijar es que
-     los números NO se muevan solos. Si alguien los cambia, este caso
-     falla y lo obliga a pasar por el respaldo. */
+  /* ── EL GANCHO ────────────────────────────────────────────────────────
+     Dos líneas y las dos medidas. Los números NO se pueden mover solos:
+     salen de claude/modelo-backtest.md. Si alguien los cambia, esto falla
+     y lo obliga a pasar por el respaldo. */
   {
     const g = pg.locator('.gancho');
-    caso("la portada dice que el simulador no tira un dado",
-         await g.count() === 1 && /no tira un dado/i.test(await g.innerText()));
+    caso("la portada dice, arriba de todo, que la perilla mueve el resultado",
+         await g.count() === 1 && /perilla y se mueve el resultado/i.test(await g.innerText()));
+    caso("y que no tira un dado", /no tira un dado/i.test(await g.innerText()));
     const txt = await g.innerText();
     for (const n of ["10.860", "nueve ligas", "1.783", "6.000"])
-      caso("y el respaldo dice " + n, txt.includes(n),
-           txt.replace(/\n/g, " ").slice(0, 140));
-    /* Elegir el club sigue siendo lo primero: el gancho va DESPUÉS de la
-       grilla, no antes. Un argumento sobre el modelo no puede empujar a los
-       treinta clubes abajo del pliegue. */
-    caso("y va después de la grilla, no antes",
+      caso("y el respaldo dice " + n, txt.includes(n), txt.replace(/\n/g, " ").slice(0, 140));
+    caso("y no promete acertar ni eficacia: eso no está medido en Argentina",
+         !/acert|efica|gan[aá] plata|cuota/i.test(txt));
+    caso("dice cuántas simulaciones son gratis", /\d+ simulaciones gratis/.test(txt));
+    caso("el gancho va ANTES de la lista de ligas",
          await pg.evaluate(() => {
-           const gr = document.querySelector('.grilla'), ga = document.querySelector('.gancho');
-           return !!gr && !!ga && (gr.compareDocumentPosition(ga) & Node.DOCUMENT_POSITION_FOLLOWING) > 0;
+           const ga = document.querySelector('.gancho'), li = document.querySelector('h3.sec + .tarjeta');
+           return !!ga && !!li && (ga.compareDocumentPosition(li) & Node.DOCUMENT_POSITION_FOLLOWING) > 0;
          }));
   }
 
-  /* ── EL NOMBRE ────────────────────────────────────────────────────────
-     La app se llamaba TSTE por dentro y el dominio dice otra cosa. Que el
-     link diga una cosa y la pantalla diga otra confunde justo cuando
-     alguien la recibe por primera vez. */
+  /* ── EL NOMBRE ──────────────────────────────────────────────────────── */
   {
     const site = await pg.locator('meta[property="og:site_name"]').getAttribute('content');
     caso("la portada se presenta con el nombre del producto", site === "Armá el 11", site);
     const html = await pg.content();
     caso("y no queda ni un TSTE a la vista", !/TSTE/.test(html),
          (html.match(/.{0,30}TSTE.{0,30}/) || [""])[0]);
+    caso("el descargo nombra a la Liga y a ningún club en particular",
+         /sin relación con ningún club ni con la Liga Profesional/.test(await pg.locator('.pie').innerText()));
   }
 
-  /* ── LA CIUDAD DE CADA CLUB ───────────────────────────────────────────
-     Estaba en la misma fila que el nombre, empujada a la derecha, y con
-     los nombres largos se cortaba: "Independiente Rivadavia" se comía a
-     "Mendoza". Ahora van apilados. Esto mide lo único que importa: que el
-     texto entre entero en su caja, en los treinta.                      */
+  /* ── LA GRILLA DE CLUBES, EN "TU CLUB" ────────────────────────────── */
+  await pg.locator('#barra [data-tab="feed"]').click();
+  await pg.waitForTimeout(300);
+  caso("la pestaña del feed se llama 'Tu club' en la portada",
+       /tu club/i.test(await pg.locator('#barra [data-tab="feed"]').innerText()));
+  caso("y lista los clubes", await pg.locator('.club').count() > 0);
   {
     const cortadas = await pg.evaluate(() => {
       const mal = [];
       for (const e of document.querySelectorAll('.club')) {
         const ciu = e.querySelector('.ciu'); if (!ciu) continue;
-        /* Un píxel de tolerancia: el redondeo del navegador. */
-        if (ciu.scrollWidth > ciu.clientWidth + 1)
-          mal.push(e.querySelector('.nom').textContent.trim());
+        if (ciu.scrollWidth > ciu.clientWidth + 1) mal.push(e.querySelector('.nom').textContent.trim());
       }
       return mal;
     });
     caso("ninguna ciudad queda cortada", cortadas.length === 0, cortadas.join(", "));
     const apilado = await pg.evaluate(() => {
       const c = document.querySelector('.club');
-      const n = c.querySelector('.nom').getBoundingClientRect();
-      const u = c.querySelector('.ciu').getBoundingClientRect();
-      return u.top >= n.bottom - 2;      // la ciudad va DEBAJO del nombre
+      const n = c.querySelector('.nom').getBoundingClientRect(), u = c.querySelector('.ciu').getBoundingClientRect();
+      return u.top >= n.bottom - 2;
     });
     caso("la ciudad va debajo del nombre, no peleándole el renglón", apilado);
   }
+  /* ?elegir abre directo en la grilla: es a donde manda "Cambiar de club" */
+  await pg.goto('http://localhost:8099/index.html?elegir', { waitUntil: 'load' });
+  await pg.waitForTimeout(300);
+  caso("index.html?elegir abre en la grilla de clubes",
+       await pg.evaluate(() => document.querySelector('#barra [aria-pressed="true"]').dataset.tab) === 'feed');
 
   await pg.goto('http://localhost:8099/' + CLUB + '.html', { waitUntil: 'networkidle' });
   await pg.waitForTimeout(300);
@@ -1565,36 +1572,48 @@ srv.listen(8099, async () => {
          !!s && s.dentro, JSON.stringify(s));
   }
 
-  /* ── EL CLUB SE ELIGE UNA VEZ ─────────────────────────────────────────
-     La app instalada arranca en la portada, y la portada preguntaba el
-     club en cada apertura. Ahora la página del club se anota, la portada
-     manda derecho, y "Cambiar de club" (?elegir) es la única que no. */
+  /* ── EL CLUB RECORDADO ────────────────────────────────────────────────
+     La página del club se anota en el teléfono. La portada ya NO redirige
+     (es el simulador); lo que hace es ofrecer el club recordado como
+     tarjeta arriba del todo y destacarlo en la grilla. */
   {
     caso("la página del club queda anotada en el teléfono",
          await pg.evaluate(() => localStorage.getItem('armaEl11.club')) === CLUB);
     await pg.goto('http://localhost:8099/index.html', { waitUntil: 'load' });
     await pg.waitForTimeout(400);
-    caso("y la portada manda derecho al club, sin preguntar",
-         pg.url().endsWith('/' + CLUB + '.html'), pg.url());
-    await pg.goto('http://localhost:8099/index.html?elegir', { waitUntil: 'load' });
-    await pg.waitForTimeout(300);
-    const baja = await pg.locator('#baja').innerText();
-    caso("con ?elegir se queda, lista los clubes y dice de dónde se viene",
-         pg.url().includes('index.html?elegir') && await pg.locator('.club').count() > 0 &&
-         /Ahora estás en/.test(baja), baja);
-    caso("y deja volver sin elegir de nuevo",
-         await pg.locator('#baja a[href="' + CLUB + '.html"]').count() === 1);
-    /* Un club anotado que no tiene página en este sitio no puede mandar a
-       un 404: se ignora y se muestra la grilla. */
+    caso("la portada se queda en la portada (es el simulador, no redirige)",
+         pg.url().endsWith('/index.html'), pg.url());
+    caso("y ofrece el club recordado como tarjeta, con link a su página",
+         await pg.locator('.tuclub[href="' + CLUB + '.html"]').count() === 1);
+    caso("y no anota 'arma-el-11' como si fuera un club",
+         await pg.evaluate(() => localStorage.getItem('armaEl11.club')) === CLUB);
+    await pg.locator('#barra [data-tab="feed"]').click();
+    await pg.waitForTimeout(250);
+    caso("en la grilla, el club recordado va primero y marcado",
+         await pg.evaluate(c => { const p = document.querySelector('.club'); return p && p.classList.contains('actual') && p.getAttribute('href') === c + '.html'; }, CLUB));
+    /* Un club anotado que no tiene página en este sitio no puede romper nada. */
     await pg.evaluate(() => localStorage.setItem('armaEl11.club', 'club-que-no-existe'));
     await pg.goto('http://localhost:8099/index.html', { waitUntil: 'load' });
     await pg.waitForTimeout(300);
-    caso("un club anotado sin página no redirige a un 404",
-         pg.url().endsWith('/index.html') && await pg.locator('.club').count() > 0, pg.url());
+    caso("un club anotado sin página no muestra tarjeta ni rompe",
+         await pg.locator('.tuclub').count() === 0 && await pg.locator('.gancho').count() === 1);
     await pg.evaluate(c => localStorage.setItem('armaEl11.club', c), CLUB);
     caso("y el pie de la app tiene 'Cambiar de club', que va a la portada con ?elegir",
          await (async () => { await pg.goto('http://localhost:8099/' + CLUB + '.html', { waitUntil: 'load' });
            return pg.locator('.pie a[href="index.html?elegir"]').count(); })() === 1);
+    caso("en la portada ese link no está (sería un link a sí misma)",
+         await (async () => { await pg.goto('http://localhost:8099/index.html', { waitUntil: 'load' });
+           return pg.locator('#bcambiar:visible').count(); })() === 0);
+  }
+
+  /* ── LA PANTALLA DEL BACKTEST ─────────────────────────────────────────
+     Vive en el sitio (en claude.ai no puede hablar con la base). Lleva las
+     dos claves PÚBLICAS de Supabase y ninguna otra. */
+  {
+    const r = await traer('/backtest.html');
+    caso("la pantalla del backtest se publica con el sitio", r.estado === 200 && /pedir_backtest/.test(r.texto));
+    caso("y no lleva ninguna clave de servidor",
+         !/service_role|SUPABASE_SERVICE|BACKTEST_CLAVE\s*=/.test(r.texto) && /"role":"anon"|eyJ/.test(r.texto));
   }
 
   caso("el navegador NUNCA llamó a api-sports.io", apiTocada.length === 0);

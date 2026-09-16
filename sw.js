@@ -33,7 +33,7 @@
    emergencia que dejamos escrita para exactamente eso.
    v3: entran los avisos (push). Subirlo hace que los teléfonos tomen el
    service worker nuevo enseguida, sin esperar a que cierren la app. */
-const VERSION = "v3";
+const VERSION = "v4";
 const CACHE = "armael11-" + VERSION;
 
 /* Nada se precarga a propósito. Precargar una lista de archivos obliga a

@@ -101,30 +101,9 @@ const REGISTRO_SW = '<script>if("serviceWorker" in navigator)' +
   'addEventListener("load",function(){navigator.serviceWorker.register("/sw.js")' +
   '.catch(function(){})})</script>';
 
-/* ══════════════════ EL RESCATE DE LA SESIÓN ══════════════════
-   Va en la PORTADA y no en las páginas de club, y es por un caso concreto
-   que nos costó un día:
-
-   El link que Supabase manda por mail vuelve con la sesión en el hash de la
-   dirección. Pero Supabase solo redirige a las direcciones de su lista
-   blanca; si la de destino no está, redirige a la Site URL — que es la
-   portada. Y la portada no cargaba `cuentas.js`, así que el token llegaba,
-   nadie lo leía, y la persona terminaba en la lista de clubes sin sesión y
-   sin ningún error a la vista. "El link no anda."
-
-   Esto lo rescata: si llega un token acá, se guarda. Como el guardado es
-   por ORIGEN, con eso ya queda la sesión puesta para todas las páginas del
-   sitio, y se manda a la persona de vuelta a la de su club.
-
-   Es una red, no la solución: lo correcto es tener bien la lista blanca en
-   Supabase. Pero una configuración que no se ve no puede ser lo único que
-   separa a alguien de entrar a su cuenta.                              */
-const RESCATE_SESION = HAY_BACKEND ? '<script src="datos/cuentas.js"></script>' +
-  '<script>try{if(/access_token=/.test(location.hash)&&capturarVuelta()){' +
-  'var v=null;try{v=localStorage.getItem("armaEl11.volviendoDe")}catch(e){}' +
-  'if(v&&v.charAt(0)==="/"){try{localStorage.removeItem("armaEl11.volviendoDe")}catch(e){}' +
-  'location.replace(v)}}}catch(e){}</script>' : "";
-
+/* El "rescate de sesión" que tenía la portada vieja ya no hace falta: la
+   portada es una página de la app y carga cuentas.js como cualquier club,
+   así que un token que llegue acá lo captura la app misma. */
 
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
 
@@ -223,17 +202,11 @@ function cabeza(club) {
   ].filter(Boolean).join("\n");
 }
 
-let hechos = 0, sinFeed = [], conJuego = 0;
-
-for (const club of CLUBES) {
-  const feed = aca("./feed-" + club.id + ".js");
-  if (!existsSync(feed)) { sinFeed.push(club.nom); continue; }
-  copyFileSync(feed, new URL("feed-" + club.id + ".js", DATOS));
-
-  const juego = aca("./sitio/datos/cache-" + club.id + ".js");
-  const hayJuego = existsSync(juego);
-  if (hayJuego) conJuego++;
-
+/* ── UNA PÁGINA DE LA APP ──────────────────────────────────────────────
+   La misma plantilla arma las treinta páginas de club y la portada: cambia
+   qué datos entran antes del script (el feed y el cache del club, o la
+   lista de clubes para la portada), el descargo y la cabeza. */
+function armarPagina(club, op) {
   /* Los datos entran ANTES del script de la app, en este orden. */
   const tags = [
     '<script>window.SITIO=' + JSON.stringify({
@@ -265,8 +238,7 @@ for (const club of CLUBES) {
     '<script src="datos/juego.js"></script>',
     ...TAGS_LIGAS,
     '<script src="datos/stats-liga.js"></script>',
-    '<script src="datos/feed-' + club.id + '.js"></script>',
-    hayJuego ? '<script src="datos/cache-' + club.id + '.js"></script>' : null,
+    ...op.datos,
   ].filter(Boolean).join("\n");
 
   let html = TPL.replace("<script>\n/*DATOS*/", tags + "\n<script>");
@@ -287,11 +259,31 @@ for (const club of CLUBES) {
     console.log("    el aviso de 'app independiente' no nombra al club correcto.");
     process.exit(1);
   }
-  html = html.replaceAll("{{CLUB_OFICIAL}}", esc(club.nombreCompleto || club.nom));
+  html = html.replaceAll("{{CLUB_OFICIAL}}", esc(op.oficial));
 
-  html = html.replace(/<title>[\s\S]*?<\/title>/i, cabeza(club));
+  html = html.replace(/<title>[\s\S]*?<\/title>/i, op.cabeza);
   html = html.replace("</body>", contador + publicidad + "\n</body>");
-  writeFileSync(new URL(club.id + ".html", SITIO), html);
+  writeFileSync(new URL(op.archivo, SITIO), html);
+}
+
+let hechos = 0, sinFeed = [], conJuego = 0;
+
+for (const club of CLUBES) {
+  const feed = aca("./feed-" + club.id + ".js");
+  if (!existsSync(feed)) { sinFeed.push(club.nom); continue; }
+  copyFileSync(feed, new URL("feed-" + club.id + ".js", DATOS));
+
+  const juego = aca("./sitio/datos/cache-" + club.id + ".js");
+  const hayJuego = existsSync(juego);
+  if (hayJuego) conJuego++;
+
+  armarPagina(club, {
+    datos: ['<script src="datos/feed-' + club.id + '.js"></script>',
+            hayJuego ? '<script src="datos/cache-' + club.id + '.js"></script>' : null],
+    oficial: club.nombreCompleto || club.nom,
+    cabeza: cabeza(club),
+    archivo: club.id + ".html",
+  });
 
   /* Agregado a la pantalla de inicio, abre en su club y con sus colores. */
   writeFileSync(new URL("app-" + club.id + ".webmanifest", DATOS), JSON.stringify({
@@ -352,145 +344,66 @@ function tintaSobre(hex) {
 const orden = [...CLUBES].filter(c => existsSync(aca("./feed-" + c.id + ".js")))
   .sort((a, b) => a.nom.localeCompare(b.nom, "es"));
 
-writeFileSync(new URL("index.html", SITIO), `<!doctype html>
-<html lang="es"><head>
-<meta charset="utf-8">
-<!-- EL CLUB SE ELIGE UNA VEZ. La app instalada arranca acá, y acá se
-     preguntaba el club en cada apertura. Si la página de un club ya se
-     abrió alguna vez en este teléfono, quedó anotado y se va derecho. Va
-     antes de todo lo demás para que la portada ni se dibuje. No redirige
-     con ?elegir (es como se llega desde "Cambiar de club") ni cuando
-     vuelve el mail de acceso con el token en el hash: eso lo atiende el
-     rescate de sesión. Y solo manda a clubes que existen en este sitio:
-     un club anotado que hoy no tiene página no puede mandar a un 404. -->
-<script>(function(){try{
-  if(/[?&]elegir/.test(location.search)||/access_token=/.test(location.hash))return;
-  var c=localStorage.getItem("armaEl11.club");
-  if(c&&${JSON.stringify(orden.map(c => c.id))}.indexOf(c)>=0)location.replace(c+".html");
-}catch(e){}})();</script>
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>Armá el 11 · elegí tu equipo</title>
-<meta name="description" content="Todo lo que se dice de tu equipo del fútbol argentino, en un solo lugar: noticias, videos y números de los 30 clubes.">
-<meta name="theme-color" content="#101418">
-<meta property="og:type" content="website">
-<meta property="og:site_name" content="Armá el 11">
-<meta property="og:locale" content="es_AR">
-<meta property="og:title" content="Armá el 11 · elegí tu equipo">
-<meta property="og:description" content="Todo lo que se dice de tu equipo del fútbol argentino, en un solo lugar. 30 clubes.">
-${RAIZ ? `<meta property="og:url" content="${RAIZ}/">\n<link rel="canonical" href="${RAIZ}/">` : ""}
-<meta name="twitter:card" content="summary">
-<link rel="icon" href="${icono({color:"#101418", ini:"11"})}">
-<link rel="manifest" href="/app.webmanifest">
-<style>
-  :root{ --fondo:#F4F6F9; --papel:#FFFFFF; --texto:#0D1117; --suave:#57606E; --borde:#DDE3EC;
-    --verde:#177A40; --verde2:#1E8A4A;
-    --display:"Poppins",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
-    --sombra:0 1px 2px rgba(10,15,25,.05), 0 10px 28px -18px rgba(10,15,25,.25) }
-  @media (prefers-color-scheme: dark){
-    :root{ --fondo:#08090C; --papel:#12161D; --texto:#F2F5FA; --suave:#8B95A6; --borde:#232A35;
-      --sombra:0 1px 2px rgba(0,0,0,.4), 0 10px 28px -18px rgba(0,0,0,.8) } }
-  @font-face{font-family:"Poppins";font-weight:700;font-display:swap;src:url("datos/poppins-bold.woff") format("woff")}
-  @font-face{font-family:"Poppins";font-weight:500;font-display:swap;src:url("datos/poppins-medium.woff") format("woff")}
-  *{box-sizing:border-box}
-  body{margin:0;background:var(--fondo);color:var(--texto);
-    font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
-    padding:0 0 60px;-webkit-font-smoothing:antialiased}
-  .caja{max-width:760px;margin:0 auto;padding:0 18px}
+/* ══════════════════ LA PORTADA ES ARMÁ EL 11 ══════════════════
+   Hasta y34 la portada era la grilla de clubes argentinos. Fausto, con la
+   devolución de la prueba cerrada en la mano: "la principal función es
+   simular partidos; que la portada sea Armá el 11, y la elección del club
+   va al feed". Y con el esquema de planes por liga, la puerta tiene que
+   servirle a un mexicano igual que a un cordobés: se entra por la liga.
 
-  /* La marca arriba, sobre césped. Es lo único de la portada que no cambia
-     con el club, así que es lo único que puede tener color propio. */
-  .marca{background:
-      radial-gradient(120% 80% at 50% 0%, rgba(255,255,255,.14), transparent 60%),
-      repeating-linear-gradient(180deg, rgba(255,255,255,.035) 0 34px, transparent 34px 68px),
-      linear-gradient(180deg, var(--verde2), var(--verde));
-    color:#fff;padding:34px 18px 30px;position:relative;overflow:hidden}
-  .marca::after{content:"";position:absolute;left:50%;bottom:-140px;width:360px;height:360px;
-    border:2px solid rgba(255,255,255,.18);border-radius:50%;transform:translateX(-50%)}
-  .marca .in{max-width:760px;margin:0 auto;position:relative}
-  .marca .logo{font-family:var(--display);font-weight:700;font-size:38px;letter-spacing:-1.2px;
-    line-height:1;margin:0;display:flex;align-items:center;gap:12px}
-  .marca .logo em{font-style:normal;background:#fff;color:var(--verde);border-radius:12px;
-    padding:2px 10px 0;font-size:34px;letter-spacing:-1px;box-shadow:0 8px 22px -10px rgba(0,0,0,.5)}
-  .marca .lema{margin:12px 0 0;font-size:16px;line-height:1.45;opacity:.92;max-width:34ch}
-  .marca .lema b{font-family:var(--display);font-weight:500}
+   Es la MISMA plantilla que las páginas de club, en modo PORTADA: el 11
+   abre en la lista de ligas con el resumen de dos líneas; el Feed es la
+   grilla de clubes (noticias y el 11 de tu equipo); Números es la tabla.
+   Los datos de la portada van en datos/portada.js, como el feed de un club.
 
-  h1{font-family:var(--display);font-weight:700;font-size:13px;letter-spacing:1.4px;text-transform:uppercase;
-    color:var(--suave);margin:30px 4px 4px}
-  p.baja{color:var(--suave);margin:0 4px 14px;font-size:14px}
-  p.baja a{color:var(--texto);font-weight:600}
-  .grilla{display:grid;gap:10px;grid-template-columns:repeat(auto-fill,minmax(150px,1fr))}
-  .club{display:flex;align-items:center;gap:12px;padding:12px 13px;border-radius:16px;
-    background:var(--papel);box-shadow:var(--sombra);text-decoration:none;color:inherit;
-    transition:transform .12s ease, box-shadow .12s ease}
-  .club:hover{transform:translateY(-2px);box-shadow:0 2px 6px rgba(10,15,25,.06), 0 18px 44px -20px rgba(10,15,25,.35)}
-  .club:active{transform:scale(.985)}
-  .mono{width:40px;height:40px;flex:none;border-radius:12px;color:var(--t);
-    display:grid;place-items:center;font-family:var(--display);font-weight:700;font-size:18px;
-    background:linear-gradient(160deg, color-mix(in srgb, var(--c) 82%, white), var(--c) 55%, color-mix(in srgb, var(--c) 80%, black));
-    box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--c2) 55%,transparent), 0 6px 16px -8px var(--c)}
-  .txt{display:flex;flex-direction:column;min-width:0;line-height:1.25}
-  .nom{font-family:var(--display);font-weight:500;font-size:15px;letter-spacing:-.1px}
-  .ciu{color:var(--suave);font-size:12px;margin-top:1px}
-  footer{margin-top:34px;color:var(--suave);font-size:13px;line-height:1.7;padding:0 4px}
-  footer b{color:var(--texto);font-weight:600}
-  footer a{color:var(--suave)}
+   Ya no redirige al club recordado: la portada es el simulador. El club
+   recordado aparece como tarjeta ("tu club") y la grilla lo destaca. */
+writeFileSync(new URL("portada.js", DATOS),
+  "window.CLUB = " + JSON.stringify({
+    id: "arma-el-11", nom: "Armá el 11", ini: "11", apiId: 0,
+    color: "#177A40", color2: "#FFFFFF", patron: "liso", estrellas: 0,
+  }) + ";\n" +
+  "window.FEED = { clusters: [] };\n" +
+  "window.PORTADA = " + JSON.stringify({
+    clubes: orden.map(c => ({ id: c.id, nom: c.nom, ini: c.ini, ciudad: c.ciudad || "",
+                              color: c.color, color2: c.color2 || "#FFFFFF", tinta: tintaSobre(c.color) })),
+    respaldo: RESPALDO,
+    gratis: CFG.cupo?.gratis ?? 10,
+  }) + ";\n");
 
-  /* El gancho: oscuro, con el número grande. Es una afirmación, no un párrafo. */
-  .gancho{margin-top:26px;padding:24px 22px 20px;border-radius:20px;
-    background:linear-gradient(160deg,#151B26,#0D1117);color:#F2F5FA;
-    box-shadow:0 2px 6px rgba(10,15,25,.08), 0 24px 50px -24px rgba(10,15,25,.5);position:relative;overflow:hidden}
-  .gancho::before{content:"";position:absolute;right:-60px;top:-60px;width:200px;height:200px;border-radius:50%;
-    background:radial-gradient(circle, color-mix(in srgb, var(--verde2) 55%, transparent), transparent 70%)}
-  .gancho h2{margin:0 0 8px;font-family:var(--display);font-weight:700;font-size:24px;letter-spacing:-.5px;line-height:1.15;position:relative}
-  .gancho p{margin:0;color:#DDE3EC;font-size:16px;line-height:1.55;position:relative}
-  .gancho b{font-family:var(--display);font-weight:500;color:#fff}
-  .gancho .chica{margin-top:14px;padding-top:12px;border-top:1px solid rgba(255,255,255,.12);
-    color:#98A2B3;font-size:11.5px;line-height:1.5;font-weight:500}
-</style></head><body>
-<header class="marca"><div class="in">
-  <p class="logo">Armá <em>el 11</em></p>
-  <p class="lema"><b>Simulá y decidí.</b> Tu partido, jugado 6.000 veces con los goles reales de cada liga. Y todo lo que se dice de tu club, en un solo lugar.</p>
-</div></header>
-<div class="caja">
-  <h1>Elegí tu equipo</h1>
-  <p class="baja" id="baja">${orden.length} equipos del fútbol argentino.</p>
-  <!-- Cuando se llega con ?elegir, decir de dónde se viene y dejar volver
-       sin elegir. Se completa por script porque el club está en el
-       teléfono, no en esta página. -->
-  <script>(function(){try{
-    if(!/[?&]elegir/.test(location.search))return;
-    var c=localStorage.getItem("armaEl11.club"),N=${JSON.stringify(Object.fromEntries(orden.map(c => [c.id, c.nom])))};
-    if(!c||!N[c])return;
-    var a=document.createElement("a");a.href=c+".html";a.textContent="Volver a "+N[c];
-    var p=document.getElementById("baja");p.textContent="Ahora estás en "+N[c]+". Tocá otro para cambiar, o ";
-    p.appendChild(a);p.appendChild(document.createTextNode("."));
-  }catch(e){}})();</script>
-  <div class="grilla">${orden.map(tarjeta).join("\n")}</div>
+const cabezaPortada = [
+  `<title>Armá el 11 · el simulador donde el once lo armás vos</title>`,
+  `<meta name="description" content="Tocás una perilla y se mueve el resultado. Cada partido se juega 6.000 veces con los goles reales de su liga. Y todo lo que se dice de tu club, en un solo lugar.">`,
+  `<meta name="theme-color" content="#177A40">`,
+  `<meta property="og:type" content="website">`,
+  `<meta property="og:site_name" content="Armá el 11">`,
+  `<meta property="og:locale" content="es_AR">`,
+  `<meta property="og:title" content="Armá el 11 · el simulador donde el once lo armás vos">`,
+  `<meta property="og:description" content="Tocás una perilla y se mueve el resultado. 6.000 partidos por simulación, con los goles reales de cada liga. Está medido.">`,
+  RAIZ ? `<meta property="og:url" content="${RAIZ}/">\n<link rel="canonical" href="${RAIZ}/">` : "",
+  `<meta name="twitter:card" content="summary">`,
+  `<link rel="icon" href="${icono({ color: "#177A40", ini: "11" })}">`,
+  `<link rel="apple-touch-icon" href="${icono({ color: "#177A40", ini: "11" })}">`,
+  `<link rel="manifest" href="/app.webmanifest">`,
+  REGISTRO_SW,
+  `<meta name="mobile-web-app-capable" content="yes">`,
+].filter(Boolean).join("\n");
 
-  <!-- DOS FRASES Y LA LETRA CHICA. La versión larga explicaba el modelo en
-       tres párrafos y no la leía nadie: en una portada el respaldo se
-       muestra, no se argumenta. Los números siguen todos acá, en un
-       renglón, para el que quiera verificarlos. -->
-  <section class="gancho">
-    <h2>El simulador no tira un dado.</h2>
-    <p>Tu partido se juega <b>6.000 veces</b> con los goles reales de cada
-      liga. Y <b>la argentina es la más imprevisible</b>: está medido.</p>
-    <p class="chica">${RESPALDO.partidos} partidos reales · ${RESPALDO.ligas}
-      ligas · desde ${RESPALDO.desde} · ${RESPALDO.limpias} de tres ligas que
-      el modelo nunca había visto</p>
-  </section>
+armarPagina({ id: "arma-el-11" }, {
+  datos: ['<script src="datos/portada.js"></script>'],
+  oficial: "ningún club ni con la Liga Profesional",
+  cabeza: cabezaPortada,
+  archivo: "index.html",
+});
 
-  <footer>
-    <b>Armá el 11 es independiente.</b> No está afiliado ni tiene relación con ningún club
-    ni con la Liga Profesional. Los nombres se usan para identificar a los equipos.
-    Los videos se enlazan a sus reproductores originales; acá no se aloja ninguno.
-    <br><a href="/privacidad.html">Privacidad</a> · <a href="/borrar-cuenta.html">Borrar mi cuenta</a>
-  </footer>
-</div>${RESCATE_SESION}${REGISTRO_SW}</body>${contador}${publicidad}</html>
-`);
+/* La pantalla del backtest (backtest.tpl.html), solo si hay backend: sin
+   Supabase no tiene con que hablar. Lleva las dos claves PUBLICAS. */
+if (HAY_BACKEND && existsSync(aca("./backtest.tpl.html")))
+  writeFileSync(new URL("backtest.html", SITIO),
+    readFileSync(aca("./backtest.tpl.html"), "utf8")
+      .replaceAll("{{SUPABASE_URL}}", CFG.supabase.url)
+      .replaceAll("{{SUPABASE_ANON}}", CFG.supabase.anon));
 
-/* Pages sirve tal cual lo que hay: sin esto trata la carpeta como un sitio
-   Jekyll y se saltea todo lo que empiece con guion bajo. */
 writeFileSync(new URL(".nojekyll", SITIO), "");
 
 /* ══════════════════ LAS DOS PÁGINAS QUE PIDE PLAY ══════════════════

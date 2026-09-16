@@ -670,6 +670,35 @@ th{font-family:var(--display);font-weight:500;letter-spacing:.8px}
   text-transform:none;letter-spacing:0;font-family:inherit}
 .tres-t td{font-family:var(--display);font-weight:700;font-size:15px;font-variant-numeric:tabular-nums}
 
+/* ── la portada ───────────────────────────────────────────────────────── */
+.gancho{background:linear-gradient(160deg,#151B26,#0D1117);color:#F2F5FA;position:relative;overflow:hidden;
+  padding:22px 20px 18px;margin-top:4px}
+.gancho::before{content:"";position:absolute;right:-60px;top:-60px;width:200px;height:200px;border-radius:50%;
+  background:radial-gradient(circle, color-mix(in srgb, #1E8A4A 55%, transparent), transparent 70%)}
+.gancho h2{margin:0 0 8px;font-family:var(--display);font-weight:700;font-size:23px;letter-spacing:-.5px;line-height:1.15;position:relative}
+.gancho p{margin:0;color:#DDE3EC;font-size:14.5px;line-height:1.55;position:relative}
+.gancho b{font-family:var(--display);font-weight:500;color:#fff}
+.gancho .chica{margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,.12);color:#98A2B3;font-size:11.5px;font-weight:500}
+.tuclub{display:flex;align-items:center;gap:12px;margin-top:10px;padding:12px 14px;border-radius:var(--r-l);
+  background:var(--papel);box-shadow:var(--sombra-1);text-decoration:none;color:var(--tinta);font-size:13px;line-height:1.35}
+.tuclub .sub{color:var(--tinta-3);font-size:12px}
+.tuclub .chev{margin-left:auto;color:var(--tinta-3);font-size:22px}
+.mono-c{width:40px;height:40px;flex:none;border-radius:12px;color:var(--t);display:grid;place-items:center;
+  font-family:var(--display);font-weight:700;font-size:17px;
+  background:linear-gradient(160deg, color-mix(in srgb, var(--c) 82%, white), var(--c) 55%, color-mix(in srgb, var(--c) 80%, black));
+  box-shadow:inset 0 0 0 2px color-mix(in srgb, var(--c2, #fff) 55%, transparent), 0 6px 16px -8px var(--c)}
+.grilla{display:grid;gap:8px;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));margin-top:4px}
+.club{display:flex;align-items:center;gap:11px;padding:10px 11px;border-radius:var(--r-m);position:relative;
+  background:color-mix(in srgb, var(--tinta) 4%, transparent);text-decoration:none;color:inherit;
+  transition:transform .12s ease, background .12s}
+.club:hover{background:color-mix(in srgb, var(--tinta) 8%, transparent)}
+.club:active{transform:scale(.985)}
+.club.actual{box-shadow:0 0 0 1.5px var(--c)}
+.club .txt{display:flex;flex-direction:column;min-width:0;line-height:1.25}
+.club .nom{font-family:var(--display);font-weight:500;font-size:14px;letter-spacing:-.1px}
+.club .ciu{color:var(--tinta-3);font-size:11.5px;margin-top:1px}
+.club .tuc{color:var(--c);font-weight:700;letter-spacing:.3px}
+
 /* ── movimiento ───────────────────────────────────────────────────────── */
 @media (prefers-reduced-motion: no-preference){
   .vista{animation:entrar .2s ease-out}
@@ -705,7 +734,8 @@ th{font-family:var(--display);font-weight:500;letter-spacing:.8px}
          desarrollador.
 
          Ahora se mira el pie y se sabe. Cuesta una línea. -->
-    <span class="ver">{{VERSION}}</span> · <a href="index.html?elegir" id="bcambiar">Cambiar de club</a></p>
+    <span class="ver">{{VERSION}}</span> · <a href="index.html?elegir" id="bcambiar">Cambiar de club</a><br>
+    <a href="/privacidad.html">Privacidad</a> · <a href="/borrar-cuenta.html">Borrar mi cuenta</a></p>
 </div>
 <!-- EL ORDEN NO ES DECORATIVO. Primero lo que hicimos nosotros: el
      simulador, el fantasy y los números salen de nuestro código. El feed
@@ -818,7 +848,12 @@ const CLUB=window.CLUB, OP=.78;
    la pantalla de armar. Acá se anota el club de esta página; la portada,
    si lo encuentra, manda derecho a él. Para cambiar, el pie tiene "Cambiar
    de club", que abre la portada con ?elegir y ahí no redirige.        */
-try{ localStorage.setItem("armaEl11.club", CLUB.id); }catch(e){}
+/* MODO PORTADA. La misma plantilla arma la portada (index.html): el 11
+   abre en la lista de ligas, el Feed es la grilla de clubes, y no hay club
+   propio. `window.PORTADA` trae la lista de clubes y el respaldo del modelo. */
+const PORTADA = window.PORTADA || null;
+if(!PORTADA) try{ localStorage.setItem("armaEl11.club", CLUB.id); }catch(e){}
+const clubRecordado = () => { try{ return localStorage.getItem("armaEl11.club"); }catch(e){ return null; } };
 const prefiere=window.matchMedia("(prefers-color-scheme: dark)");
 let tema="auto";
 const temaReal=()=>tema==="auto"?(prefiere.matches?"oscuro":"claro"):tema;
@@ -873,7 +908,7 @@ const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&g
 const hace=h=>h<1?"recién":h<24?Math.round(h)+" h":Math.round(h/24)===1?"ayer":Math.round(h/24)+" días";
 const F=window.FEED, ST=window.STATS;
 /* Se abre en el simulador, no en el feed. Ver el comentario de la barra. */
-let tab="juego";
+let tab=(PORTADA && /[?&]elegir/.test(location.search)) ? "feed" : "juego";
 
 /* ══════════════════ FEED ══════════════════ */
 const COLOR={oficial:"#3B82F6",hinchas:"#E4572E",periodista:"#7B4FD4",analista:"#0E8F6E",medio:"#8B94A3"};
@@ -978,7 +1013,44 @@ function diaDe(iso){
   return d.toLocaleDateString("es-AR",{day:"numeric",month:"long"});
 }
 
+/* ══════════════════ LA PORTADA ══════════════════
+   El resumen de dos líneas y la grilla de clubes. Las dos líneas son la
+   promesa entera del producto, y las dos son verdad medida: la perilla
+   mueve el resultado (el motor lo hace y lo dice), y el modelo está
+   probado sobre 10.860 partidos. Nada de "acertá" ni de eficacia: eso no
+   está medido en Argentina y no se promete. */
+function heroPortada(){
+  const R = PORTADA.respaldo || {};
+  const rec = clubRecordado(), c = rec && PORTADA.clubes.find(x=>x.id===rec);
+  return `<section class="tarjeta gancho">
+      <h2>Tocás una perilla y se mueve el resultado.</h2>
+      <p>Cada partido se juega <b>6.000 veces</b> con los goles reales de su liga.
+        No tira un dado: está medido en <b>${esc(R.partidos||"10.860")} partidos</b> de ${esc(R.ligas||"nueve")} ligas,
+        y en ${esc(R.limpias||"1.783")} partidos de tres ligas que el modelo nunca había visto.</p>
+      <p class="chica">${PORTADA.gratis} simulaciones gratis por mes · sin publicidad de apuestas · app independiente</p>
+    </section>
+    ${c ? `<a class="tuclub" href="${esc(c.id)}.html" style="--c:${esc(c.color)};--t:${esc(c.tinta)}">
+      <span class="mono-c">${esc(c.ini)}</span>
+      <span><b>Tu club: ${esc(c.nom)}</b><br><span class="sub">El próximo partido, tu once, el del DT y lo que pasó de verdad</span></span>
+      <span class="chev">›</span></a>` : ""}`;
+}
+function vistaClubes(){
+  const rec = clubRecordado();
+  const lista = [...PORTADA.clubes].sort((a,b)=>(b.id===rec)-(a.id===rec) || a.nom.localeCompare(b.nom,"es"));
+  return `<h3 class="sec">Elegí tu club</h3>
+    <div class="tarjeta">
+      <p class="bajada" style="margin-top:0">Las noticias, el próximo partido y el once de tu equipo:
+        armás el tuyo, sale el del DT, y el resultado real dice quién tenía razón.</p>
+      <div class="grilla">${lista.map(c=>`<a class="club${c.id===rec?" actual":""}" href="${esc(c.id)}.html"
+          style="--c:${esc(c.color)};--c2:${esc(c.color2)};--t:${esc(c.tinta)}">
+          <span class="mono-c">${esc(c.ini)}</span>
+          <span class="txt"><span class="nom">${esc(c.nom)}</span><span class="ciu">${esc(c.ciudad||"")}${c.id===rec?`<b class="tuc">${c.ciudad?" · ":""}tu club</b>`:""}</span></span></a>`).join("")}</div>
+      <p class="aviso" style="margin-top:12px">${lista.length} clubes de la Liga Profesional. Sin escudos a propósito: la app es independiente.</p>
+    </div>`;
+}
+
 function vistaFeed(){
+  if(PORTADA) return vistaClubes();
   const f=FILTROS.find(x=>x.id===filtro), l=F.clusters.filter(f.ok);
   const utiles=FILTROS.filter(x=>x.id===filtro||F.clusters.some(x.ok));
   const chips=`<nav class="filtros">${utiles.map(x=>
@@ -2085,7 +2157,7 @@ const J={ key:"", reqs:0, temporada:2026, fixtures:[], fx:null, pool:{A:[],B:[]}
   auto: { xiA:[], formA:null },
   /* Qué liga se está simulando: null es la del club de esta página. */
   liga: null,
-  sim:null, real:null, paso:"key", msg:"", err:"" };
+  sim:null, real:null, paso:PORTADA?"liga":"key", msg:"", err:"" };
 
 /* ── LA API, SIN API ────────────────────────────────────────────────────
    El juego pide cuatro cosas a API-Football: fixtures, jugadores por
@@ -2374,7 +2446,7 @@ function volverAMiClub(){
   usarLiga(null);
   J.id.A = CLUB.apiId;
   J.desde = { minuto:0, golesA:0, golesB:0, rojasA:0, rojasB:0 };
-  J.paso = "fixture";
+  J.paso = PORTADA ? "liga" : "fixture";
   pintar();
 }
 
@@ -3512,12 +3584,11 @@ function vistaJuego(){
   const otrasLigas = () => {
     const ls = ligasParaSimular();
     if(!ls.length) return "";
-    return `<h3 class="sec">Simulá cualquier liga del mundo</h3>
+    return `<h3 class="sec">${PORTADA ? "Elegí la liga" : "Simulá cualquier liga del mundo"}</h3>
       <div class="tarjeta">
-        <p class="bajada" style="margin-top:0">Elegí un país y simulá cualquier
-        partido de su próxima fecha, con los planteles armados con lo que
-        hicieron antes. Cada liga corre con SUS números: no se juegan los
-        mismos goles en Argentina que en Inglaterra.</p>
+        <p class="bajada" style="margin-top:0">${PORTADA
+          ? "Cualquier partido de la próxima fecha. Cada liga corre con sus propios números: no se juegan los mismos goles en Argentina que en Inglaterra."
+          : "Elegí un país y simulá cualquier partido de su próxima fecha, con los planteles armados con lo que hicieron antes. Cada liga corre con SUS números: no se juegan los mismos goles en Argentina que en Inglaterra."}</p>
         <nav class="paises">${ls.map(L=>
           `<button class="pais" data-liga="${esc(L.slug)}"
             aria-pressed="${L.slug===J.liga}">${bandera(L.slug)}
@@ -3537,7 +3608,13 @@ function vistaJuego(){
       </div>`;
   };
 
-  if(J.paso==="liga") return otrasLigas() + cab;
+  if(J.paso==="liga"){
+    if(!PORTADA) return otrasLigas() + cab;
+    const ligas = otrasLigas() || `<h3 class="sec">Elegí la liga</h3>
+      <div class="tarjeta"><p class="bajada" style="margin-top:0">Las ligas se están cargando.
+        Mientras tanto, <a href="index.html?elegir">elegí tu club</a> y simulá su próximo partido.</p></div>`;
+    return heroPortada() + ligas + cab;
+  }
 
   if(J.paso==="fixture"){
     /* EL ATAJO. La devolucion de los testers fue "tarda mucho prepararla".
@@ -3685,7 +3762,7 @@ function vistaJuego(){
            justify-content:space-between;align-items:center;gap:10px">
           <span><b>${esc(window.LIGAS[J.liga].nombre)}</b><br>
             <span class="sub">${esc(J.nom.A)} vs ${esc(J.nom.B)}</span></span>
-          <button class="gh" id="bvolver">Volver a mi club</button>
+          <button class="gh" id="bvolver">${PORTADA ? "Volver a las ligas" : "Volver a mi club"}</button>
         </div>`
       : "") + armado;
     if(J.sim){
@@ -3982,8 +4059,15 @@ function enganchar(){
 
 $("mono").textContent=CLUB.ini;
 $("nombre").textContent=CLUB.nom;
-const fuentes=new Set(F.clusters.flatMap(c=>[c.principal,...c.tambien].map(x=>x.fuente)));
-$("resumen").textContent=F.clusters.length+" historias · "+fuentes.size+" fuentes · actualizado "+hace(F.clusters[0].horas);
+if(PORTADA){
+  $("resumen").textContent="El simulador donde el once lo armás vos";
+  const bc=$("bcambiar"); if(bc) bc.hidden=true;
+  const bf=document.querySelector('#barra [data-tab="feed"]');
+  if(bf) bf.lastChild.textContent="Tu club";
+}else{
+  const fuentes=new Set(F.clusters.flatMap(c=>[c.principal,...c.tambien].map(x=>x.fuente)));
+  $("resumen").textContent=F.clusters.length+" historias · "+fuentes.size+" fuentes · actualizado "+hace(F.clusters[0].horas);
+}
 $("vista").addEventListener("click",e=>{
   const b=e.target.closest(".chip"); if(!b)return;
   if(b.dataset.tabTabla!==undefined){ tablaSel=+b.dataset.tabTabla; pintar(); return; }
@@ -4021,7 +4105,21 @@ async function arrancarCuenta(){
   cargarSesion();
   /* Al volver del mail, la sesión viene en el hash. Se consume acá, antes
      que nada, y se limpia la dirección. */
-  if(capturarVuelta()) cuentaAbierta=true;
+  if(capturarVuelta()){
+    cuentaAbierta=true;
+    /* En la PORTADA, el link del mail cae acá cuando Supabase no tiene la
+       página del club en su lista blanca. La sesión ya quedó guardada (es
+       por origen); lo que falta es devolver a la persona a donde estaba,
+       que quedó anotado antes de mandar el mail. Es la red que tenía la
+       portada vieja, ahora adentro de la app. */
+    if(PORTADA){
+      let v=null; try{ v=localStorage.getItem("armaEl11.volviendoDe"); }catch(e){}
+      if(v && v.charAt(0)==="/" && v!==location.pathname){
+        try{ localStorage.removeItem("armaEl11.volviendoDe"); }catch(e){}
+        location.replace(v); return;
+      }
+    }
+  }
   /* Y el código de invitación viaja por el MISMO hash. Se lee después de
      los tokens —que se consumen y borran la dirección— pero el código se
      guarda aparte, así sobrevive el viaje al correo y la vuelta. */

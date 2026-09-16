@@ -1,0 +1,20 @@
+<!doctype html><html><head><meta charset="utf-8"><style>
+@font-face{font-family:"Poppins";font-weight:700;src:url("poppins-bold.woff") format("woff")}
+@font-face{font-family:"Poppins";font-weight:500;src:url("poppins-medium.woff") format("woff")}
+body{margin:0;font-family:"Poppins",sans-serif}
+.p{width:1080px;height:1080px;position:relative;overflow:hidden;color:#fff;display:grid;place-items:center;
+  background:radial-gradient(120% 80% at 50% 0%, rgba(255,255,255,.14), transparent 60%),
+    repeating-linear-gradient(180deg, rgba(255,255,255,.035) 0 90px, transparent 90px 180px),
+    linear-gradient(180deg,#1E8A4A,#177A40)}
+.p::after{content:"";position:absolute;left:50%;bottom:-420px;width:1000px;height:1000px;border:6px solid rgba(255,255,255,.16);border-radius:50%;transform:translateX(-50%)}
+.p::before{content:"";position:absolute;left:0;right:0;top:50%;height:6px;background:rgba(255,255,255,.16)}
+.tile{position:relative;z-index:1;width:600px;height:600px;border-radius:150px;background:#fff;color:#177A40;display:grid;place-items:center;
+  font-weight:700;font-size:430px;letter-spacing:-30px;line-height:1;padding-right:30px;box-sizing:border-box;
+  box-shadow:0 40px 90px -30px rgba(0,0,0,.55)}
+.b .tile{width:780px;height:780px;border-radius:190px;font-size:0;display:grid;place-items:center}
+.b .tile span{display:block;font-size:150px;letter-spacing:-6px;line-height:.95;text-align:center;color:#177A40}
+.b .tile span b{display:block;font-size:330px;letter-spacing:-20px;margin-top:20px}
+</style></head><body>
+<div class="p a" id="a"><div class="tile">11</div></div>
+<div class="p b" id="b"><div class="tile"><span>Armá<b>el 11</b></span></div></div>
+</body></html>

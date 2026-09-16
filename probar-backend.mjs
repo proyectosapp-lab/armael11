@@ -115,11 +115,11 @@ const politicasDe = tabla => [...SQL.matchAll(/create policy[\s\S]*?;/gi)]
                        upsert directo choca con Postgres (el ON CONFLICT
                        necesita leer la fila que esta). Solo valida y escribe.
        borrar_aviso    borra por endpoint, que solo conoce ese telefono.  */
-  caso("las funciones con llave maestra son las catorce conocidas",
-       conLlave.length === 14 &&
+  caso("las funciones con llave maestra son las quince conocidas",
+       conLlave.length === 15 &&
        ["es_miembro", "entrar_a_liga", "crear_liga", "tabla_liga", "borrar_mi_cuenta",
         "acreditar_premium", "registrar_pago", "es_de_zona", "tabla_zona",
-        "mi_cupo", "sumar_simulacion", "poner_plan", "anotar_aviso", "borrar_aviso"]
+        "mi_cupo", "sumar_simulacion", "poner_plan", "anotar_aviso", "borrar_aviso", "pedir_backtest"]
          .every(f => conLlave.includes(f)),
        conLlave.join(", "));
 
@@ -218,6 +218,19 @@ const politicasDe = tabla => [...SQL.matchAll(/create policy[\s\S]*?;/gi)]
     caso("y nadie la escribe desde el navegador",
          !new RegExp("on " + t + " for (insert|update|delete|all)", "i").test(SQL));
   }
+  /* ── EL BACKTEST DESDE LA PANTALLA ─────────────────────────────────────
+     El pedido lleva la clave de administrador: no se puede leer desde el
+     navegador. El resultado sí, y no se escribe desde ahí. */
+  for (const t of ["backtest_pedido", "backtest_resultado"])
+    caso("la tabla " + t + " tiene RLS encendido",
+         new RegExp("alter table " + t + " enable row level security", "i").test(SQL));
+  caso("los pedidos del backtest (con la clave adentro) no se leen desde el navegador",
+       !/on backtest_pedido for select/i.test(SQL) && !/on backtest_pedido for (insert|update|delete|all)/i.test(SQL));
+  caso("los resultados se leen y nadie los escribe desde el navegador",
+       /on backtest_resultado for select/i.test(SQL) && !/on backtest_resultado for (insert|update|delete|all)/i.test(SQL));
+  caso("pedir_backtest frena cuando hay demasiados pedidos esperando",
+       /count\(\*\) from backtest_pedido where estado = 'pendiente'\) >= 20/.test(SQL));
+
   caso("los uuid de perfil de las zonas no se leen desde ningún teléfono",
        !/on zona_miembro for select/i.test(SQL));
   caso("la tabla de la zona solo la ve el que está en esa zona",

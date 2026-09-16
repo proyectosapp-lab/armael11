@@ -878,3 +878,84 @@ begin
 end; $$;
 revoke all on function borrar_aviso(text) from public;
 grant execute on function borrar_aviso(text) to anon, authenticated;
+
+/* ==========================================================================
+   13. EL BACKTEST DESDE UNA PANTALLA (y35, 2026-09-16)
+
+   Fausto: "hacemelo en una pantalla html y carga el resultado en la base".
+   La pantalla vive en claude.ai y NO tiene la API key ni puede tenerla. Lo
+   que hace es dejar un PEDIDO aca, con una clave de administrador; GitHub,
+   que corre cada quince minutos con las claves de verdad, lo levanta, corre
+   el backtest y deja el RESULTADO, que la pantalla lee.
+
+   Dos tablas y una funcion:
+     backtest_pedido     se escribe SOLO por pedir_backtest (valida la forma
+                         y frena el abuso); no se lee desde el navegador,
+                         porque la fila lleva la clave.
+     backtest_resultado  la escribe el workflow con la clave de servicio; se
+                         lee desde cualquier lado (no hay nada privado en
+                         "Portugal: ventaja +0,08").
+   La clave de administrador es el secreto BACKTEST_CLAVE del repositorio.
+   Un pedido con otra clave se marca rechazado sin gastar un pedido a la API.
+   ========================================================================== */
+create table if not exists backtest_pedido (
+  id          bigserial primary key,
+  creado      timestamptz not null default now(),
+  ligas       text,
+  temporadas  text,
+  sumar_liga  int,
+  clave       text not null,
+  estado      text not null default 'pendiente',
+  nota        text
+);
+alter table backtest_pedido enable row level security;
+
+create table if not exists backtest_resultado (
+  id             bigserial primary key,
+  corrido        timestamptz not null default now(),
+  tipo           text not null default 'liga',
+  liga_id        int,
+  nombre         text,
+  pais           text,
+  temporadas     text,
+  n              int,
+  acierta        numeric,
+  brier          numeric,
+  vara           numeric,
+  ventaja        numeric,
+  t              numeric,
+  veredicto      text,
+  ok             boolean,
+  ratings_con    int,
+  ratings_total  int,
+  sumada         boolean not null default false,
+  lista          jsonb,
+  informe        text
+);
+alter table backtest_resultado enable row level security;
+drop policy if exists "resultados a la vista" on backtest_resultado;
+create policy "resultados a la vista" on backtest_resultado for select using (true);
+
+create or replace function pedir_backtest(p_ligas text, p_temporadas text, p_sumar_liga int, p_clave text)
+  returns void
+  language plpgsql security definer set search_path = public as $$
+begin
+  if p_clave is null or length(p_clave) < 4 or length(p_clave) > 80 then
+    raise exception 'clave invalida';
+  end if;
+  if p_sumar_liga is null and (p_ligas is null or p_ligas !~ '^[0-9A-Za-z ,:.''-]{1,120}$') then
+    raise exception 'ligas invalidas';
+  end if;
+  if p_temporadas is not null and p_temporadas !~ '^[0-9, ]{4,40}$' then
+    raise exception 'temporadas invalidas';
+  end if;
+  /* Freno: con veinte pedidos sin atender no entra ninguno mas. Es lo que
+     hace que una clave equivocada repetida no llene la tabla. */
+  if (select count(*) from backtest_pedido where estado = 'pendiente') >= 20 then
+    raise exception 'hay demasiados pedidos esperando; proba en un rato';
+  end if;
+  insert into backtest_pedido (ligas, temporadas, sumar_liga, clave)
+  values (p_ligas, coalesce(p_temporadas, '2023,2024,2025'), p_sumar_liga, p_clave);
+end; $$;
+revoke all on function pedir_backtest(text, text, int, text) from public;
+grant execute on function pedir_backtest(text, text, int, text) to anon, authenticated;

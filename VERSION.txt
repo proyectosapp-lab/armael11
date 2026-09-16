@@ -1,3 +1,70 @@
+Arma el 11 - version 2026-09-16 y36 (la pantalla del backtest, en el sitio)
+
+  · La pantalla del backtest se MUDA a armael11.com/backtest.html. La
+    version en claude.ai no podia hablar con Supabase: las paginas
+    publicadas alla corren en un sandbox que bloquea cualquier pedido a
+    otro servidor, sin error a la vista. Error mio. En el sitio no hay esa
+    traba. Se arma desde backtest.tpl.html con las dos claves publicas de
+    sitio.json; hay prueba de que se publica y de que no lleva ninguna
+    clave de servidor. Todo lo demas es igual que y35.
+
+Arma el 11 - version 2026-09-16 y35 (la portada es Arma el 11; el backtest desde GitHub)
+
+  · LA PORTADA ES ARMA EL 11. Con la devolucion de la prueba cerrada en la
+    mano -"la principal funcion es simular"- la portada deja de ser la
+    grilla de clubes y pasa a ser el simulador: la misma plantilla de la
+    app, en modo PORTADA (window.PORTADA). El 11 abre con el resumen de dos
+    lineas ("Tocas una perilla y se mueve el resultado" / "Cada partido se
+    juega 6.000 veces... esta medido en 10.860 partidos") y la lista de
+    ligas; el Feed es ahora "Tu club": la grilla de clubes argentinos, con
+    el recordado primero. Numeros sigue siendo la tabla. Los datos de la
+    portada van en datos/portada.js, como el feed de un club.
+
+  · Ya no redirige al club recordado (la portada es el simulador). El club
+    recordado aparece como tarjeta "Tu club: Boca" arriba de todo, con link
+    a su pagina. "Cambiar de club" del pie sigue yendo a index.html?elegir,
+    que abre directo en la grilla. El rescate del link del mail que tenia
+    la portada vieja vive ahora adentro de la app.
+
+  · La portada NO promete acertar ni eficacia (no esta medido en Argentina)
+    y dice cuantas simulaciones son gratis. Hay pruebas que fijan las dos
+    cosas y los cuatro numeros del respaldo.
+
+  · EL BACKTEST DESDE GITHUB. backtest.mjs reescribe la prueba que se les
+    hizo a las nueve ligas (modelo v3.1: goles, k=6, arrastre 0,55,
+    Dixon-Coles -0,10, minimo 6 previos) para correr sola en Actions. La
+    pantalla es el formulario "Run workflow" de backtest.yml: ligas (ids, o
+    buscar:Pais), temporadas, y "sumar". El informe sale en el resumen de
+    la corrida con el veredicto y si la liga trae rating por jugador (sin
+    eso no se arma el once). Con "sumar", las que le ganan a la vara van a
+    ligas.json y se dispara la publicacion. probar-backtest.mjs (22 casos)
+    verifica que encuentra la senal cuando la hay y que NO la inventa
+    cuando no la hay.
+
+  · backtest.yml SE CREA EN GITHUB: Add file > Create new file, nombre
+    .github/workflows/backtest.yml, pegar el contenido del backtest.yml de
+    la raiz. La primera corrida conviene hacerla con Portugal (94), que
+    tiene que dar cerca de +0,08 y t 8, como en el documento.
+
+  · sw.js pasa a v4 para que la portada nueva reemplace a la vieja en los
+    telefonos que la tenian guardada. Pie con Privacidad y Borrar mi cuenta
+    en todas las paginas.
+
+  · Y35 (agregado el mismo dia): EL BACKTEST TIENE PANTALLA. Un HTML en
+    claude.ai ("Backtest de ligas") donde se escriben las ligas, las
+    temporadas y la clave de administrador; el pedido queda en Supabase
+    (backtest_pedido, via pedir_backtest, que valida y frena el abuso), y
+    backtest.yml -que ahora corre cada quince minutos- lo levanta con las
+    claves de verdad, corre el backtest y deja el resultado en
+    backtest_resultado, que la pantalla lee sola. "Sumar a la app" es otro
+    pedido: si la liga paso, va a ligas.json y se publica. HAY QUE: pegar
+    esquema.sql (dos tablas y una funcion nuevas), crear el secreto
+    BACKTEST_CLAVE en GitHub (una frase cualquiera, la misma que se escribe
+    en la pantalla) y crear .github/workflows/backtest.yml.
+
+  · Sigue pendiente de y32/y33: esquema.sql, VAPID_PRIVATE_KEY, el yml del
+    workflow y funcion-crear-pago.ts, si todavia no estan.
+
 Arma el 11 - version 2026-09-10 y34 (el club se elige una vez; el boton Simular siempre a la vista)
 
   · EL CLUB SE ELIGE UNA VEZ. La app instalada arranca en la portada, y la

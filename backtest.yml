@@ -1,0 +1,104 @@
+# ══════════════════════════════════════════════════════════════════════════
+#  Armá el 11 — BACKTEST DE LIGAS
+#
+#  ESTE ARCHIVO SE CREA EN GITHUB, NO SE ARRASTRA: la carpeta .github no sube
+#  con arrastrar-y-soltar. Una sola vez:
+#    1. En el repo, "Add file" → "Create new file".
+#    2. Como nombre escribí exactamente:  .github/workflows/backtest.yml
+#    3. Pegá el contenido de este archivo y "Commit changes".
+#  Y un secreto nuevo en Settings → Secrets → Actions:  BACKTEST_CLAVE
+#  (una frase cualquiera; es la que se escribe en la pantalla).
+#
+#  CÓMO SE USA. Desde la pantalla "Backtest de ligas" (el HTML en claude.ai):
+#  escribís las ligas, las temporadas y la clave, y el pedido queda en la
+#  base. Esto corre cada quince minutos, levanta los pedidos, corre el
+#  backtest con la API key y deja el resultado en la base; la pantalla lo
+#  muestra sola. "Sumar a la app" desde la pantalla también es un pedido:
+#  si la liga pasó, va a ligas.json y se dispara la publicación.
+#
+#  Sin pedidos pendientes, cada corrida es una consulta a la base y termina
+#  en veinte segundos. Cada liga cuesta 1 pedido por temporada más 2.
+#
+#  También se puede correr a mano desde "Run workflow" (mismo formulario de
+#  siempre): ahí el informe sale en el resumen de la corrida Y en la base.
+# ══════════════════════════════════════════════════════════════════════════
+name: Backtest de ligas
+
+on:
+  schedule:
+    - cron: "7,22,37,52 * * * *"
+  workflow_dispatch:
+    inputs:
+      ligas:
+        description: "Ids de API-Football separados por coma (ej. 262,239), o buscar:Pais. Vacío = atender los pedidos de la pantalla"
+        required: false
+        type: string
+      temporadas:
+        description: "Temporadas separadas por coma; la primera precalienta"
+        required: false
+        default: "2023,2024,2025"
+        type: string
+      sumar:
+        description: "Sumar a ligas.json las que pasen (y publicar)"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: backtest
+  cancel-in-progress: false
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Probar el backtest (sin red)
+        run: node probar-backtest.mjs
+
+      - name: Correr el backtest
+        id: correr
+        env:
+          API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          SUPABASE_URL: https://wbqxmoerzofzierurxfb.supabase.co
+          BACKTEST_CLAVE: ${{ secrets.BACKTEST_CLAVE }}
+        run: |
+          if [ -n "${{ inputs.ligas }}" ]; then
+            node backtest.mjs --ligas "${{ inputs.ligas }}" --temporadas "${{ inputs.temporadas }}" ${{ inputs.sumar && '--sumar' || '' }}
+          else
+            node backtest.mjs --desde-base
+          fi
+
+      - name: Guardar el informe
+        uses: actions/upload-artifact@v4
+        with:
+          name: backtests
+          path: backtests/
+          if-no-files-found: ignore
+
+      # Los commits hechos con el token de Actions NO disparan otros workflows
+      # (regla de GitHub), por eso la publicación se dispara a mano abajo.
+      - name: Sumar la liga al repo
+        if: steps.correr.outputs.sumada == 'si'
+        run: |
+          git config user.name "backtest"
+          git config user.email "backtest@armael11.com"
+          git add ligas.json backtests/ || true
+          git commit -m "Sumar liga(s) que pasaron el backtest" || echo "nada que sumar"
+          git push
+
+      - name: Publicar con la liga nueva
+        if: steps.correr.outputs.sumada == 'si'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run publicar.yml

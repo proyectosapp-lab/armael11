@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="es"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<!-- LA PANTALLA DEL BACKTEST. Vive en el sitio y no en claude.ai porque las
+     paginas publicadas alla corren en un sandbox que bloquea cualquier
+     pedido a otro servidor: no podia hablar con Supabase. Aca si.
+     Se arma desde backtest.tpl.html en construir-sitio.mjs, que le pone la
+     URL y la clave PUBLICA de Supabase de sitio.json. -->
+<title>Backtest de ligas · Armá el 11</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;700&display=swap">
+<style>
+  :root{
+    --fondo:#F4F6F9; --papel:#FFFFFF; --tinta:#0D1117; --tinta-2:#39424F; --tinta-3:#57606E; --borde:#DDE3EC;
+    --acento:#177A40; --acento-2:#1E8A4A; --sobre:#FFFFFF;
+    --bien:#15A34A; --meh:#C98A00; --mal:#D64550; --neutro:#8D97A5;
+    --display:"Poppins",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    --r-s:10px; --r-m:14px; --r-l:20px;
+    --sombra:0 1px 2px rgba(10,15,25,.05), 0 10px 28px -18px rgba(10,15,25,.25);
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+    --fondo:#08090C; --papel:#12161D; --tinta:#F2F5FA; --tinta-2:#A4AEBE; --tinta-3:#8B95A6; --borde:#232A35;
+    --sombra:0 1px 2px rgba(0,0,0,.4), 0 10px 28px -18px rgba(0,0,0,.8); color-scheme: dark; } }
+  :root[data-theme="dark"]{
+    --fondo:#08090C; --papel:#12161D; --tinta:#F2F5FA; --tinta-2:#A4AEBE; --tinta-3:#8B95A6; --borde:#232A35;
+    --sombra:0 1px 2px rgba(0,0,0,.4), 0 10px 28px -18px rgba(0,0,0,.8); color-scheme: dark; }
+
+  body{background:var(--fondo);color:var(--tinta);font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,system-ui,sans-serif;
+    margin:0;padding-block:18px 60px;padding-inline:16px;-webkit-font-smoothing:antialiased}
+  .envase{max-width:720px;margin:0 auto}
+  .cabeza{display:flex;align-items:center;gap:13px;padding:16px 18px;background:var(--papel);border-radius:var(--r-l);box-shadow:var(--sombra)}
+  .mono{width:52px;height:52px;border-radius:16px;background:linear-gradient(160deg,#3aa065,var(--acento) 55%,#0f5a2e);color:#fff;
+    display:grid;place-items:center;font-family:var(--display);font-weight:700;font-size:24px;letter-spacing:-.5px;flex:none}
+  h1{margin:0;font-family:var(--display);font-weight:700;font-size:22px;letter-spacing:-.4px;line-height:1.1}
+  .cabeza p{margin:3px 0 0;font-size:12px;color:var(--tinta-3)}
+  h3.sec{font-family:var(--display);font-weight:700;font-size:12.5px;letter-spacing:1.4px;text-transform:uppercase;margin:24px 4px 10px;color:var(--tinta-3)}
+  .tarjeta{background:var(--papel);border-radius:var(--r-l);box-shadow:var(--sombra);padding:16px}
+  .bajada{margin:0 0 12px;color:var(--tinta-2);line-height:1.55}
+  label{display:block;font-size:11px;font-weight:600;color:var(--tinta-3);margin-bottom:5px;letter-spacing:.2px}
+  input[type=text],input[type=password]{width:100%;box-sizing:border-box;border-radius:var(--r-m);padding:11px 12px;border:1px solid var(--borde);
+    background:var(--papel);color:var(--tinta);font:inherit;font-size:14px}
+  input:focus{outline:2px solid color-mix(in srgb, var(--acento) 55%, transparent);outline-offset:1px}
+  .fila{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  @media (max-width:520px){ .fila{grid-template-columns:1fr} }
+  .campo{margin-top:12px}
+  .pista{margin:6px 0 0;font-size:12px;color:var(--tinta-3);line-height:1.5}
+  .botones{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+  button{font-family:var(--display);font-weight:500;font-size:14px;border:0;cursor:pointer;border-radius:var(--r-m);padding:12px 16px;transition:transform .08s,filter .15s}
+  button:active{transform:scale(.985)}
+  button:focus-visible{outline:2px solid var(--acento);outline-offset:2px}
+  .acc{color:var(--sobre);background:linear-gradient(180deg,var(--acento-2),var(--acento) 45%,#0f5a2e);box-shadow:0 8px 22px -10px var(--acento)}
+  .acc:hover{filter:brightness(1.05)}
+  .gh{background:color-mix(in srgb, var(--acento) 10%, transparent);color:var(--acento)}
+  .gh:hover{background:color-mix(in srgb, var(--acento) 16%, transparent)}
+  .chico{padding:8px 12px;font-size:13px;border-radius:var(--r-s)}
+  button:disabled{opacity:.55;cursor:default;filter:none}
+  .estado{margin-top:12px;padding:10px 12px;border-radius:var(--r-m);font-size:13px;line-height:1.5;
+    background:color-mix(in srgb, var(--acento) 9%, transparent);color:var(--tinta-2)}
+  .estado.error{background:color-mix(in srgb, var(--mal) 10%, transparent)}
+  .estado:empty{display:none}
+
+  /* resultados */
+  .res{display:flex;flex-direction:column;gap:10px}
+  .lig{border:1px solid var(--borde);border-radius:var(--r-m);padding:12px 14px;background:var(--papel)}
+  .lig .arriba{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .lig .nom{font-family:var(--display);font-weight:700;font-size:15px;letter-spacing:-.2px;flex:1;min-width:160px}
+  .lig .nom small{font-weight:500;color:var(--tinta-3);font-size:12px;margin-left:6px}
+  .pill{font-family:var(--display);font-weight:500;font-size:11.5px;padding:4px 10px;border-radius:999px;color:#fff;white-space:nowrap}
+  .pill.bien{background:var(--bien)} .pill.meh{background:var(--meh)} .pill.mal{background:var(--mal)} .pill.neutro{background:var(--neutro)}
+  .nums{display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:8px;margin-top:10px}
+  .num{background:color-mix(in srgb, var(--tinta) 4%, transparent);border-radius:var(--r-s);padding:8px 10px}
+  .num b{display:block;font-family:var(--display);font-weight:700;font-size:18px;letter-spacing:-.4px;font-variant-numeric:tabular-nums;line-height:1.1}
+  .num span{font-size:10.5px;color:var(--tinta-3);letter-spacing:.4px;text-transform:uppercase;font-weight:600}
+  .num.vent b{color:var(--acento)} .num.vent.neg b{color:var(--mal)}
+  .lig .pie{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px;font-size:12.5px;color:var(--tinta-3)}
+  .lig .pie .sp{flex:1}
+  details{margin-top:8px}
+  summary{cursor:pointer;font-size:12.5px;color:var(--acento);font-weight:600;list-style:none;user-select:none}
+  summary::before{content:"› ";display:inline-block;transition:transform .15s}
+  details[open] summary::before{transform:rotate(90deg)}
+  pre{white-space:pre-wrap;font-size:12px;line-height:1.5;color:var(--tinta-2);background:color-mix(in srgb, var(--tinta) 4%, transparent);
+    padding:10px 12px;border-radius:var(--r-s);margin:8px 0 0;overflow-x:auto}
+  .busq{margin-top:10px;display:flex;flex-wrap:wrap;gap:6px}
+  .busq button{background:color-mix(in srgb, var(--tinta) 6%, transparent);color:var(--tinta-2);font-size:12.5px;padding:7px 11px;border-radius:999px}
+  .busq button b{color:var(--tinta);margin-right:5px}
+  .vacio{color:var(--tinta-3);text-align:center;padding:26px 10px;line-height:1.6}
+  .nota{font-size:12px;color:var(--tinta-3);line-height:1.55;margin:14px 4px 0}
+  @media (prefers-reduced-motion: reduce){ *{transition:none!important} }
+</style>
+</head><body>
+<div class="envase">
+  <header class="cabeza">
+    <div class="mono">11</div>
+    <div><h1>Backtest de ligas</h1><p>¿El modelo le gana a la vara en esta liga? Se corre en GitHub cada quince minutos; el resultado queda en la base.</p></div>
+  </header>
+
+  <h3 class="sec">Pedir un backtest</h3>
+  <div class="tarjeta">
+    <p class="bajada">Escribí los ids de API-Football separados por coma. Si no sabés el id, buscá el país abajo y tocá la liga.
+      La primera temporada solo precalienta; las demás se evalúan.</p>
+    <div class="fila">
+      <div><label for="ligas">Ligas (ids)</label><input type="text" id="ligas" placeholder="94, 262" autocomplete="off"></div>
+      <div><label for="temporadas">Temporadas</label><input type="text" id="temporadas" value="2023,2024,2025" autocomplete="off"></div>
+    </div>
+    <div class="fila campo">
+      <div><label for="pais">Buscar las ligas de un país</label><input type="text" id="pais" placeholder="Mexico, Colombia, Chile…" autocomplete="off"></div>
+      <div><label for="clave">Clave de administrador</label><input type="password" id="clave" placeholder="la del secreto BACKTEST_CLAVE" autocomplete="off"></div>
+    </div>
+    <div class="botones">
+      <button class="acc" id="bprobar">Probar estas ligas</button>
+      <button class="gh" id="bbuscar">Buscar país</button>
+      <button class="gh" id="bportugal" title="Calibración: tiene que dar cerca de +0,08 y t 8">Calibrar con Portugal (94)</button>
+    </div>
+    <div class="estado" id="estado"></div>
+    <p class="pista">Un pedido se atiende en la próxima ronda de GitHub (cada 15 minutos). Cada liga cuesta un pedido a la API por temporada más dos.
+      La clave queda guardada en este navegador.</p>
+  </div>
+
+  <h3 class="sec">Resultados <span id="cuenta" style="font-weight:500;letter-spacing:0;text-transform:none"></span></h3>
+  <div class="tarjeta">
+    <div class="res" id="res"><div class="vacio">Cargando…</div></div>
+    <p class="nota">Ventaja = cuánto menor es el Brier del modelo que el de la vara (la frecuencia histórica de local / empate / visita).
+      La t dice si es señal o ruido: las ligas buenas dan 5 a 10; Argentina da 0,9. Sin rating por jugador no se arma el once: se puede simular por fuerza de equipo, nada más.</p>
+  </div>
+</div>
+
+<script>
+(function(){
+  const URL_BASE = "{{SUPABASE_URL}}";
+  const ANON = "{{SUPABASE_ANON}}";
+  const CAB = { apikey: ANON, Authorization: "Bearer " + ANON, "Content-Type": "application/json" };
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
+
+  /* la clave, en este navegador nada más */
+  try { const c = localStorage.getItem("backtest.clave"); if (c) $("clave").value = c; } catch (e) {}
+  $("clave").addEventListener("change", () => { try { localStorage.setItem("backtest.clave", $("clave").value); } catch (e) {} });
+
+  const estado = (txt, error) => { const e = $("estado"); e.textContent = txt; e.classList.toggle("error", !!error); };
+
+  async function pedir(cuerpo) {
+    const clave = $("clave").value.trim();
+    if (clave.length < 4) { estado("Falta la clave de administrador (la del secreto BACKTEST_CLAVE en GitHub).", true); $("clave").focus(); return false; }
+    try { localStorage.setItem("backtest.clave", clave); } catch (e) {}
+    const r = await fetch(URL_BASE + "/rest/v1/rpc/pedir_backtest", { method: "POST", headers: CAB,
+      body: JSON.stringify({ p_ligas: null, p_temporadas: null, p_sumar_liga: null, ...cuerpo, p_clave: clave }) });
+    if (!r.ok) {
+      let m = "La base no aceptó el pedido."; try { const j = await r.json(); if (j.message) m = j.message; } catch (e) {}
+      if (/could not find the function/i.test(m)) m = "La base todavía no tiene la función pedir_backtest: hay que pegar el esquema.sql nuevo en Supabase.";
+      estado(m, true); return false;
+    }
+    return true;
+  }
+
+  $("bprobar").onclick = async () => {
+    const ligas = $("ligas").value.trim(), temporadas = $("temporadas").value.trim() || "2023,2024,2025";
+    if (!ligas) { estado("Escribí uno o más ids de liga.", true); $("ligas").focus(); return; }
+    $("bprobar").disabled = true;
+    if (await pedir({ p_ligas: ligas, p_temporadas: temporadas }))
+      estado("Pedido enviado: " + ligas + " (" + temporadas + "). GitHub lo corre en menos de quince minutos; el resultado aparece abajo solo.");
+    $("bprobar").disabled = false;
+  };
+  $("bbuscar").onclick = async () => {
+    const pais = $("pais").value.trim();
+    if (!pais) { estado("Escribí un país.", true); $("pais").focus(); return; }
+    if (await pedir({ p_ligas: "buscar:" + pais })) estado("Búsqueda pedida: " + pais + ". En menos de quince minutos aparece la lista abajo, con los ids para probar.");
+  };
+  $("bportugal").onclick = async () => {
+    $("ligas").value = "94"; $("temporadas").value = "2023,2024,2025";
+    if (await pedir({ p_ligas: "94", p_temporadas: "2023,2024,2025" }))
+      estado("Calibración pedida: Portugal 2023-2025. Tiene que dar ventaja cerca de +0,08 y t cerca de 8, como en el documento del modelo.");
+  };
+
+  /* ── los resultados ─────────────────────────────────────────────── */
+  const f3 = x => x == null ? "—" : (+x).toFixed(3);
+  const signo = x => x == null ? "—" : (x >= 0 ? "+" : "") + (+x).toFixed(3);
+  const pct = x => x == null ? "—" : (x * 100).toFixed(1) + "%";
+  const cuando = iso => { const d = new Date(iso); return d.toLocaleDateString("es-AR", { day: "numeric", month: "short" }) + " " + d.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }); };
+  const pillDe = r => !r.n ? ["neutro", "sin partidos"] : r.t >= 3 ? ["bien", "le gana claro"] : r.t >= 2 ? ["meh", "le gana con poco margen"] : r.t >= 0 ? ["meh", "no se distingue de la vara"] : ["mal", "peor que la vara"];
+
+  function ligaHTML(r) {
+    const [cls, txt] = pillDe(r);
+    const ratings = r.ratings_total == null ? "" : r.ratings_con > 0
+      ? `<span>👤 ${r.ratings_con} de ${r.ratings_total} con rating: se arma el once</span>`
+      : `<span style="color:var(--mal)">sin rating por jugador: no se arma el once</span>`;
+    const sumar = r.ok
+      ? (r.sumada ? `<span class="pill bien">en la app</span>` : `<button class="gh chico" data-sumar="${r.liga_id}">Sumar a la app</button>`)
+      : "";
+    return `<div class="lig">
+      <div class="arriba"><span class="nom">${esc(r.nombre)}<small>${esc(r.pais)} · id ${r.liga_id}</small></span><span class="pill ${cls}">${txt}</span></div>
+      <div class="nums">
+        <div class="num vent ${r.ventaja < 0 ? "neg" : ""}"><b>${signo(r.ventaja)}</b><span>ventaja</span></div>
+        <div class="num"><b>${r.t == null ? "—" : (+r.t).toFixed(1)}</b><span>t</span></div>
+        <div class="num"><b>${r.n ?? 0}</b><span>partidos</span></div>
+        <div class="num"><b>${pct(r.acierta)}</b><span>acierta</span></div>
+        <div class="num"><b>${f3(r.brier)}</b><span>Brier</span></div>
+        <div class="num"><b>${f3(r.vara)}</b><span>vara</span></div>
+      </div>
+      <div class="pie">${ratings}<span class="sp"></span><span>${esc(r.temporadas || "")} · ${cuando(r.corrido)}</span>${sumar}</div>
+      ${r.informe ? `<details><summary>El informe</summary><pre>${esc(r.informe)}</pre></details>` : ""}
+    </div>`;
+  }
+  function busquedaHTML(r) {
+    const lista = Array.isArray(r.lista) ? r.lista : [];
+    return `<div class="lig">
+      <div class="arriba"><span class="nom">Ligas de ${esc(r.nombre)}<small>${lista.length} en API-Football · ${cuando(r.corrido)}</small></span></div>
+      <div class="busq">${lista.map(l => `<button data-probar="${l.id}" title="${esc(l.temporadas || "")}"><b>${l.id}</b>${esc(l.nombre)}</button>`).join("") || "<span class='vacio'>Nada con ese nombre. Probá en inglés (Mexico, Chile, Colombia).</span>"}</div>
+    </div>`;
+  }
+
+  async function cargar() {
+    try {
+      const r = await fetch(URL_BASE + "/rest/v1/backtest_resultado?select=*&order=corrido.desc&limit=120", { headers: CAB });
+      if (!r.ok) throw new Error(r.status === 404 ? "la tabla no existe todavía: hay que pegar el esquema.sql nuevo en Supabase" : "HTTP " + r.status);
+      const filas = await r.json();
+      /* una por liga (la más reciente), y las búsquedas como están */
+      const vistas = new Set(), salida = [];
+      for (const f of filas) {
+        if (f.tipo === "liga") { if (vistas.has(f.liga_id)) continue; vistas.add(f.liga_id); }
+        salida.push(f);
+      }
+      $("cuenta").textContent = salida.length ? "· " + vistas.size + " liga(s)" : "";
+      $("res").innerHTML = salida.length ? salida.map(f => f.tipo === "busqueda" ? busquedaHTML(f) : ligaHTML(f)).join("")
+        : `<div class="vacio">Todavía no hay resultados. Pedí uno arriba: el primero conviene que sea Portugal, para calibrar.</div>`;
+    } catch (e) {
+      $("res").innerHTML = `<div class="vacio">No pude leer los resultados: ${esc(e.message)}.</div>`;
+    }
+  }
+  document.addEventListener("click", async e => {
+    const s = e.target.closest("[data-sumar]");
+    if (s) { s.disabled = true; if (await pedir({ p_sumar_liga: +s.dataset.sumar })) estado("Pedido enviado: sumar la liga " + s.dataset.sumar + " a la app. En la próxima ronda va a ligas.json y se publica."); else s.disabled = false; return; }
+    const p = e.target.closest("[data-probar]");
+    if (p) { $("ligas").value = p.dataset.probar; $("ligas").focus(); window.scrollTo({ top: 0, behavior: "smooth" }); estado("Liga " + p.dataset.probar + " lista para probar: tocá «Probar estas ligas»."); }
+  });
+
+  cargar();
+  setInterval(cargar, 30000);
+})();
+</script>
+</body></html>
