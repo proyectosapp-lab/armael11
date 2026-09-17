@@ -17,7 +17,7 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync, appendFileSync, rmSync } from "node:fs";
 import { enHoraArgentina } from "./fantasy.mjs";
-import { CADA_HORAS, hayQueCorrer, leerSellos, sellar, hayAlguno } from "./frescura.mjs";
+import { CADA_HORAS, hayQueCorrer, leerSellos, sellar, hayAlguno, listaVacia } from "./frescura.mjs";
 
 const aca = p => new URL(p, import.meta.url);
 const soloPruebas = process.argv.includes("--sin-red");
@@ -223,6 +223,21 @@ if (!hayKey) {
      Es el paso MÁS CARO de todos —unos 800 pedidos— y el que menos cambia:
      el calendario de la próxima fecha de seis ligas se mueve una vez por
      semana. Por eso se rehace una vez por día y no ocho. */
+  /* ── UN ARCHIVO VACÍO NO ES UN TRABAJO HECHO ──────────────────────────
+     El sello dice "esto se hizo hace poco, no lo rehagas". El 16/9/2026 el
+     paso se selló habiendo dejado la lista de ligas VACÍA —se le acabó la
+     cuota de la API a mitad de camino— y, como el sello dura un día, las
+     rondas siguientes lo saltearon prolijamente: la app estuvo sin una sola
+     liga para simular hasta que alguien apretó un botón a mano.
+
+     Un sello vale por lo que produjo, no por la hora a la que corrió. Si el
+     sitio quedó sin ninguna liga, esto se rehace aunque el sello esté
+     fresco, y se rehace solo en la próxima ronda. */
+  if (sellos.ligas && existsSync(dat("ligas.js")) &&
+      listaVacia(readFileSync(dat("ligas.js"), "utf8"))) {
+    console.log("\n  El sitio quedó sin NINGUNA liga para simular. Rehago ese paso, sello o no sello.");
+    delete sellos.ligas;
+  }
   paso("Bajar las ligas para simular", "ligas-api.mjs",
        { sello: "ligas", produce: [dat("ligas.js")] });
   paso("Rehacer la tabla y los números", "stats-api.mjs",

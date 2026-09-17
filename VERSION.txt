@@ -1,3 +1,19 @@
+Arma el 11 - version 2026-09-17 y40 (que la app se recupere sola de quedarse sin ligas)
+
+  · y39 arreglo que las ligas no se borren, pero no alcanzaba para VOLVER:
+    el paso ya estaba sellado del dia anterior -se sello habiendo publicado
+    la lista vacia- y el sello dura 24 horas, asi que todas las rondas lo
+    saltearon prolijamente. La unica salida era que una persona apretara
+    "Run workflow". Depender de eso es el mismo error de siempre.
+
+  · Un sello vale por lo que produjo, no por la hora a la que corrio. Ahora,
+    si la lista de ligas publicada esta VACIA, el paso se rehace aunque el
+    sello este fresco. La app se recupera sola en la ronda siguiente.
+
+  · `listaVacia()` vive en frescura.mjs y tiene sus cuatro pruebas: un
+    archivo ilegible no cuenta como vacio (fallar hacia bajar de mas es
+    caro; fallar hacia no bajar deja la app rota, que es peor).
+
 Arma el 11 - version 2026-09-17 y39 (las once ligas en la pantalla, con lo que el modelo rinde en cada una; y que nunca mas se quede sin ninguna)
 
   · LA APP SE QUEDO SIN LIGAS, Y FUE UNA CADENA DE ERRORES MIOS. Al sumar

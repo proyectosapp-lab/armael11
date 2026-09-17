@@ -10,7 +10,7 @@
    Por eso la decisión es una función pura que recibe números: cada caso se
    prueba con un valor en vez de esperar seis horas.
    ══════════════════════════════════════════════════════════════════════════ */
-import { hayQueCorrer, CADA_HORAS, leerSellos, sellar } from "./frescura.mjs";
+import { hayQueCorrer, CADA_HORAS, leerSellos, sellar, listaVacia } from "./frescura.mjs";
 import { writeFileSync, rmSync, existsSync } from "node:fs";
 
 const casos = [];
@@ -88,6 +88,25 @@ caso("el fantasy es el más seguido: es barato y sin fecha no hay pestaña",
     caso("sellar guarda y devuelve lo guardado",
          s.juego === AHORA && leerSellos(tmp).juego === AHORA);
   } finally { if (existsSync(tmp)) rmSync(tmp); }
+}
+
+/* ─── LA LISTA VACIA NO ES UN TRABAJO HECHO ──────────────────────────────
+   16/9/2026: el paso de las ligas publico la lista VACIA porque se acabo la
+   cuota de la API, se sello igual, y como el sello dura un dia las rondas
+   siguientes lo saltearon. La app quedo sin una sola liga para simular. */
+{
+  caso("una lista de ligas vacia se reconoce como vacia",
+       listaVacia("window.LIGAS_DISPONIBLES=[];") &&
+       listaVacia("window.LIGAS_DISPONIBLES = [ ];"));
+  caso("y una con ligas adentro, no",
+       !listaVacia('window.LIGAS_DISPONIBLES=["argentina","brasil"];'));
+  caso("un archivo que no se pudo leer no cuenta como vacio por las dudas",
+       !listaVacia(null) && !listaVacia(""));
+  caso("con la lista vacia, el paso se rehace aunque el sello este fresco",
+       hayQueCorrer({ sello: Date.now() - 36e5, ahora: Date.now(), cada: 24,
+                      hayResultado: true }).correr === false &&
+       hayQueCorrer({ sello: undefined, ahora: Date.now(), cada: 24,
+                      hayResultado: true }).correr === true);
 }
 
 const linea = "─".repeat(70);

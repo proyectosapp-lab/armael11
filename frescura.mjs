@@ -85,3 +85,14 @@ export function sellar(archivo, sellos, clave, cuando = Date.now()) {
    una, algo se rompió, pero el selector va a andar y el próximo vencimiento
    lo arregla. */
 export const hayAlguno = rutas => rutas.some(r => existsSync(r));
+
+/* ── EL ARCHIVO ESTÁ, PERO ADENTRO NO HAY NADA ───────────────────────────
+   `hayAlguno` mira que el archivo exista, y eso alcanzó hasta el 16/9/2026:
+   ese día la lista de ligas se publicó vacía —se acabó la cuota de la API a
+   mitad del paso—, el sello se puso igual, y como el sello dura un día las
+   rondas siguientes saltearon el paso con toda prolijidad. La app estuvo
+   sin una sola liga para simular hasta que alguien apretó un botón a mano.
+
+   Un sello vale por lo que produjo. Con esto, la lista vacía se reconoce y
+   el paso se rehace aunque el sello esté fresco.                        */
+export const listaVacia = texto => /LIGAS_DISPONIBLES\s*=\s*\[\s*\]/.test(String(texto || ""));
