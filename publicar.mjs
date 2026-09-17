@@ -43,7 +43,29 @@ let salteados = [];
 const SELLOS_EN = new URL("./.sellos.json", import.meta.url);
 const sellos = leerSellos(SELLOS_EN);
 const EVENTO = process.env.GITHUB_EVENT_NAME || "a mano";
-const FORZAR = EVENTO === "workflow_dispatch" || process.argv.includes("--todo");
+
+/* ── QUIÉN APRETÓ EL BOTÓN, Y POR QUÉ IMPORTA ────────────────────────────
+   "Run workflow trae todo de nuevo" tiene sentido cuando lo aprieta una
+   persona: es la salida de emergencia, cuesta una corrida completa y se usa
+   dos veces por mes.
+
+   El 16/9/2026 le abrí esa puerta a un robot sin darme cuenta. El workflow
+   del backtest, cuando suma una liga, dispara la publicación con
+   `gh workflow run`, y para GitHub eso ES un workflow_dispatch. Fausto sumó
+   cuatro ligas seguidas: cuatro corridas completas forzadas en una hora,
+   unos 1.200 pedidos cada una, y la cuota diaria de la API -7.500- se acabó
+   a la tarde. El paso de las ligas no pudo bajar una sola y la app quedó sin
+   simulador. El 31 de agosto otra vez, por una puerta nueva.
+
+   GitHub dice quién disparó la corrida. Si es el bot, esto es un aviso de
+   "hay una liga nueva, publicá", no una orden de bajar el mundo: se respetan
+   los sellos como en cualquier otra ronda. Una persona apretando el botón
+   sigue trayendo todo.                                                   */
+const QUIEN = (process.env.GITHUB_TRIGGERING_ACTOR || process.env.GITHUB_ACTOR || "").toLowerCase();
+const ES_ROBOT = QUIEN.includes("github-actions") || QUIEN.endsWith("[bot]");
+const FORZAR = (EVENTO === "workflow_dispatch" && !ES_ROBOT) || process.argv.includes("--todo");
+if (EVENTO === "workflow_dispatch" && ES_ROBOT)
+  console.log("\n  Disparada por el workflow del backtest: ronda normal, sin bajar todo de nuevo.");
 
 /* ─── DOS RONDAS: LA CORTA Y LA COMPLETA ─────────────────────────────────
    El reloj del workflow pasó de cada tres horas a cada quince minutos, pero

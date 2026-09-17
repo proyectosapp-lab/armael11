@@ -254,10 +254,33 @@ export function informe(nombre, r, extra = {}) {
 }
 
 /* ─── sumar a ligas.json ─────────────────────────────────────────────── */
+/* La API contesta en inglés —"Brazil", "Peru", "Germany"— y eso terminaba
+   escrito tal cual en el selector, al lado de "España" y "Inglaterra". Se
+   traduce acá, al sumar, que es el único momento en que el nombre entra al
+   proyecto. Y de paso sale la zona, que es cómo se agrupa la pantalla. */
+const PAISES = {
+  Argentina: "Argentina", Brazil: "Brasil", Chile: "Chile", Uruguay: "Uruguay",
+  Paraguay: "Paraguay", Peru: "Perú", Bolivia: "Bolivia", Ecuador: "Ecuador",
+  Colombia: "Colombia", Venezuela: "Venezuela", Mexico: "México", USA: "Estados Unidos",
+  Spain: "España", England: "Inglaterra", Italy: "Italia", France: "Francia",
+  Germany: "Alemania", Portugal: "Portugal", Netherlands: "Países Bajos",
+  Belgium: "Bélgica", Scotland: "Escocia", Turkey: "Turquía", Switzerland: "Suiza",
+  Austria: "Austria", Greece: "Grecia", Denmark: "Dinamarca", Norway: "Noruega",
+  Sweden: "Suecia", Poland: "Polonia", Croatia: "Croacia", "Czech-Republic": "Chequia",
+};
+const AMERICA = ["Argentina", "Brasil", "Chile", "Uruguay", "Paraguay", "Perú", "Bolivia",
+                 "Ecuador", "Colombia", "Venezuela", "México", "Estados Unidos"];
+const EUROPA = ["España", "Inglaterra", "Italia", "Francia", "Alemania", "Portugal",
+                "Países Bajos", "Bélgica", "Escocia", "Turquía", "Suiza", "Austria",
+                "Grecia", "Dinamarca", "Noruega", "Suecia", "Polonia", "Croacia", "Chequia"];
+export const zonaDe = pais => AMERICA.includes(pais) ? "america" : EUROPA.includes(pais) ? "europa" : "";
+
 export function filaDeLiga(info, r) {
-  const slug = (info.pais + "-" + info.nombre).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")
+  const pais = PAISES[info.pais] || info.pais;
+  const slug = (pais + "-" + info.nombre).toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "")
     .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-  return { id: info.id, slug, nombre: info.nombre, pais: info.pais, ventajaBacktest: +r.ventaja.toFixed(4) };
+  return { id: info.id, slug, nombre: info.nombre, pais, zona: zonaDe(pais),
+           ventajaBacktest: +r.ventaja.toFixed(4) };
 }
 export function agregarALigas(cfg, fila) {
   if (cfg.ligas.some(l => l.id === fila.id)) return { cfg, agregada: false };

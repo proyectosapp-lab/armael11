@@ -41,24 +41,37 @@ body{margin:0;background:transparent;color:var(--tinta);
 .chip:hover{border-color:var(--tinta-3)}
 .chip[aria-pressed="true"]{background:var(--acento);border-color:var(--acento);color:var(--sobre-acento)}
 
-/* Los países, con su bandera. Son fichas y no chips a propósito: esta es la
-   función que se puede vender en cualquier lado, y un chip de texto entre
-   otros seis chips de texto no se ve. La bandera es lo único que se
-   reconoce sin leer. */
-.paises{display:flex;gap:9px;overflow-x:auto;padding:2px 2px 12px;scrollbar-width:none}
-.paises::-webkit-scrollbar{display:none}
-.pais{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:3px;
-  width:100px;padding:10px 6px 9px;border:1px solid var(--borde);border-radius:14px;
+/* ── LAS LIGAS ───────────────────────────────────────────────────────────
+   Eran fichas en una tira que se corría al costado. Con seis ligas entraban
+   cuatro y se adivinaban las otras dos; con once, la mitad no existía para
+   el que no sabe que eso se arrastra. Una lista vertical agrupada por zona
+   muestra las once de una, y además deja lugar a la derecha para lo único
+   que el usuario no puede deducir solo: cuánto le gana el modelo al promedio
+   EN ESA LIGA. La bandera se queda —es lo único que se reconoce sin leer—. */
+.zona{margin:14px 0 6px;font-size:11px;font-weight:800;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--tinta-3)}
+.zona:first-child{margin-top:2px}
+.ligas{display:flex;flex-direction:column;gap:6px}
+.lg{display:flex;align-items:center;gap:10px;width:100%;text-align:left;
+  padding:9px 11px;border:1px solid var(--borde);border-radius:13px;
   background:var(--hoja);color:var(--tinta-2);cursor:pointer;font-family:inherit;
-  transition:transform .12s ease,border-color .12s ease}
-.pais:hover{border-color:var(--tinta-3);transform:translateY(-1px)}
-.pais .fl{width:34px;height:23px;border-radius:3px;display:block}
-.pais .pn{font-size:12.5px;font-weight:700;line-height:1.2;white-space:nowrap}
-.pais .pl{font-size:10.5px;color:var(--tinta-3);line-height:1.2;white-space:nowrap;
-  overflow:hidden;text-overflow:ellipsis;max-width:100%}
-.pais[aria-pressed="true"]{background:var(--acento);border-color:var(--acento)}
-.pais[aria-pressed="true"] .pn{color:var(--sobre-acento)}
-.pais[aria-pressed="true"] .pl{color:var(--sobre-acento);opacity:.75}
+  transition:border-color .12s ease,background .12s ease}
+.lg:hover{border-color:var(--tinta-3)}
+.lg .fl{width:30px;height:20px;border-radius:3px;display:block;flex:0 0 auto}
+.lg-t{display:flex;flex-direction:column;line-height:1.25;min-width:0}
+.lg-t b{font-size:14px}
+.lg-t small{font-size:11.5px;color:var(--tinta-3);overflow:hidden;
+  text-overflow:ellipsis;white-space:nowrap}
+/* La medida va a la derecha, chica y en gris: es un dato, no un cartel. Si
+   fuera verde en ocho ligas y roja en Argentina, sería un juicio sobre el
+   fútbol de cada país y no lo que es —cuánto rinde nuestro modelo—. */
+.lg-m{margin-left:auto;flex:0 0 auto;font-size:10.5px;color:var(--tinta-3);
+  border:1px solid var(--borde);border-radius:999px;padding:3px 8px;white-space:nowrap}
+.lg[aria-pressed="true"]{background:var(--acento);border-color:var(--acento)}
+.lg[aria-pressed="true"] b,.lg[aria-pressed="true"] small{color:var(--sobre-acento)}
+.lg[aria-pressed="true"] small{opacity:.8}
+.lg[aria-pressed="true"] .lg-m{color:var(--sobre-acento);border-color:rgba(255,255,255,.4);opacity:.9}
+@media(max-width:360px){ .lg-m{display:none} }
 
 .ver{color:var(--tinta-3);opacity:.6;font-size:11px;letter-spacing:.02em}
 
@@ -2361,6 +2374,35 @@ async function restaurar(g){
 const ligasParaSimular = () => (window.LIGAS_DISPONIBLES || [])
   .map(sl => (window.LIGAS || {})[sl]).filter(Boolean);
 
+/* ── LO QUE LA APP DICE DE CADA LIGA, INCLUIDA LA PROPIA ─────────────────
+   El backtest mide, liga por liga, cuánto le gana el modelo a la vara: dar
+   siempre la frecuencia histórica de esa liga (gana el local, empatan,
+   gana la visita). Ese número estaba medido y guardado desde agosto, y no
+   se mostraba en ningún lado.
+
+   Ahora se muestra, y se muestra ENTERO: en Portugal el modelo le saca
+   bastante, en Argentina casi nada. Decir solo lo primero sería marketing;
+   decir las dos cosas es lo que hace creíble a la primera. Es la misma
+   jugada que contar cuán raro fue el marcador que se acaba de ver: el dato
+   incómodo, dicho por nosotros, vale más que el dato lindo.
+
+   Tres escalones y no cinco, porque la diferencia entre 0,047 y 0,053 no
+   significa nada para el que lo lee, y fingir precisión es otra forma de
+   mentir. Sin `ventajaBacktest` no se dice nada: una liga recién sumada
+   todavía no tiene medida propia.                                       */
+const MEDIDA = [
+  { desde: 0.04,  corto: "le gana al promedio",
+    largo: "Medido: en esta liga el modelo le gana al promedio histórico." },
+  { desde: 0.015, corto: "le gana poco",
+    largo: "Medido: en esta liga el modelo le gana poco al promedio histórico. Es una liga pareja." },
+  { desde: -99,   corto: "casi no le gana",
+    largo: "Medido: en esta liga el modelo casi no le gana al promedio histórico. Es de las más parejas que medimos: simular sirve para ver cuánto mueve tu once, no para tener un número más certero." },
+];
+const medidaDe = L => (L && L.ventajaBacktest != null)
+  ? MEDIDA.find(m => L.ventajaBacktest >= m.desde) : null;
+const QUE_ES_EL_PROMEDIO = "«El promedio histórico» es suponer siempre lo que más pasó en esa liga: " +
+  "que gana el local, o que empatan. El modelo se comparó contra eso en miles de partidos ya jugados.";
+
 /* ── LAS BANDERAS ────────────────────────────────────────────────────────
    Dibujadas acá, en SVG, y no traídas de ningún lado. Tres razones, y la
    primera es la que manda:
@@ -2382,6 +2424,14 @@ const BANDERAS = {
   inglaterra:'<rect width="30" height="20" fill="#fff"/><rect x="12" width="6" height="20" fill="#CE1124"/><rect y="7" width="30" height="6" fill="#CE1124"/>',
   espana:    '<rect width="30" height="20" fill="#AA151B"/><rect y="5" width="30" height="10" fill="#F1BF00"/>',
   francia:   '<rect width="30" height="20" fill="#fff"/><rect width="10" height="20" fill="#002395"/><rect x="20" width="10" height="20" fill="#ED2939"/>',
+  alemania:  '<rect width="30" height="20" fill="#000"/><rect y="6.67" width="30" height="6.66" fill="#DD0000"/><rect y="13.33" width="30" height="6.67" fill="#FFCE00"/>',
+  brasil:    '<rect width="30" height="20" fill="#009C3B"/><path d="M15 2.6 26.4 10 15 17.4 3.6 10Z" fill="#FFDF00"/><circle cx="15" cy="10" r="3.3" fill="#002776"/>',
+  colombia:  '<rect width="30" height="20" fill="#FCD116"/><rect y="10" width="30" height="5" fill="#003893"/><rect y="15" width="30" height="5" fill="#CE1126"/>',
+  /* México y Italia son verde-blanco-rojo: sin el escudo en el medio, a
+     treinta píxeles son la misma bandera. El círculo no es un águila, pero
+     alcanza para que no se confundan, que es para lo que está. */
+  mexico:    '<rect width="30" height="20" fill="#fff"/><rect width="10" height="20" fill="#006847"/><rect x="20" width="10" height="20" fill="#CE1126"/><circle cx="15" cy="10" r="2.1" fill="#8C6239"/>',
+  peru:      '<rect width="30" height="20" fill="#D91023"/><rect x="10" width="10" height="20" fill="#fff"/>',
 };
 /* El borde va SIEMPRE, aunque la bandera no sea blanca: sin él, la de
    Inglaterra y la de Italia se derriten contra el fondo claro y quedan como
@@ -3597,6 +3647,37 @@ function vistaJuego(){
       ${msg}${cab}
     </div>`;
 
+  /* ── LAS LIGAS, AGRUPADAS POR ZONA ──────────────────────────────────────
+     Con once ligas, una lista suelta obliga a leerlas todas para encontrar
+     la tuya. Agrupadas por continente, el que busca México mira cinco y el
+     que busca Italia mira seis.
+
+     Las que no traen zona —una liga bajada por una corrida anterior a este
+     cambio— no se pierden: caen al final, sin título si son las únicas. Una
+     pantalla nunca puede esconder una liga que la app sí tiene.         */
+  const ZONAS = [["america", "América"], ["europa", "Europa"]];
+  const botonDeLiga = L => {
+    const m = medidaDe(L);
+    return `<button class="lg" data-liga="${esc(L.slug)}" aria-pressed="${L.slug===J.liga}">
+      ${bandera(L.slug)}
+      <span class="lg-t"><b>${esc(L.pais)}</b><small>${esc(L.nombre)}</small></span>
+      ${m ? `<span class="lg-m">${esc(m.corto)}</span>` : ""}
+    </button>`;
+  };
+  const listaDeLigas = ls => {
+    const puestas = new Set();
+    let out = ZONAS.map(([z, titulo]) => {
+      const dela = ls.filter(L => (L.zona || "") === z);
+      dela.forEach(L => puestas.add(L.slug));
+      return dela.length ? `<h4 class="zona">${titulo}</h4>
+        <div class="ligas">${dela.map(botonDeLiga).join("")}</div>` : "";
+    }).join("");
+    const resto = ls.filter(L => !puestas.has(L.slug));
+    if(resto.length) out += (out ? `<h4 class="zona">Otras</h4>` : "") +
+      `<div class="ligas">${resto.map(botonDeLiga).join("")}</div>`;
+    return out;
+  };
+
   /* La lista de otras ligas. Solo aparece si hay ligas publicadas: sin
      ellas, la app es exactamente la de antes. */
   const otrasLigas = () => {
@@ -3607,11 +3688,8 @@ function vistaJuego(){
         <p class="bajada" style="margin-top:0">${PORTADA
           ? "Cualquier partido de la próxima fecha. Cada liga corre con sus propios números: no se juegan los mismos goles en Argentina que en Inglaterra."
           : "Elegí un país y simulá cualquier partido de su próxima fecha, con los planteles armados con lo que hicieron antes. Cada liga corre con SUS números: no se juegan los mismos goles en Argentina que en Inglaterra."}</p>
-        <nav class="paises">${ls.map(L=>
-          `<button class="pais" data-liga="${esc(L.slug)}"
-            aria-pressed="${L.slug===J.liga}">${bandera(L.slug)}
-            <span class="pn">${esc(L.pais)}</span>
-            <span class="pl">${esc(L.nombre)}</span></button>`).join("")}</nav>
+        ${listaDeLigas(ls)}
+        <p class="aviso" style="margin:10px 0 0">${esc(QUE_ES_EL_PROMEDIO)}</p>
         ${J.liga && (window.LIGAS||{})[J.liga] ? (()=>{ const L=window.LIGAS[J.liga];
           return `<div class="mini" style="margin-top:8px">${L.partidos.map(p=>
             `<div class="it" data-part="${p.id}" role="button" tabindex="0">
@@ -3621,7 +3699,8 @@ function vistaJuego(){
               <span class="v">›</span></div>`).join("")}</div>
             <p class="aviso" style="margin-top:8px">${L.calibrada
               ? "Calibrada con " + L.calibrada.partidos + " partidos de " + L.calibrada.temporada + "."
-              : "Todavía sin calibrar: la temporada recién arranca y uso los números de respaldo."}</p>`;
+              : "Todavía sin calibrar: la temporada recién arranca y uso los números de respaldo."}
+              ${(m=>m?esc(m.largo):"")(medidaDe(L))}</p>`;
           })() : ""}
       </div>`;
   };

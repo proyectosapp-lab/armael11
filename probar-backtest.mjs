@@ -120,6 +120,16 @@ function ligaInventada({ temporadas, dispersion, semilla, local = 1.45, visita =
   const fila = filaDeLiga({ id: 262, nombre: "Liga MX", pais: "Mexico" }, { ventaja: 0.04567 });
   caso("la fila para ligas.json tiene slug limpio y la ventaja redondeada",
        fila.slug === "mexico-liga-mx" && fila.ventajaBacktest === 0.0457, JSON.stringify(fila));
+  /* La API contesta "Mexico", "Brazil", "Germany", y eso iba tal cual al
+     selector, al lado de "España". Se traduce al sumar, y de ahí sale la
+     zona con la que se agrupa la pantalla. */
+  caso("el país llega en inglés de la API y se guarda en castellano, con su zona",
+       fila.pais === "México" && fila.zona === "america" &&
+       filaDeLiga({ id: 78, nombre: "Bundesliga", pais: "Germany" }, { ventaja: .05 }).pais === "Alemania" &&
+       filaDeLiga({ id: 78, nombre: "Bundesliga", pais: "Germany" }, { ventaja: .05 }).zona === "europa");
+  caso("y un país que no está en la lista no inventa zona ni se rompe",
+       filaDeLiga({ id: 1, nombre: "J1", pais: "Japan" }, { ventaja: .05 }).zona === "" &&
+       filaDeLiga({ id: 1, nombre: "J1", pais: "Japan" }, { ventaja: .05 }).pais === "Japan");
   const cfg = { ligas: [{ id: 94 }] };
   const a = agregarALigas(cfg, fila), b = agregarALigas(a.cfg, fila);
   caso("se agrega una vez y la segunda no duplica", a.agregada && a.cfg.ligas.length === 2 && !b.agregada && b.cfg.ligas.length === 2);
@@ -178,7 +188,7 @@ function ligaInventada({ temporadas, dispersion, semilla, local = 1.45, visita =
   const dos = registroDeSumadas(uno, [filaDeLiga({ id: 71, nombre: "Serie A", pais: "Brazil" }, { ventaja: 0.03 })],
                                 "2026-09-17T10:00:00.000Z");
   caso("cada liga sumada queda registrada con su fecha, sin pisar las anteriores",
-       uno.length === 1 && dos.length === 2 && dos[0].slug === "germany-bundesliga" &&
+       uno.length === 1 && dos.length === 2 && dos[0].slug === "alemania-bundesliga" &&
        dos[1].id === 71 && dos[0].cuando !== dos[1].cuando, JSON.stringify(dos[1]));
   caso("y un registro ilegible se trata como vacío en vez de tumbar la corrida",
        registroDeSumadas("esto no es json", [fila], "x").length === 1);

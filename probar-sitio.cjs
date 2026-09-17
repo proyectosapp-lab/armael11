@@ -906,6 +906,69 @@ srv.listen(8099, async () => {
   caso("y dice con cuántos partidos está calibrada",
        /380 partidos de 2025/.test(elegida), elegida.slice(-220));
 
+  /* ── ONCE LIGAS TIENEN QUE ENTRAR, Y DECIR LA VERDAD ───────────────────
+     Con seis en una tira que se corría al costado ya se perdían dos. Y la
+     medida del backtest, que estaba guardada desde agosto, no se veía en
+     ningún lado. Lo que estos casos fijan es lo segundo, que es una decisión
+     y no un detalle: la app dice también dónde el modelo NO rinde. Si
+     alguna vez alguien saca la frase de Argentina para que quede más
+     linda, esto falla. */
+  const muchas = await pg.evaluate(() => {
+    const liga = (slug, pais, nombre, zona, ventaja) => ({
+      id: 1, slug, nombre, pais, zona, ventajaBacktest: ventaja,
+      media: 6.8, local: 1.5, visita: 1.2, calibrada: { partidos: 100, temporada: 2025 },
+      equipos: { 1: { n: "A", j: [] }, 2: { n: "B", j: [] } }, partidos: [],
+    });
+    window.LIGAS = {
+      argentina: liga("argentina", "Argentina", "Liga Profesional", "america", 0.0046),
+      brasil:    liga("brasil", "Brasil", "Brasileirão", "america", 0.0193),
+      portugal:  liga("portugal", "Portugal", "Primeira Liga", "europa", 0.0979),
+      vieja:     liga("vieja", "Vieja", "Sin zona", "", null),
+    };
+    window.LIGAS_DISPONIBLES = ["argentina", "brasil", "portugal", "vieja"];
+    J.liga = null; J.paso = "liga"; pintar();
+    const txt = document.body.innerText;
+    const dela = s => { const b = document.querySelector('[data-liga="' + s + '"] .lg-m');
+                        return b ? b.textContent.trim() : null; };
+    return { botones: document.querySelectorAll('[data-liga]').length,
+             zonas: [...document.querySelectorAll('.zona')].map(h => h.textContent.trim()),
+             argentina: dela("argentina"), brasil: dela("brasil"), portugal: dela("portugal"),
+             vieja: dela("vieja"), texto: txt };
+  });
+  caso("las once entran todas: ninguna liga se queda afuera de la pantalla",
+       muchas.botones === 4, muchas.botones + " botones");
+  caso("y van agrupadas por zona, América primero",
+       muchas.zonas.join("|") === "América|Europa|Otras", muchas.zonas.join("|"));
+  caso("la liga bajada por una corrida vieja, sin zona, igual aparece",
+       muchas.vieja === null && /Sin zona/.test(muchas.texto));
+  caso("cada liga dice cuánto le gana el modelo al promedio",
+       muchas.portugal === "le gana al promedio" && muchas.brasil === "le gana poco");
+  caso("y en Argentina dice que casi no le gana: el dato incómodo también se muestra",
+       muchas.argentina === "casi no le gana", "" + muchas.argentina);
+  caso("con una explicación de qué es ese promedio, sin jerga",
+       /suponer siempre lo que más pasó en esa liga/.test(muchas.texto));
+  caso("y nunca promete acertar",
+       !/acert[áa]|eficacia|garantiz/i.test(muchas.texto));
+  const largaArg = await pg.evaluate(() => {
+    document.querySelector('[data-liga="argentina"]').click();
+    return document.body.innerText;
+  });
+  caso("al abrir la liga, la frase larga dice lo mismo sin adornos",
+       /casi no le gana al promedio histórico/.test(largaArg));
+
+  /* Se vuelve a dejar como estaba para lo que sigue. */
+  await pg.evaluate(() => {
+    window.LIGAS = { inglaterra: {
+      id:39, slug:"inglaterra", nombre:"Premier League", pais:"Inglaterra",
+      media:6.83, local:1.62, visita:1.28, zona:"europa", ventajaBacktest:0.0519,
+      calibrada:{ partidos:380, temporada:2025 },
+      equipos:{ 1:{ n:"Rojos", j:[] }, 2:{ n:"Azules", j:[] } },
+      partidos:[{ id:99, fecha:"2026-09-05T14:00:00+00:00", local:1, visita:2 }],
+    }};
+    window.LIGAS_DISPONIBLES = ["inglaterra"];
+    J.liga = "inglaterra"; J.paso = "fixture"; pintar();
+  });
+
   /* Un equipo sin plantel no puede tirar la pantalla abajo. */
   const flaco = await pg.evaluate(() => {
     simularDeLiga("inglaterra", 99);

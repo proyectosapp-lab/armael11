@@ -1,3 +1,43 @@
+Arma el 11 - version 2026-09-17 y39 (las once ligas en la pantalla, con lo que el modelo rinde en cada una; y que nunca mas se quede sin ninguna)
+
+  · LA APP SE QUEDO SIN LIGAS, Y FUE UNA CADENA DE ERRORES MIOS. Al sumar
+    cuatro ligas seguidas, cada una disparo una publicacion con
+    `gh workflow run`. Para GitHub eso es un workflow_dispatch, y
+    publicar.mjs tiene escrito que un workflow_dispatch -"alguien apreto Run
+    workflow"- trae TODO de nuevo ignorando los sellos. Cuatro corridas
+    completas forzadas en una hora, ~1.200 pedidos cada una, y la cuota
+    diaria de 7.500 se acabo. Con la cuota agotada, ligas-api.mjs -que
+    BORRABA los archivos viejos antes de bajar los nuevos- borro las seis
+    ligas y no pudo escribir ninguna: la app publico LIGAS_DISPONIBLES=[].
+
+  · Dos arreglos. Uno: el que dispara la publicacion desde el backtest es el
+    bot, y GitHub dice quien fue (GITHUB_TRIGGERING_ACTOR); si es el bot, es
+    una ronda normal. La puerta de emergencia queda solo para una persona.
+    Dos, y es la regla general: PRIMERO SE CONSIGUE LO NUEVO, DESPUES SE
+    TIRA LO VIEJO. Ahora solo se borra la liga que salio de ligas.json; si
+    una no se pudo bajar, queda la de la corrida anterior y el log lo avisa.
+    Cero ligas corta con error para no sellar el paso y reintentar.
+
+  · LAS ONCE EN LA PANTALLA. La tira que se corria al costado mostraba
+    cuatro de seis; con once era peor. Ahora es una lista agrupada por zona
+    -America, Europa- con la bandera de cada pais. Cinco banderas nuevas
+    (Alemania, Brasil, Colombia, Mexico, Peru); la de Mexico lleva un
+    circulo en el medio porque sin eso es igual a la de Italia.
+
+  · Y LA APP DICE CUANTO RINDE EL MODELO EN CADA LIGA. El numero estaba
+    medido y guardado desde agosto y no se mostraba. Tres escalones: "le
+    gana al promedio", "le gana poco", "casi no le gana". Argentina dice lo
+    ultimo, que es la verdad: es de las mas parejas que medimos. Decir solo
+    lo bueno seria marketing; decir las dos cosas es lo que hace creible a
+    lo bueno. Abajo, que es "el promedio historico", sin jerga y sin
+    prometer acertar nunca.
+
+  · ligas.json queda con las once, con nombre y pais en castellano
+    (Brasileirao, Liga MX, Bundesliga...) y su zona. Lo que llegue del
+    backtest de ahora en mas se traduce solo al sumarse.
+
+  · 247 casos del navegador (ocho nuevos) y 36 del backtest.
+
 Arma el 11 - version 2026-09-16 y38 (que sumar una liga funcione aunque el workflow sea el viejo)
 
   · El arreglo de y37 obliga a editar a mano .github/workflows/backtest.yml,

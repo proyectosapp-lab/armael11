@@ -80,10 +80,26 @@ console.log("\n" + linea);
 console.log("  LIGAS PARA SIMULAR · temporada " + TEMPORADA);
 console.log(linea);
 
-/* Los archivos de la corrida anterior se borran primero: una liga que dejó
-   de estar en ligas.json no puede seguir apareciendo en el selector. */
-for (const f of readdirSync(SALIDA))
-  if (/^liga-.*\.js$/.test(f)) rmSync(new URL(f, SALIDA));
+/* ── NO SE BORRA NADA HASTA TENER CON QUÉ REEMPLAZARLO ────────────────────
+   Acá decía: borrar todos los `liga-*.js` y después bajar los nuevos. Es
+   cómodo y es una bomba. El 16/9/2026 explotó: se sumaron cuatro ligas de
+   una, cada una disparó una publicación que bajaba TODO de nuevo, se acabó
+   la cuota diaria de la API, y este paso llegó con los archivos ya borrados
+   y sin poder bajar uno solo. La app publicó `LIGAS_DISPONIBLES=[]` y se
+   quedó sin ninguna liga para simular —incluidas las seis que venían
+   andando bien hacía semanas—.
+
+   La regla, que vale para cualquier paso que reemplace algo publicado:
+   **primero se consigue lo nuevo, después se tira lo viejo.** Si una liga no
+   se pudo bajar esta vuelta, se queda la de la corrida anterior: datos de
+   ayer es infinitamente mejor que una app sin simulador. Lo único que se
+   borra de entrada es lo que ya no está en ligas.json, que no depende de
+   que la API conteste.                                                   */
+const SLUGS = CFG.ligas.map(L => L.slug);
+for (const f of readdirSync(SALIDA)) {
+  const m = /^liga-(.*)\.js$/.exec(f);
+  if (m && !SLUGS.includes(m[1])) { rmSync(new URL(f, SALIDA)); console.log("  (saco " + m[1] + ", ya no está en ligas.json)"); }
+}
 
 const publicadas = [];
 
@@ -178,6 +194,10 @@ for (const L of CFG.ligas) {
   const flacos = Object.entries(equipos).filter(([, e]) => e.j.length < 11).map(([, e]) => e.n);
   const salida = {
     id: L.id, slug: L.slug, nombre: L.nombre, pais: L.pais, propia: !!L.propia,
+    /* La zona ordena el selector, y la ventaja medida en el backtest es lo
+       que la app le dice al usuario sobre ESTA liga. Viajan con la liga para
+       que la pantalla no tenga que conocer ninguna tabla aparte. */
+    zona: L.zona || "", ventajaBacktest: L.ventajaBacktest ?? null,
     temporada: TEMPORADA,
     media:  K.media  ?? null,
     local:  K.suficientes ? K.local  : null,
@@ -200,10 +220,25 @@ for (const L of CFG.ligas) {
     (flacos.length ? "  ⚠ con menos de 11: " + flacos.join(", ") : ""));
 }
 
+/* La lista que ve la app son las ligas de ligas.json QUE TIENEN ARCHIVO,
+   bajado recién o de una corrida anterior. Así el selector nunca ofrece una
+   liga sin datos ni pierde una que ya andaba. */
+const conArchivo = SLUGS.filter(s => existsSync(new URL("liga-" + s + ".js", SALIDA)));
 writeFileSync(new URL("ligas.js", SALIDA),
-  "window.LIGAS_DISPONIBLES=" + JSON.stringify(publicadas) + ";\n");
+  "window.LIGAS_DISPONIBLES=" + JSON.stringify(conArchivo) + ";\n");
 
+const viejas = conArchivo.filter(s => !publicadas.includes(s));
 console.log("\n" + "─".repeat(70));
-console.log("  " + publicadas.length + " liga(s) publicada(s) · " + pedidos +
-            " pedidos a la API · " + fallos + " fallaron");
+console.log("  " + conArchivo.length + " liga(s) en la app · " + publicadas.length +
+            " bajada(s) esta vuelta · " + pedidos + " pedidos a la API · " + fallos + " fallaron");
+if (viejas.length)
+  console.log("  ⚠ con los datos de la corrida anterior: " + viejas.join(", "));
 console.log("─".repeat(70) + "\n");
+
+/* Cero ligas es catástrofe, no "no había nada nuevo": se corta con error
+   para NO sellar el paso, y la próxima ronda lo vuelve a intentar en vez de
+   esperar un día entero con el simulador vacío. */
+if (!conArchivo.length) {
+  console.log("  ✗ Ninguna liga quedó publicada. No sello este paso: se reintenta.\n");
+  process.exit(1);
+}
