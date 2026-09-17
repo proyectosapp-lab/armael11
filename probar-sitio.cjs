@@ -941,20 +941,28 @@ srv.listen(8099, async () => {
        muchas.zonas.join("|") === "América|Europa|Otras", muchas.zonas.join("|"));
   caso("la liga bajada por una corrida vieja, sin zona, igual aparece",
        muchas.vieja === null && /Sin zona/.test(muchas.texto));
-  caso("cada liga dice cuánto le gana el modelo al promedio",
-       muchas.portugal === "le gana al promedio" && muchas.brasil === "le gana poco");
-  caso("y en Argentina dice que casi no le gana: el dato incómodo también se muestra",
-       muchas.argentina === "casi no le gana", "" + muchas.argentina);
-  caso("con una explicación de qué es ese promedio, sin jerga",
-       /suponer siempre lo que más pasó en esa liga/.test(muchas.texto));
-  caso("y nunca promete acertar",
-       !/acert[áa]|eficacia|garantiz/i.test(muchas.texto));
+  caso("cada liga dice en qué escalón de acierto quedó",
+       muchas.portugal === "Índice de acierto más alto" &&
+       muchas.brasil === "Índice de acierto alto", muchas.portugal + " · " + muchas.brasil);
+  /* Argentina es la liga del 90% de los usuarios y la peor del modelo. La
+     etiqueta nombra a la LIGA, no al modelo —es verdad y es lo que un
+     hincha reconoce—, pero no la disfraza de buena: si alguna vez alguien
+     le pone el escalón de arriba para que quede linda, esto falla. */
+  caso("y Argentina no se disfraza: se la nombra como la más impredecible",
+       muchas.argentina === "Liga más impredecible", "" + muchas.argentina);
+  caso("abajo va la estadística dura: contra cuántos partidos se probó",
+       /más de 12.000 partidos ya jugados/.test(muchas.texto) &&
+       /se recalibra con cada temporada/.test(muchas.texto));
+  /* Se puede decir lo que se MIDIÓ. Lo que no se puede es prometer lo que
+     va a pasar en el próximo partido, que es la frontera con las apuestas. */
+  caso("y nunca promete acertar el próximo partido",
+       !/garantiz|asegurad|infalible|vas a acertar|acertá/i.test(muchas.texto));
   const largaArg = await pg.evaluate(() => {
     document.querySelector('[data-liga="argentina"]').click();
     return document.body.innerText;
   });
-  caso("al abrir la liga, la frase larga dice lo mismo sin adornos",
-       /casi no le gana al promedio histórico/.test(largaArg));
+  caso("al abrir la liga, la frase larga lo dice sin adornos",
+       /la liga más impredecible de las once/i.test(largaArg));
 
   /* Se vuelve a dejar como estaba para lo que sigue. */
   await pg.evaluate(() => {

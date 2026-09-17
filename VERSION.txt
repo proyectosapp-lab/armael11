@@ -1,3 +1,30 @@
+Arma el 11 - version 2026-09-17 y41 (la medida de cada liga, dicha por el lado del acierto)
+
+  · Las etiquetas pasan de la jerga del backtest al idioma del hincha:
+    "le gana al promedio" -> "Indice de acierto mas alto", "le gana poco"
+    -> "Indice de acierto alto", y "casi no le gana" -> "Liga mas
+    impredecible". La ultima cambia de sujeto a proposito: nombra a la LIGA
+    y no al modelo, porque Argentina no es un problema del modelo, es la
+    liga mas pareja de las once, y eso cualquier hincha lo reconoce.
+
+  · Lo que NO cambio es el numero que decide el escalon. Y el orden coincide
+    con el acierto real en todas las ligas donde lo tenemos medido: Peru
+    54,4%, Portugal 53,9%, Alemania 52,0%, Mexico 51,5% en el escalon de
+    arriba; Brasil 49,7% y Colombia 46,5% en el del medio. La regla que
+    queda escrita: si un escalon deja de coincidir con su etiqueta, se
+    cambia la etiqueta, no el numero.
+
+  · Abajo de la lista, estadistica dura en vez de la explicacion de que era
+    "el promedio historico": contra cuantos partidos se probo el modelo (mas
+    de 12.000, de doce ligas) y que se recalibra con cada temporada. El
+    numero va redondeado hacia abajo a proposito: un numero que se queda
+    corto no hay que salir a defenderlo nunca.
+
+  · Se probo a 390px: las tres etiquetas entran en una linea y ningun nombre
+    de liga se corta. Las pruebas del navegador fijan las tres etiquetas, la
+    estadistica de abajo, y que la app no prometa acertar el proximo
+    partido, que es la frontera que no se cruza.
+
 Arma el 11 - version 2026-09-17 y40 (que la app se recupere sola de quedarse sin ligas)
 
   · y39 arreglo que las ligas no se borren, pero no alcanzaba para VOLVER:

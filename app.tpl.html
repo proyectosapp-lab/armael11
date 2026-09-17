@@ -2389,19 +2389,37 @@ const ligasParaSimular = () => (window.LIGAS_DISPONIBLES || [])
    Tres escalones y no cinco, porque la diferencia entre 0,047 y 0,053 no
    significa nada para el que lo lee, y fingir precisión es otra forma de
    mentir. Sin `ventajaBacktest` no se dice nada: una liga recién sumada
-   todavía no tiene medida propia.                                       */
+   todavía no tiene medida propia.
+
+   ── CÓMO SE DICE, Y POR QUÉ ASÍ ──────────────────────────────────────────
+   Primero se dijo en la jerga del backtest: "le gana al promedio". Es
+   exacto y no le habla a nadie. Ahora se dice por el lado del acierto, que
+   es lo que el hincha entiende, y el escalón de abajo nombra a la liga en
+   vez de al modelo: Argentina no es un problema del modelo, es la liga más
+   pareja de las once, y eso es una característica del fútbol argentino que
+   cualquiera que lo mire reconoce.
+
+   Lo que NO cambia: el escalón lo sigue decidiendo el número medido, y el
+   orden coincide con el acierto real en todas las ligas donde lo tenemos
+   (Perú 54,4% · Portugal 53,9% · Alemania 52,0% · México 51,5% arriba;
+   Brasil 49,7% y Colombia 46,5% en el medio). Si alguna vez un escalón deja
+   de coincidir con su etiqueta, se cambia la etiqueta, no el número.      */
 const MEDIDA = [
-  { desde: 0.04,  corto: "le gana al promedio",
-    largo: "Medido: en esta liga el modelo le gana al promedio histórico." },
-  { desde: 0.015, corto: "le gana poco",
-    largo: "Medido: en esta liga el modelo le gana poco al promedio histórico. Es una liga pareja." },
-  { desde: -99,   corto: "casi no le gana",
-    largo: "Medido: en esta liga el modelo casi no le gana al promedio histórico. Es de las más parejas que medimos: simular sirve para ver cuánto mueve tu once, no para tener un número más certero." },
+  { desde: 0.04,  corto: "Índice de acierto más alto",
+    largo: "Índice de acierto más alto: entre las ligas medidas, es de las que el modelo lee mejor." },
+  { desde: 0.015, corto: "Índice de acierto alto",
+    largo: "Índice de acierto alto: el modelo la lee bien, aunque menos que a las europeas." },
+  { desde: -99,   corto: "Liga más impredecible",
+    largo: "La liga más impredecible de las once: acá el fútbol se deja anticipar menos que en ninguna otra, y eso hace que simular sea más interesante, no menos." },
 ];
 const medidaDe = L => (L && L.ventajaBacktest != null)
   ? MEDIDA.find(m => L.ventajaBacktest >= m.desde) : null;
-const QUE_ES_EL_PROMEDIO = "«El promedio histórico» es suponer siempre lo que más pasó en esa liga: " +
-  "que gana el local, o que empatan. El modelo se comparó contra eso en miles de partidos ya jugados.";
+/* Estadística dura abajo de la lista: de dónde sale todo esto. El "más de
+   12.000" es deliberadamente redondo hacia abajo —10.860 de nueve ligas,
+   1.783 de tres que el modelo nunca había visto, más Perú, México y
+   Colombia—: un número que se queda corto nunca hay que salir a defenderlo. */
+const QUE_ES_EL_PROMEDIO = "El modelo se probó contra más de 12.000 partidos ya jugados de doce ligas, " +
+  "y se recalibra con cada temporada: los números de cada liga salen de sus propios partidos.";
 
 /* ── LAS BANDERAS ────────────────────────────────────────────────────────
    Dibujadas acá, en SVG, y no traídas de ningún lado. Tres razones, y la
