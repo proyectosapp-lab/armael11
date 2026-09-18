@@ -87,7 +87,13 @@ const LIGAS_LISTAS = existsSync(new URL("ligas.js", DATOS))
   : [];
 const TAGS_LIGAS = LIGAS_LISTAS.length
   ? ['<script src="datos/ligas.js"></script>',
-     ...LIGAS_LISTAS.map(sl => '<script src="datos/liga-' + sl + '.js"></script>')]
+     ...LIGAS_LISTAS.map(sl => '<script src="datos/liga-' + sl + '.js"></script>'),
+     /* Los onces del DT que trajo la ronda corta, de las ligas que los
+        tengan. Van aparte del archivo de la liga a propósito: ese lo rehace
+        la corrida completa una vez por día y se los llevaría puestos. */
+     ...LIGAS_LISTAS
+       .filter(sl => existsSync(new URL("onces-" + sl + ".js", DATOS)))
+       .map(sl => '<script src="datos/onces-' + sl + '.js"></script>')]
   : [];
 
 /* El registro del service worker. Va en las dos plantillas —la portada y

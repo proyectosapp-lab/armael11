@@ -985,6 +985,74 @@ srv.listen(8099, async () => {
   caso("un equipo sin jugadores lo dice en vez de romperse",
        flaco.paso === "liga" && /partidos previos/.test(flaco.err), JSON.stringify(flaco));
 
+  /* ── EL ONCE DEL DT, TAMBIÉN EN LAS OTRAS LIGAS ────────────────────────
+     Hasta el 18/9/2026 esto andaba solo en los treinta clubes argentinos:
+     `simularDeLiga` dejaba `J.fx` en null y todo el revelado cuelga de ahí.
+     La ronda corta ahora baja las formaciones de las once ligas y las deja
+     en `window.ONCES`, aparte del archivo de la liga -que se rehace todos
+     los días y se las llevaría puestas-.
+
+     Lo que estos casos fijan: que el partido de liga sea un partido de
+     verdad, que el once se lea del archivo nuevo sin tocar la API, y que
+     NO aparezcan las dos cosas que son del club de la página -el aviso al
+     teléfono y el link del pronóstico, que guarda el club y volvería con
+     otro partido-. */
+  const conOnce = await pg.evaluate(() => {
+    const plantel = (nom, base) => ({ n: nom, j: "GDDDDMMMFFFDMFMG".split("").map((p, i) =>
+      ({ i: base + i, n: nom + " " + i, p, r: 6.4 + (i % 5) / 10, m: 400 + i * 10 })) });
+    window.LIGAS = { inglaterra: {
+      id:39, slug:"inglaterra", nombre:"Premier League", pais:"Inglaterra",
+      media:6.83, local:1.62, visita:1.28, zona:"europa", ventajaBacktest:0.0519,
+      calibrada:{ partidos:380, temporada:2025 },
+      equipos:{ 1: plantel("Rojos", 1000), 2: plantel("Azules", 2000) },
+      partidos:[{ id:98, fecha:"2026-09-05T14:00:00+00:00", ronda:"Fecha 5", local:1, visita:2 },
+                { id:97, fecha:"2026-09-05T16:00:00+00:00", ronda:"Fecha 5", local:2, visita:1 }],
+    }};
+    window.LIGAS_DISPONIBLES = ["inglaterra"];
+    /* El 98 tiene once del DT; el 97 no. */
+    window.ONCES = { "98": { f:"2026-09-05T14:00:00+00:00", o: [
+      { team:{ id:1, name:"Rojos" }, formation:"4-4-2",
+        startXI: window.LIGAS.inglaterra.equipos[1].j.slice(0, 11)
+          .map(j => ({ player:{ id:j.i, name:j.n, pos:j.p } })) },
+      { team:{ id:2, name:"Azules" }, formation:"4-3-3",
+        startXI: window.LIGAS.inglaterra.equipos[2].j.slice(0, 11)
+          .map(j => ({ player:{ id:j.i, name:j.n, pos:j.p } })) }] } };
+    simularDeLiga("inglaterra", 98);
+    return { paso: J.paso, err: J.err, fx: J.fx && { id:J.fx.fixture.id, fecha:J.fx.fixture.date,
+               local:J.fx.teams.home.id, visita:J.fx.teams.away.id, goles:J.fx.goals },
+             jugado: J.jugado, salio: hayOnceDelDT(), pie: pieDelResultado() };
+  });
+  caso("un partido de otra liga se arma igual que el de tu club",
+       conOnce.paso === "armar" && !conOnce.err, JSON.stringify(conOnce.err || conOnce.paso));
+  caso("y queda con su partido de verdad: id, fecha y los dos equipos",
+       conOnce.fx && conOnce.fx.id === 98 && conOnce.fx.local === 1 && conOnce.fx.visita === 2 &&
+       /2026-09-05/.test(conOnce.fx.fecha || ""), JSON.stringify(conOnce.fx));
+  caso("sin inventar un resultado: todavía no se jugó",
+       conOnce.jugado === false && conOnce.fx.goles.home === null);
+  caso("el once del DT de la Premier se ve, sin pedirle nada a la API", conOnce.salio === true);
+  caso("y el pie invita a simularlo", /Salió el once del DT/.test(conOnce.pie));
+  caso("pero no ofrece el link del pronóstico, que es del club de la página",
+       !/Copiar el link/.test(conOnce.pie), conOnce.pie.slice(0, 200));
+
+  const sinOnce = await pg.evaluate(() => {
+    simularDeLiga("inglaterra", 97);
+    return { salio: hayOnceDelDT(), pie: pieDelResultado() };
+  });
+  caso("el partido cuya formación todavía no salió lo dice", sinOnce.salio === false &&
+       /todavía no se jugó/i.test(sinOnce.pie));
+  caso("y ahí no se ofrece el aviso al teléfono: los avisos son por club",
+       !/avis/i.test(sinOnce.pie), sinOnce.pie.slice(0, 200));
+
+  /* El dato que importa: lo bajado se lee del archivo nuevo, no de la API. */
+  const porApi = await pg.evaluate(async () => {
+    const r = await api("/fixtures/lineups", { fixture: 98 });
+    return { largo: r.length, forma: r[0] && r[0].formation };
+  });
+  caso("api() saca el once de ONCES sin salir a la red",
+       porApi.largo === 2 && porApi.forma === "4-4-2", JSON.stringify(porApi));
+
+  await pg.evaluate(() => { delete window.ONCES; volverAMiClub(); });
+
   /* Y lo más importante: volver a mi club tiene que devolver los números de
      MI liga, o el próximo partido de Talleres se simularía con la media de
      la Premier. */

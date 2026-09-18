@@ -1,3 +1,41 @@
+Arma el 11 - version 2026-09-18 y45 (el once del DT, en las once ligas)
+
+  · QUE CAMBIA. Hasta ahora la formacion confirmada del DT se bajaba sola
+    solo para los treinta clubes argentinos: eran los unicos con pagina
+    propia y con cache. Desde y45 la ronda corta -la que corre cada quince
+    minutos- tambien mira los partidos de las OTRAS DIEZ LIGAS y baja el
+    once en cuanto sale, una hora antes del pitazo.
+
+  · DONDE SE GUARDA. En un archivo nuevo por liga, `onces-<liga>.js`, y no
+    adentro del archivo de la liga. El archivo de la liga lo rehace la
+    corrida completa una vez por dia: si el once viviera ahi, cada dia se
+    perderia. El archivo nuevo se acumula y se poda solo: pasadas 24 horas,
+    afuera.
+
+  · SE GUARDA SOLO LO QUE LA APP USA. La respuesta de la API son unos cinco
+    kilobytes por partido -banco, cuerpo tecnico, fotos, coordenadas- y de
+    eso se usan once nombres y el dibujo. Se guarda eso. Es un archivo que
+    baja TODO el que abre la app, no un cache de servidor.
+
+  · EN LA APP. Un partido de otra liga ahora es un partido de verdad: tiene
+    id, fecha y los dos equipos, asi que anda el mismo revelado que en tu
+    club -"salio el once del DT", "simulalo contra el tuyo"-. Lo que NO
+    aparece, a proposito, son las dos cosas que son del club de la pagina:
+    el aviso al telefono (nadie se suscribio al Bayern) y el link del
+    pronostico (guarda el club, volveria con otro partido).
+
+  · LO QUE CUESTA. Un pedido por partido en ventana y por ronda, hasta que
+    el once sale. Una fecha completa de las once ligas son unos 600 pedidos
+    repartidos en cuatro dias, sobre 7.500 diarios. Hay un tope de 60
+    pedidos por ronda como seguro, no como plan.
+
+  · QUE NO CAMBIA. Lo de tu club sigue exactamente igual, con su cache y su
+    aviso al telefono. La comparacion con lo que PASO -el resultado, las
+    expulsiones- sigue siendo solo de los clubes argentinos.
+
+  · ARCHIVOS: formaciones.mjs, probar-formaciones.mjs, ligas-api.mjs,
+    construir-sitio.mjs, app.tpl.html, probar-sitio.cjs, VERSION.txt.
+
 Arma el 11 - version 2026-09-18 y44 (el interruptor del cobro se muda a la base)
 
   · INCLUYE y42 y y43. Se sube este solo.

@@ -22,6 +22,20 @@
    también pide la formación del próximo, así que si datos-juego rehace el
    cache del club, no se pierde.
 
+   ── Y AHORA, TODAS LAS LIGAS ─────────────────────────────────────────────
+   Hasta el 18/9/2026 esto miraba solo los treinta clubes argentinos, porque
+   el once del DT vivía en el cache del club y las otras ligas no tienen
+   página propia. Pero el simulador ya juega once ligas, y el momento que
+   vale —"salió el once, ¿con el mío ganaba?"— es el mismo en Old Trafford
+   que en Alberdi.
+
+   Los partidos de las otras ligas salen de `sitio/datos/liga-<slug>.js`, que
+   trae el calendario. Las formaciones NO se guardan ahí: ese archivo lo
+   rehace la corrida completa una vez por día y se llevaría puesto lo que
+   esta ronda acaba de traer. Van en un archivo aparte, `onces-<slug>.js`,
+   que se acumula y se poda solo: lo de hace más de dos días se tira, porque
+   un once viejo no le sirve a nadie y el archivo crecería para siempre.
+
      node formaciones.mjs          usa API_FOOTBALL_KEY
      node formaciones.mjs --ahora "2026-09-07T20:00:00Z"   (para probar)
    ══════════════════════════════════════════════════════════════════════════ */
@@ -51,6 +65,78 @@ export function leerCache(ruta) {
 }
 export function escribirCache(ruta, cache) {
   writeFileSync(ruta, "window.CACHE = " + JSON.stringify(cache) + ";\n");
+}
+
+/* ── LOS ONCES DE LAS OTRAS LIGAS ────────────────────────────────────────
+   Un archivo por liga, con los partidos como claves. `f` es la fecha del
+   partido —la necesita la poda— y `o` la respuesta cruda de la API, tal cual
+   la espera la app.
+
+   Se escribe con `Object.assign` y no con una asignación: las once ligas
+   escriben sobre el mismo objeto, y la que cargara última se llevaría
+   puestas a las otras diez. El JSON arranca en su propia línea para poder
+   leerlo de vuelta sin evaluar nada. */
+const CABEZA_ONCES = "window.ONCES=window.ONCES||{};\nObject.assign(window.ONCES,\n";
+
+export function escribirOnces(ruta, onces) {
+  writeFileSync(ruta, CABEZA_ONCES + JSON.stringify(onces) + "\n);\n");
+}
+export function leerOnces(ruta) {
+  if (!existsSync(ruta)) return {};
+  const t = readFileSync(ruta, "utf8");
+  const i = t.indexOf("\n{"), f = t.lastIndexOf("}");
+  if (i < 0 || f < i) return {};
+  try { return JSON.parse(t.slice(i + 1, f + 1)); } catch (e) { return {}; }
+}
+
+/* De la respuesta de la API se guarda SOLO lo que la app usa: el equipo, el
+   dibujo y los once con nombre y puesto. La respuesta entera trae banco,
+   cuerpo técnico, fotos y coordenadas —cinco kilobytes por partido—, y esto
+   no es un cache de servidor: es un archivo que baja TODO el que abre la
+   app. Con esto queda en menos de uno. La forma es la misma que da la API,
+   así que la app no se entera. */
+export function flaco(formaciones) {
+  return (formaciones || []).map(t => ({
+    team: { id: t.team?.id, name: t.team?.name },
+    formation: t.formation || "",
+    startXI: (t.startXI || []).map(x => ({
+      player: { id: x.player?.id, name: x.player?.name, pos: x.player?.pos },
+    })),
+  })).filter(t => t.startXI.length);
+}
+
+/* Pura: saca lo viejo. Sin esto el archivo crece una formación por partido
+   para siempre y la app termina bajando medio año de onces que ya no le
+   importan a nadie. Un día: pasado el partido, el once del DT de las otras
+   ligas no se usa para nada -la comparación con lo que pasó es solo de los
+   clubes argentinos, que tienen su propio cache-. */
+export function podarOnces(onces, ahora = new Date(), horas = 24) {
+  const out = {};
+  for (const [id, e] of Object.entries(onces || {})) {
+    const t = new Date(e?.f || 0).getTime();
+    if (isFinite(t) && t > 0 && (ahora - t) / 36e5 <= horas) out[id] = e;
+  }
+  return out;
+}
+
+/* Pura: de los partidos de una liga, los que están por empezar. Misma
+   ventana que la de los clubes. El archivo de liga solo trae partidos por
+   jugar, así que no hay estado que mirar: alcanza con el reloj. */
+export function partidosEnVentana(partidos, ahora = new Date(), ventana = VENTANA) {
+  return (partidos || []).filter(p => {
+    const min = (new Date(p.fecha) - ahora) / 6e4;
+    return isFinite(min) && min <= ventana.antesMin && min >= -ventana.despuesMin;
+  }).sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+}
+
+/* El archivo de una liga es `window.LIGAS[...]={...};`. Se lee el objeto sin
+   evaluar nada: el primer `{` que viene después del `]=`. */
+export function leerLiga(ruta) {
+  const t = readFileSync(ruta, "utf8");
+  const marca = t.indexOf("]=");
+  const ini = t.indexOf("{", marca < 0 ? 0 : marca);
+  const fin = t.lastIndexOf("}");
+  return JSON.parse(t.slice(ini, fin + 1));
 }
 
 /* Pura: dado el cache de un club y la hora, dice qué partido está en
@@ -118,6 +204,16 @@ async function avisar(club, fixture, formaciones) {
   } catch (e) { console.log("    aviso falló: " + e.message); }
 }
 
+/* Las ligas que hoy están en el sitio. Se parte de ligas.json -la lista de
+   verdad- y se queda con las que tienen archivo bajado: una liga sin
+   calendario no tiene partidos que mirar. */
+function ligasConArchivo() {
+  let slugs = [];
+  try { slugs = (JSON.parse(readFileSync(aca("./ligas.json"))).ligas || []).map(L => L.slug); }
+  catch (e) { return []; }
+  return slugs.filter(s => existsSync(aca("./sitio/datos/liga-" + s + ".js")));
+}
+
 async function main() {
   const CLUBES = JSON.parse(readFileSync(aca("./clubes.json")));
   const linea = "─".repeat(70);
@@ -151,6 +247,62 @@ async function main() {
     nuevas.push(club.nom);
     console.log("  ✓ " + club.nom.padEnd(22) + rival + "  · SALIÓ EL ONCE, guardado");
     await avisar(club, v.fixture, datos);
+  }
+
+  /* ── LAS OTRAS LIGAS ──────────────────────────────────────────────────
+     Mismo criterio, otro origen: el calendario sale del archivo de la liga
+     y lo bajado va a `onces-<slug>.js`. No se manda aviso al teléfono: los
+     avisos son por club y nadie se suscribió al Bayern.
+
+     El tope es un seguro, no un plan. Un domingo con las once ligas
+     jugando al mismo tiempo son unos cuarenta partidos en ventana; el tope
+     está para que un archivo de liga roto -mil partidos con fecha de hoy-
+     no se coma la cuota del día en una sola ronda. */
+  const TOPE = 60;
+  let pedidosDeLiga = 0;
+  for (const slug of ligasConArchivo()) {
+    const rutaLiga = aca("./sitio/datos/liga-" + slug + ".js");
+    let L; try { L = leerLiga(rutaLiga); } catch (e) { continue; }
+    const enVent = partidosEnVentana(L.partidos, AHORA);
+    if (!enVent.length) continue;
+
+    const rutaOnces = aca("./sitio/datos/onces-" + slug + ".js");
+    const antes = leerOnces(rutaOnces);
+    let onces = podarOnces(antes, AHORA);
+    let cambio = Object.keys(onces).length !== Object.keys(antes).length;
+    let nuevasAca = 0, yaEstaban = 0, sinSalir = 0, fallo = "";
+    const nombreLiga = L.nombre || slug;
+
+    for (const p of enVent) {
+      enJuego++;
+      const guardado = onces[String(p.id)];
+      if (guardado && (guardado.o || []).length) { yaEstaban++; continue; }
+      if (!KEY) { sinSalir++; continue; }
+      if (pedidosDeLiga >= TOPE) { fallo = "corté acá: ya pedí " + TOPE + " en esta ronda"; break; }
+
+      const clave = "/fixtures/lineups?fixture=" + p.id;
+      if (!pedidos.has(clave)) { pedidos.set(clave, api(clave).catch(e => ({ error: e.message }))); pedidosDeLiga++; }
+      const datos = await pedidos.get(clave);
+      if (datos && datos.error) { fallo = datos.error; continue; }
+      if (!datos.length) { sinSalir++; continue; }               /* todavía no salió */
+
+      const once = flaco(datos);
+      if (!once.length) { sinSalir++; continue; }
+      onces[String(p.id)] = { f: p.fecha, o: once };
+      cambio = true; nuevasAca++;
+    }
+
+    if (cambio) escribirOnces(rutaOnces, onces);
+    if (nuevasAca) nuevas.push(nombreLiga + " (" + nuevasAca + ")");
+    /* Una línea por liga y no una por partido: un domingo con las once
+       ligas jugando, el detalle partido por partido son cuarenta renglones
+       que nadie lee. */
+    console.log("  " + (nuevasAca ? "✓ " : "· ") + nombreLiga.padEnd(22) +
+      enVent.length + " en ventana" +
+      (nuevasAca ? " · " + nuevasAca + " ONCE(S) NUEVO(S)" : "") +
+      (yaEstaban ? " · " + yaEstaban + " ya estaban" : "") +
+      (sinSalir ? " · " + sinSalir + (KEY ? " sin salir todavía" : " sin key, no pido") : "") +
+      (fallo ? "  ⚠ " + fallo : ""));
   }
 
   console.log(linea);

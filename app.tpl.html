@@ -2182,9 +2182,25 @@ const J={ key:"", reqs:0, temporada:2026, fixtures:[], fx:null, pool:{A:[],B:[]}
    único que tocaba la red. La clave del cache es la misma URL relativa,
    así que lo que guardó el build es exactamente lo que pide la pantalla.
    Si algo no está en el cache y hay key, sale a buscarlo como siempre. */
+/* ── EL ONCE DEL DT DE LAS OTRAS LIGAS ───────────────────────────────────
+   El de tu club viene en el cache de la página. Los de las otras once ligas
+   vienen en `onces-<liga>.js`, que la ronda corta escribe aparte: el archivo
+   de la liga lo rehace la corrida completa todos los días y se los llevaría
+   puestos. Acá se leen, sin pedirle nada a la API y sin que el resto de la
+   app se entere de que hay dos lugares. */
+function onceGuardado(fixtureId){
+  const e = (window.ONCES || {})[String(fixtureId)];
+  const a = e && (e.o || e);
+  return Array.isArray(a) && a.length ? a : null;
+}
+
 async function api(path, params={}){
   const clave=path+(Object.keys(params).length?"?"+new URLSearchParams(params):"");
   if(window.CACHE && clave in window.CACHE) return window.CACHE[clave];
+  if(path==="/fixtures/lineups" && params.fixture){
+    const o = onceGuardado(params.fixture);
+    if(o) return o;
+  }
   if(!J.key) throw new Error("Por ahora están cargados el próximo partido y el último jugado.");
   const url=BASE+clave;
   const r=await fetch(url,{headers:{"x-apisports-key":J.key}});
@@ -2477,7 +2493,21 @@ function simularDeLiga(slug, fixtureId){
      inventar uno. */
   usarLiga({ id:L.id, nombre:L.nombre, media:L.media, local:L.local, visita:L.visita });
 
-  J.liga = slug; J.fx = null; J.jugado = false; J.real = null; J.sim = null; J.err = "";
+  /* UN PARTIDO DE VERDAD, AUNQUE VENGA DEL ARCHIVO DE LA LIGA. Esto era
+     `J.fx = null`, y por eso las otras ligas no tenían el once del DT: todo
+     el revelado -¿ya salió?, simularlo contra el tuyo- cuelga de `J.fx`. El
+     archivo de la liga trae lo justo, así que se arma el mismo objeto que da
+     la API con lo que hay: id, fecha, los dos equipos. Goles en null porque
+     todavía no se jugó -a las otras ligas solo se les mira el once, no el
+     resultado-, y `status` en NS por lo mismo. */
+  J.liga = slug; J.jugado = false; J.real = null; J.sim = null; J.err = "";
+  J.fx = {
+    fixture: { id: p.id, date: p.fecha, status: { short: "NS" } },
+    teams: { home: { id: p.local, name: nombreDeEquipo(L, p.local) },
+             away: { id: p.visita, name: nombreDeEquipo(L, p.visita) } },
+    goals: { home: null, away: null },
+    league: { id: L.id, name: L.nombre, round: p.ronda || "" },
+  };
   J.esLocalA = true;
   J.id = { A:p.local, B:p.visita };
   J.nom = { A:nombreDeEquipo(L,p.local), B:nombreDeEquipo(L,p.visita) };
@@ -2510,7 +2540,10 @@ function simularDeLiga(slug, fixtureId){
    números de la liga local: si no, el próximo partido de tu club se
    simularía con la media de la Premier. */
 function volverAMiClub(){
-  J.liga = null; J.sim = null; J.real = null; J.err = ""; J.msg = "";
+  /* `J.fx` también se suelta: el que vuelve elige de nuevo su partido, y
+     dejar colgado el de la Premier haría que el pie del resultado hablara
+     de un partido que ya no es el que está en pantalla. */
+  J.liga = null; J.fx = null; J.sim = null; J.real = null; J.err = ""; J.msg = "";
   usarLiga(null);
   J.id.A = CLUB.apiId;
   J.desde = { minuto:0, golesA:0, golesB:0, rojasA:0, rojasB:0 };
@@ -2711,7 +2744,7 @@ async function tocarAviso(){
 function hayOnceDelDT(){
   if(!J.fx) return false;
   const clave = "/fixtures/lineups?fixture=" + J.fx.fixture.id;
-  const al = window.CACHE?.[clave];
+  const al = window.CACHE?.[clave] || onceGuardado(J.fx.fixture.id);
   return Array.isArray(al) && al.some(x => x.team?.id === J.id.A && (x.startXI||[]).length >= 10);
 }
 
@@ -2729,7 +2762,15 @@ function pieDelResultado(){
       <b>¡Salió el once del DT!</b> Todavía no se jugó, pero la formación ya está.
       Simulala contra la tuya y decidí antes que el árbitro.</div>
     <button class="acc" id="brev" style="width:100%;margin-top:10px">Simular el once del DT</button>
-    ${link("gh")}`;
+    ${J.liga ? "" : link("gh")}`;
+  /* En una liga que no es la de tu club no va el aviso al teléfono -los
+     avisos son por club, nadie se suscribió al Bayern- ni el link del
+     pronóstico, que guarda el club de la página y volvería con otro partido.
+     Queda lo único que sí se puede hacer acá: esperar el once. */
+  if(J.liga) return `<div class="pendiente" style="margin-top:12px">
+      <b>Este partido todavía no se jugó.</b><br>
+      El once del DT sale una hora antes del partido: cuando aparezca, acá mismo
+      vas a poder simularlo contra el tuyo.</div>`;
   return `<div class="pendiente" style="margin-top:12px">
       <b>Este partido todavía no se jugó.</b><br>
       El once del DT sale una hora antes: cuando aparezca, acá mismo vas a poder
@@ -4112,10 +4153,10 @@ function vistaJuego(){
                   ${fila("Más probable", s => String(s.marcador).replace("-", " - "))}
                   ${fila("xG", s => s.xgA.toFixed(2) + " a " + s.xgB.toFixed(2))}
                 </tbody></table></div>
-              <p class="nota" style="margin-top:8px">${frase} Cuando termine el partido, la tercera columna
-                dice quién leyó mejor: guardá el link y volvé.</p>
-              <button class="acc" id="bguardar" style="width:100%;margin-top:10px">Copiar el link de mi pronóstico</button>
-              <p class="aviso" id="avisoLink"></p>
+              <p class="nota" style="margin-top:8px">${frase}${J.liga ? "" : ` Cuando termine el partido, la tercera columna
+                dice quién leyó mejor: guardá el link y volvé.`}</p>
+              ${J.liga ? "" : `<button class="acc" id="bguardar" style="width:100%;margin-top:10px">Copiar el link de mi pronóstico</button>
+              <p class="aviso" id="avisoLink"></p>`}
             </div>`;
           }
           const paso = gano ? "ganó" : empate ? "empató" : "perdió";

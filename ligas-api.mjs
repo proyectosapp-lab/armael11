@@ -97,8 +97,10 @@ console.log(linea);
    que la API conteste.                                                   */
 const SLUGS = CFG.ligas.map(L => L.slug);
 for (const f of readdirSync(SALIDA)) {
-  const m = /^liga-(.*)\.js$/.exec(f);
-  if (m && !SLUGS.includes(m[1])) { rmSync(new URL(f, SALIDA)); console.log("  (saco " + m[1] + ", ya no está en ligas.json)"); }
+  /* También los onces del DT que deja la ronda corta: si la liga se va, su
+     archivo de formaciones se va con ella. */
+  const m = /^(?:liga|onces)-(.*)\.js$/.exec(f);
+  if (m && !SLUGS.includes(m[1])) { rmSync(new URL(f, SALIDA)); console.log("  (saco " + f + ", ya no está en ligas.json)"); }
 }
 
 const publicadas = [];
