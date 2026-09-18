@@ -1,3 +1,121 @@
+Arma el 11 - version 2026-09-18 y44 (el interruptor del cobro se muda a la base)
+
+  · INCLUYE y42 y y43. Se sube este solo.
+
+  · EL PROBLEMA QUE ARREGLA. Prender el cobro estaba en sitio.json -que
+    viaja en el zip- y el freno de verdad en sumar_simulacion. Dos lugares
+    para una sola decision. Y peor: la fecha en que conviene prenderlo no la
+    decidimos nosotros, depende de que Google apruebe el paquete con su
+    facturacion. Hasta que eso pase, adentro de la app instalada NADIE puede
+    pagar, asi que frenar a la gente seria ponerle una puerta sin llave.
+
+  · Ahora el interruptor es una fila de la tabla `ajuste` y se prende con UNA
+    LINEA en el editor SQL, sin zip, sin publicar y sin esperar a nadie:
+
+        update ajuste set valor = 'si', cambiado = now() where clave = 'cobra';
+
+    Arranca en 'no'. Apagado, el contador CUENTA todo igual -las
+    simulaciones y las ligas tomadas- y no frena a nadie: el dia que se
+    prenda, el contador ya viene con la verdad adentro.
+
+  · `mi_cupo` y `sumar_simulacion` devuelven ademas `cobra`, y la app frena
+    por eso y no por sitio.json. El booleano del zip quedo de respaldo para
+    el rato en que todavia no hubo ninguna respuesta del servidor. Los
+    precios se siguen viendo: eso lo decide `cobrando`, que queda en true.
+
+  · 259 casos del navegador, 55 del backend, 43 de pagos.
+
+Arma el 11 - version 2026-09-18 y43 (Mercado Pago en la web, Google Play adentro de la app; un aviso cada dos simulaciones)
+
+  · INCLUYE TODO LO DE y42 (que no llego a subirse): el cobro por ligas en
+    vez de por cantidad de simulaciones, los planes liga / tres / todas, y
+    los dos interruptores prendidos. Se sube este y listo.
+
+  · DONDE SE PAGA. Google exige su facturacion para todo bien digital
+    vendido ADENTRO de una app publicada en Play, y prohibe mandar al usuario
+    a pagar afuera. Un checkout de Mercado Pago adentro de la app es motivo
+    de baja: en la prueba cerrada nadie mira, al pedir produccion si. Asi que
+    Mercado Pago queda para la web y Play para la app.
+
+  · La app se da cuenta sola de donde esta corriendo: el envoltorio de Play
+    abre el sitio con el referrer `android-app://<paquete>`, que solo viene
+    en la PRIMERA navegacion, asi que se anota la primera vez y despues se
+    recuerda. Sin eso, la segunda pantalla adentro de la app se creeria la
+    web y ofreceria Mercado Pago.
+
+  · Lo que se compro en la web sirve igual adentro de la app: el derecho vive
+    en NUESTRO servidor, no en la tienda. Lo unico que cambia es por donde
+    entra la plata.
+
+  · funcion-pago-play.ts (nueva) confirma la compra con Google antes de
+    acreditar: al comprobante del telefono no se le cree, se le pregunta a la
+    API de Google Play con nuestra clave, y recien ahi se llama al mismo
+    `registrar_pago` que usa Mercado Pago. Despues la consume, que reconoce
+    la compra (Google la devuelve a los tres dias si nadie lo hace) y ademas
+    deja volver a comprarla el mes que viene. Nueve pruebas nuevas.
+
+  · Si la facturacion de Play todavia no esta disponible -la version
+    instalada es anterior o los productos no estan de alta-, los botones
+    quedan apagados con el motivo escrito. Lo que NO se hace es ofrecer
+    Mercado Pago ni poner un link a pagar afuera.
+
+  · Los pasos de la Play Console y de Google Cloud estan en COBRAR.md,
+    seccion 7.
+
+  · UN AVISO CADA DOS SIMULACIONES para el gratuito. Antes era solo tiempo
+    -uno cada sesenta segundos-, que salia parecido pero dependia del ritmo
+    de cada uno y en el modo sin animacion salia mucho menos seguido. Ahora
+    se cuenta lo que se quiere contar: simulaciones. La primera sigue sin
+    aviso -esa es la que decide si la app le gusta-. Los sesenta segundos
+    quedan de piso porque no son eleccion nuestra: es el minimo de AdSense.
+    Y si un aviso se saltea por ese piso, la cuenta sigue desde donde quedo
+    en vez de desfasarse para siempre.
+
+  · 258 casos del navegador, 43 de pagos, 55 del backend.
+
+Arma el 11 - version 2026-09-18 y42 (se dejan de vender simulaciones y se venden LIGAS; el cobro se prende)
+
+  · EL MODELO NUEVO. Simular no cuesta nada -corre en el telefono-, asi que
+    cobrar por cantidad cobraba por algo que no existe y castigaba justo al
+    que mas usa la app. Lo que vale para el hincha es CUANTAS LIGAS puede
+    tocar:
+
+      gratis  10 simulaciones por mes, en UNA liga
+      liga    sin limite en UNA liga          US$2  ($3.000)
+      tres    sin limite en TRES a eleccion   US$5  ($7.500)
+      todas   sin limite en las once          US$8  ($12.000)
+
+  · CUAL ES "TU LIGA" NO SE ELIGE EN NINGUNA PANTALLA: es la primera que
+    simulas en el periodo, y queda tomada hasta que el periodo termina. Sin
+    selector y sin arrepentimiento. El que paga tres las va tomando a medida
+    que las usa. Las ligas tomadas viven en `uso_ciclo`, asi que se liberan
+    solas cuando empieza el ciclo siguiente.
+
+  · EL QUE MANDA ES EL SERVIDOR. `sumar_simulacion` ahora recibe la liga y
+    corta con 'otra liga' o 'sin cupo' ANTES de sumar, asi que un no del
+    servidor no gasta ninguna simulacion. La pantalla lo dice antes, pero si
+    su foto del cupo estaba vieja -otra pestaña, otro telefono- el servidor
+    gana y la app explica cual de los dos casos fue.
+
+  · SE PRENDIERON LOS DOS INTERRUPTORES de sitio.json: `bloquea` y
+    `cobrando`. Estuvieron apagados los catorce dias de la prueba cerrada.
+    Van junto con el freno del servidor: apagar uno solo hace que la pantalla
+    deje apretar y la base conteste que no, que es peor que las dos.
+
+  · Los precios en pesos salen de US$ 2, 5 y 8 con el dolar a $1.500, y viven
+    en UN SOLO lugar (funcion-crear-pago.ts). Si el dolar esta en otro lado
+    se cambian esos tres numeros y se vuelve a desplegar: en la app no hay
+    ningun precio escrito.
+
+  · Los planes viejos ('chico','medio','libre') se convierten a 'todas' antes
+    de poner la regla nueva: el que pago algo no puede terminar con menos por
+    un cambio nuestro. Hoy no hay ninguno, pero el archivo se corre igual en
+    cualquier base.
+
+  · 256 casos del navegador (once nuevos, todos sobre la liga), 55 del
+    backend, 34 de pagos. HAY QUE PEGAR DE NUEVO LAS DOS EDGE FUNCTIONS: los
+    planes nuevos viven ahi.
+
 Arma el 11 - version 2026-09-17 y41 (la medida de cada liga, dicha por el lado del acierto)
 
   · Las etiquetas pasan de la jerga del backtest al idioma del hincha:

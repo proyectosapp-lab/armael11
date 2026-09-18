@@ -2575,15 +2575,42 @@ async function elegirPartido(i){
    sin cuenta, contra el navegador. Si la red falla, la simulación sale
    igual: quedarse sin poder jugar porque no se pudo contar es peor que
    contar de menos. */
+/* Qué liga se está simulando. Las páginas de club son todas argentinas, así
+   que sin liga elegida la liga es Argentina. Es un slug y no un id porque es
+   lo que usa todo lo demás —el archivo bajado, el selector, el servidor—. */
+const ligaAhora = () => J.liga || "argentina";
+
+/* Devuelve `true` si se pudo gastar. Desde el 18/9/2026 puede devolver
+   `false`: el servidor frena cuando la liga no entra en el plan o cuando se
+   acabaron las diez del mes, y en ese caso NO se simula. Antes esto no podía
+   fallar y por eso no devolvía nada.
+
+   Si la red falla, la simulación sale igual: quedarse sin poder jugar porque
+   no se pudo contar es peor que contar de menos. Lo que no se hace es tratar
+   un "no" del servidor como si fuera un problema de red. */
 async function gastarSimulacion(){
+  const liga = ligaAhora();
   if(conBackend && typeof usarSimulacion === "function"){
     try{
-      const r = await usarSimulacion();
+      const r = await usarSimulacion(liga);
       if(r){ CUPO = { plan: r.plan || "gratis", usadas: r.usadas | 0,
-                      hasta: r.hasta || null }; return; }
-    }catch(e){}
+                      hasta: r.hasta || null, ligas: r.ligas || [],
+                      cobra: r.cobra }; return true; }
+    }catch(e){
+      const m = String(e && e.message || "");
+      if(/otra liga|sin cupo/.test(m)){
+        /* El servidor dijo que no. Se refresca el estado para que la pantalla
+           muestre exactamente por qué, y se corta. */
+        try{ const c = await miCupo();
+             if(c) CUPO = { plan:c.plan||"gratis", usadas:c.usadas|0,
+                            hasta:c.hasta||null, ligas:c.ligas||[], cobra:c.cobra }; }catch(x){}
+        return false;
+      }
+    }
   }
-  CUPO = { plan: CUPO.plan || "gratis", usadas: sumarLocal(), hasta: CUPO.hasta };
+  CUPO = { plan: CUPO.plan || "gratis", usadas: sumarLocal(liga),
+           hasta: CUPO.hasta, ligas: ligasLocales() };
+  return true;
 }
 
 /* `flash` es la segunda devolucion de los testers dicha dos veces: "tarda
@@ -2746,15 +2773,24 @@ async function simular11(flash){
     return;
   }
 
-  const antes = estadoCupo({ ...CUPO, bloquea: CUPO_CFG.bloquea });
+  const antes = estadoCupo({ ...CUPO, bloquea: frenaElCupo(), liga: ligaAhora() });
   if(!antes.puedeSimular){
-    J.err = textoCupo(antes, CUPO.hasta) + " Mirá los planes acá abajo para seguir.";
+    J.err = textoCupo(antes, CUPO.hasta, ligaAhora()) + " Mirá los planes acá abajo para seguir.";
     pintar();
     document.getElementById("cuenta")?.scrollIntoView({behavior:"smooth",block:"start"});
     return;
   }
 
-  await gastarSimulacion();
+  /* Si el servidor dice que no, no se simula. Pasa cuando la pantalla tenía
+     una foto vieja del cupo —otra pestaña, otro teléfono— y es justamente el
+     caso en el que el cliente no puede ser el que decide. */
+  if(!await gastarSimulacion()){
+    const ahora = estadoCupo({ ...CUPO, bloquea: true, liga: ligaAhora() });
+    J.err = textoCupo(ahora, CUPO.hasta, ligaAhora()) + " Mirá los planes acá abajo para seguir.";
+    pintar();
+    document.getElementById("cuenta")?.scrollIntoView({behavior:"smooth",block:"start"});
+    return;
+  }
   await momentoDeAviso();
   const { xgA, xgB, t, ind } = golEsperadoDe(J.xiA, J.xiB);
 
@@ -2994,7 +3030,7 @@ function campoHTML(){
       seguidos. Si el navegador no deja guardar nada, se falla hacia el lado
       de NO mostrar: perder un aviso es barato, mostrar dos seguidos es una
       infracción.                                                          */
-const AVISO = { LLAVE:"armaEl11.ultimoAviso", ESPERA:60000,
+const AVISO = { LLAVE:"armaEl11.ultimoAviso", ESPERA:60000, CADA:2,
                 DURACION_SIM:20000, DURACION_PAGA:6000 };
 
 /* ── QUÉ SE COMPRA, EXACTAMENTE ──────────────────────────────────────────
@@ -3019,6 +3055,10 @@ function anotarAviso(t){
   try{ localStorage.setItem(AVISO.LLAVE, String(t)); }catch(e){}
 }
 let simulacionesHechas = 0;
+/* Simulaciones desde el último aviso. En memoria y no en disco a propósito:
+   al recargar vuelve a cero, y eso falla hacia MENOS avisos, que es el lado
+   barato de equivocarse. */
+let simsDesdeAviso = 0;
 
 /* ══════════════════ EL CUPO DE SIMULACIONES ══════════════════════════════
    Diez por mes son gratis y llevan publicidad. De ahí en adelante hay que
@@ -3045,20 +3085,52 @@ let simulacionesHechas = 0;
    Se prende cambiando un booleano.                                       */
 const CUPO_CFG = Object.assign({ gratis: 10, bloquea: false, cobrando: false },
                                (window.SITIO && window.SITIO.cupo) || {});
-const TOPES = { gratis: CUPO_CFG.gratis, chico: 40, medio: 100, libre: Infinity };
+/* ── 18/9/2026: SE VENDEN LIGAS, NO CANTIDAD ─────────────────────────────
+   Simular no cuesta nada, así que cobrar por cantidad cobraba por algo que
+   no existe y castigaba al que más usa la app. Ahora lo gratis son diez por
+   mes EN UNA LIGA, y los planes abren una, tres o todas.
+
+   Cuál es "tu liga" no se elige en ninguna pantalla: es la primera que
+   simulás en el período y queda tomada hasta que el período termina. Sin
+   selector y sin arrepentimiento. El que paga tres las va tomando a medida
+   que las usa.
+
+   El que manda es el servidor: `sumar_simulacion` corta con `otra liga` o
+   `sin cupo` y no gasta nada. Esto de acá es para que la pantalla lo diga
+   ANTES y no después de un error.                                        */
+const TOPES = { gratis: CUPO_CFG.gratis, liga: Infinity, tres: Infinity, todas: Infinity };
+const LIGAS_DEL_PLAN = { gratis: 1, liga: 1, tres: 3, todas: 99 };
 const LLAVE_CUPO = "armaEl11.cupo";
 
-/* Pura, para poder probarla con casos concretos. */
-function estadoCupo({ plan, usadas, bloquea }){
+/* Pura, para poder probarla con casos concretos. `liga` es la que se está
+   por simular; sin ella —una pantalla que solo muestra el contador— no se
+   juzga ninguna liga. */
+/* El freno lo decide la BASE, no el zip: `mi_cupo` y `sumar_simulacion`
+   devuelven `cobra`, que sale de una fila que se cambia con una linea de SQL
+   el dia que Google apruebe el paquete con su facturacion. Hasta que eso
+   pase, frenar a alguien adentro de la app seria ponerle una puerta sin
+   llave. `sitio.json` queda solo como respaldo para cuando todavia no hubo
+   ninguna respuesta del servidor. */
+const frenaElCupo = () => (CUPO && CUPO.cobra != null) ? !!CUPO.cobra : CUPO_CFG.bloquea;
+
+function estadoCupo({ plan, usadas, bloquea, ligas, liga }){
   const tope = TOPES[plan] ?? TOPES.gratis;
   const ilimitado = tope === Infinity;
   const quedan = ilimitado ? Infinity : Math.max(0, tope - usadas);
+  const topeLigas = LIGAS_DEL_PLAN[plan] ?? 1;
+  const tomadas = Array.isArray(ligas) ? ligas.filter(Boolean) : [];
+  const yaEsta = !liga || tomadas.includes(liga);
+  const entraLiga = yaEsta || tomadas.length < topeLigas;
   return {
     plan, tope, usadas, quedan, ilimitado,
     seAcabo: !ilimitado && quedan === 0,
+    tomadas, topeLigas, entraLiga, yaEsta,
+    libresDeLiga: Math.max(0, topeLigas - tomadas.length),
     /* Con el freno apagado se puede simular igual: lo único que cambia es
-       que la pantalla avisa que se pasó. */
-    puedeSimular: ilimitado || quedan > 0 || !bloquea,
+       que la pantalla avisa que se pasó. El freno de la liga va junto: si
+       uno frena y el otro no, la pantalla y el servidor dicen cosas
+       distintas, que es peor que cualquiera de las dos. */
+    puedeSimular: (ilimitado || quedan > 0 || !bloquea) && (entraLiga || !bloquea),
   };
 }
 
@@ -3121,20 +3193,30 @@ function hastaLocal(){
   if(!g.ancla) return null;
   return enDia(sumarMeses(inicioDeCiclo(new Date(g.ancla)), 1));
 }
-function sumarLocal(){
+/* Las ligas que tomó en este ciclo el que no tiene cuenta. Mismo criterio
+   que el contador: vale mientras el ciclo sea el mismo. */
+function ligasLocales(){
+  const g = guardadoLocal();
+  if(!g.ancla) return [];
+  return g.ciclo === enDia(inicioDeCiclo(new Date(g.ancla))) && Array.isArray(g.ligas)
+    ? g.ligas : [];
+}
+function sumarLocal(liga){
   const g = guardadoLocal();
   const ancla = g.ancla ? new Date(g.ancla) : new Date();
   const usadas = usoLocal() + 1;
   const ciclo = inicioDeCiclo(ancla);
+  const ligas = ligasLocales();
+  if(liga && !ligas.includes(liga)) ligas.push(liga);
   try{ localStorage.setItem(LLAVE_CUPO, JSON.stringify({
-       ancla: ancla.toISOString(), ciclo: enDia(ciclo), usadas })); }catch(e){}
+       ancla: ancla.toISOString(), ciclo: enDia(ciclo), usadas, ligas })); }catch(e){}
   CUPO.hasta = enDia(sumarMeses(ciclo, 1));
   return usadas;
 }
 
 /* Arranca con lo que sepa el navegador. Si hay cuenta, `arrancarCuenta` lo
    pisa con lo que dice la base, que es lo que vale. */
-let CUPO = { plan:"gratis", usadas: usoLocal(), hasta: hastaLocal() };
+let CUPO = { plan:"gratis", usadas: usoLocal(), hasta: hastaLocal(), ligas: ligasLocales() };
 
 /* "hasta el 20 de octubre" y no "el 1 de cada mes": el ciclo arranca el día
    que se pagó, así que la fecha es distinta para cada persona y hay que
@@ -3148,12 +3230,43 @@ const diaFuturo = iso => {
   return isNaN(d) ? "" : d.toLocaleDateString("es-AR", { day:"numeric", month:"long" });
 };
 
-function textoCupo(e, hasta){
+/* El nombre de la liga tal como se ve, a partir del slug. Si no está bajada
+   —o si se está simulando el club propio— se dice "tu liga", que es lo que
+   la persona entiende igual. */
+const nombreDeLiga = slug => {
+  const L = (window.LIGAS || {})[slug];
+  return L ? L.pais : (slug === "argentina" ? "Argentina" : "tu liga");
+};
+const listaDeNombres = ls => ls.map(nombreDeLiga).join(" y ");
+
+function textoCupo(e, hasta, liga){
   const cuando = diaFuturo(hasta);
   const renueva = cuando ? " Se renueva el " + cuando + "." : "";
-  if(e.ilimitado) return "Simulaciones sin límite.";
-  if(e.seAcabo)   return "Usaste las " + e.tope + " simulaciones de este mes." + renueva;
-  return "Te quedan " + e.quedan + " de " + e.tope + " simulaciones." + renueva;
+  /* Lo primero es lo que FRENA. Que te sobren simulaciones no sirve de nada
+     si la liga que querés no entra en tu plan, y decirlo al revés manda a
+     comprar simulaciones a alguien que ya las tiene. */
+  if(liga && !e.entraLiga){
+    const tuyas = listaDeNombres(e.tomadas);
+    return e.topeLigas === 1
+      ? "Tu plan cubre una liga y este mes es " + tuyas + ". Para simular " +
+        nombreDeLiga(liga) + " hace falta el plan de tres ligas o el de todas."
+      : "Tu plan cubre " + e.topeLigas + " ligas y ya están tomadas (" + tuyas +
+        "). Para sumar " + nombreDeLiga(liga) + " hace falta el plan de todas.";
+  }
+  if(e.ilimitado){
+    if(e.topeLigas >= 99) return "Simulaciones sin límite en todas las ligas.";
+    if(e.libresDeLiga > 0 && e.tomadas.length)
+      return "Simulaciones sin límite en " + listaDeNombres(e.tomadas) + ". Te " +
+             (e.libresDeLiga === 1 ? "queda 1 liga más" : "quedan " + e.libresDeLiga + " ligas más") +
+             " para elegir este mes.";
+    if(e.tomadas.length)
+      return "Simulaciones sin límite en " + listaDeNombres(e.tomadas) + ".";
+    return "Simulaciones sin límite en " + (e.topeLigas === 1 ? "la liga" : e.topeLigas + " ligas") +
+           " que elijas este mes.";
+  }
+  const donde = e.tomadas.length ? " en " + listaDeNombres(e.tomadas) : "";
+  if(e.seAcabo)   return "Usaste las " + e.tope + " simulaciones de este mes" + donde + "." + renueva;
+  return "Te quedan " + e.quedan + " de " + e.tope + " simulaciones" + donde + "." + renueva;
 }
 
 /* ── EL CONTADOR Y LOS PRECIOS, ABAJO DEL BOTÓN DE SIMULAR ───────────────
@@ -3162,20 +3275,22 @@ function textoCupo(e, hasta){
    por primera vez —que es exactamente a quien hay que contarle que esto
    algún día se paga— no la tiene. El precio se ve donde se siente el tope. */
 function bloqueCupo(){
-  const e = estadoCupo({ ...CUPO, bloquea: CUPO_CFG.bloquea });
-  if(e.ilimitado)
-    return `<p class="aviso" style="margin-top:10px">${esc(textoCupo(e, CUPO.hasta))}</p>`;
+  const liga = ligaAhora();
+  const e = estadoCupo({ ...CUPO, bloquea: frenaElCupo(), liga });
+  /* Sin límite Y con la liga adentro del plan no hay nada que ofrecer. */
+  if(e.ilimitado && e.entraLiga)
+    return `<p class="aviso" style="margin-top:10px">${esc(textoCupo(e, CUPO.hasta, liga))}</p>`;
 
   const lista = PLANES.length
     ? `<div class="otras" style="margin-top:8px">${PLANES.map(p=>
-        `<span><b>${esc(p.nombre || (p.cupo ? p.cupo + " simulaciones" : "Sin límite"))}</b>
+        `<span><b>${esc(p.nombre || "Plan")}</b>
          ${esc(plata(p.precio))}</span>`).join("")}</div>`
     : "";
 
   return `<p class="aviso" style="margin-top:10px">
-      <b>${esc(textoCupo(e, CUPO.hasta))}</b>
+      <b>${esc(textoCupo(e, CUPO.hasta, liga))}</b>
       ${CUPO_CFG.cobrando
-        ? "Con un plan simulás más y sin avisos."
+        ? "Con un plan simulás sin límite y sin avisos."
         : "Cuando se pase de diez va a hacer falta un plan; todavía no se cobra nada."}
     </p>${lista}`;
 }
@@ -3256,26 +3371,47 @@ function conQue(lista){
 /* Cuantas quedan, para escribirlo EN EL BOTON. Un contador al costado de la
    pantalla no lo mira nadie antes de apretar; en el boton, si. */
 function restanEnBoton(){
-  const e = estadoCupo({ ...CUPO, bloquea: CUPO_CFG.bloquea });
+  const e = estadoCupo({ ...CUPO, bloquea: frenaElCupo(), liga: ligaAhora() });
+  if(!e.entraLiga) return "otra liga";
   return e.ilimitado ? "" : "te quedan " + e.quedan;
 }
 
 /* Pura y sin efectos, para poder probarla con casos concretos. */
-function tocaAviso({ hayRed, hechas, ultimo, ahora, premium }){
+/* ── UNA CADA DOS SIMULACIONES ───────────────────────────────────────────
+   Antes esto era solo tiempo: uno cada sesenta segundos. Salía parecido
+   -la simulación dura veinte- pero dependía de a qué ritmo apretara cada
+   uno, y con el modo sin animación salía mucho menos seguido. Ahora se
+   cuenta lo que se quiere contar: SIMULACIONES.
+
+   `desdeAviso` son las simulaciones hechas desde el último aviso, contando
+   la de ahora. No es `hechas % 2` a propósito: si un aviso se saltea por el
+   piso de tiempo, la cuenta sigue desde donde quedó en vez de desfasarse
+   para siempre.
+
+   Los sesenta segundos QUEDAN, abajo de todo, porque no son una elección
+   nuestra: es el mínimo que impone AdSense entre dos avisos. Si las dos
+   reglas chocan, gana la que muestra menos. Perder un aviso es barato;
+   mostrar dos seguidos es una infracción.                                */
+function tocaAviso({ hayRed, hechas, desdeAviso, ultimo, ahora, premium }){
   if(!hayRed) return false;
   if(premium) return false;                    /* es lo que compró */
-  if(hechas < 1) return false;                 /* la primera es gratis */
+  if(hechas <= 1) return false;                /* la primera es gratis */
+  if((desdeAviso ?? hechas) < AVISO.CADA) return false;
   return (ahora - ultimo) >= AVISO.ESPERA;
 }
 
 /* Devuelve una promesa que se resuelve cuando se puede seguir. Hoy resuelve
    en el acto. */
 async function momentoDeAviso(){
+  /* Se cuenta ANTES de preguntar: la simulación de ahora es la que puede
+     llevar el aviso, no la siguiente. */
+  simulacionesHechas++; simsDesdeAviso++;
   const toca = tocaAviso({ hayRed: hayRed(), hechas: simulacionesHechas,
+                           desdeAviso: simsDesdeAviso,
                            ultimo: ultimoAviso(), ahora: Date.now(),
                            premium: PREMIUM.activo });
-  simulacionesHechas++;
   if(!toca) return "sin aviso";
+  simsDesdeAviso = 0;
   anotarAviso(Date.now());
   /* Acá se enchufa la red, y en ningún otro lado. */
   return "aviso";
@@ -4265,10 +4401,14 @@ async function arrancarCuenta(){
   pintar();
   if(quienSoy()){
     try{ PREMIUM = (await miPremium()) || PREMIUM; }catch(e){}
+    /* Una sola pregunta, y sin frenar nada: si esta pantalla es la app de
+       Play, ¿hay facturación disponible? La respuesta cambia los botones. */
+    mirarPlay();
     /* El cupo del que tiene cuenta lo sabe el servidor. El del anónimo lo
        lleva el navegador y ya quedó leído al arrancar. */
     try{ const c = await miCupo();
-         if(c) CUPO = { plan:c.plan||"gratis", usadas:c.usadas|0, hasta:c.hasta||null }; }catch(e){}
+         if(c) CUPO = { plan:c.plan||"gratis", usadas:c.usadas|0, hasta:c.hasta||null,
+                        ligas:c.ligas||[], cobra:c.cobra }; }catch(e){}
     pintarCuenta();
     await traerMiEquipo();
     await cargarLigas();
@@ -4461,9 +4601,9 @@ const plata = n => "$" + Number(n).toLocaleString("es-AR");
 function bloquePremium(){
   if(!conBackend) return "";
 
-  const e = estadoCupo({ ...CUPO, bloquea: CUPO_CFG.bloquea });
+  const e = estadoCupo({ ...CUPO, bloquea: frenaElCupo(), liga: ligaAhora() });
   const contador = `<p class="aviso" style="margin-top:12px">
-      <b>${esc(textoCupo(e, CUPO.hasta))}</b></p>`;
+      <b>${esc(textoCupo(e, CUPO.hasta, ligaAhora()))}</b></p>`;
 
   if(PREMIUM.activo)
     return `<div class="pendiente" style="margin-top:14px">
@@ -4475,25 +4615,106 @@ function bloquePremium(){
   /* Los precios y los cupos salen del servidor, nunca de acá: si estuvieran
      escritos en la app, el día que cambie uno la pantalla diría un número y
      Mercado Pago cobraría otro. */
+  /* Adentro de la app de Play, la compra la hace Play. Si su facturación
+     todavía no está disponible -la versión instalada es anterior, o los
+     productos no están dados de alta-, los botones se apagan y se dice por
+     qué. Lo que NO se hace es ofrecer Mercado Pago ni mandar a pagar afuera:
+     eso es exactamente lo que Google prohíbe. */
+  const porPlay = esDeLaTienda();
+  const playListo = !porPlay || PLAY_OK !== false;
   const tarjeta = p => `<button class="boton flaco" data-plan="${esc(p.id)}"
-      ${comprando || !CUPO_CFG.cobrando ? "disabled" : ""}
+      ${comprando || !CUPO_CFG.cobrando || !playListo ? "disabled" : ""}
       style="flex:1 1 150px;text-align:left;line-height:1.35">
-      <b>${esc(p.nombre || (p.cupo ? p.cupo + " simulaciones" : "Sin límite"))}</b><br>
+      <b>${esc(p.nombre || "Plan")}</b><br>
+      <span style="opacity:.72;font-size:12px">${esc(p.detalle || "")}</span><br>
       <span style="opacity:.75">${esc(plata(p.precio))} por mes</span></button>`;
 
   return `<div class="pendiente" style="margin-top:14px">
       <b>Los planes</b><br>
-      Diez simulaciones por mes son gratis y llevan un aviso. Con un plan
-      simulás más, el partido se juega en seis segundos en vez de veinte y no
+      Diez simulaciones por mes son gratis, en una liga, y llevan un aviso.
+      Con un plan simulás sin límite —en una liga, en tres a elección o en
+      las once—, el partido se juega en seis segundos en vez de veinte y no
       aparece ningún aviso.
     </div>
     ${contador}
     <div class="par" style="margin-top:10px;flex-wrap:wrap;gap:8px">
       ${PLANES.map(tarjeta).join("")}
     </div>
-    <p class="aviso" style="margin-top:8px">${CUPO_CFG.cobrando
-      ? "Se paga con Mercado Pago. Se vence solo: no queda nada debitándose todos los meses."
-      : "<b>Todavía no se cobra nada.</b> Los precios están acá para que sepas de antemano cuánto va a salir cuando se prenda."}</p>`;
+    <p class="aviso" style="margin-top:8px">${!CUPO_CFG.cobrando
+      ? "<b>Todavía no se cobra nada.</b> Los precios están acá para que sepas de antemano cuánto va a salir cuando se prenda."
+      : !playListo
+        ? "<b>La compra desde la app todavía no está disponible.</b> Si ya tenés un plan, entrá con tu cuenta y lo vas a tener acá."
+        : porPlay
+          ? "Se paga con Google Play. Se vence solo: no queda nada debitándose todos los meses."
+          : "Se paga con Mercado Pago. Se vence solo: no queda nada debitándose todos los meses."}</p>`;
+}
+
+/* ══════════════ DÓNDE SE PAGA, Y POR QUÉ NO ES LO MISMO ═══════════════
+   Mercado Pago en la web; Google Play adentro de la app de la tienda.
+
+   No es una preferencia: Google exige que todo bien digital que se venda
+   ADENTRO de una app publicada en Play se cobre con su facturación, y
+   prohíbe además mandar al usuario a pagar afuera. Un checkout de Mercado
+   Pago adentro de la app es motivo de baja, y durante una prueba cerrada
+   nadie mira, pero al pedir producción sí.
+
+   Lo que la persona compró en la web le sirve igual adentro de la app: el
+   derecho vive en NUESTRO servidor, no en la tienda. Lo único que cambia es
+   por dónde entra la plata.
+
+   CÓMO SE SABE SI ESTA PANTALLA ES LA APP. El envoltorio de Play (TWA) abre
+   el sitio con el referrer `android-app://<paquete>`. Solo viene en la
+   PRIMERA navegación, así que la primera vez se anota y después se recuerda:
+   sin eso, tocar un link adentro de la app haría que la segunda pantalla se
+   crea la web y ofrezca Mercado Pago.                                     */
+const LLAVE_TIENDA = "armaEl11.deLaTienda";
+const PAQUETE = ((window.SITIO || {}).android || {}).paquete || "com.armael11.app";
+function esDeLaTienda(){
+  try{
+    if(String(document.referrer || "").startsWith("android-app://" + PAQUETE)){
+      try{ localStorage.setItem(LLAVE_TIENDA, "1"); }catch(e){}
+      return true;
+    }
+    return localStorage.getItem(LLAVE_TIENDA) === "1";
+  }catch(e){ return String(document.referrer || "").startsWith("android-app://"); }
+}
+
+/* null = todavía no se preguntó · true/false = hay o no facturación de Play.
+   Se pregunta una vez al abrir y la pantalla se vuelve a dibujar. */
+let PLAY_OK = null;
+async function servicioDePlay(){
+  if(!window.getDigitalGoodsService) return null;
+  try{ return await window.getDigitalGoodsService("https://play.google.com/billing"); }
+  catch(e){ return null; }
+}
+async function mirarPlay(){
+  if(!esDeLaTienda()){ PLAY_OK = false; return; }
+  PLAY_OK = !!(await servicioDePlay());
+  pintarCuenta();
+}
+
+/* La compra adentro de la app. El precio lo pone Play -es el que está
+   cargado en la Play Console-, y lo que vuelve es un comprobante que NO se
+   le cree al teléfono: se manda al servidor, que se lo pregunta a Google y
+   recién ahí acredita el pase. Es la misma regla que con Mercado Pago. */
+async function comprarEnPlay(idPlan){
+  const svc = await servicioDePlay();
+  if(!svc) throw new Error("La compra desde la app todavía no está disponible. " +
+                           "Si ya tenés un plan, entrá con tu cuenta y lo tenés acá.");
+  const detalles = await svc.getDetails([idPlan]);
+  const d = detalles && detalles[0];
+  if(!d) throw new Error("Ese plan todavía no está cargado en Google Play.");
+  const pedido = new PaymentRequest(
+    [{ supportedMethods: "https://play.google.com/billing", data: { sku: idPlan } }],
+    { total: { label: d.title || "Armá el 11",
+               amount: { currency: d.price.currency, value: d.price.value } } });
+  const resp = await pedido.show();
+  try{
+    const token = resp.details && (resp.details.purchaseToken || resp.details.token);
+    if(!token) throw new Error("Google no devolvió el comprobante.");
+    await avisarPagoDePlay(idPlan, token);   /* acá se acredita, contra Google */
+    await resp.complete("success");
+  }catch(e){ try{ await resp.complete("fail"); }catch(x){} throw e; }
 }
 
 function engancharPremium(){
@@ -4501,6 +4722,18 @@ function engancharPremium(){
     b.onclick=async()=>{
       if(comprando) return;
       comprando=true; b.textContent="Abriendo…";
+      /* Adentro de la app, por Google; en la web, por Mercado Pago. */
+      if(esDeLaTienda()){
+        try{
+          await comprarEnPlay(b.dataset.plan);
+          try{ const c = await miCupo();
+               if(c) CUPO = { plan:c.plan||"gratis", usadas:c.usadas|0,
+                              hasta:c.hasta||null, ligas:c.ligas||[], cobra:c.cobra }; }catch(x){}
+          await refrescarPremium();
+          comprando=false; pintarCuenta("Listo: ya tenés el pase.", false);
+        }catch(e){ comprando=false; pintarCuenta(e.message, true); }
+        return;
+      }
       /* Desde qué página salió. La página de gracias vive en la raíz y no
          sabe de qué club venía: sin esto, el que pagó vuelve a la portada y
          tiene que buscar su equipo otra vez. */

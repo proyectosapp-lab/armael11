@@ -114,11 +114,16 @@ const politicasDe = tabla => [...SQL.matchAll(/create policy[\s\S]*?;/gi)]
                        La tabla `aviso` no tiene politicas: sin select, un
                        upsert directo choca con Postgres (el ON CONFLICT
                        necesita leer la fila que esta). Solo valida y escribe.
-       borrar_aviso    borra por endpoint, que solo conoce ese telefono.  */
-  caso("las funciones con llave maestra son las quince conocidas",
-       conLlave.length === 15 &&
+       borrar_aviso    borra por endpoint, que solo conoce ese telefono.
+       cobra_de_verdad lee UNA fila de `ajuste` y devuelve si o no. Lleva
+                       llave maestra para poder leerla sin depender de las
+                       politicas, y no recibe nada: no hay nada que falsear
+                       al llamarla, y lo que contesta ya es publico -la app
+                       necesita saber si el cupo frena-.                  */
+  caso("las funciones con llave maestra son las dieciséis conocidas",
+       conLlave.length === 16 &&
        ["es_miembro", "entrar_a_liga", "crear_liga", "tabla_liga", "borrar_mi_cuenta",
-        "acreditar_premium", "registrar_pago", "es_de_zona", "tabla_zona",
+        "acreditar_premium", "registrar_pago", "es_de_zona", "tabla_zona", "cobra_de_verdad",
         "mi_cupo", "sumar_simulacion", "poner_plan", "anotar_aviso", "borrar_aviso", "pedir_backtest"]
          .every(f => conLlave.includes(f)),
        conLlave.join(", "));
@@ -291,8 +296,11 @@ const politicasDe = tabla => [...SQL.matchAll(/create policy[\s\S]*?;/gi)]
        inicio_de_ciclo  es aritmética sobre su propio argumento: recibe una
                         fecha y devuelve otra. No lee ni escribe ninguna
                         tabla, así que darle llave maestra sería darle
-                        permisos para nada. */
-  const sinLlave = ["inicio_de_ciclo"];
+                        permisos para nada.
+       ligas_del_plan   es una tabla de cuatro números escrita como `case`:
+                        recibe el nombre de un plan y devuelve cuántas ligas
+                        cubre. Tampoco toca ninguna tabla. */
+  const sinLlave = ["inicio_de_ciclo", "ligas_del_plan"];
   const sueltas = defs.filter(f => !conLlave.includes(f) && !sinLlave.includes(f));
   caso("no hay funciones sueltas sin revisar", sueltas.length === 0,
        sueltas.join(", ") || defs.join(", "));

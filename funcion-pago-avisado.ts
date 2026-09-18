@@ -74,7 +74,7 @@ function idDelAviso(url: URL, cuerpo: any): { tipo: string; id: string } {
    —los hay, si alguien cobra por un link suelto— tiene que terminar en un
    pago anotado sin perfil, no en un error de Postgres. */
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const PLANES_VALIDOS = ["gratis", "chico", "medio", "libre"];
+const PLANES_VALIDOS = ["gratis", "liga", "tres", "todas"];
 
 export function leerReferencia(ref: string | null):
     { perfil: string | null; meses: number; plan: string | null } {

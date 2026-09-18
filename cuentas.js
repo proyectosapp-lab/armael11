@@ -417,13 +417,43 @@ export async function miCupo() {
   return f?.[0] || { plan: "gratis", usadas: 0 };
 }
 
-export async function usarSimulacion() {
+/* Gasta una y devuelve cómo quedó. Desde el 18/9/2026 lleva la liga: el
+   plan ya no dice cuántas simulaciones sino en cuántas LIGAS, así que el
+   servidor necesita saber cuál se está simulando para dejarla pasar o no.
+   Si la liga no entra en el plan, o si se acabaron las diez del mes, la
+   función de la base corta con `otra liga` o `sin cupo` y NO gasta nada;
+   acá se deja pasar el error para que la pantalla diga cuál de los dos fue. */
+export async function usarSimulacion(liga = null) {
   if (!sesion?.uid) return null;
-  const f = await pedir("/rest/v1/rpc/sumar_simulacion", { metodo: "POST", cuerpo: {} });
+  const f = await pedir("/rest/v1/rpc/sumar_simulacion",
+                        { metodo: "POST", cuerpo: { p_liga: liga || null } });
   return f?.[0] || null;
 }
 
-export async function linkDePago(plan = "chico") {
+/* ─── EL PAGO HECHO ADENTRO DE LA APP DE GOOGLE PLAY ──────────────────────
+   Google devuelve un comprobante de compra al teléfono. Ese comprobante NO
+   se cree acá: se manda al servidor, que se lo pregunta a Google con nuestra
+   clave y recién entonces acredita el pase. Es la misma regla que con
+   Mercado Pago —del aviso se toma el número, el estado se va a buscar— y por
+   la misma razón: lo que viaja por el teléfono lo escribe el teléfono.
+
+   Va con el token de la persona: a quién acreditarle lo decide el servidor
+   mirando ese token, nunca el cuerpo del pedido.                          */
+export async function avisarPagoDePlay(plan, comprobante) {
+  if (!sesion?.uid) throw new Error("Hay que entrar primero.");
+  const { url, anon } = cfg();
+  const r = await fetch(url + "/functions/v1/pago-play", {
+    method: "POST",
+    headers: { apikey: anon, Authorization: "Bearer " + sesion.token,
+               "Content-Type": "application/json" },
+    body: JSON.stringify({ plan, comprobante }),
+  });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || "No pude confirmar la compra con Google.");
+  return d;
+}
+
+export async function linkDePago(plan = "liga") {
   if (!sesion?.uid) throw new Error("Hay que entrar primero.");
   const { url, anon } = cfg();
   const r = await fetch(url + "/functions/v1/crear-pago", {

@@ -671,12 +671,76 @@ $$;
    texto, el mes de una fila es el mes que dice la fila.
    ========================================================================== */
 
+/* ── EL INTERRUPTOR DEL COBRO VIVE EN LA BASE ────────────────────────────
+   18/9/2026. Prender el cobro estaba en sitio.json, que viaja en el zip, y
+   el freno de verdad esta aca abajo en `sumar_simulacion`. Dos lugares para
+   una sola decision: si se mueve uno solo, la pantalla deja apretar y la
+   base contesta que no -o peor, al reves-.
+
+   Y la fecha en que conviene prenderlo NO la decidimos nosotros: depende de
+   que Google apruebe el paquete con su facturacion. Hasta que eso pase, en
+   la app instalada nadie puede pagar, asi que frenar a la gente seria
+   ponerle una puerta sin llave.
+
+   Entonces el interruptor vive aca, en una fila, y se prende con UNA LINEA
+   en el editor SQL el dia que corresponda, sin zip, sin publicar y sin
+   esperar a nadie:
+
+       update ajuste set valor = 'si', cambiado = now() where clave = 'cobra';
+
+   Arranca en 'no': cuenta y se muestra, pero no frena a nadie.            */
+create table if not exists ajuste (
+  clave     text primary key,
+  valor     text not null,
+  cambiado  timestamptz not null default now()
+);
+alter table ajuste enable row level security;
+/* Se leen de afuera -la app necesita saber si frena- y no se escriben desde
+   ningun telefono: no hay politica de insert ni de update, y sin politica no
+   se puede. Se cambian desde el editor SQL, que es donde tiene que doler. */
+drop policy if exists "los ajustes se leen" on ajuste;
+create policy "los ajustes se leen" on ajuste for select using (true);
+insert into ajuste (clave, valor) values ('cobra', 'no')
+  on conflict (clave) do nothing;
+
+create or replace function cobra_de_verdad()
+  returns boolean
+  language sql stable security definer set search_path = public as $$
+  select coalesce((select valor = 'si' from ajuste where clave = 'cobra'), false);
+$$;
+
 /* El plan de cada uno. Va en `perfil` y NO lo puede escribir su duenio, por
    la misma razon que `premium_hasta`: las politicas de RLS son por fila y la
    de perfil deja que cada uno edite la suya. Sin este revoke, cualquiera se
    pone plan 'libre' desde la consola del navegador. */
-alter table perfil add column if not exists plan text not null default 'gratis'
-  check (plan in ('gratis','chico','medio','libre'));
+/* ── LOS PLANES CAMBIARON: YA NO SE VENDE CANTIDAD, SE VENDEN LIGAS ──────
+   Hasta el 18/9/2026 los planes eran 40, 100 y sin limite de simulaciones.
+   La devolucion de la prueba cerrada movio el eje: simular no cuesta nada
+   -corre en el telefono-, asi que cobrar por cantidad es cobrar por algo que
+   no existe, y ademas castiga justo al que mas usa la app. Lo que si tiene
+   valor para el hincha es CUANTAS LIGAS puede tocar.
+
+     gratis  10 simulaciones por mes, en UNA liga
+     liga    libre en UNA liga
+     tres    libre en TRES ligas
+     todas   libre en todas
+
+   Cual es "tu liga" no se elige en ninguna pantalla: es la primera que
+   simulas en el periodo, y queda tomada hasta que el periodo termina. Sin
+   selector, sin arrepentimiento, y el que paga tres ligas las va tomando a
+   medida que las usa. Las ligas tomadas viven en `uso_ciclo`, asi que se
+   liberan solas al empezar el ciclo siguiente.
+
+   Los nombres viejos se convierten al de arriba antes de poner la regla
+   nueva: si quedara una fila con 'chico', el check no se podria crear y el
+   archivo entero fallaria. Se convierten HACIA ARRIBA -al plan mas
+   generoso- porque el que pago algo no puede terminar con menos de lo que
+   tenia por un cambio nuestro.                                          */
+alter table perfil add column if not exists plan text not null default 'gratis';
+update perfil set plan = 'todas' where plan in ('chico','medio','libre');
+alter table perfil drop constraint if exists perfil_plan_check;
+alter table perfil add constraint perfil_plan_check
+  check (plan in ('gratis','liga','tres','todas'));
 revoke update (plan) on perfil from authenticated, anon;
 
 /* ── EL CICLO NO ES EL MES DEL CALENDARIO ────────────────────────────────
@@ -712,6 +776,10 @@ create table if not exists uso_ciclo (
   simulaciones  int  not null default 0,
   primary key (perfil, ciclo)
 );
+/* Las ligas que esta persona tomo en ESTE ciclo. Se llena sola con la
+   primera simulacion de cada liga y se vacia sola al cambiar de ciclo,
+   porque el ciclo nuevo es una fila nueva. */
+alter table uso_ciclo add column if not exists ligas text[] not null default '{}';
 alter table uso_ciclo enable row level security;
 
 /* Se lee el propio y nada mas. Cuantas veces simulo el vecino no le importa
@@ -729,14 +797,26 @@ create policy "cada uno ve su uso"
 /* Mismo motivo que en `crear_liga`: la primera version de esto contaba por
    mes calendario y devolvia otra cosa. Sin este drop, quien haya corrido
    aquella se come el error y pierde el archivo entero. */
+/* Cuantas ligas cubre cada plan. Vive en una funcion y no en una tabla
+   porque son cuatro numeros que cambian cuando cambia el precio, y asi el
+   archivo entero sigue siendo la unica fuente. */
+create or replace function ligas_del_plan(p text)
+  returns int language sql immutable as $$
+  select case p when 'todas' then 99 when 'tres' then 3 else 1 end;
+$$;
+
 drop function if exists mi_cupo();
 create or replace function mi_cupo()
-  returns table (plan text, usadas int, ciclo date, hasta date)
+  returns table (plan text, usadas int, ciclo date, hasta date,
+                 ligas text[], ligas_max int, cobra boolean)
   language sql security definer set search_path = public stable as $$
   select coalesce(p.plan, 'gratis'),
          coalesce(u.simulaciones, 0),
          inicio_de_ciclo(coalesce(p.plan_desde, p.creado)),
-         (inicio_de_ciclo(coalesce(p.plan_desde, p.creado)) + interval '1 month')::date
+         (inicio_de_ciclo(coalesce(p.plan_desde, p.creado)) + interval '1 month')::date,
+         coalesce(u.ligas, '{}'),
+         ligas_del_plan(coalesce(p.plan, 'gratis')),
+         cobra_de_verdad()
     from perfil p
     left join uso_ciclo u
       on u.perfil = p.id
@@ -752,34 +832,71 @@ grant execute on function mi_cupo() to authenticated;
    El insert con on conflict es todo el candado: dos simulaciones a la vez
    no pueden leer las dos el mismo numero y escribir el mismo. La segunda
    espera y suma sobre lo que dejo la primera. */
+/* La version vieja no recibia la liga. Las dos vivas serian ambiguas para
+   una llamada sin argumentos, asi que se borra a mano, igual que con
+   `registrar_pago`. */
 drop function if exists sumar_simulacion();
-create or replace function sumar_simulacion()
-  returns table (plan text, usadas int, ciclo date, hasta date)
+drop function if exists sumar_simulacion(text);
+create or replace function sumar_simulacion(p_liga text default null)
+  returns table (plan text, usadas int, ciclo date, hasta date,
+                 ligas text[], ligas_max int, cobra boolean)
   language plpgsql security definer set search_path = public as $$
 #variable_conflict use_column
-/* Misma red que en `crear_liga`. Aca el que muerde es `ciclo`: es columna de
-   `uso_ciclo` y a la vez variable de salida, y aparece bare en el
-   `on conflict (perfil, ciclo)`, donde la columna va sola por obligacion. */
-declare c date; quien uuid;
+/* `plan`, `ciclo`, `hasta` y `ligas` son a la vez columnas de las tablas que
+   se tocan acá y variables de salida de esta funcion. Ante la duda gana la
+   columna, que es siempre lo que queremos: las variables de salida se llenan
+   al final y no se leen en el medio. */
+declare c date; quien uuid; elplan text; maxligas int; tope int;
+        yaligas text[]; llevaba int; laliga text; frena boolean;
 begin
   quien := auth.uid();
   if quien is null then raise exception 'sin sesion'; end if;
-  select inicio_de_ciclo(coalesce(plan_desde, creado)) into c
-    from perfil where id = quien;
+  select coalesce(p.plan,'gratis'), inicio_de_ciclo(coalesce(p.plan_desde, p.creado))
+    into elplan, c
+    from perfil p where p.id = quien;
   if c is null then raise exception 'ese perfil no existe'; end if;
 
-  insert into uso_ciclo (perfil, ciclo, simulaciones) values (quien, c, 1)
-  on conflict (perfil, ciclo) do update
-     set simulaciones = uso_ciclo.simulaciones + 1;
+  maxligas := ligas_del_plan(elplan);
+  tope     := case elplan when 'gratis' then 10 else null end;
+  /* El interruptor. Apagado, esto cuenta todo igual -las simulaciones y las
+     ligas tomadas- y no frena a nadie: asi el dia que se prenda, el contador
+     ya viene con la verdad adentro en vez de arrancar de cero. */
+  frena    := cobra_de_verdad();
+  laliga   := nullif(trim(coalesce(p_liga, '')), '');
 
-  return query
-    select coalesce(p.plan,'gratis'), u.simulaciones, c,
-           (c + interval '1 month')::date
-      from perfil p join uso_ciclo u on u.perfil = p.id and u.ciclo = c
-     where p.id = quien;
+  /* Se crea la fila del ciclo si no estaba y despues se la toma con `for
+     update`: ese candado es lo que hace que dos simulaciones a la vez no
+     lean las dos el mismo numero. */
+  insert into uso_ciclo (perfil, ciclo, simulaciones, ligas)
+       values (quien, c, 0, '{}')
+  on conflict (perfil, ciclo) do nothing;
+  select u.simulaciones, u.ligas into llevaba, yaligas
+    from uso_ciclo u where u.perfil = quien and u.ciclo = c for update;
+
+  /* Primero la liga y despues el cupo, y las dos ANTES de sumar: si algo no
+     da, la excepcion vuelve atras todo y no se gasta ninguna simulacion.
+     Los dos mensajes son exactos porque la pantalla los traduce: uno manda
+     a los planes y el otro dice que esa liga no entra en el suyo. */
+  if laliga is not null and not (laliga = any(yaligas)) then
+    if frena and coalesce(array_length(yaligas, 1), 0) >= maxligas then
+      raise exception 'otra liga';
+    end if;
+    if coalesce(array_length(yaligas, 1), 0) < maxligas then
+      yaligas := yaligas || laliga;
+    end if;
+  end if;
+  if frena and tope is not null and llevaba >= tope then
+    raise exception 'sin cupo';
+  end if;
+
+  update uso_ciclo u set simulaciones = llevaba + 1, ligas = yaligas
+   where u.perfil = quien and u.ciclo = c;
+
+  return query select elplan, llevaba + 1, c, (c + interval '1 month')::date,
+                      yaligas, maxligas, frena;
 end; $$;
-revoke all on function sumar_simulacion() from public, anon;
-grant execute on function sumar_simulacion() to authenticated;
+revoke all on function sumar_simulacion(text) from public, anon;
+grant execute on function sumar_simulacion(text) to authenticated;
 
 /* Poner el plan. Como `acreditar_premium`: solo la clave de servicio.
 
@@ -791,7 +908,7 @@ create or replace function poner_plan(p uuid, nuevo text)
   returns void
   language plpgsql security definer set search_path = public as $$
 begin
-  if nuevo not in ('gratis','chico','medio','libre') then
+  if nuevo not in ('gratis','liga','tres','todas') then
     raise exception 'plan desconocido: %', nuevo;
   end if;
   update perfil set plan = nuevo, plan_desde = now() where id = p;

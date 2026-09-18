@@ -149,7 +149,7 @@ const IMPRESCINDIBLES = [
   "resolver-youtube.mjs", "esquema.sql", "fantasy.mjs", "fantasy-api.mjs",
   "ligas.json", "ligas-api.mjs", "sw.js", "puntos-api.mjs",
   "fases.mjs", "fases-reglas.mjs", "fases.json",
-  "funcion-crear-pago.ts", "funcion-pago-avisado.ts",
+  "funcion-crear-pago.ts", "funcion-pago-avisado.ts", "funcion-pago-play.ts",
   "probar.mjs", "probar-clubes.mjs", "probar-once.mjs", "probar-stats.mjs",
   "probar-backend.mjs", "probar-cuentas.mjs", "probar-fantasy.mjs",
   "probar-pagos.mjs", "probar-fases.mjs", "probar-publicidad.mjs",

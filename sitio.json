@@ -17,9 +17,9 @@
  "cupo": {
   "gratis": 10,
   "bloquea": false,
-  "cobrando": false
+  "cobrando": true
  },
- "_cupo": "El cupo de simulaciones. 'gratis' es cuántas entran por mes sin pagar (con un aviso); los planes pagos tienen su tope en el servidor, en funcion-crear-pago.ts, que es el único lugar donde vive un precio. 'bloquea' en false hace que el contador CUENTE Y SE MUESTRE pero no frene a nadie: es lo que corresponde durante la prueba cerrada, porque un tester frenado a la mitad no puede probar nada y los catorce días no se repiten. 'cobrando' en false deja los botones de los planes visibles pero apagados, con el cartel de que todavía es gratis: un precio que aparece el día que empieza a cobrarse se lee como una trampa, y este se ve desde antes. Se prenden los dos cambiando dos booleanos.",
+ "_cupo": "18/9/2026: EL FRENO YA NO SE PRENDE ACA. Lo decide la base, en la tabla ajuste (clave 'cobra'), porque la fecha en que conviene prenderlo depende de que Google apruebe el paquete con su facturacion, y eso no se sabe cuando se arma un zip. Se prende con una linea en el editor SQL: update ajuste set valor = 'si' where clave = 'cobra'. El 'bloquea' de aca quedo solo como respaldo para el rato en que todavia no hubo ninguna respuesta del servidor. 'cobrando' sigue mandando sobre los BOTONES: en true se ven los precios y se puede comprar. El cupo de simulaciones. 'gratis' es cuántas entran por mes sin pagar (con un aviso); los planes pagos tienen su tope en el servidor, en funcion-crear-pago.ts, que es el único lugar donde vive un precio. 'bloquea' en false hace que el contador CUENTE Y SE MUESTRE pero no frene a nadie: es lo que corresponde durante la prueba cerrada, porque un tester frenado a la mitad no puede probar nada y los catorce días no se repiten. 'cobrando' en false deja los botones de los planes visibles pero apagados, con el cartel de que todavía es gratis: un precio que aparece el día que empieza a cobrarse se lee como una trampa, y este se ve desde antes. Se prenden los dos cambiando dos booleanos.",
  "android": {
   "paquete": "com.armael11.app",
   "huella": [

@@ -120,6 +120,53 @@ pago llegó y qué hizo con él.
 
 ---
 
+## 7. El cobro ADENTRO de la app (Google Play)
+
+Mercado Pago queda para la web. Adentro de la app publicada en Play, Google
+exige su propia facturación para cualquier bien digital, y prohíbe además
+mandar al usuario a pagar afuera. No es negociable: durante una prueba
+cerrada nadie mira, al pedir producción sí.
+
+La app se da cuenta sola de dónde está corriendo (el envoltorio de Play abre
+el sitio con un referrer propio) y ofrece uno u otro. Lo que compró en la
+web le sirve igual adentro de la app: el derecho vive en nuestra base, no en
+la tienda.
+
+Los pasos, una sola vez:
+
+1. **Los tres productos, en la Play Console.** Monetizar → Productos →
+   Productos integrados en la app. Los identificadores tienen que ser
+   exactamente `liga`, `tres` y `todas` —son los mismos nombres que usa la
+   base—, con su precio en pesos, y hay que **activarlos**.
+
+2. **Una cuenta de servicio de Google Cloud.** En la consola de Google
+   Cloud, del proyecto asociado a Play: crear una cuenta de servicio y
+   descargar su clave en JSON. Ese archivo es la llave: no va al repositorio,
+   no se pega en un chat y no viaja en ningún zip.
+
+3. **Invitarla en la Play Console.** Usuarios y permisos → invitar el mail de
+   esa cuenta de servicio, con permiso para **ver información financiera y
+   pedidos** y para **administrar pedidos**. Sin esto, Google contesta que no
+   conoce la compra.
+
+4. **El secreto en Supabase.** Edge Functions → Secrets → `PLAY_CUENTA`, con
+   el JSON entero pegado tal cual.
+
+5. **La función.** Pegar `funcion-pago-play.ts` como `pago-play`, con
+   *Verify JWT* **tildado**: la llama la app con la sesión de la persona.
+
+6. **El .aab nuevo.** En PWABuilder hay que tildar la facturación de Google
+   Play al generar el paquete. Sin eso, la app no tiene la puerta y los
+   botones quedan apagados con el cartel de "todavía no está disponible" —que
+   es lo correcto: es preferible a ofrecer un pago que Google no acepta.
+
+Para saber que quedó bien: entrar desde la app instalada, tocar un plan y que
+aparezca la ventana de Google (no la de Mercado Pago). El pase se acredita
+cuando el servidor le pregunta a Google, igual que con Mercado Pago: del
+teléfono no se toma más que el número de comprobante.
+
+---
+
 ## Lo que NO hay que hacer nunca
 
 - **No acreditar premium porque el navegador lo diga.** La página de vuelta
@@ -130,6 +177,7 @@ pago llegó y qué hizo con él.
   alguien cambia 2500 por 1 en la consola, paga un peso, y Mercado Pago
   confirma un pago perfectamente legítimo de un peso. Eso no se arregla
   después.
+- **No pegar la clave de la cuenta de servicio de Google en ningún lado que no sea el secreto de Supabase.** Con ese archivo, cualquiera consulta y toca los pedidos de la app.
 - **No mandar el token a nadie.** Si alguna vez se te escapa en un mensaje o
   en un archivo, se revoca en Mercado Pago y se genera otro. Es gratis y
   tarda un minuto.

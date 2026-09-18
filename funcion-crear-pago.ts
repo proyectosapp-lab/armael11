@@ -8,8 +8,8 @@
    ─── LAS DOS REGLAS ──────────────────────────────────────────────────────
 
    1. EL PRECIO LO PONE EL SERVIDOR. El navegador manda un nombre de plan
-      —"chico", "libre"— y nada más. Si mandara el precio, alguien abre la
-      consola, cambia 5500 por 1, paga un peso y Mercado Pago confirma un
+      —"liga", "todas"— y nada más. Si mandara el precio, alguien abre la
+      consola, cambia 3000 por 1, paga un peso y Mercado Pago confirma un
       pago legítimo de un peso: el webhook haría todo bien y acreditaría. No
       hay forma de arreglar eso más adelante; hay que no dejarlo entrar.
 
@@ -45,15 +45,29 @@ const SITIO = Deno.env.get("SITIO_URL") || "https://armael11.com";
    desplegar cambia el precio en todos lados: la app pide esta misma lista
    para dibujar los botones, así que no hay dos precios que puedan quedar
    distintos.                                                             */
+/* ── 18/9/2026: SE DEJA DE VENDER CANTIDAD Y SE VENDEN LIGAS ─────────────
+   Antes eran 40, 100 y sin límite de simulaciones. Simular no cuesta nada
+   —corre en el teléfono—, así que cobrar por cantidad cobraba por algo que
+   no existe y castigaba al que más usa la app. Lo que vale para el hincha
+   es cuántas ligas puede tocar. Diez gratis por mes en UNA liga; de ahí,
+   libre en una, en tres o en todas.
+
+   ⚠ LOS TRES NÚMEROS DE ABAJO SON PESOS ARGENTINOS y salen de US$ 2, 5 y 8
+   tomando el dólar a $1.500. Si el dólar está en otro lado, se cambian esos
+   tres números, se vuelve a desplegar la función, y la app los muestra
+   solos: no hay ningún precio escrito en la app.                         */
 const PLANES: Record<string, {
-  meses: number; precio: number; cupo: number | null; titulo: string; nombre: string;
+  meses: number; precio: number; ligas: number; titulo: string; nombre: string; detalle: string;
 }> = {
-  chico: { meses: 1, precio: 5500,  cupo: 40,
-           nombre: "40 simulaciones",  titulo: "Armá el 11 · 40 simulaciones por mes" },
-  medio: { meses: 1, precio: 12000, cupo: 100,
-           nombre: "100 simulaciones", titulo: "Armá el 11 · 100 simulaciones por mes" },
-  libre: { meses: 1, precio: 20000, cupo: null,
-           nombre: "Sin límite",       titulo: "Armá el 11 · simulaciones sin límite" },
+  liga:  { meses: 1, precio: 3000,  ligas: 1,
+           nombre: "Tu liga",   detalle: "sin límite en una liga",
+           titulo: "Armá el 11 · sin límite en tu liga" },
+  tres:  { meses: 1, precio: 7500,  ligas: 3,
+           nombre: "3 ligas",   detalle: "sin límite en tres ligas a elección",
+           titulo: "Armá el 11 · sin límite en tres ligas" },
+  todas: { meses: 1, precio: 12000, ligas: 99,
+           nombre: "Todas",     detalle: "sin límite en las once ligas",
+           titulo: "Armá el 11 · sin límite en todas las ligas" },
 };
 
 const CORS = {
@@ -73,8 +87,8 @@ Deno.serve(async (req) => {
      elegirlos. */
   if (req.method === "GET")
     return json({ planes: Object.entries(PLANES).map(([id, p]) =>
-      ({ id, meses: p.meses, precio: p.precio, cupo: p.cupo,
-         nombre: p.nombre, moneda: "ARS" })) });
+      ({ id, meses: p.meses, precio: p.precio, ligas: p.ligas,
+         nombre: p.nombre, detalle: p.detalle, moneda: "ARS" })) });
 
   if (req.method !== "POST") return json({ error: "método" }, 405);
   if (!MP) return json({ error: "falta configurar el cobro" }, 500);
@@ -93,7 +107,7 @@ Deno.serve(async (req) => {
   /* ─── 2. QUÉ PLAN ────────────────────────────────────────────────────── */
   let pedido: any = {};
   try { pedido = await req.json(); } catch (_e) { pedido = {}; }
-  const idPlan = String(pedido?.plan || "chico");
+  const idPlan = String(pedido?.plan || "liga");
   const plan = PLANES[idPlan];
   if (!plan) return json({ error: "Ese plan no existe." }, 400);
 
@@ -143,5 +157,5 @@ Deno.serve(async (req) => {
      devuelven las dos y la app usa la de producción: así probar con las
      credenciales de prueba no obliga a tocar código. */
   return json({ link: p.init_point, prueba: p.sandbox_init_point,
-                meses: plan.meses, precio: plan.precio, cupo: plan.cupo });
+                meses: plan.meses, precio: plan.precio, ligas: plan.ligas });
 });

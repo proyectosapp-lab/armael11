@@ -1142,13 +1142,20 @@ srv.listen(8099, async () => {
   const reglas = await pg.evaluate(() => {
     const AHORA = 1000000;
     const r = {};
-    r.sinRed = tocaAviso({ hayRed:false, hechas:9, ultimo:0, ahora:AHORA });
-    r.primera = tocaAviso({ hayRed:true, hechas:0, ultimo:0, ahora:AHORA });
-    r.segunda = tocaAviso({ hayRed:true, hechas:1, ultimo:0, ahora:AHORA });
-    r.muySeguido = tocaAviso({ hayRed:true, hechas:5, ultimo:AHORA - 30000, ahora:AHORA });
-    r.justo59 = tocaAviso({ hayRed:true, hechas:5, ultimo:AHORA - 59000, ahora:AHORA });
-    r.justo60 = tocaAviso({ hayRed:true, hechas:5, ultimo:AHORA - 60000, ahora:AHORA });
-    r.premium = tocaAviso({ hayRed:true, hechas:9, ultimo:0, ahora:AHORA, premium:true });
+    const av = o => tocaAviso({ hayRed:true, ultimo:0, ahora:AHORA, ...o });
+    r.sinRed = tocaAviso({ hayRed:false, hechas:9, desdeAviso:9, ultimo:0, ahora:AHORA });
+    r.primera = av({ hechas:1, desdeAviso:1 });
+    r.segunda = av({ hechas:2, desdeAviso:2 });
+    r.tercera = av({ hechas:3, desdeAviso:1 });
+    r.cuarta  = av({ hechas:4, desdeAviso:2 });
+    r.muySeguido = av({ hechas:5, desdeAviso:2, ultimo:AHORA - 30000 });
+    r.justo59 = av({ hechas:5, desdeAviso:2, ultimo:AHORA - 59000 });
+    r.justo60 = av({ hechas:5, desdeAviso:2, ultimo:AHORA - 60000 });
+    r.premium = av({ hechas:9, desdeAviso:9, premium:true });
+    /* Si un aviso se saltea por el piso de tiempo, la cuenta sigue desde
+       donde quedó: a la siguiente sale, no se desfasa para siempre. */
+    r.despuesDeSaltear = av({ hechas:6, desdeAviso:3 });
+    r.cada = AVISO.CADA;
     r.espera = AVISO.ESPERA;
     r.duracion = AVISO.DURACION_SIM;
     /* Lo que se vende es sacar la espera Y el aviso. Se mira que la
@@ -1166,6 +1173,12 @@ srv.listen(8099, async () => {
   caso("con la red apagada no hay aviso, pase lo que pase", reglas.sinRed === false);
   caso("la primera simulación de alguien nunca lleva aviso", reglas.primera === false);
   caso("la segunda sí", reglas.segunda === true);
+  /* La regla que pidió Fausto el 18/9/2026: uno cada dos simulaciones. */
+  caso("y de ahí en más, uno cada dos simulaciones",
+       reglas.cada === 2 && reglas.tercera === false && reglas.cuarta === true,
+       "cada " + reglas.cada + " · 3ª " + reglas.tercera + " · 4ª " + reglas.cuarta);
+  caso("si uno se saltea por el reloj, la cuenta no se desfasa",
+       reglas.despuesDeSaltear === true);
   caso("dos avisos en treinta segundos, no", reglas.muySeguido === false);
   caso("a los 59 segundos todavía no", reglas.justo59 === false);
   caso("a los 60 sí, que es el mínimo que impone AdSense", reglas.justo60 === true);
@@ -1191,16 +1204,27 @@ srv.listen(8099, async () => {
      un tester frenado a la mitad no puede probar nada y los catorce días no
      se repiten. */
   const cupos = await pg.evaluate(() => {
-    const e = (plan, usadas, bloquea) => estadoCupo({ plan, usadas, bloquea });
+    const e = (plan, usadas, bloquea, ligas, liga) =>
+      estadoCupo({ plan, usadas, bloquea, ligas, liga });
     return {
       topes:        TOPES,
+      ligasPlan:    LIGAS_DEL_PLAN,
       reciente:     e("gratis", 3,  true),
       justo:        e("gratis", 10, true),
       pasado:       e("gratis", 12, true),
       sinFreno:     e("gratis", 99, false),
-      chico:        e("chico", 39, true),
-      libre:        e("libre", 5000, true),
+      unaLiga:      e("liga", 5000, true),
+      todas:        e("todas", 5000, true, ["espana","italia","peru"], "portugal"),
       desconocido:  e("platino", 0, true),
+      /* Lo que cambia el 18/9/2026: el plan dice EN CUANTAS LIGAS. */
+      gratisOtra:   e("gratis", 1, true, ["argentina"], "espana"),
+      gratisMisma:  e("gratis", 1, true, ["argentina"], "argentina"),
+      pagaOtra:     e("liga", 900, true, ["argentina"], "espana"),
+      tresLibre:    e("tres", 900, true, ["argentina","espana"], "italia"),
+      tresLlena:    e("tres", 900, true, ["argentina","espana","italia"], "francia"),
+      sinFrenoOtra: e("gratis", 1, false, ["argentina"], "espana"),
+      textoOtra:    textoCupo(e("liga", 9, true, ["argentina"], "espana"), null, "espana"),
+      textoTres:    textoCupo(e("tres", 9, true, ["argentina","espana","italia"], "francia"), null, "francia"),
       /* El ciclo del 31 de enero: un mes después cae 28 de febrero (el 31 no
          existe), y DOS meses después vuelve a caer 31 de marzo. Ese rebote es
          la razón de contar siempre desde el ancla en vez de sumarle un mes al
@@ -1212,6 +1236,15 @@ srv.listen(8099, async () => {
       dia19:        enDia(inicioDeCiclo(new Date(2026,8,20), new Date(2026,9,19))),
       dia20:        enDia(inicioDeCiclo(new Date(2026,8,20), new Date(2026,9,20))),
       cfg:          CUPO_CFG,
+      /* El freno sale de la base (`cobra`), con sitio.json de respaldo
+         mientras no haya respuesta. Se mira con el CUPO de verdad, guardando
+         y devolviendo lo que había. */
+      ...(() => { const foto = CUPO;
+        CUPO = { ...foto, cobra: undefined }; const sin = frenaElCupo();
+        CUPO = { ...foto, cobra: true };      const si  = frenaElCupo();
+        CUPO = { ...foto, cobra: false };     const no  = frenaElCupo();
+        CUPO = foto;
+        return { frenaSinRespuesta: sin, frenaConSi: si, frenaConNo: no }; })(),
       texto:        textoCupo(e("gratis", 3, true)),
     };
   });
@@ -1221,10 +1254,17 @@ srv.listen(8099, async () => {
   /* El tope del libre es Infinity. Playwright lo trae tal cual, pero un
      JSON.stringify por el camino lo convertiría en null: se aceptan los dos
      para que la prueba mida el tope y no el transporte. */
-  caso("y los pagos son 40, 100 y sin límite",
-       cupos.topes.chico === 40 && cupos.topes.medio === 100 &&
-       (cupos.topes.libre === null || cupos.topes.libre === Infinity),
+  /* Los pagos ya no tienen tope de simulaciones: lo que compran es CUANTAS
+     LIGAS. Infinity viaja como null si algo lo pasa por JSON, así que se
+     aceptan los dos: la prueba mide el tope, no el transporte. */
+  caso("ningún plan pago tiene tope de simulaciones",
+       ["liga","tres","todas"].every(k =>
+         cupos.topes[k] === null || cupos.topes[k] === Infinity),
        JSON.stringify(cupos.topes));
+  caso("y lo que compran son ligas: una, tres o todas",
+       cupos.ligasPlan.gratis === 1 && cupos.ligasPlan.liga === 1 &&
+       cupos.ligasPlan.tres === 3 && cupos.ligasPlan.todas >= 11,
+       JSON.stringify(cupos.ligasPlan));
   caso("con tres usadas quedan siete", cupos.reciente.quedan === 7,
        JSON.stringify(cupos.reciente));
   caso("con diez usadas se acabó", cupos.justo.seAcabo === true && !cupos.justo.puedeSimular);
@@ -1234,8 +1274,33 @@ srv.listen(8099, async () => {
   caso("CON EL FRENO APAGADO SIEMPRE SE PUEDE SIMULAR",
        cupos.sinFreno.puedeSimular === true && cupos.sinFreno.seAcabo === true,
        JSON.stringify(cupos.sinFreno));
-  caso("el plan libre no se acaba nunca",
-       cupos.libre.ilimitado === true && cupos.libre.puedeSimular === true);
+  caso("un plan pago no se acaba nunca por cantidad",
+       cupos.unaLiga.ilimitado === true && cupos.unaLiga.puedeSimular === true);
+
+  /* ── LA LIGA, QUE ES LO QUE SE VENDE DESDE EL 18/9/2026 ───────────────
+     La primera liga del período queda tomada. El que paga tres las va
+     tomando a medida que las usa. Y "sin límite" no quiere decir "todas":
+     se puede tener sin límite y aun así toparse con una liga que no entra,
+     que es justo el caso que una pantalla mal hecha esconde. */
+  caso("en el plan gratis, la segunda liga del mes no entra",
+       cupos.gratisOtra.entraLiga === false && cupos.gratisOtra.puedeSimular === false);
+  caso("pero la que ya tomó sigue entrando",
+       cupos.gratisMisma.entraLiga === true && cupos.gratisMisma.puedeSimular === true);
+  caso("con el plan de una liga pasa lo mismo: sin límite, pero en ESA liga",
+       cupos.pagaOtra.ilimitado === true && cupos.pagaOtra.puedeSimular === false);
+  caso("el de tres ligas deja tomar la tercera",
+       cupos.tresLibre.entraLiga === true && cupos.tresLibre.libresDeLiga === 1);
+  caso("y con las tres tomadas, la cuarta no",
+       cupos.tresLlena.entraLiga === false && cupos.tresLlena.puedeSimular === false);
+  caso("el de todas nunca se topa con una liga",
+       cupos.todas.entraLiga === true && cupos.todas.puedeSimular === true);
+  caso("CON EL FRENO APAGADO TAMPOCO FRENA LA LIGA",
+       cupos.sinFrenoOtra.puedeSimular === true && cupos.sinFrenoOtra.entraLiga === false);
+  /* El texto tiene que mandar al plan que corresponde, no a "comprá algo". */
+  caso("y el cartel dice a qué plan hay que ir para esa liga",
+       /plan de tres ligas o el de todas/.test(cupos.textoOtra) &&
+       /plan de todas/.test(cupos.textoTres),
+       cupos.textoOtra + " · " + cupos.textoTres);
   /* Un plan que la base no conozca no puede volverse ilimitado por accidente:
      cae al tope de gratis, que es el más chico. */
   caso("un plan desconocido cae al tope más chico, no al más grande",
@@ -1257,11 +1322,23 @@ srv.listen(8099, async () => {
   caso("y el contador se dice en castellano",
        /te quedan 7 de 10/i.test(cupos.texto), cupos.texto);
 
-  /* Los dos interruptores, en el sitio que se publica hoy. */
-  caso("hoy el cupo no frena a nadie", cupos.cfg.bloquea === false,
+  /* ── LOS DOS INTERRUPTORES, AHORA PRENDIDOS ───────────────────────────
+     Estuvieron apagados los catorce días de la prueba cerrada: el contador
+     contaba y se mostraba, pero no frenaba a nadie, porque un tester frenado
+     a la mitad no puede probar nada. Al cerrar la prueba (18/9/2026) se
+     prendieron los dos.
+
+     Y TIENEN QUE MOVERSE JUNTO CON EL SERVIDOR, que desde ese día también
+     frena: `sumar_simulacion` corta con 'sin cupo' o 'otra liga'. Apagar
+     `bloquea` sin sacar el freno de la base deja que la pantalla te deje
+     apretar y el servidor conteste que no, que es la peor de las dos. Si
+     alguna vez hay que volver a apagarlo, se apagan los dos lados. */
+  caso("los precios están a la vista", cupos.cfg.cobrando === true, JSON.stringify(cupos.cfg));
+  caso("y el freno NO se prende desde el zip: lo decide la base",
+       cupos.cfg.bloquea === false && cupos.frenaSinRespuesta === false,
        JSON.stringify(cupos.cfg));
-  caso("y todavía no se cobra", cupos.cfg.cobrando === false,
-       JSON.stringify(cupos.cfg));
+  caso("cuando la base dice que cobra, frena; cuando dice que no, no",
+       cupos.frenaConSi === true && cupos.frenaConNo === false);
 
   /* Que la cuenta CORRA. Sin sesión el contador lo lleva el navegador, y esa
      es justo la rama que hay que mirar: es la que va a usar la mayoría de los
@@ -1304,8 +1381,13 @@ srv.listen(8099, async () => {
     const texto = await pg.evaluate(() => document.body.innerText);
     caso("sin cuenta, el contador de simulaciones está a la vista",
          /te quedan \d+ de \d+ simulaciones/i.test(texto));
-    caso("y dice que todavía no se cobra nada",
-         /todavía no se cobra nada/i.test(texto));
+    /* Y que hay un plan, sin cuenta. Es el caso que importa: el que prueba
+       la app por primera vez tiene que enterarse ANTES de chocar con el
+       límite, no después. Los precios salen de la función de cobro, que en
+       esta prueba no existe —la app corre igual sin backend—, así que lo que
+       se fija acá es el aviso, que es lo que se ve siempre. */
+    caso("y avisa que con un plan se simula sin límite",
+         /con un plan simul[áa]s sin l[íi]mite/i.test(texto), texto.slice(0, 200));
   }
 
   /* El número grande tiene que ser el partido que acaba de ver, no el

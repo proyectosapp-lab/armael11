@@ -23,6 +23,7 @@ import { readFileSync } from "node:fs";
 const leer = f => readFileSync(new URL("./" + f, import.meta.url), "utf8");
 const CREAR = leer("funcion-crear-pago.ts");
 const AVISO = leer("funcion-pago-avisado.ts");
+const PLAY  = leer("funcion-pago-play.ts");
 const CUENTAS = leer("cuentas.js");
 
 const casos = [];
@@ -113,9 +114,9 @@ caso("y la otra la parte por los dos puntos",
   const leerReferencia = new Function(enJs + "\nreturn leerReferencia;")();
   const U = "a1b2c3d4-1111-2222-3333-444455556666";
 
-  const nuevo = leerReferencia(U + ":1:libre");
+  const nuevo = leerReferencia(U + ":1:todas");
   caso("lee el perfil, los meses y el plan",
-       nuevo.perfil === U && nuevo.meses === 1 && nuevo.plan === "libre",
+       nuevo.perfil === U && nuevo.meses === 1 && nuevo.plan === "todas",
        JSON.stringify(nuevo));
 
   const viejo = leerReferencia(U + ":3");
@@ -204,8 +205,46 @@ caso("la app lee el premium y no intenta escribirlo",
      webhook: la validación del webhook es una comodidad, esta es la que
      queda si alguien llama a la función desde otro lado. */
   caso("la base rechaza un plan que no existe",
-       /check \(plan in \('gratis','chico','medio','libre'\)\)/.test(ESQUEMA) &&
+       /check \(plan in \('gratis','liga','tres','todas'\)\)/.test(ESQUEMA) &&
        /raise exception 'plan desconocido/.test(ESQUEMA));
+}
+
+/* ─── EL COBRO ADENTRO DE LA APP DE GOOGLE PLAY ──────────────────────────
+   Google exige su facturación para todo bien digital vendido adentro de una
+   app de Play, y prohíbe mandar a pagar afuera. Mercado Pago queda para la
+   web. Lo que estas pruebas cuidan es que la función nueva tenga las MISMAS
+   dos defensas que la de Mercado Pago, porque el error sería creerle al
+   teléfono justo en el camino nuevo. */
+{
+  caso("al comprobante del teléfono no se le cree: se lo pregunta a Google",
+       /androidpublisher\.googleapis\.com/.test(PLAY) &&
+       /purchases\/products/.test(PLAY));
+  caso("quién compra lo dice el token de la sesión, no el cuerpo del pedido",
+       /auth\/v1\/user/.test(PLAY) && !/pedido\?\.perfil|body\.perfil/.test(PLAY));
+  /* En Play el precio lo pone Play -está cargado en la Play Console-, así
+     que acá no hay ninguno y, sobre todo, no se lee ninguno del pedido. */
+  caso("el precio no viaja desde el teléfono: en Play lo pone Play",
+       !/pedido\?\.(precio|monto|meses)/.test(PLAY) && /p_monto: 0/.test(PLAY));
+  caso("solo acredita la compra en estado comprada",
+       /purchaseState\) === 0/.test(PLAY) && /estaPaga\(compra\)/.test(PLAY));
+  caso("acredita con el mismo registrar_pago que Mercado Pago",
+       /rpc\/registrar_pago/.test(PLAY) && /p_plan: idPlan/.test(PLAY));
+  /* Dos medios de pago no pueden pisarse el id: si un pago de Play y uno de
+     Mercado Pago llegaran con el mismo número, el segundo no se acreditaría
+     nunca -la defensa contra avisos repetidos lo tomaría por repetido-. */
+  caso("y con un id que no se puede confundir con uno de Mercado Pago",
+       /"play:" \+/.test(PLAY));
+  /* Google devuelve la compra a los tres días si nadie la reconoce. */
+  caso("la compra se consume, que reconoce y además deja volver a comprar",
+       /:consume/.test(PLAY));
+  /* La clave privada de la cuenta de servicio entra por un secreto de
+     Supabase. Lo que se mira es que no haya quedado NINGUNA pegada en el
+     archivo: una clave en un archivo que viaja en un zip es una clave
+     regalada. `MII` es como empiezan todas las claves en base64. */
+  caso("la clave de Google vive en un secreto, no en el archivo",
+       /Deno\.env\.get\("PLAY_CUENTA"\)/.test(PLAY) && !/\bMII[A-Za-z0-9+/]{20}/.test(PLAY));
+  caso("y si Google confirma pero la base falla, se avisa en vez de callarse",
+       /Cobramos pero no pude activarlo/.test(PLAY));
 }
 
 const linea = "─".repeat(70);
