@@ -1086,7 +1086,7 @@ function diaDe(iso){
    El resumen de dos líneas y la grilla de clubes. Las dos líneas son la
    promesa entera del producto, y las dos son verdad medida: la perilla
    mueve el resultado (el motor lo hace y lo dice), y el modelo está
-   probado sobre 10.860 partidos. Nada de "acertá" ni de eficacia: eso no
+   probado sobre 13.345 partidos. Nada de "acertá" ni de eficacia: eso no
    está medido en Argentina y no se promete. */
 function heroPortada(){
   const R = PORTADA.respaldo || {};
@@ -1094,7 +1094,7 @@ function heroPortada(){
   return `<section class="tarjeta gancho">
       <h2>Tocás una perilla y se mueve el resultado.</h2>
       <p>Cada partido se juega <b>6.000 veces</b> con los goles reales de su liga.
-        No tira un dado: está medido en <b>${esc(R.partidos||"10.860")} partidos</b> de ${esc(R.ligas||"nueve")} ligas,
+        No tira un dado: está medido en <b>${esc(R.partidos||"13.345")} partidos</b> de ${esc(R.ligas||"trece")} ligas,
         y en ${esc(R.limpias||"1.783")} partidos de tres ligas que el modelo nunca había visto.</p>
       <p class="chica">${PORTADA.gratis} simulaciones gratis por mes · sin publicidad de apuestas · app independiente</p>
     </section>
@@ -2494,10 +2494,10 @@ const MEDIDA = [
 const medidaDe = L => (L && L.ventajaBacktest != null)
   ? MEDIDA.find(m => L.ventajaBacktest >= m.desde) : null;
 /* Estadística dura abajo de la lista: de dónde sale todo esto. El "más de
-   12.000" es deliberadamente redondo hacia abajo —10.860 de nueve ligas,
-   1.783 de tres que el modelo nunca había visto, más Perú, México y
-   Colombia—: un número que se queda corto nunca hay que salir a defenderlo. */
-const QUE_ES_EL_PROMEDIO = "El modelo se probó contra más de 12.000 partidos ya jugados de doce ligas, " +
+   13.000" es deliberadamente redondo hacia abajo —el conteo exacto es
+   13.345 de trece ligas, desglosado en `construir-sitio.mjs`—: un número
+   que se queda corto nunca hay que salir a defenderlo. */
+const QUE_ES_EL_PROMEDIO = "El modelo se probó contra más de 13.000 partidos ya jugados de trece ligas, " +
   "y se recalibra con cada temporada: los números de cada liga salen de sus propios partidos.";
 
 /* ── LAS BANDERAS ────────────────────────────────────────────────────────

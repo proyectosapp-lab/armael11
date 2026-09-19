@@ -2,6 +2,36 @@ Arma el 11 - version 2026-09-19 y51 (la publicidad, enchufada de verdad)
 
   · SE SUBE ESTE SOLO. Incluye y50.
 
+  · LOS NUMEROS DEL RESPALDO, ACTUALIZADOS. La portada seguia diciendo
+    "10.860 partidos de nueve ligas" y eso era de agosto: desde entonces se
+    backtestearon cuatro ligas mas. Fausto lo vio.
+
+    El conteo real, sacado de la tabla `backtest_resultado` de Supabase, que
+    es publica y se puede auditar:
+
+      Las nueve de antes (corridas afuera)          10.860
+      Colombia 865 · Mexico 677 · Peru 610 · Uruguay 333   2.485
+      TOTAL                                         13.345 partidos, 13 ligas
+
+    NO se suman Brasil (720) ni Alemania (594) de las corridas nuevas: son
+    las mismas ligas que ya estaban contadas arriba, corridas otra vez por
+    la pantalla nueva. Contarlas dos veces infla el numero sin haber medido
+    nada nuevo.
+
+    Ojo con una confusion facil, y por eso quedo escrita en el codigo: TRECE
+    son las ligas MEDIDAS, ONCE las que estan en la app. No son la misma
+    lista -Paises Bajos y Uruguay se midieron y no estan- y el numero de la
+    portada habla de cuanto se probo el modelo, no de cuantas ligas se
+    pueden simular.
+
+    El "1.783 partidos de tres ligas que el modelo nunca habia visto" NO
+    cambia: es el de aquella corrida limpia, con las hipotesis escritas
+    antes, y es el dato mas fuerte que hay.
+
+    El texto de abajo de las ligas pasa de "mas de 12.000 de doce ligas" a
+    "mas de 13.000 de trece", siempre redondeado HACIA ABAJO: un numero que
+    se queda corto nunca hay que salir a defenderlo.
+
   · LA CUENTA DE ADSENSE YA ESTA: cliente ca-pub-2032639837955609 puesto en
     sitio.json. Falta la UNIDAD DE ANUNCIO -el `bloque`-, que se crea en
     AdSense recien cuando Google aprueba el sitio. Hasta entonces la app se

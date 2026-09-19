@@ -283,7 +283,7 @@ srv.listen(8099, async () => {
          await g.count() === 1 && /perilla y se mueve el resultado/i.test(await g.innerText()));
     caso("y que no tira un dado", /no tira un dado/i.test(await g.innerText()));
     const txt = await g.innerText();
-    for (const n of ["10.860", "nueve ligas", "1.783", "6.000"])
+    for (const n of ["13.345", "trece ligas", "1.783", "6.000"])
       caso("y el respaldo dice " + n, txt.includes(n), txt.replace(/\n/g, " ").slice(0, 140));
     caso("y no promete acertar ni eficacia: eso no está medido en Argentina",
          !/acert|efica|gan[aá] plata|cuota/i.test(txt));
@@ -1112,7 +1112,7 @@ srv.listen(8099, async () => {
   caso("y Argentina no se disfraza: se la nombra como la más impredecible",
        muchas.argentina === "Liga más impredecible", "" + muchas.argentina);
   caso("abajo va la estadística dura: contra cuántos partidos se probó",
-       /más de 12.000 partidos ya jugados/.test(muchas.texto) &&
+       /más de 13.000 partidos ya jugados/.test(muchas.texto) &&
        /se recalibra con cada temporada/.test(muchas.texto));
   /* Se puede decir lo que se MIDIÓ. Lo que no se puede es prometer lo que
      va a pasar en el próximo partido, que es la frontera con las apuestas. */

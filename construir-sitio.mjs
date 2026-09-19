@@ -364,19 +364,40 @@ for (const club of CLUBES) {
    fixtures que se usaron en el backtest, y están anotados uno por uno en
    `claude/modelo-backtest.md`.
 
+   Las nueve primeras, corridas afuera antes de que existiera la pantalla
+   de backtest:
+
      Inglaterra 1140 · Italia 1140 · España 1140 · Brasil 1140 · Países
      Bajos 951 · Alemania 924 · Portugal 924 · Francia 923 (2023-2025)
      Argentina 2578 (2019, 2020, 2021, 2022, 2023, 2024 y 2026)
      = 10.860 partidos, nueve ligas.
 
+   Las cuatro que se sumaron después, cada una con su fila en la tabla
+   `backtest_resultado` de Supabase, que se puede leer y auditar:
+
+     Colombia 865 · México 677 · Perú 610 · Uruguay 333 (2023-2025)
+     = 2.485 partidos, cuatro ligas.
+
+   TOTAL: 13.345 partidos, trece ligas.
+
+   Lo que NO se suma, y es a propósito: Brasil y Alemania se volvieron a
+   correr por la pantalla nueva (720 y 594) y ya estaban contadas arriba.
+   Contarlas dos veces infla el número sin haber medido nada nuevo.
+
+   Ojo con una confusión fácil: TRECE son las ligas MEDIDAS, ONCE las que
+   están en la app. No son la misma lista —Países Bajos y Uruguay se
+   midieron y no están; ninguna liga de la app quedó sin medir— y el número
+   de la portada habla de cuánto se probó el modelo, no de cuántas ligas se
+   pueden simular.
+
    La prueba limpia fueron Alemania, Portugal y Países Bajos: 1.783 partidos
    de ligas que el modelo nunca había tocado, con las hipótesis escritas
-   ANTES de correrla.
+   ANTES de correrla. Ese número no cambia: es el de aquella corrida.
 
    SI ALGUIEN CAMBIA ESTE NÚMERO TIENE QUE CAMBIAR TAMBIÉN EL RESPALDO.
    Prometer en la portada algo que no está medido es la única forma de que
    esto se vuelva mentira, y no hay prueba automática que lo detecte. */
-const RESPALDO = { partidos: "10.860", ligas: "nueve", desde: 2019, limpias: "1.783" };
+const RESPALDO = { partidos: "13.345", ligas: "trece", desde: 2019, limpias: "1.783" };
 
 /* ─── la portada ──────────────────────────────────────────────────────────
    Sin escudos: monograma sobre el color del club, igual que en la app.   */
