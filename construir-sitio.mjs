@@ -762,6 +762,35 @@ const CNAME = new URL("CNAME", SITIO);
 if (DOM) writeFileSync(CNAME, DOM + "\n");
 else if (existsSync(CNAME)) rmSync(CNAME);
 
+/* ── ads.txt ─────────────────────────────────────────────────────────────
+   Un archivo de texto en la raíz que dice quién tiene permiso de vender la
+   publicidad de este sitio. Cumple dos funciones a la vez:
+
+   1. Es con lo que AdSense VERIFICA LA PROPIEDAD del sitio. De los tres
+      métodos que ofrece —pegar el código en el <head>, una metaetiqueta, o
+      este archivo— es el único que no mete nada adentro del HTML. Y eso
+      importa acá más que en otro lado: el sitio y la app de Play son el
+      mismo HTML, así que todo lo que se agrega a la página viaja también
+      adentro de la app. Un archivo suelto en la raíz no puede hacer eso.
+   2. Es el estándar (IAB) contra la reventa de inventario: sin ads.txt,
+      buena parte de los compradores no ofertan.
+
+   El `f08c47fec0942fa0` no es un dato nuestro: es el identificador de
+   Google como autoridad certificadora y es el mismo para todo el mundo.
+   DIRECT quiere decir que la cuenta es del dueño del sitio, no de un
+   intermediario.
+
+   Si se saca la publicidad de sitio.json, el archivo se borra. Es la misma
+   regla del CNAME: lo generado que sobrevive a su motivo miente, y un
+   ads.txt que autoriza a vender publicidad de un sitio que ya no la tiene
+   es justamente la clase de mentira que este archivo existe para evitar. */
+const ADS_TXT = new URL("ads.txt", SITIO);
+if (PUB) {
+  writeFileSync(ADS_TXT,
+    "google.com, " + PUB.cliente.replace(/^ca-/, "") + ", DIRECT, f08c47fec0942fa0\n");
+  console.log("  ads.txt escrito para " + PUB.cliente);
+} else if (existsSync(ADS_TXT)) rmSync(ADS_TXT);
+
 console.log("\n  sitio/  ·  " + hechos + " clubes  ·  " +
             conJuego + " con datos del juego cargados");
 if (sinFeed.length) console.log("  sin feed todavía: " + sinFeed.join(", "));

@@ -64,6 +64,12 @@ try {
     caso("y no dice que haya publicidad en window.SITIO",
          !/"publicidad"/.test(html));
   }
+  /* Y el ads.txt se BORRA si se saca la publicidad. Es la regla del CNAME:
+     lo generado que sobrevive a su motivo miente, y un ads.txt que autoriza
+     a vender publicidad de un sitio que ya no la tiene es justo la clase de
+     mentira que ese archivo existe para evitar. */
+  caso("sin configurar, no queda un ads.txt colgado",
+       !existsSync(aca("./sitio/ads.txt")));
 
   /* ─── 2. ENCENDIDA ────────────────────────────────────────────────────── */
   cfg.publicidad = { cliente: ID };
@@ -124,6 +130,27 @@ try {
     const con = leer("./sitio/talleres-cba.html");
     caso("con la unidad creada, el id del bloque viaja a la app",
          /"bloque":"9988776655"/.test(con));
+  }
+
+  /* ─── 4. ads.txt ──────────────────────────────────────────────────────
+     Es con lo que AdSense verifica la propiedad del sitio, y el único de
+     los tres métodos que ofrece que NO mete nada adentro del HTML. Acá eso
+     importa más que en otro lado: el sitio y la app de Play son el mismo
+     HTML, así que todo lo que se agrega a la página viaja también adentro
+     de la app.
+
+     El formato es del IAB y no admite variaciones: dominio, id con el
+     prefijo `pub-` (NO `ca-pub-`, que es el error clásico), DIRECT, y el
+     identificador de Google como autoridad certificadora. Una coma de más
+     o un `ca-` de sobra y el archivo no sirve. */
+  {
+    cfg.publicidad = { cliente: ID, bloque: "9988776655" };
+    writeFileSync(CFG, JSON.stringify(cfg, null, 2));
+    construir();
+    const ads = leer("./sitio/ads.txt").trim();
+    caso("configurada, se escribe el ads.txt en la raíz", !!ads, ads || "no existe");
+    caso("con el formato exacto del IAB y el id sin el 'ca-'",
+         ads === "google.com, " + ID.replace(/^ca-/, "") + ", DIRECT, f08c47fec0942fa0", ads);
   }
 
   /* Lo que NO puede pasar: que el bloque de configuración entero termine en

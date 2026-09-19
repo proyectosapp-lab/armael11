@@ -2,6 +2,29 @@ Arma el 11 - version 2026-09-19 y51 (la publicidad, enchufada de verdad)
 
   · SE SUBE ESTE SOLO. Incluye y50.
 
+  · ads.txt EN LA RAIZ DEL SITIO. AdSense pide verificar la propiedad del
+    sitio y ofrece tres metodos: pegar el codigo en el <head>, una
+    metaetiqueta, o este archivo. Se eligio el archivo porque es el UNICO
+    que no mete nada adentro del HTML, y aca eso importa mas que en otro
+    lado: el sitio y la app de Play son el mismo HTML, asi que todo lo que
+    se agrega a la pagina viaja tambien adentro de la app.
+
+    Ademas cumple su funcion original, que es el estandar del IAB contra la
+    reventa de inventario: sin ads.txt, buena parte de los compradores no
+    oferta.
+
+        google.com, pub-2032639837955609, DIRECT, f08c47fec0942fa0
+
+    El `f08c47fec0942fa0` no es un dato nuestro: es el identificador de
+    Google como autoridad certificadora, el mismo para todo el mundo.
+    Y el id va con `pub-`, NO con `ca-pub-`: ese es el error clasico y hay
+    una prueba que lo fija.
+
+    Si se saca la publicidad de sitio.json, el archivo se BORRA. Misma regla
+    del CNAME: lo generado que sobrevive a su motivo miente, y un ads.txt
+    que autoriza a vender publicidad de un sitio que ya no la tiene es justo
+    la clase de mentira que ese archivo existe para evitar.
+
   · LOS NUMEROS DEL RESPALDO, ACTUALIZADOS. La portada seguia diciendo
     "10.860 partidos de nueve ligas" y eso era de agosto: desde entonces se
     backtestearon cuatro ligas mas. Fausto lo vio.
