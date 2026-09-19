@@ -1,3 +1,48 @@
+Arma el 11 - version 2026-09-19 y48 (los planes en la portada, y el cartel que dice por que)
+
+  · INCLUYE y45, y46 y y47. Se sube este solo.
+
+  · LOS PLANES EN LA PORTADA. Fausto: "la compra deberia estar tambien en
+    la portada, esta todo muy en scroll infinito y si no bajo no me entero".
+    Antes el cupo y los planes aparecian unicamente abajo del resultado, o
+    sea DESPUES de simular: el que abria la app y queria pagar no encontraba
+    donde. Ahora van despues del gancho y antes de la lista de ligas. En ese
+    orden y no en otro: primero que es la app, despues cuanto te queda y
+    como seguir, y recien ahi la lista larga.
+
+  · EL CARTEL AHORA DICE CUAL DE LOS TRES PROBLEMAS ES. "La compra desde la
+    app todavia no esta disponible" se mostraba igual para tres cosas
+    completamente distintas, que se arreglan de maneras distintas:
+
+      - la app instalada es una version sin facturacion (hay que
+        actualizarla desde Play),
+      - Google Play no contesta en ese telefono,
+      - la facturacion esta pero los productos todavia no propagaron.
+
+    Adivinamos mal una vez y costo una noche. Ahora cada rama deja escrito
+    que fallo y que hacer, y `mirarPlay` ademas PIDE los productos, que es
+    lo que separa "la app no tiene la puerta" de "la puerta esta y adentro
+    no hay nada".
+
+  · LO QUE COSTO, Y ES UNA TRAMPA QUE VALE ANOTAR. Al dibujarse en la
+    portada, `tarjetasDePlan()` corre en el PRIMER pintado y nombra
+    variables (`conBackend`, `PLANES`) declaradas mas abajo con `const`.
+    Eso no devuelve undefined: tira ReferenceError, y como pasa adentro de
+    `pintar()` deja LA PORTADA EN BLANCO.
+
+    Y el atajo obvio no sirve: `typeof` NO salva de esto. Con una variable
+    que no existe devuelve "undefined"; con un `const` declarado mas abajo
+    tira igual. Es la diferencia entre "no existe" y "todavia no nacio", y
+    solo la segunda es un error. Va un try/catch, que es feo y es lo unico
+    que funciona. Hay un caso de prueba que falla si alguien lo saca.
+
+  · PRUEBAS: 282 en la suite del navegador (4 nuevos), todo el resto verde.
+
+  · ARCHIVOS: app.tpl.html, probar-sitio.cjs, VERSION.txt, mas todo lo de
+    y45/y46/y47 (nativo.js, probar-nativo.mjs, cuentas.js,
+    construir-sitio.mjs, publicar.mjs, formaciones.mjs, ligas-api.mjs,
+    probar-formaciones.mjs).
+
 Arma el 11 - version 2026-09-19 y47 (se puede comprar, que es lo minimo)
 
   · INCLUYE y45 y y46. Se sube este solo.

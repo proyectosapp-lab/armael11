@@ -3362,7 +3362,25 @@ function bloqueCupo(){
    qué. Lo que NO se hace nunca es ofrecer Mercado Pago ni mandar a pagar
    afuera: eso es exactamente lo que Google prohíbe. */
 function tarjetasDePlan(){
-  if(!conBackend || !PLANES.length) return "";
+  /* ── OJO CON EL ORDEN, QUE YA NOS MORDIÓ ──────────────────────────────
+     Esto ahora se dibuja en la PORTADA, o sea en el primer `pintar()`, y
+     las variables de la cuenta (`conBackend`, `PLANES`, `PLAY_OK`) se
+     declaran bastante más abajo con `const`/`let`. Hasta que esa línea no
+     corre, nombrarlas no da `undefined`: tira ReferenceError, y como pasa
+     adentro de `pintar()` se lleva puesto el dibujo entero y la portada
+     queda en blanco.
+
+     Y OJO CON EL ATAJO QUE NO FUNCIONA: `typeof` **no** salva de esto. Con
+     una variable que no existe, `typeof` devuelve "undefined" y listo; con
+     un `const` declarado más abajo, tira igual. Es la diferencia entre "no
+     existe" y "todavía no nació", y solo la segunda es un error. Por eso va
+     un try/catch, que es feo y es lo único que sirve.
+
+     Una vez que `PLANES` tiene algo, el script ya corrió completo y el
+     resto se puede nombrar normalmente. */
+  try{
+    if(!conBackend || !PLANES.length) return "";
+  }catch(e){ return ""; }
   const porPlay = esDeLaTienda();
   const playListo = !porPlay || PLAY_OK !== false;
   const apagado = comprando || !CUPO_CFG.cobrando || !playListo;
@@ -3379,7 +3397,9 @@ function tarjetasDePlan(){
     <p class="aviso" style="margin-top:8px">${!CUPO_CFG.cobrando
       ? "<b>Todavía no se cobra nada.</b> Los precios están acá para que sepas de antemano cuánto va a salir cuando se prenda."
       : !playListo
-        ? "<b>La compra desde la app todavía no está disponible.</b> Si ya tenés un plan, entrá con tu cuenta y lo vas a tener acá."
+        ? "<b>La compra desde la app todavía no está disponible.</b> " +
+          (PLAY_POR_QUE ? esc(PLAY_POR_QUE) + " " : "") +
+          "Si ya tenés un plan, entrá con tu cuenta y lo vas a tener acá."
         : porPlay
           ? "Se paga con Google Play. Se vence solo: no queda nada debitándose todos los meses."
           : "Se paga con Mercado Pago. Se vence solo: no queda nada debitándose todos los meses."}</p>`;
@@ -3960,7 +3980,20 @@ function vistaJuego(){
     const ligas = otrasLigas() || `<h3 class="sec">Elegí la liga</h3>
       <div class="tarjeta"><p class="bajada" style="margin-top:0">Las ligas se están cargando.
         Mientras tanto, <a href="index.html?elegir">elegí tu club</a> y simulá su próximo partido.</p></div>`;
-    return heroPortada() + ligas + cab;
+    /* ── EL CUPO Y LOS PLANES, EN LA PORTADA ──────────────────────────
+       Fausto, 19/9: "la compra debería estar también en la portada, está
+       todo muy en scroll infinito y si no bajo no me entero". Tenía razón:
+       antes esto aparecía únicamente abajo del resultado, o sea DESPUÉS de
+       simular. El que abría la app y quería pagar no encontraba dónde.
+
+       Va después del gancho y antes de las ligas, en ese orden y no en
+       otro: primero qué es la app, después cuánto te queda y cómo seguir,
+       y recién ahí la lista larga. El contador —"te quedan N gratis este
+       mes"— no es un cartel de venta, es información que la persona
+       necesita antes de gastar la primera. */
+    return heroPortada() +
+      `<div class="tarjeta" style="margin-top:12px">${bloqueCupo()}</div>` +
+      ligas + cab;
   }
 
   if(J.paso==="fixture"){
@@ -4782,10 +4815,53 @@ async function servicioDePlay(){
   try{ return await window.getDigitalGoodsService("https://play.google.com/billing"); }
   catch(e){ return null; }
 }
+/* ── POR QUÉ NO SE PUEDE COMPRAR, DICHO EN CRISTIANO ─────────────────────
+   Antes esto era un `!!` y un solo cartel para tres problemas completamente
+   distintos: la app instalada no tiene facturación, Google no contesta, o
+   los productos todavía no están dados de alta. Los tres se arreglan de
+   maneras distintas y el cartel no distinguía ninguno, así que había que
+   adivinar —y adivinamos mal una vez, perdiendo una noche—.
+
+   Ahora cada rama deja escrito qué falló, y ese texto se muestra abajo de
+   los botones apagados. No es un mensaje técnico: dice qué hacer. */
+let PLAY_POR_QUE = "";
+
 async function mirarPlay(){
+  PLAY_POR_QUE = "";
   if(!esDeLaTienda()){ PLAY_OK = false; return; }
-  PLAY_OK = !!(await servicioDePlay());
-  pintarCuenta();
+
+  /* La API ni siquiera existe: el paquete instalado se generó sin la
+     facturación, o es una versión anterior a la que la tiene. Es el caso
+     más común y el más fácil de confundir con "los productos fallan". */
+  if(!window.getDigitalGoodsService){
+    PLAY_OK = false;
+    PLAY_POR_QUE = "La app que tenés instalada es de una versión anterior, sin la " +
+                   "facturación de Google Play. Actualizala desde Play y volvé a abrirla.";
+    pintarCuenta(); pintar(); return;
+  }
+
+  const svc = await servicioDePlay();
+  if(!svc){
+    PLAY_OK = false;
+    PLAY_POR_QUE = "Google Play no contestó en este teléfono. Probá de nuevo en un rato.";
+    pintarCuenta(); pintar(); return;
+  }
+
+  /* La facturación está, pero ¿conoce nuestros productos? Esto separa "la
+     app no tiene la puerta" de "la puerta está y adentro no hay nada", que
+     es lo que pasa las primeras horas después de activarlos. */
+  try{
+    const d = await svc.getDetails(PLANES.map(p => p.id));
+    if(!d || !d.length){
+      PLAY_OK = false;
+      PLAY_POR_QUE = "Los planes todavía no están disponibles en Google Play. " +
+                     "Suele tardar unas horas desde que se activan.";
+    } else PLAY_OK = true;
+  }catch(e){
+    PLAY_OK = false;
+    PLAY_POR_QUE = "Google Play no pudo traer los planes: " + (e && e.message ? e.message : "error desconocido");
+  }
+  pintarCuenta(); pintar();
 }
 
 /* La compra adentro de la app. El precio lo pone Play -es el que está

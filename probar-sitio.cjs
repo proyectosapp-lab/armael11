@@ -180,6 +180,46 @@ srv.listen(8099, async () => {
   await pg.goto('http://localhost:8099/index.html', { waitUntil: 'networkidle' });
   caso("la portada abre en El 11, no en los clubes",
        await pg.evaluate(() => document.querySelector('#barra [aria-pressed="true"]').dataset.tab) === 'juego');
+  /* ══ EN LA PORTADA SE PUEDE COMPRAR, SIN BAJAR ═════════════════════
+     Fausto, 19/9: "la compra debería estar también en la portada, está
+     todo muy en scroll infinito y si no bajo no me entero". Antes el
+     bloque de cupo y planes aparecía únicamente abajo del resultado, o
+     sea DESPUÉS de simular.
+
+     Y esto trajo una trampa que vale la pena dejar fijada: al dibujarse en
+     el PRIMER pintado, `tarjetasDePlan()` nombra variables declaradas más
+     abajo con `const`. Eso no da `undefined`, tira ReferenceError, y como
+     pasa adentro de `pintar()` deja la portada EN BLANCO. `typeof` no
+     salva: con un `const` en zona muerta tira igual. Si alguien saca el
+     try/catch, esto falla. */
+  caso("la portada dibuja: ninguna variable en zona muerta la deja en blanco",
+       await pg.locator('#barra [aria-pressed="true"]').count() === 1);
+  {
+    const port = await pg.evaluate(() => {
+      const antes = PLANES;
+      PLANES = [{ id:"liga", nombre:"Tu liga", precio:3000, detalle:"una liga" },
+                { id:"tres", nombre:"3 ligas", precio:7500, detalle:"tres ligas" },
+                { id:"todas", nombre:"Todas", precio:12000, detalle:"las once" }];
+      pintar();
+      const bs = [...document.querySelectorAll("[data-plan]")];
+      /* Contra el título "Elegí la liga" y no contra los chips: en este
+         punto de la suite todavía no hay ligas inyectadas, pero el título
+         está siempre. */
+      const titulo = [...document.querySelectorAll("h3.sec")]
+        .find(h => /Elegí la liga/i.test(h.textContent));
+      const arriba = bs.length && titulo
+        ? !!(bs[0].compareDocumentPosition(titulo) & Node.DOCUMENT_POSITION_FOLLOWING) : null;
+      const r = { botones: bs.length, antesDeLasLigas: !!arriba,
+                  escuchan: bs.every(b => typeof b.onclick === "function") };
+      PLANES = antes; pintar();
+      return r;
+    });
+    caso("los planes se compran desde la portada", port.botones === 3, JSON.stringify(port));
+    caso("y están arriba de la lista de ligas, no al final de todo",
+         port.antesDeLasLigas === true);
+    caso("con sus escuchadores puestos", port.escuchan === true);
+  }
+
   caso("y no pide ninguna API key: es el simulador de ligas",
        await pg.locator('#k').count() === 0 && await pg.locator('h3.sec', { hasText: /Elegí la liga/i }).count() === 1);
 
