@@ -2145,6 +2145,76 @@ srv.listen(8099, async () => {
     caso("y el ?c= se saca de la barra, dejando el resto", u.limpio === "/?club=boca", String(u.limpio));
   }
 
+  /* ══ LA PUBLICIDAD: LOS TRES CANDADOS ════════════════════════════
+     El tercero es el que de verdad importa. AdSense es un producto para
+     SITIOS WEB; usarlo adentro del webview de la app de Play es una
+     infracción cuya sanción cae sobre la cuenta entera, que es de donde
+     sale la plata. Si alguien saca ese `if`, esta prueba se cae. */
+  {
+    const pub = await pg.evaluate(() => {
+      const antes = { pub: window.SITIO.publicidad, prem: PREMIUM.activo,
+                      ahora: PUBLI_AHORA, tienda: localStorage.getItem("armaEl11.deLaTienda") };
+      const limpiar = () => { document.querySelectorAll("#publi").forEach(e => e.remove()); };
+      const r = {};
+      try {
+        /* 1. Apagada: ni con la bandera prendida a mano aparece nada. */
+        PUBLI_AHORA = true;
+        r.apagada = sePuedePublicidad() === false && bloqueDePublicidad() === "";
+
+        /* 2. Encendida: aparece, rotulada y con los dos ids. */
+        window.SITIO.publicidad = { cliente: "ca-pub-0000000000000002", bloque: "9988776655" };
+        PREMIUM.activo = false;
+        const html = bloqueDePublicidad();
+        r.encendida = sePuedePublicidad() === true && html.includes("adsbygoogle");
+        r.rotulada = /Publicidad/.test(html);
+        r.ids = html.includes("ca-pub-0000000000000002") && html.includes("9988776655");
+
+        /* 3. El que pagó no ve ninguno: es literalmente lo que compró. */
+        PREMIUM.activo = true;
+        r.premium = sePuedePublicidad() === false;
+        PREMIUM.activo = false;
+
+        /* 4. ADENTRO DE LA APP DE PLAY, NUNCA. */
+        localStorage.setItem("armaEl11.deLaTienda", "1");
+        r.enLaTienda = sePuedePublicidad() === false;
+        localStorage.removeItem("armaEl11.deLaTienda");
+
+        /* 5. Con cliente pero sin unidad creada todavía, no se dibuja hueco:
+              una cuenta recién aprobada tiene lo primero y no lo segundo. */
+        window.SITIO.publicidad = { cliente: "ca-pub-0000000000000002" };
+        r.sinBloque = sePuedePublicidad() === false;
+
+        /* 6. Un solo `push` por hueco. `pintar()` redibuja la pantalla
+              muchas veces por partido, y el segundo push sobre el mismo
+              `ins` es un error de Google en consola. */
+        window.SITIO.publicidad = { cliente: "ca-pub-0000000000000002", bloque: "9988776655" };
+        const d = document.createElement("div");
+        d.innerHTML = bloqueDePublicidad();
+        document.body.appendChild(d.firstElementChild);
+        const uno = empujarPublicidad();
+        const dos = empujarPublicidad();
+        r.unSoloPush = uno === true && dos === false;
+      } finally {
+        limpiar();
+        window.SITIO.publicidad = antes.pub;
+        if (antes.pub === undefined) delete window.SITIO.publicidad;
+        PREMIUM.activo = antes.prem; PUBLI_AHORA = antes.ahora;
+        if (antes.tienda) localStorage.setItem("armaEl11.deLaTienda", antes.tienda);
+        else localStorage.removeItem("armaEl11.deLaTienda");
+      }
+      return r;
+    });
+    caso("sin configurar, no hay hueco de publicidad ni aunque se fuerce", pub.apagada === true);
+    caso("configurada, el hueco aparece", pub.encendida === true);
+    caso("y dice que es publicidad, no se disfraza de contenido", pub.rotulada === true);
+    caso("con el id de cliente y el de la unidad", pub.ids === true);
+    caso("el que pagó no ve ninguno: es lo que compró", pub.premium === true);
+    caso("ADENTRO DE LA APP DE PLAY NUNCA: AdSense es para sitios web",
+         pub.enLaTienda === true);
+    caso("con cuenta aprobada pero sin unidad creada, tampoco", pub.sinBloque === true);
+    caso("y un solo push por hueco, aunque la pantalla se redibuje", pub.unSoloPush === true);
+  }
+
   caso("el navegador NUNCA llamó a api-sports.io", apiTocada.length === 0);
   caso("sin errores de JavaScript", errs.length === 0);
 

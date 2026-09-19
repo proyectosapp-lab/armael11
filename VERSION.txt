@@ -1,3 +1,80 @@
+Arma el 11 - version 2026-09-19 y51 (la publicidad, enchufada de verdad)
+
+  · SE SUBE ESTE SOLO. Incluye y50.
+
+  · HASTA AHORA LAS REGLAS ESTABAN Y EL AVISO NO. `momentoDeAviso` decidia
+    que correspondia uno y despues no pasaba nada: no habia ningun hueco
+    donde mostrarlo. Esto es la otra mitad.
+
+  · EL FORMATO: UN BANNER DEBAJO DE LA CANCHA, mientras el partido se juega.
+    No es un cartel que hay que cerrar para seguir. Es la misma idea que ya
+    estaba escrita en el codigo: los veinte segundos SON el aviso, el rato
+    durante el cual la app puede mostrar uno sin interrumpir nada. Lo que
+    compra el premium es sacarlo Y que la espera pase a seis segundos; si el
+    aviso frenara el partido, el premium estaria comprando que la app deje
+    de molestar, que es otra clase de producto.
+
+    El hueco lleva alto minimo reservado: si el aviso entra de golpe y
+    empuja la cancha hacia abajo justo cuando la persona esta mirando el
+    partido, deja de ser algo que se tolera y pasa a ser algo que molesta.
+    Y va rotulado "Publicidad". Un aviso disfrazado de contenido es
+    exactamente lo que no queremos hacer.
+
+  · TRES CANDADOS, Y EL TERCERO ES EL QUE IMPORTA:
+
+      1. Tiene que haber red configurada.
+      2. El que pago no ve ninguno.
+      3. ADENTRO DE LA APP DE PLAY, NUNCA. AdSense es un producto para
+         SITIOS WEB. Un AdSense corriendo adentro del webview de una app es
+         una infraccion de la politica de Google, y la sancion no es sobre
+         el aviso: es sobre la cuenta entera, que es de donde sale la plata.
+         La app de la tienda va sin avisos hasta que exista AdMob, que es
+         otro producto, otra cuenta y otro SDK.
+
+         Ese `if` de una linea, en `sePuedePublicidad()`, es lo unico que
+         separa las dos cosas. No se saca. Tiene su propia prueba.
+
+  · DOS DATOS EN sitio.json, Y SON DOS MOMENTOS DISTINTOS:
+
+        "publicidad": { "cliente": "ca-pub-...", "bloque": "1234567890" }
+
+    El `cliente` lo da AdSense al aprobar la cuenta y hace entrar el script.
+    El `bloque` es el id de la unidad de anuncio (AdSense -> Anuncios -> Por
+    unidad de anuncio -> Display) y es lo que le dice a la app DONDE poner
+    el aviso. Con cliente y sin bloque la app se ve exactamente como hasta
+    ahora: una cuenta recien aprobada todavia no tiene unidades creadas, y
+    ese rato no puede verse roto.
+
+    Hoy los dos estan vacios, o sea apagada. La app no baja un solo script
+    de terceros y eso sigue teniendo su prueba.
+
+  · UN SOLO `push` POR HUECO. Google pide un push por unidad; el segundo
+    sobre el mismo `ins` tira "All 'ins' elements in the DOM with
+    class=adsbygoogle already have ads in them". Como `pintar()` redibuja la
+    pantalla muchas veces por partido, sin la marca en el elemento eso
+    pasaria en cada cuadro.
+
+  · SI GOOGLE NO CARGA -bloqueador, red caida, cuenta suspendida- el partido
+    sigue igual. Todo envuelto en try/catch, como el resto.
+
+  · 8 pruebas nuevas en el navegador y 2 en el armado. Lo que fijan es sobre
+    todo lo que NO tiene que pasar: que no aparezca apagada ni forzando la
+    bandera, que no la vea el que pago, que NO APAREZCA ADENTRO DE LA APP DE
+    PLAY, que no se dibuje con la cuenta aprobada pero sin unidad, y que no
+    se empuje dos veces.
+
+  · UNA PRUEBA VIEJA SE AJUSTO, Y VALE DECIR POR QUE. Miraba que la palabra
+    "adsbygoogle" no apareciera en el HTML. Ahora esa palabra esta adentro
+    de nuestro propio JavaScript, en la funcion que arma el hueco, donde es
+    codigo inerte hasta que sitio.json tenga el cliente. La propiedad que
+    hay que cuidar es "no se baja un solo script de terceros", no "no
+    aparece cierta cadena de texto": ahora mira el dominio de Google, que es
+    lo que de verdad significa bajar algo. Que ademas no se DIBUJE ningun
+    hueco con la publicidad apagada se prueba en el navegador, que es donde
+    se puede ver. Cada prueba mira lo que su mundo le deja ver.
+
+    Lo que NO se hizo es escribir el codigo raro para esquivar la prueba.
+
 Arma el 11 - version 2026-09-19 y50 (contador de campana, botones de verdad, y la fecha que corresponde)
 
   · INCLUYE y45 a y49. Se sube este solo.

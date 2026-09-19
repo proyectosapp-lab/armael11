@@ -41,8 +41,23 @@ try {
   for (const p of PAGINAS) {
     const html = leer(p);
     if (!html) continue;
-    caso("sin configurar, " + p.split("/").pop() + " no trae el script de Google",
-         !/googlesyndication|adsbygoogle/i.test(html));
+    /* Se mira el DOMINIO de Google, y no la palabra "adsbygoogle" suelta.
+       Desde y51 esa palabra está adentro de nuestro propio JavaScript —en
+       la función que arma el hueco— y ahí es código inerte: no baja nada ni
+       le pide nada a nadie hasta que `sitio.json` tenga el cliente.
+
+       La propiedad que hay que cuidar es "no se baja un solo script de
+       terceros", no "no aparece cierta cadena de texto". Una prueba que
+       confunde las dos obliga a la próxima persona a elegir entre romperla
+       o escribir el código raro para esquivarla.
+
+       Que además NO SE DIBUJE ningún hueco con la publicidad apagada se
+       prueba donde se puede ver de verdad, que es en el navegador:
+       `probar-sitio.cjs`, "sin configurar, no hay hueco de publicidad ni
+       aunque se fuerce". Cada prueba mira lo que su mundo le deja ver. */
+    caso("sin configurar, " + p.split("/").pop() + " no baja nada de Google",
+         !/googlesyndication/i.test(html),
+         (html.match(/googlesyndication[^"']*/) || [""])[0]);
     caso("y no dice que haya publicidad en window.SITIO",
          !/"publicidad"/.test(html));
   }
@@ -72,6 +87,28 @@ try {
     if (/window\.SITIO=/.test(html))
       caso("y la app se entera de que hay red de publicidad",
            /"publicidad":\{"cliente":"ca-pub-0000000000000001"\}/.test(html));
+  }
+
+  /* ─── 3. LA UNIDAD DE ANUNCIO ─────────────────────────────────────────
+     El `cliente` hace entrar el script; el `bloque` es lo que le dice a la
+     app DÓNDE poner el aviso. Son dos momentos distintos en el tiempo real:
+     una cuenta recién aprobada tiene cliente y todavía no tiene ninguna
+     unidad creada, y en ese rato la app tiene que verse exactamente como
+     hasta ahora. */
+  {
+    cfg.publicidad = { cliente: ID };
+    writeFileSync(CFG, JSON.stringify(cfg, null, 2));
+    construir();
+    const html = leer("./sitio/talleres-cba.html");
+    caso("con cliente y sin unidad creada, la app no recibe ningún bloque",
+         /"publicidad":\{"cliente":"[^"]*"\}/.test(html), (html.match(/"publicidad":[^}]*\}/) || [""])[0]);
+
+    cfg.publicidad = { cliente: ID, bloque: "9988776655" };
+    writeFileSync(CFG, JSON.stringify(cfg, null, 2));
+    construir();
+    const con = leer("./sitio/talleres-cba.html");
+    caso("con la unidad creada, el id del bloque viaja a la app",
+         /"bloque":"9988776655"/.test(con));
   }
 
   /* Lo que NO puede pasar: que el bloque de configuración entero termine en

@@ -238,10 +238,18 @@ function armarPagina(club, op) {
            un archivo de configuración termina en la página, y ahí no debería
            viajar nada que no haga falta. */
         supabase: HAY_BACKEND ? { url: CFG.supabase.url, anon: CFG.supabase.anon } : undefined,
-        /* Solo el id de cliente, que igual va a la vista en el script de
-           Google. Lo que la app necesita saber es SI hay red de publicidad,
-           no su configuración. */
-        publicidad: PUB ? { cliente: PUB.cliente } : undefined,
+        /* El id de cliente y el del bloque, y nada más. Los dos van a la
+           vista igual —el cliente en el script de Google, el bloque en el
+           atributo `data-ad-slot` del hueco—, así que no hay nada que
+           esconder acá; lo que NO viaja es el resto del bloque de
+           configuración, que puede tener notas internas.
+
+           Sin `bloque` la app no dibuja ningún hueco: el script de Google
+           entra igual pero no hay dónde poner un aviso. Es a propósito —una
+           cuenta recién aprobada tiene cliente y todavía no tiene unidades
+           creadas, y en ese rato la app tiene que verse exactamente como
+           hasta ahora. */
+        publicidad: PUB ? { cliente: PUB.cliente, bloque: PUB.bloque || undefined } : undefined,
         /* El cupo de simulaciones. Los tres son públicos por definición: la
            pantalla los tiene que poder leer para dibujar el contador y los
            planes. Los precios NO están acá — viven en la función de cobro,
