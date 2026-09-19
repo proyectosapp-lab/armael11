@@ -1,3 +1,130 @@
+Arma el 11 - version 2026-09-19 y54 (el envoltorio de iPhone)
+
+  · SE SUBE ESTE SOLO. Incluye y50 a y53.
+
+  · ESTE ZIP NO CAMBIA NADA DE LA WEB. Todo lo que trae esta apagado hasta
+    que corra adentro de un iPhone. El sitio publicado queda identico: 322
+    pruebas de navegador en verde, sin una sola diferencia.
+
+  · CORREGIDO ANTES DE SUBIR (19/9, 22:50): el codemagic.yaml declaraba un
+    grupo de variables `armael11` que no hace falta. Con la integracion de
+    App Store Connect, Codemagic se encarga solo de los certificados y los
+    perfiles. Un grupo declarado que no existe hace FALLAR la compilacion
+    antes de empezar, con un error que no dice que grupo falta. Sacado.
+    Lo unico que hay que configurar en Codemagic es la integracion, y se
+    tiene que llamar exactamente `armael11`.
+
+  · LOS ARCHIVOS NUEVOS
+
+      datos-ios.js          el refresco de datos adentro del .ipa
+      probar-datos-ios.mjs  14 pruebas
+      empaquetar-ios.mjs    arma el `app/www` que viaja en el .ipa
+      capacitor.config.json el envoltorio
+      codemagic.yaml        compila en una Mac prestada y sube a TestFlight
+      package.json          las dependencias de Capacitor (la web no usa una sola)
+
+  · LA DECISION DE FONDO: FOTO ADENTRO + REFRESCO AL ABRIR. En la web los
+    datos son archivos que el navegador baja cada vez. En un .ipa no: lo que
+    se empaqueto el dia de la compilacion es lo que hay, y cambiarlo
+    significa mandar una version nueva a revision de Apple y esperar dos
+    dias. Una app de futbol con la fecha congelada no sirve.
+
+    Las tres salidas se evaluaron:
+
+      a) Solo la foto. Barata y muerta: una semana despues muestra una fecha
+         ya jugada.
+      b) Solo la red. Liviana, pero el revisor de Apple INSTALA LA APP Y LA
+         PRUEBA SIN CONEXION. Veria una pantalla vacia, y "funciona sin
+         conexion" es una de las cuatro cosas con las que justificamos que
+         esto no es un sitio reempaquetado (regla 4.2).
+      c) Las dos. Arranca de la foto -siempre esta, siempre es instantanea-
+         y se pone al dia en segundo plano.
+
+    Se eligio la (c). Y hay una cuarta que NO es opcion: Capacitor permite
+    apuntar la app a armael11.com con `server.url`. Es media hora de trabajo
+    y es literalmente la TWA de Android otra vez, o sea el caso que la 4.2
+    describe como motivo de rechazo. Ademas cargaria el AdSense del sitio.
+    El atajo que parece mas corto es el unico que garantiza el rechazo.
+    Queda escrito adentro de `capacitor.config.json` para que nadie lo
+    "arregle" mas adelante.
+
+  · POR QUE SE PARSEA Y NO SE EVALUA. Lo que se baja son archivos .js
+    nuestros, de la forma `window.X = {...}`. La tentacion es meterlos en un
+    <script> y dejar que el navegador los corra: dos lineas. No se hace.
+
+    Primero, por Apple: la regla 2.5.2 prohibe descargar y ejecutar codigo
+    que cambie lo que la app hace. El JavaScript adentro de un webview es la
+    excepcion permitida, pero "bajo un .js de mi servidor y lo ejecuto" es
+    justo la frase que un revisor no quiere leer. Bajando DATOS y no codigo,
+    la conversacion no existe.
+
+    Segundo, porque es verdad: son datos. Parsearlos con JSON.parse
+    significa que ni un archivo corrupto, ni un servidor tomado, ni un
+    intermediario pueden hacer nada mas que darnos un objeto feo -que se
+    descarta-. Ejecutarlo seria darles la app entera.
+
+  · EL CANDADO DE ADSENSE, RESUELTO. El candado que protege a la app de Play
+    mira el `document.referrer` buscando `android-app://`. Adentro de un
+    webview de Capacitor ese referrer NO EXISTE -es vacio o
+    `capacitor://localhost`-, asi que el HTML del sitio tal cual cargaria
+    AdSense adentro del iPhone. Eso rompe la politica de AdSense, cuya
+    sancion cae sobre la cuenta entera, Y desmiente la declaracion de
+    privacidad de la ficha de la App Store.
+
+    La defensa NO es otra rama en el candado: es sacar el script del
+    archivo. `construir-sitio.mjs` entiende `SIN_PUBLICIDAD=1` y arma el
+    sitio sin nada de AdSense -ni el script, ni el ads.txt, ni
+    `window.SITIO.publicidad`-. LO QUE NO ESTA EN EL ARCHIVO NO SE PUEDE
+    PRENDER POR ERROR.
+
+    Y `empaquetar-ios.mjs` revisa archivo por archivo antes de copiar: si
+    aparece el dominio de Google en cualquier .html, .js, .txt o .json, SE
+    PLANTA y termina con error. No avisa: se planta. Es el unico lugar donde
+    esto se puede frenar, porque el .ipa no pasa por publicar.mjs ni por la
+    bateria de pruebas.
+
+  · "DATOS DEL VIERNES 19/09". Un iPhone recien instalado y sin conexion
+    muestra la foto, que puede tener una fecha ya jugada. Mostrarla como si
+    fuera la de ahora es la misma confusion que arreglamos con el aviso de
+    formaciones tentativas: la persona no piensa "los datos estan viejos",
+    piensa "la app se equivoca". Y una vez que pensó eso, deja de creerle
+    tambien a lo que si esta bien. Asi que la app lo dice, con la fecha.
+    Seis horas de tolerancia: una fecha se juega en tres dias y el once del
+    DT dura una hora.
+
+  · NO SE USA EL SERVICE WORKER. En la web hace exactamente esto. Adentro
+    del webview de iOS, con el esquema `capacitor://`, los service workers
+    no funcionan de forma confiable: es una limitacion de WKWebView, no algo
+    que podamos configurar. Por eso el cacheo, que en la web sale gratis,
+    aca hubo que escribirlo. Va en IndexedDB y no en localStorage: el cache
+    de un club solo pesa unos 400 KB y localStorage en iPhone tiene unos 5
+    MB para TODO, incluida la sesion de la persona.
+
+  · LAS PRUEBAS, Y QUE CUIDAN. 14 casos nuevos, y casi ninguno prueba que
+    actualice. Prueban que NO ROMPA:
+
+    - Que un archivo cortado a la mitad -la red se corto, el CDN devolvio
+      una pagina de error- NO pise lo que ya teniamos. Sin eso, un refresco
+      fallido deja la app sin partidos y no hay vuelta atras hasta la
+      proxima red.
+    - Que los dos formatos que abren con `window.X=window.X||{}` no
+      devuelvan ese `{}` vacio. Es el error que no tira error: no falla, no
+      avisa, y borra la liga entera.
+    - Que sin red todo quede exactamente como estaba.
+
+  · EL TAMANO. 117 archivos, 6.482 KB. De eso, 2.914 KB son datos -lo que se
+    refresca de armael11.com- y el resto es la app, que solo cambia con una
+    version nueva. Para un .ipa no es nada.
+
+  · LO QUE FALTA PARA LA v1.1, ANOTADO EN EL PROPIO codemagic.yaml: los
+    avisos por APNs. El App ID ya los tiene habilitados y el .p8 esta
+    descargado, pero el plugin necesita ademas el entitlement
+    `aps-environment` adentro del proyecto de Xcode, y eso hay que verlo
+    contra una compilacion de verdad en vez de escribirlo a ciegas. La v1
+    sale con las otras cuatro cosas que un navegador no puede hacer: vibra
+    en cada gol, comparte con la hoja del sistema, abre los links del feed
+    adentro de la app, y funciona sin conexion.
+
 Arma el 11 - version 2026-09-19 y53 (dos formas de perder el once del DT sin que se note)
 
   · SE SUBE ESTE SOLO. Incluye y50, y51 e y52.

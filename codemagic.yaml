@@ -1,0 +1,138 @@
+# ══════════════════════════════════════════════════════════════════════════
+#  ARMÁ EL 11 — compilar para iPhone sin tener una Mac
+#
+#  Apple solo deja compilar en macOS. Codemagic presta una Mac: toma este
+#  repo de GitHub, corre lo de abajo y sube el resultado a App Store Connect.
+#  Fausto no toca una terminal en ningún momento.
+#
+#  ESTE ARCHIVO SÍ SE PUEDE SUBIR ARRASTRANDO. Va suelto en la raíz, como
+#  todo lo demás. No empieza con punto, así que no se esconde (a diferencia
+#  de `.github/workflows/publicar.yml`, que hay que editar con el lápiz).
+#
+#  ─── LO QUE NO SE GUARDA EN EL REPO ──────────────────────────────────────
+#  La carpeta `ios/` con el proyecto de Xcode NO se versiona: la genera
+#  `npx cap add ios` en cada compilación. Es a propósito. Un proyecto de
+#  Xcode son miles de líneas de XML que nadie puede revisar ni editar sin
+#  una Mac, y que se desincronizan en silencio. Generándolo cada vez, lo
+#  único que hay que mantener es lo que se ve acá, en texto.
+#
+#  Lo que hay que hacer UNA VEZ en Codemagic, y es UNA sola cosa:
+#  Teams → Personal account → Integrations → Developer Portal → agregar la
+#  clave de la API de App Store Connect y llamarla exactamente `armael11`.
+#  Ese nombre es el que dice `integrations:` acá abajo.
+#
+#  Con eso alcanza: Codemagic se encarga solo de los certificados y los
+#  perfiles de aprovisionamiento (es lo que hace `ios_signing`). NO hacen
+#  falta variables de entorno sueltas, y por eso este archivo no declara
+#  ningún `groups:` — un grupo que no existe hace fallar la compilación
+#  antes de empezar, con un error que no dice qué grupo falta.
+#
+#  OJO CON LA CLAVE: es el `.p8` de APP STORE CONNECT, no el de APNs. Son
+#  dos claves distintas, se ven iguales, y usar la equivocada da un error
+#  de autenticación que no dice cuál de las dos es el problema.
+# ══════════════════════════════════════════════════════════════════════════
+
+workflows:
+  ios:
+    name: Armá el 11 · iPhone
+    instance_type: mac_mini_m2
+    max_build_duration: 60
+
+    environment:
+      xcode: latest
+      node: 22
+      cocoapods: default
+      vars:
+        BUNDLE_ID: "com.armael11.app"
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.armael11.app
+
+    integrations:
+      app_store_connect: armael11
+
+    triggering:
+      events:
+        - tag
+      # A propósito: SOLO cuando se crea una etiqueta (`v1.0.0`, `v1.0.1`).
+      # Si compilara en cada push, cada zip que sube Fausto mandaría una
+      # versión a TestFlight. El contenido de la app se actualiza solo desde
+      # la web; el paquete se recompila cuando hay algo que recompilar.
+
+    scripts:
+      - name: Armar el www que va adentro del .ipa
+        script: |
+          node empaquetar-ios.mjs
+          # Se planta solo si quedó AdSense adentro. La comprobación vive en
+          # ese archivo y no acá porque tiene que valer también cuando alguien
+          # lo corre en su máquina.
+
+      - name: Las pruebas que se pueden correr sin navegador
+        script: |
+          node probar-datos-ios.mjs
+          node probar-nativo.mjs
+          node probar-campana.mjs
+
+      - name: Instalar Capacitor y generar el proyecto de Xcode
+        script: |
+          npm install
+          npx cap add ios || npx cap sync ios
+          npx cap sync ios
+
+      - name: Los textos que Apple exige en el Info.plist
+        script: |
+          P=ios/App/App/Info.plist
+          # El nombre que se ve debajo del ícono. Con acento, igual que en
+          # Play, la web y el material de Instagram.
+          /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName Armá el 11" "$P"
+          # Solo vertical. La app es una cancha en un teléfono; en horizontal
+          # no entra el once y la barra de pestañas queda absurda.
+          /usr/libexec/PlistBuddy -c "Delete :UISupportedInterfaceOrientations" "$P" || true
+          /usr/libexec/PlistBuddy -c "Add :UISupportedInterfaceOrientations array" "$P"
+          /usr/libexec/PlistBuddy -c "Add :UISupportedInterfaceOrientations:0 string UIInterfaceOrientationPortrait" "$P"
+          # Sin esto, la barra de estado queda negra sobre fondo oscuro.
+          /usr/libexec/PlistBuddy -c "Add :UIViewControllerBasedStatusBarAppearance bool false" "$P" || true
+          /usr/libexec/PlistBuddy -c "Add :UIStatusBarStyle string UIStatusBarStyleLightContent" "$P" || true
+          # La versión sale del número de compilación de Codemagic, así no
+          # hay que acordarse de subirlo a mano nunca.
+          /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" "$P"
+          plutil -p "$P" | head -40
+
+      - name: Compilar y firmar
+        script: |
+          xcode-project use-profiles
+          xcode-project build-ipa \
+            --workspace "ios/App/App.xcworkspace" \
+            --scheme "App"
+
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true
+        # NO se manda solo a revisión de App Store. Va a TestFlight, se
+        # prueba en un iPhone de verdad, y recién ahí se aprieta el botón a
+        # mano. La decisión del 17/9 sigue valiendo: no se manda a ver si
+        # pasa, se construye para que pase.
+        submit_to_app_store: false
+      email:
+        recipients:
+          - steelsmartshomes@gmail.com
+        notify:
+          success: true
+          failure: true
+
+# ── LO QUE FALTA PARA LA v1.1, ANOTADO ACÁ PARA NO OLVIDARLO ──────────────
+#  Los avisos por APNs. El App ID ya tiene Push Notifications habilitado y el
+#  .p8 está descargado, pero el plugin necesita además el entitlement
+#  `aps-environment` adentro del proyecto de Xcode, y eso hay que escribirlo
+#  en el `.entitlements` que `cap add ios` NO genera. Es un paso más en este
+#  archivo, con PlistBuddy, y hay que verlo contra una compilación de verdad
+#  en vez de escribirlo a ciegas.
+#
+#  La v1 sale con las otras cuatro cosas que un navegador no puede hacer:
+#  vibra en cada gol, comparte con la hoja del sistema, abre los links del
+#  feed adentro de la app, y funciona sin conexión. Alcanzan para la 4.2.

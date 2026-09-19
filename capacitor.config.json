@@ -1,0 +1,47 @@
+{
+  "appId": "com.armael11.app",
+  "appName": "Armá el 11",
+  "webDir": "app/www",
+  "bundledWebRuntime": false,
+
+  "_leeme": [
+    "AQUÍ NO VA NINGÚN `server.url`, Y ES LA LÍNEA MÁS IMPORTANTE DEL ARCHIVO.",
+    "Capacitor permite que la app abra un sitio remoto en vez del contenido",
+    "empaquetado. Con `server.url: https://armael11.com` esto andaría en media",
+    "hora — y sería exactamente la TWA de Android otra vez, o sea el caso que",
+    "la regla 4.2 de Apple describe como motivo de rechazo: un sitio web",
+    "reempaquetado. Además cargaría el AdSense del sitio, que es infracción",
+    "adentro de una app y cae sobre la cuenta entera.",
+    "El atajo que parece más corto es el único que garantiza el rechazo."
+  ],
+
+  "ios": {
+    "scheme": "capacitor",
+    "contentInset": "never",
+    "backgroundColor": "#0B0F0D",
+    "limitsNavigationsToAppBoundDomains": false,
+    "_contentInset": [
+      "`never` porque el layout ya respeta las áreas seguras del iPhone con",
+      "env(safe-area-inset-*). Dejándolo en automático, WebKit agrega su",
+      "propio margen ARRIBA del nuestro y la barra de pestañas queda flotando."
+    ]
+  },
+
+  "server": {
+    "androidScheme": "https",
+    "iosScheme": "capacitor",
+    "cleartext": false
+  },
+
+  "plugins": {
+    "SplashScreen": {
+      "launchShowDuration": 600,
+      "backgroundColor": "#0B0F0D",
+      "showSpinner": false,
+      "_porque": "Arranca con pantalla propia y no con una página en blanco. Es de las primeras cosas que mira un revisor para decidir si esto es una app o un navegador disfrazado."
+    },
+    "PushNotifications": {
+      "presentationOptions": ["alert", "sound"]
+    }
+  }
+}

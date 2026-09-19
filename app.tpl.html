@@ -2775,6 +2775,7 @@ async function gastarSimulacion(){
      servidor y no después: lo que se está contando es que la persona
      apretó simular, no que el servidor le dio permiso. */
   contar("simulo");
+  usar("simulo");
   if(conBackend && typeof usarSimulacion === "function"){
     try{
       const r = await usarSimulacion(liga);
@@ -2929,6 +2930,36 @@ function formacionesConfirmadas(){
      "tentativa" con la formación ya en la calle. */
   const tiene = id => al.some(x => x.team?.id === id && (x.startXI||[]).length >= 10);
   return (tiene(J.id.A) ? 1 : 0) + (tiene(J.id.B) ? 1 : 0);
+}
+
+/* ── "ESTO QUE ESTÁS VIENDO ES DE ANTEAYER" ──────────────────────────────
+   Solo adentro de la app de iPhone, y solo cuando corresponde.
+
+   El .ipa viaja con una foto de los datos del día que se compiló, y se
+   pone al día contra armael11.com al abrir. Si no hubo red —un iPhone
+   recién instalado en modo avión, que es exactamente como lo prueba el
+   revisor de Apple— lo que se muestra es la foto, y puede tener una fecha
+   ya jugada.
+
+   Mostrar eso como si fuera lo de ahora es la misma confusión que
+   arreglamos con el aviso de formaciones tentativas: la persona no piensa
+   "los datos están viejos", piensa "la app se equivoca". Y una vez que
+   pensó eso, deja de creerle también a lo que sí está bien.
+
+   En la web esto no existe: los archivos los baja el navegador cada vez.  */
+function avisoDeLaFoto(){
+  try{
+    if(typeof fechaDeLosDatos !== "function" || typeof datosViejos !== "function") return "";
+    const f = fechaDeLosDatos();
+    if(!datosViejos(f, Date.now())) return "";
+    const d = new Date(f);
+    const cuando = DIAS_CORTOS[d.getDay()] + " " +
+      String(d.getDate()).padStart(2,"0") + "/" + String(d.getMonth()+1).padStart(2,"0");
+    return `<div class="pendiente" style="margin:12px 0 0">
+      <b>Datos del ${cuando}.</b>
+      No me pude conectar para actualizarlos, así que los partidos y los
+      planteles son los de esa fecha. Con conexión se ponen al día solos.</div>`;
+  }catch(e){ return ""; }
 }
 
 function avisoDeFormaciones(){
@@ -3576,6 +3607,12 @@ function bloqueCupo(){
    El `typeof` es porque sin backend el archivo ni se carga.            */
 if(typeof arrancarCampana === "function"){ try{ arrancarCampana(); }catch(e){} }
 const contar = h => { try{ if(typeof hitoCampana === "function") hitoCampana(h); }catch(e){} };
+/* Lo mismo pero para TODOS, no solo para el que vino de un anuncio, y una
+   vez por día en vez de una vez en la vida. Es lo que contesta la pregunta
+   que Play Console con doce testers no contesta: cuántos volvieron hoy, y
+   cuántos de esos entraron por el ícono de la app y no por el navegador.
+   `esDeLaTienda()` se le pasa hecho porque la regla del referrer vive acá. */
+const usar = h => { try{ if(typeof usoDiario === "function") usoDiario(h, esDeLaTienda()); }catch(e){} };
 
 let PROMPT_INSTALAR = null;
 if(typeof window !== "undefined"){
@@ -4413,7 +4450,7 @@ function vistaJuego(){
 
   if(J.paso==="armar"||J.paso==="resultado"||J.paso==="revelado"){
     const armado=`
-      ${J.paso==="armar" ? avisoDeFormaciones() : ""}
+      ${J.paso==="armar" ? avisoDeLaFoto() + avisoDeFormaciones() : ""}
       <h3 class="sec">Tocá un jugador para cambiarlo</h3>
       ${campoHTML()}
       ${bloqueDePublicidad()}
@@ -4699,6 +4736,23 @@ function enganchar(){
      tiene que correr DESPUÉS de que el HTML esté en el documento: Google
      busca el `ins` en el DOM, no en una cadena. */
   if(typeof empujarPublicidad === "function") empujarPublicidad();
+  /* "Hoy este teléfono abrió la app." Va acá y no arriba del todo por una
+     razón concreta: arriba, `esDeLaTienda()` todavía no puede leer la
+     constante `PAQUETE` —está declarada más abajo con `const`, y `typeof`
+     no protege de eso— así que caería en su rama de emergencia y contaría
+     mal justo lo que venimos a medir. Acá ya está todo definido.
+     El propio contador se encarga de que sea una sola vez por día, así que
+     llamarlo en cada `enganchar()` no cuesta nada. */
+  usar("abrio");
+  /* El refresco de datos de la app de iPhone. Solo existe adentro del
+     .ipa —el archivo lo agrega `empaquetar-ios.mjs`, no viaja en la web— y
+     él solo se encarga de arrancar una sola vez. Arranca acá, con la
+     pantalla YA dibujada de la foto: nada de esto puede hacer esperar al
+     primer partido. Lo que llegue redibuja. */
+  try{
+    if(typeof arrancarDatosIos === "function")
+      arrancarDatosIos({ alAplicar: () => { try{ pintar(); }catch(e){} } });
+  }catch(e){}
   /* El botón de instalar. El evento del navegador se puede disparar UNA
      sola vez y solo desde un gesto de la persona, así que se llama derecho
      acá adentro del click y después se suelta. */
