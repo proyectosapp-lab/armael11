@@ -141,8 +141,26 @@ export function leerLiga(ruta) {
 
 /* Pura: dado el cache de un club y la hora, dice qué partido está en
    ventana y si ya tenemos su formación. Se prueba sin red. */
-export function enVentana(cache, ahora = new Date(), ventana = VENTANA) {
-  const claveFx = Object.keys(cache).find(k => k.startsWith("/fixtures?team="));
+export function enVentana(cache, ahora = new Date(), ventana = VENTANA, apiId = null) {
+  /* ── POR QUÉ NO ALCANZA CON EL PRIMER `/fixtures?team=` ────────────────
+     El cache de un club NO trae solo los partidos del club: `datos-juego`
+     baja también los del RIVAL, para armarle el plantel (y los de dos
+     rivales distintos, porque mira el próximo partido y el último). O sea
+     que acá adentro hay dos o tres claves que empiezan igual.
+
+     Hasta el 19/9 esto agarraba la primera que encontraba. Funcionaba por
+     una casualidad —el club se guarda antes que el rival, y `Object.keys`
+     respeta el orden de inserción— y esa casualidad no está escrita en
+     ningún lado. El día que algo reordene el archivo, la ronda corta
+     empieza a mirar el calendario del rival: no tira error, no rompe una
+     prueba, simplemente el once del DT deja de salir para ese club y nadie
+     entiende por qué. Es exactamente la clase de falla silenciosa que ya
+     nos costó una noche con `hayRed`.
+
+     Con el `apiId` del club se elige la clave que corresponde. El respaldo
+     al primero se queda por si algún cache viejo no matchea. */
+  const claves = Object.keys(cache).filter(k => k.startsWith("/fixtures?team="));
+  const claveFx = (apiId && claves.find(k => k.startsWith("/fixtures?team=" + apiId + "&"))) || claves[0];
   if (!claveFx) return null;
   const proximo = (cache[claveFx] || [])
     .filter(f => !JUGADO(f))
@@ -227,7 +245,7 @@ async function main() {
     const ruta = aca("./sitio/datos/cache-" + club.id + ".js");
     if (!existsSync(ruta)) continue;
     let cache; try { cache = leerCache(ruta); } catch (e) { continue; }
-    const v = enVentana(cache, AHORA);
+    const v = enVentana(cache, AHORA, VENTANA, club.apiId);
     if (!v) continue;
     enJuego++;
     const rival = v.fixture.teams.home.name + " vs " + v.fixture.teams.away.name;

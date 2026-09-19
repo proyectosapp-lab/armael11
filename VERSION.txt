@@ -1,3 +1,129 @@
+Arma el 11 - version 2026-09-19 y53 (dos formas de perder el once del DT sin que se note)
+
+  · SE SUBE ESTE SOLO. Incluye y50, y51 e y52.
+
+  · QUE SE ARREGLO. `enVentana()` -la funcion que decide si el proximo
+    partido de un club esta por empezar- agarraba la PRIMERA clave del cache
+    que empezara con `/fixtures?team=`.
+
+    El problema es que el cache de un club NO trae solo los partidos del
+    club. `datos-juego.mjs` baja tambien los del RIVAL, para armarle el
+    plantel, y lo hace para dos rivales distintos -el del proximo partido y
+    el del ultimo-. O sea que ahi adentro hay dos o tres claves que empiezan
+    igual.
+
+    Funcionaba por una casualidad: el club se guarda antes que el rival y
+    `Object.keys` respeta el orden de insercion. Esa casualidad no estaba
+    escrita en ningun lado ni la fijaba ninguna prueba.
+
+  · POR QUE IMPORTA, Y POR QUE NO SE HABRIA NOTADO. El dia que algo reordene
+    el archivo, la ronda corta se pone a mirar el calendario del rival. No
+    tira error. No rompe ninguna prueba. El sitio publica igual. Lo unico que
+    pasa es que el once del DT deja de salir para ese club, y nadie entiende
+    por que. Es la misma forma de falla que nos costo una noche con `hayRed`:
+    silenciosa, y solo visible en el resultado final.
+
+    HONESTIDAD: no esta confirmado que ESTO sea lo que Fausto vio. Es un
+    defecto real encontrado leyendo, y se arregla porque es barato y porque
+    una falla silenciosa no se deja parada aunque hoy no este disparando.
+
+  · COMO SE ARREGLO. Se le pasa el `apiId` del club y se elige la clave que
+    corresponde. Si ninguna matchea -un cache viejo, otra temporada- vuelve
+    al comportamiento de antes en vez de quedarse sin nada.
+
+  · LA PRUEBA QUE LO FIJA. En `probar-formaciones.mjs`, un cache con el
+    rival PRIMERO y el club segundo. Si alguien vuelve al `.find()` de antes,
+    esa prueba se cae. 36 casos, eran 34.
+
+  · SEGUNDO ARREGLO: EL ONCE DEL DT YA NO SE BORRA SOLO. `datos-juego.mjs`
+    arma el cache de cada club DE CERO (`cache = {}`) y lo escribe encima
+    del anterior. Para casi todo esta bien: es lo que impide que un cache a
+    medias sobreviva para siempre.
+
+    Para una cosa no. El once del DT del proximo partido lo trae la ronda
+    corta apenas sale, una hora antes del pitazo, y este paso corre cada
+    SEIS HORAS. Si le toca caer justo en esa hora -que es exactamente la
+    hora en que la gente abre la app- borraba el once y lo volvia a pedir.
+    Y si en ese instante la API no contestaba o se habia acabado la cuota,
+    `api()` devuelve `[]` sin hacer ruido: la app pasaba a decir
+    "formaciones tentativas" con el once del DT ya publicado en la calle.
+
+    Se arreglaba solo a los quince minutos, en la ronda corta siguiente.
+    Pero esos quince minutos son los peores del dia.
+
+    Ahora el once que ya tenemos se ARRASTRA en vez de volver a pedirse.
+    Volver a pedirlo no puede traer nada mejor -el once del DT no cambia
+    una vez publicado- y si puede traer algo peor. Un once que ya tenemos
+    no se cambia por la promesa de volver a conseguirlo. De paso son
+    treinta pedidos menos por corrida completa.
+
+  · LO QUE QUEDA ANOTADO Y NO SE TOCO. El cache de un club solo tiene
+    partidos de la liga 128. Un partido de Copa Argentina o de Libertadores
+    no esta ahi, asi que su once del DT no llega nunca por este camino. No es
+    una regresion, es el alcance con el que se construyo; hay que decidirlo,
+    no arreglarlo a escondidas.
+
+Arma el 11 - version 2026-09-19 y52 (dejar de adivinar la prueba cerrada)
+
+  · SE SUBE ESTE SOLO. Incluye y50 e y51.
+
+  · NO HAY SQL QUE PEGAR. La funcion `sumar_hito` que ya esta en Supabase
+    acepta los codigos nuevos tal cual: el guion entra en su expresion. Se
+    sube el zip y empieza a contar solo.
+
+  · POR QUE EXISTE ESTE ZIP. Google rechazo el acceso a produccion con
+    "los testers no estuvieron activos durante la prueba cerrada". Puede
+    ser cierto o puede no serlo, y el problema de fondo es ese: NO TENEMOS
+    COMO SABERLO.
+
+    Play Console con doce testers no muestra casi nada -debajo de cierto
+    volumen esconde los numeros- y la app es una TWA, o sea Chrome abriendo
+    armael11.com. Un tester que entra escribiendo la direccion en vez de
+    tocar el icono es, para Google, un tester que no entro. Es la hipotesis
+    mas probable y hasta hoy no habia forma de confirmarla ni de negarla.
+
+    Los contadores de campana no servian: solo cuentan a quien llega con un
+    `?c=` en la direccion, que es nadie entre los testers.
+
+  · QUE CUENTA. Por dia, cuantos TELEFONOS DISTINTOS abrieron y cuantos
+    simularon, separando la app instalada del navegador:
+
+        uso-app | 2026-09-20 | abrio  |  9
+        uso-app | 2026-09-20 | simulo |  6
+        uso-web | 2026-09-20 | abrio  | 41
+
+    `uso-app` es la columna que mira Google. Si ese numero no llega a doce
+    ningun dia, ahi esta el motivo del rechazo, escrito.
+
+  · LO QUE SIGUE SIN GUARDARSE. Ningun identificador de persona, ninguna
+    IP, ninguna hora. Las mismas cuatro columnas de siempre. La UNICA
+    diferencia con el contador de campana es que el "ya conte este
+    telefono" caduca a medianoche, porque la pregunta no es "cuantos
+    llegaron alguna vez" sino "cuantos vuelven cada dia". Ese dato sigue
+    viviendo en el telefono y nunca sale de ahi.
+
+  · EL DIA SE CALCULA CON EL RELOJ DEL TELEFONO, NO CON UTC. Es el detalle
+    que mas facil se hace mal. En Argentina, de las 21 en adelante UTC ya
+    esta en el dia siguiente: con UTC, un tester que abre a las 20 y vuelve
+    a las 22 contaria dos veces, y las dos filas caerian en el mismo dia del
+    servidor -que si calcula en hora argentina-. Son justo las horas en que
+    se miran los partidos. Hay una prueba que finge ese momento exacto.
+
+  · DONDE SE ENGANCHA, Y POR QUE AHI. El "abrio" va adentro de
+    `enganchar()` y no arriba de todo. Arriba, `esDeLaTienda()` todavia no
+    puede leer la constante `PAQUETE` -declarada mas abajo con `const`, y
+    `typeof` NO protege de eso, cosa que ya nos costo una vez- asi que
+    caeria en su rama de emergencia y contaria mal justo lo que venimos a
+    medir. `enganchar()` corre en cada pintado, decenas de veces en una
+    tarde; el propio contador se encarga de que sea una sola vez por dia, y
+    hay una prueba en navegador que llama veintidos veces y exige un solo
+    envio.
+
+  · PRUEBAS. 28 en `probar-campana.mjs` (eran 21) y 322 en el navegador
+    (eran 318). Las cuatro nuevas del navegador fijan lo que las de Node no
+    pueden ver: que ALGUIEN llame al contador. Un contador perfecto que
+    nadie invoca da cero todos los dias y parece que no entro nadie.
+
 Arma el 11 - version 2026-09-19 y51 (la publicidad, enchufada de verdad)
 
   · SE SUBE ESTE SOLO. Incluye y50.

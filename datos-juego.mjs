@@ -85,6 +85,32 @@ for (const club of conApi) {
   const cache = {};
   const guardar = ({ clave, datos }) => { cache[clave] = datos; return datos; };
 
+  /* ── LO QUE YA ESTABA, ANTES DE PISARLO ───────────────────────────────
+     Este archivo se arma de cero (`cache = {}`) y se escribe encima del
+     anterior. Para casi todo está bien: es lo que hace que un cache a
+     medias no sobreviva para siempre.
+
+     Para UNA cosa no: el once del DT del próximo partido. Lo trae la ronda
+     corta apenas sale, una hora antes del pitazo, y este paso corre cada
+     seis horas. Si le toca caer en esa hora —y es justo la hora en que la
+     gente abre la app— borra el once y lo vuelve a pedir; si en ese
+     instante la API no contesta o se acabó la cuota, `api()` devuelve `[]`
+     sin hacer ruido y la app muestra "formaciones tentativas" con el once
+     ya publicado en la calle. Se arregla solo a los quince minutos, en la
+     ronda corta siguiente, pero esos quince minutos son los peores.
+
+     Así que el once que ya teníamos se arrastra en vez de volver a pedirse.
+     De paso son treinta pedidos menos por corrida completa. */
+  let previo = {};
+  try {
+    const t = readFileSync(new URL("cache-" + club.id + ".js", SALIDA), "utf8");
+    previo = JSON.parse(t.slice(t.indexOf("{"), t.lastIndexOf("}") + 1));
+  } catch (e) { previo = {}; }
+  const onceGuardado = clave => {
+    const v = previo[clave];
+    return Array.isArray(v) && v.length ? v : null;
+  };
+
   const mios = guardar(await api("/fixtures", { team: club.apiId, season: TEMPORADA, league: LEAGUE }))
     .filter(f => JUGADO(f) || f.fixture.status.short === "NS")
     .sort((a, b) => new Date(a.fixture.date) - new Date(b.fixture.date));
@@ -129,13 +155,20 @@ for (const club of conApi) {
       guardar(await api("/fixtures/lineups", { fixture: fx.fixture.id }));
       guardar(await api("/fixtures/events",  { fixture: fx.fixture.id }));
     } else {
-      /* La formacion del PROXIMO tambien se pide. Casi siempre viene vacia
-         -sale una hora antes del partido- pero pedirla aca tiene dos
-         motivos: si esta corrida cae justo en esa hora, ya queda; y si no,
-         la ronda corta (formaciones.mjs) la mete en este mismo cache, y
-         cuando esta corrida lo rehace no la pisa con nada, la vuelve a
-         pedir. Un pedido por club. */
-      guardar(await api("/fixtures/lineups", { fixture: fx.fixture.id }));
+      /* La formacion del PROXIMO. Si la ronda corta ya la trajo, se
+         arrastra tal cual y NO se vuelve a pedir: pedirla de nuevo no
+         puede traer nada mejor -el once del DT no cambia una vez
+         publicado- y sí puede traer algo peor, que es un `[]` si la API
+         falla o se acabo la cuota. Un once que ya tenemos no se cambia por
+         la promesa de volver a conseguirlo.
+
+         Si no la tenemos, se pide igual que antes: casi siempre viene
+         vacia -sale una hora antes del partido- pero si esta corrida cae
+         justo en esa hora, ya queda. */
+      const claveOnce = "/fixtures/lineups?fixture=" + fx.fixture.id;
+      const yaEsta = onceGuardado(claveOnce);
+      if (yaEsta) cache[claveOnce] = yaEsta;
+      else guardar(await api("/fixtures/lineups", { fixture: fx.fixture.id }));
     }
   }
 

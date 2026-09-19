@@ -40,6 +40,30 @@ caso("sin partidos por jugar no hay ventana",
      enVentana(cacheCon([fx(1, min(-60), "FT")]), AHORA) === null);
 caso("un cache sin fixtures tampoco rompe", enVentana({}, AHORA) === null);
 
+/* ── EL CACHE TIENE MÁS DE UN CALENDARIO ────────────────────────────────
+   `datos-juego` baja también los partidos del RIVAL, para armarle el
+   plantel, así que en un cache de club conviven dos o tres claves
+   `/fixtures?team=`. Agarrar la primera funcionaba de casualidad, por el
+   orden de inserción. Acá el rival va PRIMERO a propósito: si alguien
+   vuelve al `.find()` de antes, esto se cae.
+
+   La falla que evita no hace ruido: la ronda corta se pone a mirar el
+   calendario del rival, no tira error, no rompe ninguna otra prueba, y el
+   once del DT simplemente deja de salir para ese club. */
+{
+  const cacheMezclado = {
+    "/fixtures?team=1066&season=2026&league=128": [fx(77, min(600))],   /* el rival, en tres días */
+    "/fixtures?team=456&season=2026&league=128":  [fx(88, min(60))],    /* el club, en una hora */
+  };
+  caso("con el club dicho, mira el calendario del club y no el del rival",
+       enVentana(cacheMezclado, AHORA, VENTANA, 456)?.fixture.fixture.id === 88,
+       String(enVentana(cacheMezclado, AHORA, VENTANA, 456)?.fixture.fixture.id));
+  /* Y si el apiId no matchea ninguna clave -un cache viejo, otra
+     temporada- no se queda sin nada: vuelve al comportamiento de antes. */
+  caso("con un club que no está en el cache, no se cuelga",
+       enVentana(cacheMezclado, AHORA, VENTANA, 999) !== undefined);
+}
+
 /* ─── ¿ya la tenemos? ────────────────────────────────────────────────────── */
 caso("si la formación ya está en el cache, lo dice y no hay que pedirla",
      enVentana(cacheCon([fx(1, min(60))], { "/fixtures/lineups?fixture=1": [{ team: { id: 456 }, startXI: [{}] }] }), AHORA)?.tiene === true);
