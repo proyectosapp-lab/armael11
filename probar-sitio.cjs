@@ -1317,6 +1317,53 @@ srv.listen(8099, async () => {
     };
   });
 
+  /* ══ SE TIENE QUE PODER COMPRAR, Y DESDE DONDE SE VE EL PRECIO ══════
+     El 19/9/2026 Fausto abrió la app aprobada y dijo: "no hay un solo
+     botón para comprar. Está el aviso con los precios y en ningún lado la
+     opción". Tenía razón: los botones existían SOLO adentro del panel de
+     cuenta, y ese panel solo los dibuja si la persona ya entró y ya eligió
+     usuario. El que abría la app y quería pagar veía el precio y no tenía
+     dónde tocar.
+
+     Esto fija las dos mitades del arreglo: que los botones estén donde se
+     ve el precio, y que escuchen. Un botón dibujado y sin escuchador es
+     peor que no tenerlo: parece roto. */
+  {
+    const compra = await pg.evaluate(() => {
+      window.__antes = { planes: PLANES, cupo: CUPO };
+      PLANES = [{ id:"liga", nombre:"Tu liga", precio:3000, detalle:"una liga" },
+                { id:"tres", nombre:"3 ligas", precio:7500, detalle:"tres ligas" },
+                { id:"todas", nombre:"Todas las ligas", precio:12000, detalle:"las once" }];
+      CUPO = { plan:"gratis", usadas:3, hasta:null, ligas:["argentina"], cobra:false };
+      pintar();
+      const todos = [...document.querySelectorAll("[data-plan]")];
+      const fuera = todos.filter(b => !b.closest("#cuenta"));
+      return {
+        total: todos.length,
+        fueraDelPanel: fuera.length,
+        ids: fuera.map(b => b.dataset.plan),
+        sonBotones: fuera.every(b => b.tagName === "BUTTON"),
+        escuchan: fuera.every(b => typeof b.onclick === "function"),
+        apagados: fuera.filter(b => b.disabled).length,
+      };
+    });
+    caso("los tres planes se pueden comprar desde donde se ve el precio",
+         compra.fueraDelPanel === 3, JSON.stringify(compra));
+    caso("y son los tres planes de verdad",
+         compra.ids.join(",") === "liga,tres,todas", compra.ids.join(","));
+    caso("son botones, no texto de adorno", compra.sonBotones === true);
+    caso("y cada uno escucha: un botón dibujado que no hace nada parece roto",
+         compra.escuchan === true);
+    caso("con el cobro prendido, ninguno queda apagado",
+         compra.apagados === 0, compra.apagados + " apagados");
+    /* Se deja todo como estaba: lo que sigue cuenta simulaciones y un CUPO
+       cambiado acá le movería el piso. */
+    await pg.evaluate(() => {
+      PLANES = window.__antes.planes; CUPO = window.__antes.cupo;
+      delete window.__antes; pintar();
+    });
+  }
+
   caso("el plan gratis son diez simulaciones por mes", cupos.topes.gratis === 10,
        JSON.stringify(cupos.topes));
   /* El tope del libre es Infinity. Playwright lo trae tal cual, pero un
@@ -1839,6 +1886,34 @@ srv.listen(8099, async () => {
        que Perú, México y Colombia estaban adentro y en el repo no estaban. */
     caso("y sabe qué ligas están de verdad en la app, sin preguntarle a la base",
          !/\{\{LIGAS_EN_APP\}\}/.test(r.texto) && /const EN_LA_APP = \[/.test(r.texto));
+  }
+
+  /* ══ EL PUENTE NATIVO ESTÁ, Y ESTÁ APAGADO ════════════════════════
+     `nativo.js` viaja en TODAS las páginas, también en la web: hay un solo
+     sitio publicado y no una versión para iPhone y otra para el navegador.
+     Lo que hay que fijar es que acá no haga nada.
+
+     Y hay un caso que ya nos mordió una vez: estos archivos entran como
+     <script> sueltos y comparten el mismo alcance global. `nativo.js`
+     definía `hayRed`, que en la app ya significaba "hay red publicitaria",
+     y la colisión mataba el script entero: la portada dejaba de dibujarse.
+     Por eso se comprueba que las funciones existan Y que la app siga
+     funcionando, que es lo que la colisión rompía. */
+  {
+    const n = await pg.evaluate(() => ({
+      cargado: typeof arrancarNativo === "function" && typeof vibrar === "function",
+      nativo: typeof hayNativo === "function" ? hayNativo() : null,
+      vibro: typeof vibrar === "function" ? vibrar("gol") : null,
+      compartio: typeof compartirNativo === "function",
+      publicidad: typeof hayRed === "function" ? hayRed() : "no existe",
+    }));
+    caso("el puente nativo viaja en la página", n.cargado === true);
+    caso("y en el navegador dice que no es nativo", n.nativo === false);
+    caso("la háptica no hace nada acá y no rompe", n.vibro === false);
+    caso("compartir nativo existe pero cede al camino de la web", n.compartio === true);
+    /* Si esto vuelve "no existe", alguien pisó hayRed otra vez. */
+    caso("y NO pisó el hayRed de la publicidad, que es otra cosa",
+         n.publicidad !== "no existe", String(n.publicidad));
   }
 
   caso("el navegador NUNCA llamó a api-sports.io", apiTocada.length === 0);

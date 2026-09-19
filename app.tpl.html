@@ -1342,6 +1342,13 @@ function copiarTexto(txt){
 
 async function compartir(texto, url){
   const todo = texto + "\n" + url;
+  /* Adentro de la app nativa, la hoja del sistema. Va primero porque es la
+     que se siente como una app y no como una página: el menú de iOS con
+     todas las apps del teléfono, no un salto a WhatsApp. En el navegador
+     `compartirNativo` devuelve false y sigue el camino de siempre. */
+  if(typeof compartirNativo === "function"){
+    try{ if(await compartirNativo(texto, url)) return "compartido"; }catch(e){}
+  }
   if(navigator.share){
     try{ await navigator.share({ text: texto, url }); return "compartido"; }
     catch(e){ if(e && e.name === "AbortError") return null; }
@@ -3322,18 +3329,60 @@ function bloqueCupo(){
   if(e.ilimitado && e.entraLiga)
     return `<p class="aviso" style="margin-top:10px">${esc(textoCupo(e, CUPO.hasta, liga))}</p>`;
 
-  const lista = PLANES.length
-    ? `<div class="otras" style="margin-top:8px">${PLANES.map(p=>
-        `<span><b>${esc(p.nombre || "Plan")}</b>
-         ${esc(plata(p.precio))}</span>`).join("")}</div>`
-    : "";
+  /* ── ACÁ SE COMPRA, Y NO EN OTRO LADO ──────────────────────────────────
+     Esto eran tres `<span>` con los precios, de adorno: los botones que de
+     verdad compran vivían adentro del panel de cuenta, y ese panel solo
+     dibuja los planes si la persona YA entró y YA eligió usuario. O sea que
+     el que abría la app y quería pagar veía los precios y no tenía dónde
+     tocar. Fausto lo dijo derecho: "no hay un solo botón para comprar".
 
+     El razonamiento original era correcto —el precio se ve donde se siente
+     el tope— y estaba a medio hacer: se mostró el precio y no el botón. Los
+     dos van juntos, en el mismo lugar, para todos.
+
+     Al que no tiene cuenta no se le esconde el botón: se le abre la cuenta.
+     El plan tiene que quedar atado a alguien, y eso se explica en el momento
+     en que hace falta, no antes. */
   return `<p class="aviso" style="margin-top:10px">
       <b>${esc(textoCupo(e, CUPO.hasta, liga))}</b>
       ${CUPO_CFG.cobrando
         ? "Con un plan simulás sin límite y sin avisos."
         : "Cuando se pase de diez va a hacer falta un plan; todavía no se cobra nada."}
-    </p>${lista}`;
+    </p>${tarjetasDePlan()}`;
+}
+
+/* ── LOS TRES BOTONES DE PLAN ────────────────────────────────────────────
+   Una sola definición, usada en los dos lugares donde aparecen: abajo del
+   botón de Simular —donde se siente el tope— y adentro del panel de cuenta.
+   Estaban duplicados y por eso uno de los dos se quedó sin botones.
+
+   Adentro de la app de Play, la compra la hace Play. Si su facturación
+   todavía no está disponible —la versión instalada es anterior, o los
+   productos no están dados de alta— los botones se apagan y se dice por
+   qué. Lo que NO se hace nunca es ofrecer Mercado Pago ni mandar a pagar
+   afuera: eso es exactamente lo que Google prohíbe. */
+function tarjetasDePlan(){
+  if(!conBackend || !PLANES.length) return "";
+  const porPlay = esDeLaTienda();
+  const playListo = !porPlay || PLAY_OK !== false;
+  const apagado = comprando || !CUPO_CFG.cobrando || !playListo;
+  const tarjeta = p => `<button class="boton flaco" data-plan="${esc(p.id)}"
+      ${apagado ? "disabled" : ""}
+      style="flex:1 1 150px;text-align:left;line-height:1.35">
+      <b>${esc(p.nombre || "Plan")}</b><br>
+      <span style="opacity:.72;font-size:12px">${esc(p.detalle || "")}</span><br>
+      <span style="opacity:.75">${esc(plata(p.precio))} por mes</span></button>`;
+
+  return `<div class="par" style="margin-top:10px;flex-wrap:wrap;gap:8px">
+      ${PLANES.map(tarjeta).join("")}
+    </div>
+    <p class="aviso" style="margin-top:8px">${!CUPO_CFG.cobrando
+      ? "<b>Todavía no se cobra nada.</b> Los precios están acá para que sepas de antemano cuánto va a salir cuando se prenda."
+      : !playListo
+        ? "<b>La compra desde la app todavía no está disponible.</b> Si ya tenés un plan, entrá con tu cuenta y lo vas a tener acá."
+        : porPlay
+          ? "Se paga con Google Play. Se vence solo: no queda nada debitándose todos los meses."
+          : "Se paga con Mercado Pago. Se vence solo: no queda nada debitándose todos los meses."}</p>`;
 }
 
 /* ── QUE TOCASTE ──────────────────────────────────────────────────────────
@@ -3716,7 +3765,13 @@ function mostrarPartido(part, alTerminar){
     pel.style.left=x+"%"; pel.style.top=y+"%";
     if(campo) moverJugadores(campo, x, y);
     rel.textContent = min+"'"; pintarGoles();
-    if(huboGol){ gol.classList.add("on"); setTimeout(()=>gol.classList.remove("on"), 550); }
+    /* EL GOL SE SIENTE EN LA MANO. Adentro de la app de iPhone el teléfono
+       vibra con cada gol del partido simulado; en el navegador esto no
+       existe y `vibrar` devuelve false sin hacer nada. Es la diferencia más
+       concreta entre la app y el sitio, y la que un revisor de Apple puede
+       comprobar en diez segundos. */
+    if(huboGol){ gol.classList.add("on"); setTimeout(()=>gol.classList.remove("on"), 550);
+      if(typeof vibrar === "function") vibrar("gol"); }
   /* ── POR QUÉ EL PARTIDO DURA VEINTE SEGUNDOS ────────────────────────
      Dos razones, y ninguna es estética.
 
@@ -4239,6 +4294,11 @@ function pintar(){
 }
 
 function enganchar(){
+  /* Los botones de plan viven abajo del botón de Simular y se redibujan en
+     cada pintar(), así que hay que volver a engancharlos acá. Antes solo se
+     enganchaban al dibujar el panel de cuenta, y por eso los de la vista
+     principal eran de adorno. */
+  if(typeof engancharPremium === "function") engancharPremium();
   const k=$("k"); if(k) k.oninput=e=>J.key=e.target.value.trim();
   const t=$("temp"); if(t) t.onchange=e=>J.temporada=+e.target.value;
   const bc=$("bcargar"); if(bc) bc.onclick=()=>{
@@ -4379,6 +4439,18 @@ pintar();
 {
   const b = leerBorrador();
   if(b){ F11 = b; pintar(); }
+}
+
+/* ── LO NATIVO, SI ESTAMOS ADENTRO DE LA APP ─────────────────────────────
+   Engancha los links del feed para que abran en el navegador de adentro,
+   pone la barra de estado del color de la app y saca el splash. En la web
+   `arrancarNativo` devuelve false en la primera línea y no pasa nada.
+
+   Lo de la red repinta cuando vuelve la señal: la pantalla que estaba
+   mostrando "no hay conexión" se actualiza sola, sin que la persona tenga
+   que adivinar que ya puede volver a intentar. */
+if(typeof arrancarNativo === "function"){
+  try{ arrancarNativo(hay => { if(hay) pintar(); }); }catch(e){}
 }
 
 /* Si los datos del juego ya vienen con la página, no hay nada que pedirle
@@ -4661,15 +4733,6 @@ function bloquePremium(){
      productos no están dados de alta-, los botones se apagan y se dice por
      qué. Lo que NO se hace es ofrecer Mercado Pago ni mandar a pagar afuera:
      eso es exactamente lo que Google prohíbe. */
-  const porPlay = esDeLaTienda();
-  const playListo = !porPlay || PLAY_OK !== false;
-  const tarjeta = p => `<button class="boton flaco" data-plan="${esc(p.id)}"
-      ${comprando || !CUPO_CFG.cobrando || !playListo ? "disabled" : ""}
-      style="flex:1 1 150px;text-align:left;line-height:1.35">
-      <b>${esc(p.nombre || "Plan")}</b><br>
-      <span style="opacity:.72;font-size:12px">${esc(p.detalle || "")}</span><br>
-      <span style="opacity:.75">${esc(plata(p.precio))} por mes</span></button>`;
-
   return `<div class="pendiente" style="margin-top:14px">
       <b>Los planes</b><br>
       Diez simulaciones por mes son gratis, en una liga, y llevan un aviso.
@@ -4678,16 +4741,7 @@ function bloquePremium(){
       aparece ningún aviso.
     </div>
     ${contador}
-    <div class="par" style="margin-top:10px;flex-wrap:wrap;gap:8px">
-      ${PLANES.map(tarjeta).join("")}
-    </div>
-    <p class="aviso" style="margin-top:8px">${!CUPO_CFG.cobrando
-      ? "<b>Todavía no se cobra nada.</b> Los precios están acá para que sepas de antemano cuánto va a salir cuando se prenda."
-      : !playListo
-        ? "<b>La compra desde la app todavía no está disponible.</b> Si ya tenés un plan, entrá con tu cuenta y lo vas a tener acá."
-        : porPlay
-          ? "Se paga con Google Play. Se vence solo: no queda nada debitándose todos los meses."
-          : "Se paga con Mercado Pago. Se vence solo: no queda nada debitándose todos los meses."}</p>`;
+    ${tarjetasDePlan()}`;
 }
 
 /* ══════════════ DÓNDE SE PAGA, Y POR QUÉ NO ES LO MISMO ═══════════════
@@ -4759,9 +4813,25 @@ async function comprarEnPlay(idPlan){
 }
 
 function engancharPremium(){
-  document.querySelectorAll("#cuenta [data-plan]").forEach(b=>{
+  /* TODOS los botones de plan de la página, no solo los del panel de cuenta.
+     Este selector decía `#cuenta [data-plan]` y por eso los de abajo del
+     botón de Simular no hacían nada: existían y no escuchaban a nadie. */
+  document.querySelectorAll("[data-plan]").forEach(b=>{
     b.onclick=async()=>{
       if(comprando) return;
+      /* ── SIN CUENTA NO SE PUEDE COMPRAR, Y HAY QUE DECIRLO ────────────
+         El pase se acredita a un perfil: sin cuenta no hay a quién
+         acreditárselo, y una compra que no sabe de quién es, es una compra
+         perdida. Así que en vez de un botón que no responde, se abre la
+         cuenta y se explica por qué justo ahí. El que entra vuelve a
+         encontrar los mismos botones, en el mismo lugar. */
+      if(conBackend && !quienSoy()){
+        cuentaAbierta = true;
+        pintarCuenta("Para comprar un plan primero entrá con tu mail: el pase " +
+                     "queda atado a tu cuenta y así lo tenés en cualquier teléfono.", false);
+        document.getElementById("cuenta")?.scrollIntoView({ behavior:"smooth", block:"center" });
+        return;
+      }
       comprando=true; b.textContent="Abriendo…";
       /* Adentro de la app, por Google; en la web, por Mercado Pago. */
       if(esDeLaTienda()){

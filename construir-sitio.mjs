@@ -48,6 +48,14 @@ if (HAY_BACKEND)
   writeFileSync(new URL("cuentas.js", DATOS),
     readFileSync(aca("./cuentas.js"), "utf8").replace(/^export\s+/gm, ""));
 
+/* El puente nativo. Va SIEMPRE, también en la web: adentro no hay nada que
+   se ejecute si no existe Capacitor, y tenerlo en las dos partes significa
+   que hay un solo sitio publicado y no una versión para iPhone y otra para
+   el navegador. Los `export` se sacan igual que en cuentas.js: esto entra
+   como <script> suelto, no como módulo. */
+writeFileSync(new URL("nativo.js", DATOS),
+  readFileSync(aca("./nativo.js"), "utf8").replace(/^export\s+/gm, ""));
+
 /* La fecha del fantasy y su reglamento. Se copian solo si hay una fecha
    publicada: sin eso la pestaña no aparece y la app pesa lo mismo que
    antes. `fantasy.mjs` es EL MISMO archivo que usa el servidor para
@@ -238,6 +246,7 @@ function armarPagina(club, op) {
            teléfono la necesita para suscribirse y no sirve para mandar. */
         avisos: CFG.avisos?.vapidPublica ? { vapidPublica: CFG.avisos.vapidPublica } : undefined,
       }) + '</script>',
+    '<script src="datos/nativo.js"></script>',
     HAY_BACKEND ? '<script src="datos/cuentas.js"></script>' : null,
     FECHA ? '<script src="datos/fantasy.js"></script>' : null,
     FECHA ? '<script src="datos/fecha.js"></script>' : null,

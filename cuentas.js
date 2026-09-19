@@ -160,9 +160,37 @@ export async function entrarConClave(email, clave) {
 export async function pedirLink(email, volverA) {
   const e = limpiarMail(email);
   if (!MAIL_OK(e)) throw new Error("Ese mail no parece un mail.");
-  await pedir("/auth/v1/otp", { metodo: "POST", sinToken: true,
-    cuerpo: { email: e, create_user: true, options: { email_redirect_to: volverA } } });
+  try {
+    await pedir("/auth/v1/otp", { metodo: "POST", sinToken: true,
+      cuerpo: { email: e, create_user: true, options: { email_redirect_to: volverA } } });
+  } catch (err) { throw new Error(porQueNoSalioElMail(err)); }
   return e;
+}
+
+/* ── CUANDO EL MAIL NO SALE, HAY QUE DECIRLO ─────────────────────────────
+   Esta es la falla más traicionera que tiene la app, porque es invisible: la
+   pantalla dice "te mandamos un mail", el mail no sale, y la persona se
+   queda mirando una bandeja vacía convencida de que la app está rota. Y
+   pasa justo en el peor momento —un día de campaña, cuando se llega al tope
+   de envíos— o sea con la gente que recién llega.
+
+   Los dos casos que van a pasar de verdad se nombran, y se nombra de quién
+   es la culpa: no es el mail de la persona, es nuestro correo. El resto
+   pasa como está, porque inventar un mensaje amable para un error que no
+   entendemos manda a buscar donde no es.
+
+   Pura y exportada para poder probarla sin red. */
+export function porQueNoSalioElMail(err) {
+  const m = String((err && err.message) || err || "");
+  /* Los dos topes de envío —la espera corta y el tope por hora— ya los
+     traduce `mensajeDe`, y bien. Acá se agrega SOLO lo que faltaba: cuando
+     el correo directamente no sale. Ese caso hoy llegaba como "Error
+     sending magic link email", en inglés y sin decir de quién es el
+     problema, y la persona se ponía a revisar su casilla. */
+  if (/error sending|failed to send|smtp/i.test(m))
+    return "No pudimos mandarte el mail en este momento. No es tu casilla: es nuestro correo. " +
+           "Probá de nuevo en un rato y, si sigue, escribinos.";
+  return m || "No pudimos mandarte el mail en este momento.";
 }
 
 /* Al volver del mail, Supabase manda los tokens en el hash de la dirección.

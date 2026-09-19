@@ -1,3 +1,94 @@
+Arma el 11 - version 2026-09-19 y47 (se puede comprar, que es lo minimo)
+
+  · INCLUYE y45 y y46. Se sube este solo.
+
+  · EL PROBLEMA. Fausto abrio la app aprobada por Google y dijo: "no hay un
+    solo boton para comprar. Esta el aviso con los precios y en ningun lado
+    la opcion de comprar, que deberia estar muy a la vista". Tenia razon y
+    era grave: la app ya estaba aprobada con facturacion y no se podia pagar.
+
+  · POR QUE PASABA. Los botones existian SOLO adentro del panel de cuenta, y
+    ese panel dibuja los planes unicamente en la rama de "ya entraste y ya
+    elegiste usuario". Abajo del boton de Simular habia tres <span> con los
+    precios, de adorno. O sea: el precio se mostraba a todo el mundo y el
+    boton a casi nadie.
+
+    Lo peor es que el razonamiento original estaba bien y escrito en el
+    codigo -"el precio se ve donde se siente el tope"- y quedo a medio
+    hacer: se puso el precio y no el boton. Las dos cosas van juntas.
+
+  · QUE CAMBIA. Una sola definicion de los tres botones, `tarjetasDePlan()`,
+    usada en los dos lugares: abajo de Simular y adentro del panel. Estaban
+    duplicados, y por eso uno de los dos se quedo sin botones.
+
+    Y el enganche: el selector decia `#cuenta [data-plan]`, asi que los
+    botones de la vista principal existian sin escuchar a nadie. Ahora
+    engancha todos, y se vuelve a enganchar en cada pintar().
+
+  · SIN CUENTA NO SE ESCONDE EL BOTON, SE ABRE LA CUENTA. El pase se
+    acredita a un perfil: sin cuenta no hay a quien acreditarselo. Antes eso
+    habria sido un boton que no responde. Ahora abre el panel y explica por
+    que justo ahi: "el pase queda atado a tu cuenta y asi lo tenes en
+    cualquier telefono".
+
+  · PRUEBAS: 5 casos nuevos que fijan las dos mitades del arreglo -que los
+    botones esten donde se ve el precio, y que escuchen-. Un boton dibujado
+    sin escuchador es peor que no tenerlo: parece roto. 278 en la suite del
+    navegador.
+
+  · ARCHIVOS: app.tpl.html, probar-sitio.cjs, VERSION.txt, mas todo lo de
+    y45 y y46 (nativo.js, probar-nativo.mjs, cuentas.js, construir-sitio.mjs,
+    publicar.mjs, formaciones.mjs, ligas-api.mjs, probar-formaciones.mjs).
+
+Arma el 11 - version 2026-09-19 y46 (el puente nativo, para la App Store)
+
+  · INCLUYE y45, que no llego a subirse. Se sube este solo.
+
+  · QUE ES. `nativo.js`, la pieza que contesta la regla 4.2 de Apple: "tu
+    app tiene que ofrecer algo mas que un sitio web reempaquetado". Son
+    cuatro cosas concretas, y la primera es la que se demuestra en diez
+    segundos:
+
+      1. EL TELEFONO VIBRA EN CADA GOL del partido simulado. Safari en
+         iPhone no tiene haptica: es una diferencia real, no un argumento.
+      2. Compartir usa la hoja del sistema, no un link de wa.me.
+      3. Los links del feed abren DENTRO de la app. Esto ademas es
+         obligatorio: un webview que se va navegando a un diario es la
+         definicion del rechazo.
+      4. La app sabe si hay conexion de verdad (navigator.onLine miente:
+         dice que hay red con un wifi sin internet).
+
+  · LA REGLA QUE ORDENA EL ARCHIVO: nada de esto puede romper la web. El
+    mismo sitio corre en armael11.com, en la TWA de Android y adentro de la
+    app de iPhone. Cada funcion pregunta primero si hay con que; si no lo
+    hay devuelve false y el que llamo sigue como antes. Sin imports, sin
+    bundler, sin npm: los plugins se leen de window.Capacitor.Plugins en el
+    momento de usarlos. Meter un paso de compilacion romperia lo unico que
+    hace que esto se pueda arreglar sin una maquina de desarrollo al lado.
+
+  · LO QUE COSTO, Y QUEDA ANOTADO. `nativo.js` definia `hayRed`, que en la
+    app ya existia y significaba OTRA COSA: "hay red publicitaria". Los dos
+    archivos entran como <script> sueltos y comparten el alcance global, asi
+    que la colision mataba el script entero y la portada dejaba de
+    dibujarse. Lo agarro la suite del navegador. Ahora se llama
+    `hayConexion` y hay un caso que falla si alguien vuelve a pisarlo.
+
+  · EL MAIL QUE NO SALE, AHORA LO DICE. Era la falla mas traicionera que
+    tenia la app porque era invisible: la pantalla decia "te mandamos un
+    mail", el mail no salia, y la persona se quedaba mirando una bandeja
+    vacia convencida de que la app estaba rota. Y pasa justo en el peor
+    momento: un dia de campana, cuando se llega al tope de envios. Ahora
+    dice que no es su casilla, que es nuestro correo, y que pruebe en un
+    rato. Los dos topes de envio ya los traducia `mensajeDe` y NO se pisan.
+
+  · PRUEBAS: 44 casos nuevos en `probar-nativo.mjs`, cada funcion probada
+    con Capacitor y sin Capacitor. 5 casos nuevos en la suite del navegador.
+    273 en total ahi, todo el resto en verde.
+
+  · ARCHIVOS: nativo.js (nuevo), probar-nativo.mjs (nuevo), app.tpl.html,
+    cuentas.js, construir-sitio.mjs, publicar.mjs, probar-sitio.cjs,
+    formaciones.mjs, ligas-api.mjs, probar-formaciones.mjs, VERSION.txt.
+
 Arma el 11 - version 2026-09-18 y45 (el once del DT, en las once ligas)
 
   · QUE CAMBIA. Hasta ahora la formacion confirmada del DT se bajaba sola
