@@ -1,3 +1,60 @@
+Arma el 11 - version 2026-09-19 y58 (la foto sale del sitio publicado)
+
+  · SE SUBE ESTE SOLO. Cambia dos archivos: empaquetar-ios.mjs y su prueba.
+
+  · LO QUE DIJO EL LOG DE LA COMPILACION 5:
+
+      ⚠ el sitio venia CON publicidad: saque 2 script(s) de 2 pagina(s) y el ads.txt
+      ✓ ni un byte de AdSense en el paquete (15 archivos mirados)
+
+    Dos cosas, las dos importantes.
+
+    La primera: EL ARREGLO DE LA PUBLICIDAD FUNCIONA. El sitio venia con
+    ella y el paquete quedo limpio. Ese problema esta cerrado.
+
+    La segunda: DOS paginas. QUINCE archivos. O sea que la compilacion
+    armaba un sitio practicamente vacio, y ahi estaba el problema de fondo.
+
+  · POR QUE PASABA. `construir-sitio.mjs` arma una pagina por club, pero
+    solo de los clubes CUYOS DATOS ESTAN BAJADOS. Y esos datos -`sitio/datos`-
+    no viven en el repositorio: viven en el cache del workflow de GitHub,
+    que Codemagic no ve. La Mac de Codemagic no tiene con que armar el
+    sitio, y no lo dice: arma lo que puede.
+
+  · EL ARREGLO: LA FOTO SALE DE armael11.com. Ya no se arma el sitio en la
+    Mac. Se BAJA el sitio publicado, siguiendo los enlaces de cada pagina:
+    la portada, las paginas de club, los archivos de datos que cada una
+    menciona, los manifiestos y los iconos que los manifiestos nombran.
+
+    Arregla el problema y ademas es mas honesto. La foto es exactamente lo
+    que ve un visitante en el momento de compilar: los partidos de la fecha,
+    los onces que trajo la ronda corta, los textos que esten arriba. No es
+    "una version del sitio armada de nuevo": es el sitio.
+
+    Y de paso desaparece la dependencia con `SIN_PUBLICIDAD=1`, que en
+    Codemagic no hacia efecto. El sitio publicado TIENE publicidad -esta
+    bien, es un sitio web- y el empaquetado se la saca. Punto.
+
+  · COMO SE PRUEBA ALGO QUE BAJA DE INTERNET SIN INTERNET. El descargador se
+    pasa de afuera, igual que en `datos-ios.js`. En las pruebas el "sitio"
+    son ocho cadenas de texto en un objeto, y se verifica que con UNA sola
+    semilla -la portada- llegue a las ocho cosas siguiendo enlaces. El unico
+    pedazo que no se puede probar aca es el `fetch` de una linea.
+
+    11 casos en `probar-empaquetado-ios.mjs` (eran 5). Los que mas valen no
+    son los que prueban que baje:
+
+    - Que un 404 NO corte la bajada entera. Un club sin pagina todavia no
+      puede convertir "falta un club" en "no hay app".
+    - Que sin red devuelva vacio en vez de tirar.
+    - Que no pida dos veces el mismo archivo.
+    - Que mire los `url()` del CSS incrustado: ahi viven las fuentes, y sin
+      eso la app quedaria sin tipografia y nadie se daria cuenta hasta
+      verla en un iPhone.
+    - Que el `?c=` y el `#ancla` se saquen: son la MISMA pagina, y sin eso
+      se baja dos veces y se guarda con un nombre que el navegador nunca va
+      a pedir.
+
 Arma el 11 - version 2026-09-19 y57 (los nombres de los equipos, y la publicidad afuera de verdad)
 
   · SE SUBE ESTE SOLO.
