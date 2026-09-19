@@ -1,3 +1,69 @@
+Arma el 11 - version 2026-09-19 y57 (los nombres de los equipos, y la publicidad afuera de verdad)
+
+  · SE SUBE ESTE SOLO.
+
+  · LO QUE DIJO EL LOG, QUE ES LO IMPORTANTE. Con el guardia mostrando la
+    prueba se vio lo que pasaba:
+
+      s.src="https://pagead2.googlesyndication.com/..." client=ca-pub-2032...
+      · ads.txt
+          google.com, pub-2032639837955609, DIRECT, f08c47fec0942fa0
+
+    O sea que el sitio se armo CON publicidad aunque se pidio sin. El
+    `ads.txt` lo confirma: con SIN_PUBLICIDAD=1 ese archivo se BORRA, y ahi
+    estaba. La variable no hizo efecto en la Mac de Codemagic.
+
+  · EL ARREGLO NO ES AVERIGUAR POR QUE. Es no depender de eso. Ahora hay
+    tres defensas en fila y no una:
+
+      1. `SIN_PUBLICIDAD=1`: el script ni se escribe.
+      2. NUEVO: despues de copiar, se SACA del paquete aunque este.
+      3. Se comprueba el resultado y se termina con error si sobrevivio algo.
+
+    Parecen la misma cosa tres veces y no lo son. La primera depende de que
+    la version de `construir-sitio.mjs` de esa maquina entienda la variable
+    —y el log demostro que eso no se puede dar por sentado—. La segunda no
+    depende de nadie: mira el archivo que va a viajar y saca lo que hay.
+
+  · COMO SE SACA, Y POR QUE NO CON UNA EXPRESION REGULAR. Se borra el
+    <script> ENTERO que contenga el dominio, recorriendo etiqueta por
+    etiqueta. La manera obvia de escribir esto es una expresion regular
+    sobre el archivo entero, y esa expresion empieza en el primer `<script`
+    y termina en el ULTIMO `</script>`: se come la app completa y deja una
+    pagina en blanco que igual pasa cualquier comprobacion de "no hay
+    AdSense". Seria la peor forma posible de aprobar la prueba.
+
+    Por eso `probar-empaquetado-ios.mjs` (5 casos) prueba sobre todo lo que
+    NO tiene que pasar: que sobrevivan el <script> de los datos, la funcion
+    `simular`, el titulo, el principio y el final de la pagina.
+
+  · LOS NOMBRES DE LOS EQUIPOS. Fausto: "la app sigue mostrando tu equipo y
+    rival cuando queres simular un partido, pero eso se presta a confusion
+    cuando queres simular un partido de la liga de Peru".
+
+    Tiene razon, y la distincion es exacta. En la pagina de un club, A es el
+    equipo del hincha y "tu / el rival" es la voz del producto: esta bien y
+    es parte de lo que hace que la app se sienta de uno. En un partido de
+    otra liga no hay ningun "vos": Alianza Lima no es tu equipo y Sporting
+    Cristal no es el rival. Son dos ajenos, y el unico texto que no confunde
+    es el nombre de cada uno.
+
+    Cambian siete lugares, todos los que decian "tu" o "rival" sobre un
+    EQUIPO: el titulo de cada tarjeta de planteo, las dos etiquetas de
+    formacion, las dos opciones de expulsados y las dos de goles. Los
+    nombres largos se recortan a 16 caracteres con puntos suspensivos:
+    "Universitario de Deportes" entero parte la fila de dos columnas y
+    desalinea el formulario.
+
+    LO QUE NO CAMBIA, Y ES A PROPOSITO: "tu once" y "tu simulacion" siguen
+    diciendo "tu", tambien en Peru. Ese once lo armaste vos de verdad.
+
+  · Y EL GUARDIA DEL PAQUETE VACIO SIGUE AHI. La proxima compilacion va a
+    fallar en el, a proposito: los datos no estan en el repositorio, estan
+    en el cache del workflow de GitHub. Lo que imprima —cuantas paginas y
+    cuantas ligas— es lo que confirma el diagnostico. La foto tiene que
+    salir de armael11.com y eso viene en el zip siguiente.
+
 Arma el 11 - version 2026-09-19 y56 (el guardia se planto bien, y mostraba mal)
 
   · SE SUBE ESTE SOLO. Cambia UN archivo: empaquetar-ios.mjs.

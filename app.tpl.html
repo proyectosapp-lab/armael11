@@ -4238,6 +4238,32 @@ function abrirPicker(lado, slot, cat){
    perillas mandan. Cuál está encendido se deduce con `planteoDe`, así que
    mover una perilla a mano apaga el botón solo: no hay dos verdades que
    puedan quedar en desacuerdo. */
+/* ── CÓMO SE LLAMA CADA LADO ────────────────────────────────────────────
+   Fausto, 19/9: "la app sigue mostrando tu equipo y rival cuando querés
+   simular un partido, pero eso se presta a confusión cuando querés simular
+   un partido de la liga de Perú".
+
+   Tiene razón, y la distinción es exacta. En la página de un club, A es el
+   equipo del hincha y "tu / el rival" es la voz del producto: está bien,
+   y es parte de lo que hace que la app se sienta de uno.
+
+   En un partido de otra liga no hay ningún "vos". Alianza Lima no es tu
+   equipo y Sporting Cristal no es el rival: son dos equipos ajenos, y el
+   único texto que no confunde es el nombre de cada uno. Peor todavía con
+   las perillas: "el planteo del rival" cuando los dos te dan igual no dice
+   de quién estás hablando.
+
+   Lo que NO cambia: "tu once" y "tu simulación" siguen diciendo "tu",
+   también en Perú. Ese once lo armaste vos de verdad. */
+const partidoPropio = () => !J.liga;
+const nombreLado = lado => (J.nom && J.nom[lado]) || (lado === "A" ? "Local" : "Visitante");
+/* Recortado, porque va adentro de etiquetas de formulario en dos columnas:
+   "Universitario de Deportes" entero parte la fila y desalinea las dos. */
+const nombreCorto = (lado, tope = 16) => {
+  const s = nombreLado(lado);
+  return s.length > tope ? s.slice(0, tope - 1).trim() + "…" : s;
+};
+
 function tarjetaPlanteo(lado){
   const mio = lado === "A";
   const K = mio ? J.K : J.KB;
@@ -4258,7 +4284,8 @@ function tarjetaPlanteo(lado){
     : "";
 
   const elegido = PLANTEOS.find(p=>p.id===activo);
-  return `<h3 class="sec">${mio ? "Tu planteo" : "El planteo del rival"}</h3>
+  return `<h3 class="sec">${partidoPropio() ? (mio ? "Tu planteo" : "El planteo del rival")
+      : "El planteo de " + esc(nombreLado(lado))}</h3>
     <div class="tarjeta">
       <nav class="filtros">${PLANTEOS.map(p=>
         `<button class="chip" data-pl="${lado}" data-plv="${p.id}"
@@ -4455,9 +4482,9 @@ function vistaJuego(){
       ${campoHTML()}
       ${bloqueDePublicidad()}
       <div class="fila2" style="margin-top:11px">
-        <div><label>Tu formación</label>
+        <div><label>${partidoPropio() ? "Tu formación" : esc(nombreCorto("A"))}</label>
           <select id="fA">${FORMS.map(f=>`<option${f===J.formA?" selected":""}>${f}</option>`).join("")}</select></div>
-        <div><label>La del rival</label>
+        <div><label>${partidoPropio() ? "La del rival" : esc(nombreCorto("B"))}</label>
           <select id="fB">${FORMS.map(f=>`<option${f===J.formB?" selected":""}>${f}</option>`).join("")}</select></div>
       </div>
       <div style="display:flex;justify-content:flex-end;margin-top:8px">
@@ -4496,14 +4523,14 @@ function vistaJuego(){
           <div><label for="drA">Expulsados</label>
             <select id="drA">
               <option value="0-0"${J.desde.rojasA===0&&J.desde.rojasB===0?" selected":""}>Ninguno</option>
-              <option value="0-1"${J.desde.rojasB===1?" selected":""}>Al rival, uno menos</option>
-              <option value="1-0"${J.desde.rojasA===1?" selected":""}>A vos, uno menos</option>
+              <option value="0-1"${J.desde.rojasB===1?" selected":""}>${partidoPropio() ? "Al rival, uno menos" : esc(nombreCorto("B",12)) + ", uno menos"}</option>
+              <option value="1-0"${J.desde.rojasA===1?" selected":""}>${partidoPropio() ? "A vos, uno menos" : esc(nombreCorto("A",12)) + ", uno menos"}</option>
             </select></div>
         </div>
         <div class="fila2" style="margin-top:8px">
-          <div><label for="dgA">Tus goles</label>
+          <div><label for="dgA">${partidoPropio() ? "Tus goles" : "Goles de " + esc(nombreCorto("A",12))}</label>
             <input type="number" id="dgA" min="0" max="9" step="1" value="${J.desde.golesA}"></div>
-          <div><label for="dgB">Sus goles</label>
+          <div><label for="dgB">${partidoPropio() ? "Sus goles" : "Goles de " + esc(nombreCorto("B",12))}</label>
             <input type="number" id="dgB" min="0" max="9" step="1" value="${J.desde.golesB}"></div>
         </div>
         ${J.desde.minuto>0?`<p class="nota" style="margin-top:10px">Va a simular

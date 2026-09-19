@@ -84,6 +84,7 @@ workflows:
       - name: Las pruebas que se pueden correr sin navegador
         script: |
           node probar-datos-ios.mjs
+          node probar-empaquetado-ios.mjs
           node probar-nativo.mjs
           node probar-campana.mjs
 

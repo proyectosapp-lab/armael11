@@ -7,29 +7,37 @@
    antes de compilar, y se puede correr en cualquier máquina para mirar qué
    quedó adentro.
 
-   ─── QUÉ HACE, Y EN QUÉ ORDEN ────────────────────────────────────────────
-   1. Arma el sitio con `SIN_PUBLICIDAD=1`.
-   2. COMPRUEBA que no haya quedado nada de AdSense. Si hay, se planta.
-   3. Copia el sitio a `app/www` y le agrega el refresco de datos.
-   4. Saca lo que es del sitio web y no de la app.
-   5. Vuelve a armar el sitio normal, para no dejar `sitio/` cambiado.
+   ─── EL ORDEN, Y POR QUÉ ESE ORDEN ───────────────────────────────────────
+   1. Borrar las páginas de una corrida anterior.
+   2. Armar el sitio con `SIN_PUBLICIDAD=1`.
+   3. Copiar a `app/www`.
+   4. SACAR la publicidad del copia, pase lo que pase.
+   5. Comprobar que no quedó nada. Si quedó, plantarse.
+   6. Comprobar que el paquete no esté vacío.
+   7. Enchufar el refresco de datos.
+   8. Volver a armar el sitio web, para no dejar `sitio/` cambiado.
 
-   ─── EL PASO 2 NO ES UNA FORMALIDAD ──────────────────────────────────────
+   ─── POR QUÉ HAY DOS DEFENSAS Y NO UNA ───────────────────────────────────
    El candado que protege a la app de Play mira el `document.referrer`
    buscando `android-app://`. Adentro de un webview de Capacitor ese
-   referrer NO EXISTE —es vacío o `capacitor://localhost`—, así que el HTML
-   del sitio tal cual cargaría AdSense adentro del iPhone.
+   referrer NO EXISTE, así que el HTML del sitio tal cual cargaría AdSense
+   adentro del iPhone. Eso rompe la política de AdSense —cuya sanción cae
+   sobre la cuenta entera— y desmiente la declaración de privacidad de la
+   ficha de la App Store.
 
-   Eso rompe dos cosas a la vez: la política de AdSense, cuya sanción cae
-   sobre la cuenta entera, y la declaración de privacidad de la ficha de la
-   App Store, donde decimos que la app no carga scripts de terceros.
+   La primera defensa es `SIN_PUBLICIDAD=1`: el script ni se escribe.
+   La segunda es el paso 4: se saca del paquete aunque esté.
 
-   Por eso la defensa es sacar el script del archivo y no agregarle otra
-   rama al candado: LO QUE NO ESTÁ EN EL ARCHIVO NO SE PUEDE PRENDER POR
-   ERROR. Y por eso la comprobación termina el programa con error en vez de
-   avisar: un empaquetado con publicidad adentro no tiene que poder llegar a
-   compilarse. Es el único lugar donde esto se puede frenar, porque el
-   .ipa no pasa por `publicar.mjs` ni por la batería de pruebas.
+   Parecen la misma cosa dos veces y no lo son. La primera depende de que
+   la versión de `construir-sitio.mjs` que hay en esta máquina entienda la
+   variable; el 19/9 una compilación en Codemagic demostró que eso no se
+   puede dar por sentado. La segunda no depende de nadie: mira el archivo
+   que va a viajar y saca lo que encuentra.
+
+   Y la tercera, el paso 5, comprueba el resultado y TERMINA CON ERROR si
+   algo sobrevivió. Un empaquetado con publicidad adentro no tiene que poder
+   llegar a compilarse. Es el único lugar donde esto se puede frenar, porque
+   el .ipa no pasa por `publicar.mjs` ni por la batería de pruebas.
    ══════════════════════════════════════════════════════════════════════════ */
 import { readFileSync, writeFileSync, existsSync, rmSync, cpSync, mkdirSync, readdirSync, statSync } from "node:fs";
 import { execFileSync } from "node:child_process";
@@ -39,14 +47,13 @@ const SITIO = aca("./sitio/");
 const WWW = aca("./app/www/");
 const linea = "─".repeat(70);
 const kb = n => (n / 1024).toFixed(0) + " KB";
+const DOMINIOS = /googlesyndication|pagead2/;
 
 const construir = (nativo) => execFileSync("node", ["construir-sitio.mjs"], {
   cwd: new URL(".", import.meta.url), stdio: "pipe",
   env: { ...process.env, SIN_PUBLICIDAD: nativo ? "1" : "" },
 });
 
-/* Recorre un directorio entero. Se usa para medir y para revisar, así que
-   devuelve las rutas de verdad y no nombres sueltos. */
 function todosLosArchivos(dir, base = dir, salida = []) {
   for (const n of readdirSync(dir)) {
     const u = new URL(n + "", dir);
@@ -57,95 +64,139 @@ function todosLosArchivos(dir, base = dir, salida = []) {
   return salida;
 }
 
+/* ── SACAR LA PUBLICIDAD DE UNA PÁGINA ───────────────────────────────────
+   Se borra el `<script>` ENTERO que contenga el dominio de Google, no la
+   línea ni el texto suelto. Quitar solo la dirección dejaría el script ahí,
+   a medio escribir, y un script roto en la primera etiqueta de la página
+   puede llevarse puesto todo lo que viene después.
+
+   Se recorre etiqueta por etiqueta en vez de una expresión regular sobre
+   todo el archivo: una expresión que empiece en el primer `<script` y
+   termine en el último `</script>` se come la app entera, y es el error
+   clásico de hacer esto con una sola línea. */
+export function sacarPublicidad(html) {
+  const t = String(html || "");
+  let out = "", i = 0, sacados = 0;
+  for (;;) {
+    const ini = t.indexOf("<script", i);
+    if (ini < 0) { out += t.slice(i); break; }
+    const fin = t.indexOf("</script>", ini);
+    if (fin < 0) { out += t.slice(i); break; }
+    const bloque = t.slice(ini, fin + 9);
+    out += t.slice(i, ini);
+    if (!DOMINIOS.test(bloque)) out += bloque; else sacados++;
+    i = fin + 9;
+  }
+  return { html: out, sacados };
+}
+
+/* Si este archivo se importa —para probar `sacarPublicidad` sin empaquetar
+   nada— no corre el programa. Sin esto, una prueba armaría el sitio entero
+   dos veces solo para llamar a una función pura. */
+const ME_CORREN = process.argv[1] && import.meta.url.endsWith(process.argv[1].split(/[\\/]/).pop());
+if (!ME_CORREN) { /* importado: solo se exporta lo de arriba */ }
+else {
+
 console.log("\n" + linea + "\n  EMPAQUETAR PARA iOS\n" + linea);
 
-/* ─── 0. las páginas viejas, afuera ──────────────────────────────────────
+/* ─── 1. las páginas viejas, afuera ──────────────────────────────────────
    `construir-sitio.mjs` ESCRIBE las páginas pero no borra las que sobran, y
    tiene razón en no hacerlo: es el que arma el sitio web, no el que lo
-   limpia. Pero acá eso importa distinto. Si en `sitio/` quedó un `.html` de
-   una corrida anterior —con la publicidad puesta, por ejemplo—, el
-   empaquetado lo copiaría adentro del .ipa aunque esta corrida haya armado
-   todo bien.
-
-   Es la regla de siempre: lo generado que sobrevive a su motivo miente. Se
-   borran solo los `.html` de la raíz, que son lo que esta corrida vuelve a
-   escribir entero. `datos/` NO se toca: ahí vive lo que se bajó de la API y
-   volver a pedirlo cuesta cuota. */
+   limpia. Pero si acá quedó un `.html` de una corrida anterior —con la
+   publicidad puesta— el empaquetado lo copiaría adentro del .ipa aunque
+   esta corrida haya armado todo bien. Lo generado que sobrevive a su motivo
+   miente. `datos/` NO se toca: ahí vive lo que se bajó de la API. */
 {
   let barridas = 0;
   if (existsSync(SITIO))
     for (const n of readdirSync(SITIO))
       if (n.endsWith(".html")) { rmSync(new URL(n, SITIO), { force: true }); barridas++; }
-  if (barridas) console.log("  · " + barridas + " página(s) de una corrida anterior, borradas antes de empezar");
+  if (barridas) console.log("  · " + barridas + " página(s) de una corrida anterior, borradas");
 }
 
-/* ─── 1. el sitio, sin publicidad ────────────────────────────────────── */
+/* ─── 2. el sitio, sin publicidad ────────────────────────────────────── */
 construir(true);
 console.log("  ✓ sitio armado con SIN_PUBLICIDAD=1");
 
-/* ─── 2. la revisión que puede plantar todo ──────────────────────────── */
+/* ─── 3. copiar ─────────────────────────────────────────────────────── */
+rmSync(WWW, { recursive: true, force: true });
+mkdirSync(WWW, { recursive: true });
+cpSync(SITIO, WWW, { recursive: true });
+
+/* ─── 4. sacarla del paquete, esté o no ─────────────────────────────── */
+{
+  let paginas = 0, bloques = 0;
+  for (const f of todosLosArchivos(WWW)) {
+    if (!f.rel.endsWith(".html")) continue;
+    const r = sacarPublicidad(readFileSync(f.url, "utf8"));
+    if (!r.sacados) continue;
+    writeFileSync(f.url, r.html);
+    paginas++; bloques += r.sacados;
+  }
+  const ads = new URL("ads.txt", WWW);
+  const habiaAds = existsSync(ads);
+  if (habiaAds) rmSync(ads, { force: true });
+
+  if (paginas || habiaAds) {
+    /* No es un error, pero sí algo que hay que saber: significa que el
+       sitio se armó CON publicidad aunque se pidió sin. La red de
+       seguridad funcionó, y alguien tiene que mirar por qué hizo falta. */
+    console.log("  ⚠ el sitio venía CON publicidad: saqué " + bloques +
+                " script(s) de " + paginas + " página(s)" + (habiaAds ? " y el ads.txt" : ""));
+    console.log("    (o sea que `SIN_PUBLICIDAD=1` no hizo efecto — el paquete");
+    console.log("     queda limpio igual, pero eso hay que entenderlo)");
+  }
+}
+
+/* ─── 5. comprobar, y plantarse si algo sobrevivió ──────────────────── */
 {
   const sospechosos = [];
-  let mirados = 0, paginas = 0;
-  for (const f of todosLosArchivos(SITIO)) {
+  let mirados = 0;
+  for (const f of todosLosArchivos(WWW)) {
     if (!/\.(html|js|txt|json)$/.test(f.rel)) continue;
     mirados++;
-    if (f.rel.endsWith(".html")) paginas++;
     const t = readFileSync(f.url, "utf8");
     /* Se mira el DOMINIO y no la palabra "adsbygoogle": desde y51 esa
        palabra vive adentro de nuestro propio JavaScript, en la función que
-       arma el hueco, y ahí es código inerte que no baja nada. Lo que
-       importa es "¿este archivo puede traer algo de Google?". */
+       arma el hueco, y ahí es código inerte que no baja nada. */
     const m = t.match(/.{0,70}(googlesyndication|pagead2).{0,70}/);
     if (m) sospechosos.push({ rel: f.rel, muestra: m[0].replace(/\s+/g, " ").trim() });
   }
-  if (existsSync(new URL("ads.txt", SITIO)))
-    sospechosos.push({ rel: "ads.txt", muestra: readFileSync(new URL("ads.txt", SITIO), "utf8").trim() });
 
   if (sospechosos.length) {
     console.log("\n" + linea);
-    console.log("  ME PLANTO. Quedó AdSense adentro de lo que iba a viajar en el .ipa.");
-    console.log("  (" + mirados + " archivos mirados, " + paginas + " páginas)");
+    console.log("  ME PLANTO. Sobrevivió AdSense adentro del paquete.");
+    console.log("  (" + mirados + " archivos mirados)");
     console.log(linea);
     /* Se imprime EL TEXTO ENCONTRADO y no solo el nombre del archivo. La
-       primera versión de esta comprobación decía "quedó AdSense en
-       index.html" y nada más, y con eso no se puede arreglar nada desde un
-       navegador: no distingue un script de verdad de una mención en un
-       comentario nuestro. Un guardia que se planta tiene la obligación de
-       mostrar la prueba. */
+       primera versión decía "quedó AdSense en index.html" y nada más, y con
+       eso no se puede arreglar nada desde un navegador: no distingue un
+       script de verdad de una mención en un comentario nuestro. Un guardia
+       que se planta tiene la obligación de mostrar la prueba. */
     sospechosos.forEach(s => {
       console.log("\n  · " + s.rel);
       console.log("      " + s.muestra);
     });
     console.log("\n" + linea);
-    console.log("  AdSense adentro de una app es una infracción y la sanción cae");
-    console.log("  sobre la cuenta entera. Antes de seguir hay que entender de dónde");
-    console.log("  sale ese texto: si es un <script> de verdad, hay que arreglar el");
-    console.log("  empaquetado; si es una mención nuestra en un comentario, hay que");
-    console.log("  afinar esta comprobación. Las dos cosas se ven en la línea de");
-    console.log("  arriba.\n");
+    console.log("  Si eso de arriba es un <script>, el que lo saca falló y hay que");
+    console.log("  mirarlo. Si es una mención nuestra en un comentario, hay que");
+    console.log("  afinar esta comprobación. Las dos cosas se distinguen leyendo\n");
     process.exit(1);
   }
-  console.log("  ✓ ni un byte de AdSense en el paquete (" + mirados +
-              " archivos mirados, " + paginas + " páginas)");
+  console.log("  ✓ ni un byte de AdSense en el paquete (" + mirados + " archivos mirados)");
 }
 
-/* ─── 2b. ¿HAY ALGO ADENTRO? ─────────────────────────────────────────────
-   Esta comprobación existe por algo que se descubrió el 19/9 y no estaba
-   previsto: `construir-sitio.mjs` arma UNA PÁGINA POR CLUB, pero solo de
-   los clubes cuyos datos están bajados, y esos datos —`sitio/datos`— NO
-   viven en el repositorio. Viven en el cache del workflow de GitHub, que
-   Codemagic no ve.
+/* ─── 6. ¿HAY ALGO ADENTRO? ─────────────────────────────────────────────
+   `construir-sitio.mjs` arma UNA PÁGINA POR CLUB, pero solo de los clubes
+   cuyos datos están bajados, y esos datos —`sitio/datos`— NO viven en el
+   repositorio: viven en el cache del workflow de GitHub, que esta máquina
+   no ve.
 
-   O sea que una compilación en la nube puede terminar bien, firmar bien, y
-   producir un .ipa con la app adentro y sin un solo partido. Eso es peor
-   que fallar: sube a TestFlight, se instala, y parece que la app está rota.
-
-   Un empaquetado a medias no se publica. Si esto se planta, el arreglo no
-   es bajar el número: es que el paquete traiga los datos de verdad, que
-   están publicados en armael11.com. */
+   O sea que una compilación puede terminar bien, firmar bien, y producir un
+   .ipa con la app adentro y sin un solo partido. Eso es peor que fallar:
+   sube a TestFlight, se instala, y parece que la app está rota. */
 {
-  const arch = todosLosArchivos(SITIO);
+  const arch = todosLosArchivos(WWW);
   const paginas = arch.filter(f => f.rel.endsWith(".html") && !f.rel.includes("/")).length;
   const ligas = arch.filter(f => /^datos\/liga-[a-z-]+\.js$/.test(f.rel)).length;
   const MINIMO_PAGINAS = 10;
@@ -156,78 +207,67 @@ console.log("  ✓ sitio armado con SIN_PUBLICIDAD=1");
     console.log(linea);
     console.log("    páginas de club: " + paginas + "  (hacen falta al menos " + MINIMO_PAGINAS + ")");
     console.log("    archivos de liga: " + ligas + "  (hace falta al menos 1)");
-    console.log("\n  `construir-sitio.mjs` arma una página por club, pero solo de los");
-    console.log("  clubes cuyos datos están bajados. Y esos datos no viven en el");
-    console.log("  repositorio: viven en el cache del workflow de GitHub, que esta");
-    console.log("  máquina no ve.");
-    console.log("\n  Un .ipa con la app adentro y sin un solo partido es peor que una");
-    console.log("  compilación fallida: sube a TestFlight, se instala, y parece que");
-    console.log("  la app está rota. Los datos publicados están en armael11.com y de");
-    console.log("  ahí tiene que salir la foto.\n");
+    console.log("\n  Los datos no están en el repositorio: están en el cache del");
+    console.log("  workflow de GitHub, que esta máquina no ve. Un .ipa con la app");
+    console.log("  adentro y sin un solo partido es peor que una compilación");
+    console.log("  fallida: sube a TestFlight, se instala, y parece que la app está");
+    console.log("  rota. La foto tiene que salir de armael11.com, que es donde los");
+    console.log("  datos sí están publicados.\n");
     process.exit(1);
   }
   console.log("  ✓ el paquete trae " + paginas + " páginas y " + ligas + " ligas");
 }
 
-/* ─── 3. copiar y enchufar el refresco ───────────────────────────────── */
-rmSync(WWW, { recursive: true, force: true });
-mkdirSync(WWW, { recursive: true });
-cpSync(SITIO, WWW, { recursive: true });
-
-/* El cargador de datos. Va suelto en la raíz del paquete y no adentro de
-   `datos/`, porque `datos/` es lo que se refresca y esto es código. */
+/* ─── 7. enchufar el refresco de datos ──────────────────────────────── */
 writeFileSync(new URL("datos-ios.js", WWW),
   readFileSync(aca("./datos-ios.js"), "utf8").replace(/^export\s+/gm, ""));
 
-/* LA FECHA DE LA FOTO. Para poder DECIRLA. Un iPhone recién instalado y sin
+/* LA FECHA DE LA FOTO. Para poder DECIRLA: un iPhone recién instalado y sin
    conexión muestra esto, que puede tener una fecha ya jugada, y mostrarla
    como si fuera la de ahora es la misma confusión que arreglamos con el
-   aviso de formaciones tentativas: la persona no cree que los datos están
-   viejos, cree que la app se equivoca. */
+   aviso de formaciones tentativas. */
 const FOTO = new Date().toISOString();
 writeFileSync(new URL("datos/foto.js", WWW),
   "window.DATOS_FOTO=" + JSON.stringify(FOTO) + ";\n");
 
-/* Las dos etiquetas van ANTES del primer archivo de datos: así, cuando el
-   código de la app pregunta `typeof arrancarDatosIos`, ya está. */
-let tocadas = 0;
-for (const f of todosLosArchivos(WWW)) {
-  if (!f.rel.endsWith(".html")) continue;
-  const t = readFileSync(f.url, "utf8");
-  const marca = t.indexOf('<script src="datos/');
-  if (marca < 0) continue;
-  writeFileSync(f.url,
-    t.slice(0, marca) +
-    '<script src="datos/foto.js"></script>\n<script src="datos-ios.js"></script>\n' +
-    t.slice(marca));
-  tocadas++;
-}
-console.log("  ✓ refresco de datos enchufado en " + tocadas + " páginas · foto " + FOTO.slice(0, 16).replace("T", " "));
-
-/* ─── 4. sacar lo que es del sitio y no de la app ─────────────────────── */
 {
-  /* `CNAME` le dice a GitHub Pages qué dominio servir. `assetlinks.json` es
-     el papel que le demuestra a ANDROID que la app y el dominio son de la
-     misma persona. Ninguno de los dos significa nada adentro de un .ipa, y
-     un archivo que sobrevive a su motivo miente: el día que alguien los vea
-     ahí va a pensar que hacen algo. */
-  const deMas = ["CNAME", ".well-known/assetlinks.json", "ads.txt"];
+  let tocadas = 0;
+  for (const f of todosLosArchivos(WWW)) {
+    if (!f.rel.endsWith(".html")) continue;
+    const t = readFileSync(f.url, "utf8");
+    const marca = t.indexOf('<script src="datos/');
+    if (marca < 0) continue;
+    writeFileSync(f.url,
+      t.slice(0, marca) +
+      '<script src="datos/foto.js"></script>\n<script src="datos-ios.js"></script>\n' +
+      t.slice(marca));
+    tocadas++;
+  }
+  console.log("  ✓ refresco enchufado en " + tocadas + " páginas · foto " +
+              FOTO.slice(0, 16).replace("T", " "));
+}
+
+/* ─── 8. sacar lo que es del sitio y no de la app ───────────────────── */
+{
+  /* `CNAME` le dice a GitHub Pages qué dominio servir; `assetlinks.json` le
+     demuestra a ANDROID que la app y el dominio son de la misma persona.
+     Ninguno significa nada adentro de un .ipa, y un archivo que sobrevive a
+     su motivo miente: el día que alguien los vea ahí va a pensar que hacen
+     algo. */
   const sacados = [];
-  for (const n of deMas) {
+  for (const n of ["CNAME", ".well-known/assetlinks.json"]) {
     const u = new URL(n, WWW);
     if (existsSync(u)) { rmSync(u, { recursive: true, force: true }); sacados.push(n); }
   }
   if (sacados.length) console.log("  ✓ sacados del paquete: " + sacados.join(", "));
 }
 
-/* ─── 5. dejar el sitio como estaba ──────────────────────────────────── */
+/* ─── 9. dejar el sitio como estaba ─────────────────────────────────── */
 construir(false);
-const volvio = /googlesyndication/.test(readFileSync(new URL("index.html", SITIO), "utf8")) ||
-               existsSync(new URL("ads.txt", SITIO));
+const conPubli = existsSync(new URL("ads.txt", SITIO));
 console.log("  ✓ sitio web reconstruido con su configuración de siempre" +
-            (volvio ? " (con publicidad)" : " (sin publicidad, como dice sitio.json)"));
+            (conPubli ? " (con publicidad)" : " (sin publicidad, como dice sitio.json)"));
 
-/* ─── el resumen ─────────────────────────────────────────────────────── */
 {
   const arch = todosLosArchivos(WWW);
   const total = arch.reduce((a, f) => a + f.bytes, 0);
@@ -237,4 +277,6 @@ console.log("  ✓ sitio web reconstruido con su configuración de siempre" +
   console.log("    de eso, " + kb(datos) + " son datos: es lo que se refresca de armael11.com");
   console.log("    el resto es la app, y solo cambia con una versión nueva");
   console.log(linea + "\n");
+}
+
 }
