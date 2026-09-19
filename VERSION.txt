@@ -1,3 +1,61 @@
+Arma el 11 - version 2026-09-19 y56 (el guardia se planto bien, y mostraba mal)
+
+  · SE SUBE ESTE SOLO. Cambia UN archivo: empaquetar-ios.mjs.
+
+  · LO PRIMERO, QUE ES BUENO: la firma anda. La tercera compilacion paso
+    "Preparing build machine", "Fetching app sources" y entro a correr los
+    pasos. O sea que la clave con rol Admin y el identificador registrado
+    eran las dos cosas que faltaban, y el paso de firma propio hizo lo suyo.
+
+  · Y LO SEGUNDO: SE PLANTO MI PROPIO GUARDIA. El paso 1 corto con
+
+      ME PLANTO. Quedo AdSense adentro de lo que iba a viajar en el .ipa:
+        · index.html
+        · talleres-cba.html
+
+    Eso es exactamente lo que tenia que pasar. Pero el mensaje era inutil:
+    decia QUE archivo y no QUE ENCONTRO. Desde un navegador, con eso no se
+    puede arreglar nada — no distingue un <script> de verdad de una mencion
+    nuestra en un comentario. Un guardia que se planta tiene la obligacion
+    de mostrar la prueba. Ahora imprime el texto encontrado, con setenta
+    caracteres a cada lado, y cuantos archivos y paginas miro.
+
+  · LA CAUSA MAS PROBABLE, Y SU ARREGLO. `construir-sitio.mjs` ESCRIBE las
+    paginas pero no borra las que sobran, y hace bien: es el que arma el
+    sitio, no el que lo limpia. Pero si en `sitio/` quedo un .html de una
+    corrida anterior -con la publicidad puesta- el empaquetado lo copia
+    adentro del .ipa aunque esta corrida haya armado todo bien.
+
+    Es la regla de siempre: lo generado que sobrevive a su motivo miente.
+    Ahora se borran los .html de la raiz antes de empezar. `datos/` NO se
+    toca: ahi vive lo que se bajo de la API y volver a pedirlo cuesta cuota.
+
+    Probado aca: mi propia carpeta `sitio/` tenia 35 paginas viejas y la
+    corrida de verdad arma 9. Treinta y cinco archivos que nadie habia
+    vuelto a mirar desde vaya a saber cuando.
+
+  · Y ABAJO DE TODO ESO APARECIO EL PROBLEMA DE VERDAD, QUE NO ESTABA
+    PREVISTO. `construir-sitio.mjs` arma una pagina por club, pero solo de
+    los clubes CUYOS DATOS ESTAN BAJADOS. Y esos datos -`sitio/datos`- no
+    viven en el repositorio: viven en el cache del workflow de GitHub, que
+    Codemagic no ve.
+
+    O sea que una compilacion en la nube puede terminar bien, firmar bien, y
+    producir un .ipa con la app adentro y SIN UN SOLO PARTIDO. Eso es peor
+    que fallar: sube a TestFlight, se instala, y parece que la app esta
+    rota.
+
+    Asi que hay un guardia nuevo: si el paquete no llega a diez paginas de
+    club o no trae ni un archivo de liga, se planta y lo explica. Un
+    empaquetado a medias no se publica.
+
+  · LO QUE VIENE. La foto tiene que salir de armael11.com, que es donde los
+    datos SI estan publicados. El sitio publicado ES la foto. Eso se hace en
+    el proximo zip, y no en este, por una razon: desde aca no puedo probar
+    una descarga contra armael11.com, y codigo de red sin probar es
+    exactamente lo que venimos evitando. Primero que la compilacion confirme
+    el diagnostico; despues se escribe el arreglo.
+
 Arma el 11 - version 2026-09-19 y55 (que el error de la firma se pueda leer)
 
   · SE SUBE ESTE SOLO. Incluye y50 a y54. Cambia UN archivo: codemagic.yaml.

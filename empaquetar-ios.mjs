@@ -59,6 +59,26 @@ function todosLosArchivos(dir, base = dir, salida = []) {
 
 console.log("\n" + linea + "\n  EMPAQUETAR PARA iOS\n" + linea);
 
+/* ─── 0. las páginas viejas, afuera ──────────────────────────────────────
+   `construir-sitio.mjs` ESCRIBE las páginas pero no borra las que sobran, y
+   tiene razón en no hacerlo: es el que arma el sitio web, no el que lo
+   limpia. Pero acá eso importa distinto. Si en `sitio/` quedó un `.html` de
+   una corrida anterior —con la publicidad puesta, por ejemplo—, el
+   empaquetado lo copiaría adentro del .ipa aunque esta corrida haya armado
+   todo bien.
+
+   Es la regla de siempre: lo generado que sobrevive a su motivo miente. Se
+   borran solo los `.html` de la raíz, que son lo que esta corrida vuelve a
+   escribir entero. `datos/` NO se toca: ahí vive lo que se bajó de la API y
+   volver a pedirlo cuesta cuota. */
+{
+  let barridas = 0;
+  if (existsSync(SITIO))
+    for (const n of readdirSync(SITIO))
+      if (n.endsWith(".html")) { rmSync(new URL(n, SITIO), { force: true }); barridas++; }
+  if (barridas) console.log("  · " + barridas + " página(s) de una corrida anterior, borradas antes de empezar");
+}
+
 /* ─── 1. el sitio, sin publicidad ────────────────────────────────────── */
 construir(true);
 console.log("  ✓ sitio armado con SIN_PUBLICIDAD=1");
@@ -66,27 +86,87 @@ console.log("  ✓ sitio armado con SIN_PUBLICIDAD=1");
 /* ─── 2. la revisión que puede plantar todo ──────────────────────────── */
 {
   const sospechosos = [];
+  let mirados = 0, paginas = 0;
   for (const f of todosLosArchivos(SITIO)) {
     if (!/\.(html|js|txt|json)$/.test(f.rel)) continue;
+    mirados++;
+    if (f.rel.endsWith(".html")) paginas++;
     const t = readFileSync(f.url, "utf8");
     /* Se mira el DOMINIO y no la palabra "adsbygoogle": desde y51 esa
        palabra vive adentro de nuestro propio JavaScript, en la función que
        arma el hueco, y ahí es código inerte que no baja nada. Lo que
        importa es "¿este archivo puede traer algo de Google?". */
-    if (/googlesyndication|pagead2/.test(t)) sospechosos.push(f.rel);
+    const m = t.match(/.{0,70}(googlesyndication|pagead2).{0,70}/);
+    if (m) sospechosos.push({ rel: f.rel, muestra: m[0].replace(/\s+/g, " ").trim() });
   }
-  if (existsSync(new URL("ads.txt", SITIO))) sospechosos.push("ads.txt");
+  if (existsSync(new URL("ads.txt", SITIO)))
+    sospechosos.push({ rel: "ads.txt", muestra: readFileSync(new URL("ads.txt", SITIO), "utf8").trim() });
 
   if (sospechosos.length) {
     console.log("\n" + linea);
-    console.log("  ME PLANTO. Quedó AdSense adentro de lo que iba a viajar en el .ipa:");
-    sospechosos.forEach(s => console.log("    · " + s));
-    console.log("\n  AdSense adentro de una app es una infracción y la sanción cae");
-    console.log("  sobre la cuenta entera. Antes de seguir hay que entender por qué");
-    console.log("  `SIN_PUBLICIDAD=1` no lo sacó.\n");
+    console.log("  ME PLANTO. Quedó AdSense adentro de lo que iba a viajar en el .ipa.");
+    console.log("  (" + mirados + " archivos mirados, " + paginas + " páginas)");
+    console.log(linea);
+    /* Se imprime EL TEXTO ENCONTRADO y no solo el nombre del archivo. La
+       primera versión de esta comprobación decía "quedó AdSense en
+       index.html" y nada más, y con eso no se puede arreglar nada desde un
+       navegador: no distingue un script de verdad de una mención en un
+       comentario nuestro. Un guardia que se planta tiene la obligación de
+       mostrar la prueba. */
+    sospechosos.forEach(s => {
+      console.log("\n  · " + s.rel);
+      console.log("      " + s.muestra);
+    });
+    console.log("\n" + linea);
+    console.log("  AdSense adentro de una app es una infracción y la sanción cae");
+    console.log("  sobre la cuenta entera. Antes de seguir hay que entender de dónde");
+    console.log("  sale ese texto: si es un <script> de verdad, hay que arreglar el");
+    console.log("  empaquetado; si es una mención nuestra en un comentario, hay que");
+    console.log("  afinar esta comprobación. Las dos cosas se ven en la línea de");
+    console.log("  arriba.\n");
     process.exit(1);
   }
-  console.log("  ✓ ni un byte de AdSense en el paquete");
+  console.log("  ✓ ni un byte de AdSense en el paquete (" + mirados +
+              " archivos mirados, " + paginas + " páginas)");
+}
+
+/* ─── 2b. ¿HAY ALGO ADENTRO? ─────────────────────────────────────────────
+   Esta comprobación existe por algo que se descubrió el 19/9 y no estaba
+   previsto: `construir-sitio.mjs` arma UNA PÁGINA POR CLUB, pero solo de
+   los clubes cuyos datos están bajados, y esos datos —`sitio/datos`— NO
+   viven en el repositorio. Viven en el cache del workflow de GitHub, que
+   Codemagic no ve.
+
+   O sea que una compilación en la nube puede terminar bien, firmar bien, y
+   producir un .ipa con la app adentro y sin un solo partido. Eso es peor
+   que fallar: sube a TestFlight, se instala, y parece que la app está rota.
+
+   Un empaquetado a medias no se publica. Si esto se planta, el arreglo no
+   es bajar el número: es que el paquete traiga los datos de verdad, que
+   están publicados en armael11.com. */
+{
+  const arch = todosLosArchivos(SITIO);
+  const paginas = arch.filter(f => f.rel.endsWith(".html") && !f.rel.includes("/")).length;
+  const ligas = arch.filter(f => /^datos\/liga-[a-z-]+\.js$/.test(f.rel)).length;
+  const MINIMO_PAGINAS = 10;
+
+  if (paginas < MINIMO_PAGINAS || !ligas) {
+    console.log("\n" + linea);
+    console.log("  ME PLANTO. El paquete está casi vacío.");
+    console.log(linea);
+    console.log("    páginas de club: " + paginas + "  (hacen falta al menos " + MINIMO_PAGINAS + ")");
+    console.log("    archivos de liga: " + ligas + "  (hace falta al menos 1)");
+    console.log("\n  `construir-sitio.mjs` arma una página por club, pero solo de los");
+    console.log("  clubes cuyos datos están bajados. Y esos datos no viven en el");
+    console.log("  repositorio: viven en el cache del workflow de GitHub, que esta");
+    console.log("  máquina no ve.");
+    console.log("\n  Un .ipa con la app adentro y sin un solo partido es peor que una");
+    console.log("  compilación fallida: sube a TestFlight, se instala, y parece que");
+    console.log("  la app está rota. Los datos publicados están en armael11.com y de");
+    console.log("  ahí tiene que salir la foto.\n");
+    process.exit(1);
+  }
+  console.log("  ✓ el paquete trae " + paginas + " páginas y " + ligas + " ligas");
 }
 
 /* ─── 3. copiar y enchufar el refresco ───────────────────────────────── */
