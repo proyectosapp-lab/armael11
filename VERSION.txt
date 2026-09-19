@@ -1,3 +1,171 @@
+Arma el 11 - version 2026-09-19 y50 (contador de campana, botones de verdad, y la fecha que corresponde)
+
+  · INCLUYE y45 a y49. Se sube este solo.
+
+  · SABER SI LA PLATA DE INSTAGRAM TRAJO GENTE QUE JUEGA. Meta sabe contar
+    clicks y visitas, y las cobra. Lo que Meta no puede saber es lo unico
+    que importa: de los que entraron, cuantos simularon. Una visita que
+    rebota a los tres segundos y una que arma un once y aprieta simular
+    valen lo mismo en el panel de anuncios y no valen lo mismo para nada
+    mas.
+
+    Sin esto, el lunes tenemos una sola cifra -"costo $95 la visita"- y
+    ninguna manera de saber si esas visitas sirvieron. Ahora tenemos la
+    cadena entera: llegaron N, simularon M, se instalaron K, hicieron
+    cuenta J.
+
+    La direccion del anuncio lleva un codigo: armael11.com/?c=ig1
+
+  · SIN UN SOLO SCRIPT DE TERCEROS, que era la condicion. El pixel de Meta
+    contaria mejor y a cambio meteria un script que sigue a la persona por
+    todos los sitios que lo tengan puesto. No entra. Esto es un fetch a
+    nuestra propia base, igual que todo lo demas.
+
+  · QUE SE GUARDA, EXACTAMENTE. Una fila por codigo, dia e hito, con un
+    numero al lado:
+
+        ig1 | 2026-09-19 | llego  | 143
+        ig1 | 2026-09-19 | simulo |  38
+
+    Y nada mas. No hay identificador de persona, no hay IP, no hay hora, no
+    hay nada que permita volver de una fila a alguien. El "a este telefono
+    ya lo conte" vive en el localStorage y NUNCA sale de ahi.
+
+    El costo de esa decision es real y esta aceptado: no se puede
+    reconstruir el recorrido de una persona. No hace falta. La pregunta es
+    "de cien que entraron, cuantos jugaron", y para eso alcanzan dos
+    numeros.
+
+  · UN HITO, UNA VEZ. El que simula veinte veces en una tarde es una
+    persona, no veinte. Si no, el porcentaje deja de querer decir nada.
+    Se marca como mandado ANTES de que conteste el servidor, a proposito:
+    preferimos perder un hito antes que contar de mas. Un numero inflado
+    se parece demasiado a una buena noticia.
+
+  · EL ?c= SE SACA DE LA BARRA apenas abre la pagina, y no es cosmetica. Si
+    se queda, el primero que comparta el link por WhatsApp le manda a
+    quince amigos una direccion que dice "vengo del anuncio", y el lunes el
+    anuncio figura trayendo gente que llego por un amigo. El numero se
+    ensucia solo.
+
+  · LOS PARTIDOS DE LA LIGA ERAN DE DOS FECHAS DISTINTAS. Fausto: "los
+    partidos de la fecha de la liga de Inglaterra no son los que
+    corresponden". Estaba mal de verdad, y el error era de fondo.
+
+    `ligas-api.mjs` publicaba `.slice(0, 12)` sobre TODOS los partidos por
+    jugar ordenados por fecha, mientras la app decia "cualquier partido de
+    la proxima fecha". No es lo mismo. Una fecha de la Premier tiene diez
+    partidos y el tope era doce: sobraban dos, y ese sobrante se llenaba
+    con la fecha siguiente. Peor todavia: a medida que el sabado avanza y
+    los partidos arrancan, la fecha en curso se achica y el relleno crece.
+
+    Hoy, 19/9, la Premier mostraba cinco partidos del fin de semana y siete
+    del 10 de octubre -tres semanas despues- uno al lado del otro y sin
+    nada que los distinguiera.
+
+    Ahora se toma la ronda del primer partido que viene y se publican TODOS
+    los de esa ronda. Ademas sale mas barato: doce partidos son veinticuatro
+    equipos y una fecha de la Premier son veinte. El tope subio de 12 a 15
+    pero ya no elige nada, solo frena el gasto: quince es la fecha mas
+    grande de las once ligas, la argentina, con treinta equipos.
+
+    El domingo a la noche la fecha esta casi jugada y quedarian uno o dos
+    partidos. Ahi, y solo ahi, se suma la siguiente: una lista de un partido
+    es peor que una que mezcla, SIEMPRE QUE SE DIGA CUAL ES CUAL. Por eso
+    ahora cada partido escribe su fecha: "Fecha 5 · sab 20/09 · 13:00".
+
+    OJO: esto lo arregla la proxima corrida completa de "Traer y publicar".
+    Los archivos de liga los escribe el workflow, no el zip.
+
+  · LA REGLA VIVE EN `fecha-de-liga.mjs`, en su propio archivo y con nueve
+    pruebas que IMPORTAN la funcion de verdad en vez de copiarla. No se
+    podia probar donde estaba: `ligas-api.mjs` arranca solo y sin la clave
+    de la API se apaga con `process.exit`, asi que una prueba tendria que
+    haber copiado la regla. Una regla copiada en la prueba es una regla que
+    tarde o temprano deja de ser la que corre -y esta ya se equivoco una
+    vez-.
+
+  · LOS PARTIDOS, CON BOTON. Misma correccion que la de los planes y mismo
+    motivo. Eran filas de texto de 13.5px con un ">" al final y un
+    role="button" que solo ve el lector de pantalla: para el ojo, una lista.
+    Ahora el partido es texto y al lado va un boton que dice "Simular".
+
+    Y algo que se podria haber colado: al pasar de div a <button>, Enter y
+    Espacio ya disparan click solos. El keydown viejo llamaba a simular DOS
+    VECES, y cada una gasta una del cupo. Ahora el teclado se atiende a mano
+    solo si el elemento no es un boton, con una prueba que lo fija.
+
+  · LA PANTALLA BAJA SOLA A LOS PARTIDOS. Fausto: "que se desplace
+    automaticamente hacia abajo". Con once ligas agrupadas por continente,
+    el que elige Italia la tiene abajo de todo y la lista aparece FUERA de
+    la pantalla: la app se ve como si el toque no hubiera hecho nada.
+
+    Baja al ABRIR y no al cerrar -bajar al cerrar seria perseguir a alguien
+    que acaba de decir que no queria ver eso-, deja un margen arriba para
+    que se siga viendo de que liga son, y respeta a quien pidio menos
+    movimiento en su sistema.
+
+  · UN AVISO DE SI LAS FORMACIONES ESTAN CONFIRMADAS. Fausto lo pidio y
+    destapa algo que la pantalla daba por sabido y no lo es: LOS ONCE DE LA
+    CANCHA SIEMPRE LOS ARMO LA APP, con los que vienen jugando. Nunca son
+    los del DT, ni siquiera cuando el DT ya los publico: el once del DT se
+    simula aparte, con el boton de abajo.
+
+    Sin decirlo, alguien que entra media hora antes del partido puede creer
+    que esta mirando la formacion confirmada y que la app se equivoco en
+    cuatro nombres. Es la clase de malentendido que hace que una persona
+    deje de confiar en todo lo demas.
+
+    Tres estados: las dos confirmadas, una sola, o ninguna. El de "ninguna"
+    dice ademas cuando sale la de verdad, que es lo unico accionable.
+
+  · LA HORA DEL PARTIDO, ESCRITA A MANO Y NO CON toLocaleString. Se probo
+    con toLocaleString("es-AR") y en un navegador con ICU recortado devolvio
+    "sab 05-09 · 02:00 p. m.": mes y dia al reves, y en doce horas, que no
+    es como se lee una hora aca. Cinco lineas de padStart dan siempre lo
+    mismo en todos lados.
+
+  · LOS PLANES AHORA TIENEN UN BOTON DE VERDAD. Fausto: "que los botones
+    de compra se vean realmente como botones y no como texto encasillado".
+    Tenia razon y el diagnostico era exacto: cada plan ERA el boton, un
+    `.boton.flaco` de ancho completo, o sea un rectangulo transparente con
+    borde gris fino, texto a la izquierda y el precio adentro en gris
+    claro. Tres de esos, uno abajo del otro, no se leen como botones: se
+    leen como tres cajitas de texto. No habia ni una sola senal de que eso
+    se pudiera apretar -ni relleno, ni sombra, ni una palabra que dijera
+    que pasa si lo tocas-.
+
+    Ahora el texto es texto -nombre, precio, que incluye- y al lado hay un
+    boton con el MISMO verde, el mismo radio y la misma sombra que el de
+    Simular, que es el boton que todo el mundo ya aprendio a apretar en
+    esta app. Y dice "Comprar": un boton que no dice que hace no es mucho
+    mejor que una caja.
+
+    Se fue tambien el recuadro de cada plan. Con el boton adentro, el borde
+    no sumaba nada y agregaba ruido; una linea fina entre planes alcanza
+    para separarlos y ocupa la mitad del alto.
+
+    El `data-plan` sigue en el boton, que es lo que engancha la compra:
+    cambio como se ve, no como se compra. Cuatro pruebas nuevas en el
+    navegador fijan que no vuelva a pasar -que el boton siga siendo `.acc`,
+    que siga diciendo que hace, que el precio NO este adentro y que tenga
+    relleno y no sea un rectangulo transparente-.
+
+  · HAY QUE PEGAR UN SQL. `contador-campana.sql`, entero, en Supabase ->
+    SQL Editor -> Run. Se puede correr las veces que haga falta. Adentro,
+    comentada, esta la consulta para mirar el lunes.
+
+    Sin ese SQL la app anda igual: el contador manda al vacio y se calla.
+
+  · 21 pruebas nuevas en `probar-campana.mjs` y 9 en el navegador. Lo que
+    mas se prueba no es que cuente: es que NO cuente cuando no corresponde
+    -dos veces el mismo, un codigo inventado, una visita de hace dos
+    meses- y que no explote cuando el navegador niega el almacenamiento.
+
+    Y la de siempre: que ninguno de los nombres nuevos haya pisado algo. El
+    sitio son <script> clasicos en UN solo alcance global; ya nos costo una
+    portada en blanco con `hayRed`. Por eso todo lleva `camp` o `Campana`.
+
 Arma el 11 - version 2026-09-19 y49 (instalar desde la web, y por que Play no contesta)
 
   · INCLUYE y45 a y48. Se sube este solo.

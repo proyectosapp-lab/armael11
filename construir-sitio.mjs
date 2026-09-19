@@ -56,6 +56,15 @@ if (HAY_BACKEND)
 writeFileSync(new URL("nativo.js", DATOS),
   readFileSync(aca("./nativo.js"), "utf8").replace(/^export\s+/gm, ""));
 
+/* El contador de campaña. Va solo si hay backend, por la misma razón que
+   cuentas.js: sin base a donde mandar, es un archivo que no hace nada y
+   pesa. Y va DESPUÉS de cuentas.js en la página, pero no depende de él:
+   tiene su propio `fetch` porque el orden de los <script> no es algo que
+   deba importarle a un contador. */
+if (HAY_BACKEND)
+  writeFileSync(new URL("campana.js", DATOS),
+    readFileSync(aca("./campana.js"), "utf8").replace(/^export\s+/gm, ""));
+
 /* La fecha del fantasy y su reglamento. Se copian solo si hay una fecha
    publicada: sin eso la pestaña no aparece y la app pesa lo mismo que
    antes. `fantasy.mjs` es EL MISMO archivo que usa el servidor para
@@ -248,6 +257,7 @@ function armarPagina(club, op) {
       }) + '</script>',
     '<script src="datos/nativo.js"></script>',
     HAY_BACKEND ? '<script src="datos/cuentas.js"></script>' : null,
+    HAY_BACKEND ? '<script src="datos/campana.js"></script>' : null,
     FECHA ? '<script src="datos/fantasy.js"></script>' : null,
     FECHA ? '<script src="datos/fecha.js"></script>' : null,
     '<script src="datos/juego.js"></script>',

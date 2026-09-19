@@ -209,8 +209,20 @@ srv.listen(8099, async () => {
         .find(h => /Elegí la liga/i.test(h.textContent));
       const arriba = bs.length && titulo
         ? !!(bs[0].compareDocumentPosition(titulo) & Node.DOCUMENT_POSITION_FOLLOWING) : null;
+      /* Lo que se rompió una vez: cada plan ERA el botón, un rectángulo
+         transparente con el precio adentro en gris. Se leía como una
+         cajita de texto y nadie lo apretaba. La señal de que volvió a
+         pasar es que el botón deje de ser `.acc` —el verde de Simular—,
+         que deje de decir qué hace, o que se le meta el precio adentro. */
+      const b0 = bs[0];
+      const est = b0 ? getComputedStyle(b0) : null;
       const r = { botones: bs.length, antesDeLasLigas: !!arriba,
-                  escuchan: bs.every(b => typeof b.onclick === "function") };
+                  escuchan: bs.every(b => typeof b.onclick === "function"),
+                  comoAcc: bs.every(b => b.classList.contains("acc")),
+                  dice: bs.every(b => /comprar/i.test(b.textContent)),
+                  sinPrecioAdentro: bs.every(b => !/\d/.test(b.textContent)),
+                  precioAfuera: !!document.querySelector(".plan-precio"),
+                  relleno: est ? est.backgroundImage !== "none" || est.backgroundColor : null };
       PLANES = antes; pintar();
       return r;
     });
@@ -218,6 +230,14 @@ srv.listen(8099, async () => {
     caso("y están arriba de la lista de ligas, no al final de todo",
          port.antesDeLasLigas === true);
     caso("con sus escuchadores puestos", port.escuchan === true);
+    /* Fausto, 19/9: "que los botones de compra se vean realmente como
+       botones y no como texto encasillado". */
+    caso("el botón de comprar es el mismo verde que el de Simular", port.comoAcc === true);
+    caso("y dice qué hace, no solo cuánto sale", port.dice === true);
+    caso("el precio es texto al lado, no relleno del botón",
+         port.sinPrecioAdentro === true && port.precioAfuera === true, JSON.stringify(port));
+    caso("y el botón tiene relleno, no es un rectángulo transparente",
+         port.relleno && port.relleno !== "rgba(0, 0, 0, 0)", String(port.relleno));
   }
 
   /* ══ INSTALAR DESDE LA WEB ═════════════════════════════════════════
@@ -970,6 +990,53 @@ srv.listen(8099, async () => {
     return document.body.innerText;
   });
   caso("al elegirla se ven sus partidos", /Rojos/.test(elegida) && /Azules/.test(elegida));
+  /* ── EL PARTIDO TAMBIÉN SE APRIETA ────────────────────────────────
+     Esto era una `.mini`: filas de texto con un `›` al final y un
+     `role="button"` que solo ve el lector de pantalla. Para el ojo, una
+     lista. Ahora hay un botón de verdad, y encima uno solo por partido:
+     el `keydown` viejo sumado al click nativo de un `<button>` llamaba a
+     simular DOS veces, y cada una gasta del cupo. */
+  {
+    const p = await pg.evaluate(() => {
+      const b = document.querySelector("[data-part]");
+      return b ? { tag: b.tagName, acc: b.classList.contains("acc"),
+                   dice: b.textContent.trim(), teclado: !!b.onkeydown,
+                   relleno: getComputedStyle(b).backgroundImage !== "none" } : null;
+    });
+    caso("cada partido tiene un botón de verdad, no una fila de texto",
+         p && p.tag === "BUTTON" && p.acc === true, JSON.stringify(p));
+    caso("y el botón dice qué hace", p && /simular/i.test(p.dice), p && p.dice);
+    caso("con relleno, igual que el de comprar", p && p.relleno === true);
+    caso("y sin el keydown viejo, que simulaba dos veces y gastaba dos del cupo",
+         p && p.teclado === false);
+  }
+  /* ── Y LA PANTALLA BAJA SOLA ──────────────────────────────────────
+     Fausto, 19/9: "que se desplace automáticamente hacia abajo". Con once
+     ligas agrupadas por continente, el que elige Italia la tiene abajo de
+     todo y la lista de partidos aparece FUERA de la pantalla: la app se ve
+     como si el toque no hubiera hecho nada.
+
+     Se espía `scrollTo` en vez de mirar `scrollY` porque el alto real de
+     la página en la prueba depende de cuántos partidos haya, y una prueba
+     que falla según eso no prueba nada. */
+  {
+    const s = await pg.evaluate(async () => {
+      const antes = window.scrollTo;
+      let pedido = null;
+      window.scrollTo = o => { pedido = o; };
+      /* Cerrar y volver a abrir: el mismo botón alterna. */
+      document.querySelector('[data-liga="inglaterra"]').click();
+      const alCerrar = await new Promise(r => requestAnimationFrame(() => setTimeout(() => r(pedido), 0)));
+      pedido = null;
+      document.querySelector('[data-liga="inglaterra"]').click();
+      const alAbrir = await new Promise(r => requestAnimationFrame(() => setTimeout(() => r(pedido), 0)));
+      window.scrollTo = antes;
+      return { alAbrir, alCerrar };
+    });
+    caso("al elegir una liga, la pantalla baja sola a sus partidos",
+         !!s.alAbrir && typeof s.alAbrir.top === "number", JSON.stringify(s.alAbrir));
+    caso("y al cerrarla no persigue a nadie hacia abajo", s.alCerrar === null);
+  }
   /* Con qué está calibrada se dice a la vista, no en un pie de página: es la
      diferencia entre un pronóstico que se puede auditar y uno que hay que
      creer. */
@@ -1100,16 +1167,34 @@ srv.listen(8099, async () => {
   caso("sin inventar un resultado: todavía no se jugó",
        conOnce.jugado === false && conOnce.fx.goles.home === null);
   caso("el once del DT de la Premier se ve, sin pedirle nada a la API", conOnce.salio === true);
+  /* Fausto, 19/9: "un aviso si esas formaciones ya están confirmadas o son
+     tentativas al ingresar al Armá el 11 de ese partido". La trampa que
+     este aviso desactiva: los once de la cancha SIEMPRE los armó la app,
+     también cuando el DT ya publicó el suyo. Sin decirlo, el que entra
+     media hora antes cree que la app se equivocó en cuatro nombres. */
+  {
+    const av = await pg.evaluate(() => ({ cuantas: formacionesConfirmadas(),
+                                          txt: document.body.innerText }));
+    caso("con los dos once publicados, el aviso dice que están confirmadas",
+         av.cuantas === 2 && /formaciones ya están confirmadas/i.test(av.txt));
+    caso("y aclara igual que los de la cancha los armó la app",
+         /los armó la app/i.test(av.txt));
+  }
   caso("y el pie invita a simularlo", /Salió el once del DT/.test(conOnce.pie));
   caso("pero no ofrece el link del pronóstico, que es del club de la página",
        !/Copiar el link/.test(conOnce.pie), conOnce.pie.slice(0, 200));
 
   const sinOnce = await pg.evaluate(() => {
     simularDeLiga("inglaterra", 97);
-    return { salio: hayOnceDelDT(), pie: pieDelResultado() };
+    return { salio: hayOnceDelDT(), pie: pieDelResultado(),
+             cuantas: formacionesConfirmadas(), txt: document.body.innerText };
   });
   caso("el partido cuya formación todavía no salió lo dice", sinOnce.salio === false &&
        /todavía no se jugó/i.test(sinOnce.pie));
+  caso("y arriba avisa que las formaciones son tentativas",
+       sinOnce.cuantas === 0 && /formaciones tentativas/i.test(sinOnce.txt));
+  caso("diciendo cuándo sale la de verdad, que es lo accionable",
+       /una hora antes/i.test(sinOnce.txt));
   caso("y ahí no se ofrece el aviso al teléfono: los avisos son por club",
        !/avis/i.test(sinOnce.pie), sinOnce.pie.slice(0, 200));
 
@@ -1984,6 +2069,80 @@ srv.listen(8099, async () => {
     /* Si esto vuelve "no existe", alguien pisó hayRed otra vez. */
     caso("y NO pisó el hayRed de la publicidad, que es otra cosa",
          n.publicidad !== "no existe", String(n.publicidad));
+  }
+
+  /* ══ EL CONTADOR DE CAMPAÑA ══════════════════════════════════════
+     Lo que se fija acá es lo que puede salir MAL y costar plata mal
+     gastada, que no es que cuente: es que cuente de más, que cuente a
+     quien no vino de un anuncio, o que el `?c=` se quede pegado en la
+     barra y termine compartido por WhatsApp.
+
+     Y el de siempre: que ninguno de estos nombres haya pisado algo. Son
+     <script> sueltos en un solo alcance global. */
+  {
+    const c = await pg.evaluate(() => {
+      const antes = { camp: localStorage.getItem("armaEl11.campana"),
+                      hitos: localStorage.getItem("armaEl11.hitos") };
+      /* Ningún envío de verdad: se intercepta el fetch y se cuenta. */
+      const fOriginal = window.fetch;
+      const mandados = [];
+      window.fetch = (u, o) => {
+        if (String(u).includes("sumar_hito")) { mandados.push(JSON.parse(o.body)); return Promise.resolve({ ok: true }); }
+        return fOriginal(u, o);
+      };
+      try {
+        localStorage.removeItem("armaEl11.campana");
+        localStorage.removeItem("armaEl11.hitos");
+
+        const cargado = typeof arrancarCampana === "function" && typeof hitoCampana === "function";
+        /* Sin campaña guardada, nadie cuenta nada. La enorme mayoría de la
+           gente está en este caso y no tiene que costar ni una llamada. */
+        const sinCampana = typeof hitoCampana === "function" ? hitoCampana("simulo") : null;
+
+        if (typeof guardarCampana === "function") guardarCampana("ig1");
+        const primera = hitoCampana("simulo");
+        const segunda = hitoCampana("simulo");
+        for (let i = 0; i < 15; i++) hitoCampana("simulo");
+
+        const codigoMalo = typeof leerCodigoCampana === "function"
+          ? leerCodigoCampana({ search: "?c=" + encodeURIComponent("<script>") }) : "no existe";
+
+        return { cargado, sinCampana, primera, segunda, mandados: mandados.length,
+                 hito: (mandados[0] || {}).p_hito, codigo: (mandados[0] || {}).p_codigo,
+                 codigoMalo, juego: typeof simular === "function" };
+      } finally {
+        window.fetch = fOriginal;
+        if (antes.camp) localStorage.setItem("armaEl11.campana", antes.camp);
+        else localStorage.removeItem("armaEl11.campana");
+        if (antes.hitos) localStorage.setItem("armaEl11.hitos", antes.hitos);
+        else localStorage.removeItem("armaEl11.hitos");
+      }
+    });
+    caso("el contador de campaña viaja en la página", c.cargado === true);
+    caso("el que no vino de un anuncio no manda nada", c.sinCampana === false);
+    caso("el que sí vino se cuenta", c.primera === true);
+    caso("y simular quince veces sigue siendo una persona",
+         c.segunda === false && c.mandados === 1, "mandó " + c.mandados);
+    caso("manda el hito y el código, y nada más",
+         c.hito === "simulo" && c.codigo === "ig1");
+    caso("un código inventado en la dirección se descarta", c.codigoMalo === null);
+    /* Si esto se cae, algún nombre de campana.js pisó algo del juego. */
+    caso("y no pisó nada del juego", c.juego === true);
+  }
+
+  /* El `?c=` no puede quedar en la barra: el primero que comparta el link
+     le manda a quince amigos una dirección que dice "vengo del anuncio". */
+  {
+    const r = await traer('/?c=ig1');
+    caso("la página abre igual con el código de campaña puesto", r.estado === 200);
+    const u = await pg.evaluate(() => {
+      const antes = location.href;
+      const limpio = typeof limpiarUrlCampana === "function"
+        ? (() => { let d = null; limpiarUrlCampana({ href: "https://armael11.com/?c=ig1&club=boca" },
+                     { replaceState: (_a, _b, x) => { d = x; } }); return d; })() : "no existe";
+      return { limpio, antes };
+    });
+    caso("y el ?c= se saca de la barra, dejando el resto", u.limpio === "/?club=boca", String(u.limpio));
   }
 
   caso("el navegador NUNCA llamó a api-sports.io", apiTocada.length === 0);

@@ -508,6 +508,48 @@ button.acc:hover,.boton:hover,.fx .ya:hover{filter:brightness(1.05)}
 button.acc:active,.boton:active,.fx .ya:active{transform:scale(.985);box-shadow:none}
 button.acc:disabled,.boton:disabled{box-shadow:none;filter:none}
 .boton.flaco{background:transparent;box-shadow:none;border:1px solid var(--borde);color:var(--tinta-2)}
+
+/* ── LOS PLANES ───────────────────────────────────────────────────────────
+   Una fila por plan: a la izquierda el texto, a la derecha un botón de
+   verdad. El botón usa `.acc`, o sea exactamente el mismo verde, el mismo
+   radio y la misma sombra que el de Simular: el que ya apretó Simular
+   sabe, sin pensarlo, que esto también se aprieta.
+
+   Sin recuadro y con una línea entre planes. El recuadro era lo que hacía
+   que tres botones parecieran tres cajitas de texto. */
+.planes{margin-top:10px}
+.plan{display:flex;align-items:center;gap:12px;padding:12px 0}
+.plan + .plan{border-top:1px solid var(--borde)}
+.plan-txt{flex:1;min-width:0;line-height:1.4}
+.plan-txt b{display:block;font-family:var(--display);font-size:14.5px;color:var(--tinta)}
+.plan-txt > span{display:block;font-size:12.5px;color:var(--tinta-3)}
+/* El precio va en la tinta fuerte y en negrita: es el dato por el que la
+   persona está mirando esto, y en gris claro se perdía. */
+.plan-txt .plan-precio{display:inline;font-size:12.5px;color:var(--tinta)}
+.plan-btn{flex:none;padding:10px 18px;font-size:14px}
+@media (max-width:340px){ .plan-btn{padding:10px 13px} }
+
+/* ── LOS PARTIDOS DE LA LIGA ──────────────────────────────────────────────
+   La misma fila que los planes, por la misma razón: el texto a la
+   izquierda, un botón de verdad a la derecha. Clase propia y no `.mini`
+   porque esa la usan otras pantallas.
+
+   El nombre de los equipos puede ser largo —"Borussia Mönchengladbach vs
+   Eintracht Frankfurt"— así que envuelve y el botón nunca se achica:
+   `flex:none` de un lado y `min-width:0` del otro. Sin el `min-width:0`, un
+   nombre largo empuja el botón afuera de la tarjeta. */
+.partidos{display:block}
+.part{display:flex;align-items:center;gap:12px;padding:11px 0}
+.part + .part{border-top:1px solid var(--borde)}
+.part-txt{flex:1;min-width:0;line-height:1.35}
+.part-txt b{display:block;font-family:var(--display);font-size:14px;font-weight:500;color:var(--tinta)}
+/* `>` y no descendiente: el "vs" es un span ADENTRO del <b>, y con el
+   selector suelto se volvía bloque. "Rojos / vs / Azules", tres renglones
+   por partido y una lista al doble de alto. */
+.part-txt > span{display:block;font-size:12px;color:var(--tinta-3)}
+.part-txt b .vs{color:var(--tinta-3);font-weight:400}
+.part-btn{flex:none;padding:9px 16px;font-size:13.5px}
+@media (max-width:340px){ .part-btn{padding:9px 12px} }
 button.gh{font-family:var(--display);font-weight:500;font-size:14px;border-radius:var(--r-m);
   border-color:transparent;background:color-mix(in srgb, var(--acento) 10%, transparent);
   color:var(--acento-txt);padding:12px 16px;transition:background .15s, transform .08s}
@@ -2490,6 +2532,88 @@ function poolDeLiga(L, equipoId){
 const nombreDeEquipo = (L, id) =>
   (L.equipos[id] || L.equipos[String(id)] || {}).n || "?";
 
+/* Cuándo se juega, en la hora del que está mirando. Antes se recortaba la
+   cadena a mano —"09-20"— para no tocar husos horarios, y así quedaba un
+   mes-día al revés del que se usa acá y sin hora.
+
+   La hora importa más que nunca desde que la pantalla avisa si las
+   formaciones están confirmadas: el once del DT sale alrededor de una hora
+   antes, así que saber a qué hora juega es saber cuándo volver.
+
+   `new Date` hace la conversión de zona sola y bien —la fecha viene con
+   zona, "...T21:30:00+00:00"— y de ahí se arma el texto A MANO en vez de
+   con `toLocaleString`. No es capricho: `toLocaleString("es-AR")` depende
+   de qué tablas de idioma trajo el navegador, y en uno con ICU recortado
+   devolvió "sáb 05-09 · 02:00 p. m." —mes y día al revés, y en doce horas,
+   que no es como se lee una hora acá—. Cinco líneas de padStart dan
+   siempre lo mismo en todos lados.
+
+   Si algún día llegara una fecha rara, el catch devuelve el recorte de
+   siempre en vez de romper la lista entera. */
+/* Qué fecha es, dicho como se dice acá. La API manda "Regular Season - 5",
+   que no significa nada para un hincha.
+
+   Se escribe SIEMPRE, aunque todos los partidos sean de la misma: cuando la
+   fecha en curso está casi jugada, la lista suma la siguiente, y dos
+   partidos con tres semanas de diferencia uno al lado del otro sin nada que
+   los distinga es exactamente lo que estaba mal. */
+function nombreDeFecha(ronda){
+  const r = String(ronda || "").trim();
+  if(!r) return "";
+  const m = /(\d+)\s*$/.exec(r);
+  if(!m) return r;
+  if(/regular season/i.test(r)) return "Fecha " + m[1];
+  const antes = r.replace(/\s*-\s*\d+\s*$/, "").trim();
+  return antes ? antes + ", fecha " + m[1] : "Fecha " + m[1];
+}
+
+const DIAS_CORTOS = ["dom","lun","mar","mié","jue","vie","sáb"];
+function cuandoJuega(fecha){
+  try{
+    const d = new Date(fecha);
+    if(isNaN(d)) throw 0;
+    const dd = String(d.getDate()).padStart(2,"0");
+    const mm = String(d.getMonth()+1).padStart(2,"0");
+    const hh = String(d.getHours()).padStart(2,"0");
+    const mi = String(d.getMinutes()).padStart(2,"0");
+    return DIAS_CORTOS[d.getDay()] + " " + dd + "/" + mm + " · " + hh + ":" + mi;
+  }catch(e){
+    const s = String(fecha).slice(5,10).split("-");
+    return s.length === 2 ? s[1] + "/" + s[0] : String(fecha).slice(0,10);
+  }
+}
+
+/* ── BAJAR SOLO A LOS PARTIDOS ───────────────────────────────────────────
+   Con once ligas agrupadas por continente, el que elige Italia la tiene
+   abajo de todo: la lista de partidos aparece FUERA de la pantalla y la
+   app se ve como si el toque no hubiera hecho nada. Fausto lo pidió
+   derecho: "que se desplace automáticamente hacia abajo".
+
+   Dos cuidados:
+
+   - Va dentro de un `requestAnimationFrame` porque `pintar()` rehace el
+     HTML entero: un instante antes, `.partidos` todavía no existe.
+   - Se deja un margen arriba (`ARRIBA`) en vez de pegar la lista al borde,
+     para que el botón de la liga recién elegida quede a la vista. Si no,
+     la persona ve una lista de partidos y perdió de vista de qué liga son.
+
+   Y se respeta a quien pidió menos movimiento en su sistema: para alguien
+   con sensibilidad al movimiento, un salto suave de media pantalla no es
+   un detalle lindo. */
+function bajarALosPartidos(){
+  if(typeof requestAnimationFrame !== "function") return;
+  requestAnimationFrame(() => {
+    try{
+      const lista = document.querySelector(".partidos");
+      if(!lista) return;
+      const ARRIBA = 76;
+      const quieto = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const y = window.scrollY + lista.getBoundingClientRect().top - ARRIBA;
+      window.scrollTo({ top: Math.max(0, y), behavior: quieto ? "auto" : "smooth" });
+    }catch(e){}
+  });
+}
+
 function simularDeLiga(slug, fixtureId){
   const L = (window.LIGAS || {})[slug];
   const p = L && L.partidos.find(x => String(x.id) === String(fixtureId));
@@ -2630,6 +2754,13 @@ const ligaAhora = () => J.liga || "argentina";
    un "no" del servidor como si fuera un problema de red. */
 async function gastarSimulacion(){
   const liga = ligaAhora();
+  /* EL NÚMERO QUE IMPORTA. Meta sabe cuántos entraron y lo cobra; lo que
+     no puede saber es cuántos de esos jugaron. Acá es el único lugar por
+     donde pasan TODAS las simulaciones —la larga y el flash—, así que es
+     el único lugar donde hay que contarlo. Va antes del pedido al
+     servidor y no después: lo que se está contando es que la persona
+     apretó simular, no que el servidor le dio permiso. */
+  contar("simulo");
   if(conBackend && typeof usarSimulacion === "function"){
     try{
       const r = await usarSimulacion(liga);
@@ -2753,6 +2884,58 @@ function hayOnceDelDT(){
   const clave = "/fixtures/lineups?fixture=" + J.fx.fixture.id;
   const al = window.CACHE?.[clave] || onceGuardado(J.fx.fixture.id);
   return Array.isArray(al) && al.some(x => x.team?.id === J.id.A && (x.startXI||[]).length >= 10);
+}
+
+/* ── ¿ESTOS ONCES SON DE VERDAD O LOS ARMÓ LA APP? ───────────────────────
+   Fausto, 19/9: "un aviso si esas formaciones ya están confirmadas o son
+   tentativas al ingresar al Armá el 11 de ese partido".
+
+   Hay una distinción que la pantalla daba por sabida y no lo es: **los once
+   que se ven en la cancha SIEMPRE los armó la app**, con los que vienen
+   jugando en cada equipo. Nunca son los del DT, ni siquiera cuando el DT ya
+   los publicó: el once del DT se simula aparte, con el botón de abajo.
+
+   Sin decirlo, alguien que entra media hora antes del partido puede creer
+   que está mirando la formación confirmada y que la app se equivocó en
+   cuatro nombres. Es la clase de malentendido que hace que una persona
+   deje de confiar en todo lo demás.
+
+   Así que el aviso dice las dos cosas: qué son los once de la cancha, y si
+   el del DT ya salió o todavía no.
+
+   Devuelve `null` cuando no hay partido —el modo suelto, sin fixture—,
+   porque ahí no hay once del DT que esperar ni nada que aclarar.        */
+function formacionesConfirmadas(){
+  if(!J.fx) return null;
+  const clave = "/fixtures/lineups?fixture=" + J.fx.fixture.id;
+  const al = window.CACHE?.[clave] || onceGuardado(J.fx.fixture.id);
+  if(!Array.isArray(al)) return 0;
+  /* Diez y no once: la API a veces publica el once sin el arquero cargado
+     todavía, y esperar al jugador número once dejaría el aviso en
+     "tentativa" con la formación ya en la calle. */
+  const tiene = id => al.some(x => x.team?.id === id && (x.startXI||[]).length >= 10);
+  return (tiene(J.id.A) ? 1 : 0) + (tiene(J.id.B) ? 1 : 0);
+}
+
+function avisoDeFormaciones(){
+  const cuantas = formacionesConfirmadas();
+  if(cuantas === null) return "";
+  const comoSeArmaron = "Los once de la cancha los armó la app con los que vienen jugando " +
+    "en cada equipo; los podés cambiar jugador por jugador.";
+
+  if(cuantas === 2) return `<div class="pendiente salio" style="margin:12px 0 0">
+      <b>Las formaciones ya están confirmadas.</b>
+      Los dos DT publicaron su once para este partido. ${comoSeArmaron}
+      Más abajo podés simular el del DT contra el tuyo.</div>`;
+
+  if(cuantas === 1) return `<div class="pendiente salio" style="margin:12px 0 0">
+      <b>Una de las dos formaciones ya está confirmada.</b>
+      Falta que salga la del otro equipo. ${comoSeArmaron}</div>`;
+
+  return `<div class="pendiente" style="margin:12px 0 0">
+      <b>Formaciones tentativas.</b>
+      ${comoSeArmaron} El once que pone el DT sale alrededor de una hora antes
+      del partido, y cuando salga vas a poder simularlo contra el tuyo.</div>`;
 }
 
 /* Lo que va al pie de la tarjeta del resultado, segun el momento:
@@ -3368,6 +3551,18 @@ function bloqueCupo(){
 
    Se captura lo antes posible —el evento llega una sola vez y temprano— y
    por eso este bloque va arriba de todo lo demás. */
+/* ── DE DÓNDE VINO ESTA PERSONA ──────────────────────────────────────────
+   Va acá arriba, antes que nada, por una razón concreta: lo primero que
+   hace es SACAR el `?c=` de la barra de direcciones. Cuanto más tarde se
+   haga, más chance hay de que alguien copie el link con el código adentro
+   y se lo mande a quince amigos; a partir de ahí el anuncio figura
+   trayendo gente que llegó por un amigo y el número deja de servir.
+
+   Si la persona no vino de una campaña —la enorme mayoría— no hace nada.
+   El `typeof` es porque sin backend el archivo ni se carga.            */
+if(typeof arrancarCampana === "function"){ try{ arrancarCampana(); }catch(e){} }
+const contar = h => { try{ if(typeof hitoCampana === "function") hitoCampana(h); }catch(e){} };
+
 let PROMPT_INSTALAR = null;
 if(typeof window !== "undefined"){
   window.addEventListener("beforeinstallprompt", ev => {
@@ -3377,6 +3572,9 @@ if(typeof window !== "undefined"){
   });
   window.addEventListener("appinstalled", () => {
     PROMPT_INSTALAR = null;
+    /* Vale más que una simulación: el instalado es el que puede volver
+       solo y el único que puede recibir el aviso del once del DT. */
+    contar("instalo");
     try{ pintar(); }catch(e){}
   });
 }
@@ -3427,20 +3625,37 @@ function tarjetasDePlan(){
   const porPlay = esDeLaTienda();
   const playListo = !porPlay || PLAY_OK !== false;
   const apagado = comprando || !CUPO_CFG.cobrando || !playListo;
-  /* ANCHO COMPLETO, UNO DEBAJO DEL OTRO. Con `flex:1 1 150px` los tres
-     envolvían en el teléfono y cada uno quedaba de un ancho distinto,
-     escalonados como una escalera rota. Tres precios desalineados se leen
-     como un error de la app, no como una lista de planes. */
-  const tarjeta = p => `<button class="boton flaco" data-plan="${esc(p.id)}"
-      ${apagado ? "disabled" : ""}
-      style="width:100%;text-align:left;line-height:1.35">
-      <b>${esc(p.nombre || "Plan")}</b><br>
-      <span style="opacity:.72;font-size:12px">${esc(p.detalle || "")}</span><br>
-      <span style="opacity:.75">${esc(plata(p.precio))} por mes</span></button>`;
+  /* ── POR QUÉ EL TEXTO Y EL BOTÓN SON DOS COSAS ────────────────────────
+     Antes cada plan ERA un botón: un `.boton.flaco` de ancho completo, o
+     sea un rectángulo transparente, con borde gris fino, texto alineado a
+     la izquierda y el precio en gris claro adentro. Tres de esos, uno
+     abajo del otro, no se leen como botones: se leen como tres cajitas de
+     texto. Fausto lo dijo así, "texto encasillado", y tenía razón: no
+     había ni una sola señal de que eso se pudiera apretar. Ni relleno, ni
+     sombra, ni una palabra que dijera qué pasa si lo tocás.
 
-  return `<div style="margin-top:10px;display:flex;flex-direction:column;gap:8px">
-      ${PLANES.map(tarjeta).join("")}
-    </div>
+     Ahora el texto es texto —nombre, precio, qué incluye— y al lado hay
+     un botón de verdad, con el mismo relleno verde y la misma sombra que
+     el botón de Simular, que es el botón que todo el mundo ya aprendió a
+     apretar en esta app. Y dice "Comprar", que es exactamente lo que
+     hace: un botón que no dice qué hace no es mucho mejor que una caja.
+
+     Se fue también el recuadro de cada plan. Con el botón adentro, el
+     borde no sumaba nada y agregaba ruido; una línea fina entre planes
+     alcanza para separarlos y ocupa la mitad del alto.
+
+     El `data-plan` sigue en el botón, que es lo que engancha `[data-plan]`:
+     lo que cambió es cómo se ve, no cómo se compra. */
+  const tarjeta = p => `<div class="plan">
+      <div class="plan-txt">
+        <b>${esc(p.nombre || "Plan")}</b>
+        <span><b class="plan-precio">${esc(plata(p.precio))}</b> por mes · ${esc(p.detalle || "")}</span>
+      </div>
+      <button class="acc plan-btn" data-plan="${esc(p.id)}" ${apagado ? "disabled" : ""}
+        >Comprar</button>
+    </div>`;
+
+  return `<div class="planes">${PLANES.map(tarjeta).join("")}</div>
     <p class="aviso" style="margin-top:8px">${!CUPO_CFG.cobrando
       ? "<b>Todavía no se cobra nada.</b> Los precios están acá para que sepas de antemano cuánto va a salir cuando se prenda."
       : !playListo
@@ -4008,12 +4223,26 @@ function vistaJuego(){
         ${listaDeLigas(ls)}
         <p class="aviso" style="margin:10px 0 0">${esc(QUE_ES_EL_PROMEDIO)}</p>
         ${J.liga && (window.LIGAS||{})[J.liga] ? (()=>{ const L=window.LIGAS[J.liga];
-          return `<div class="mini" style="margin-top:8px">${L.partidos.map(p=>
-            `<div class="it" data-part="${p.id}" role="button" tabindex="0">
-              <span class="n">${esc(String(p.fecha).slice(5,10))}</span>
-              <span>${esc(nombreDeEquipo(L,p.local))} <span style="color:var(--tinta-3)">vs</span>
-                ${esc(nombreDeEquipo(L,p.visita))}</span>
-              <span class="v">›</span></div>`).join("")}</div>
+          /* ── LOS PARTIDOS, CON BOTÓN ────────────────────────────────
+             Misma corrección que la de los planes, mismo motivo. Esto era
+             una `.mini`: filas de texto de 13.5px con un `›` al final y un
+             `role="button"` que solo ve el lector de pantalla. Para el ojo
+             era una lista, no diez cosas apretables.
+
+             Ahora el partido es texto y al lado va un botón `.acc` que
+             dice "Simular". El `data-part` se mudó al botón, que es lo que
+             engancha `[data-part]`: cambió dónde se toca, no qué pasa.
+
+             Clase propia y no `.mini`: esa la usan otras pantallas y
+             pisarla acá les cambiaría el aspecto sin que nadie lo pida. */
+          return `<div class="partidos" style="margin-top:10px">${L.partidos.map(p=>
+            `<div class="part">
+              <div class="part-txt">
+                <b>${esc(nombreDeEquipo(L,p.local))} <span class="vs">vs</span> ${esc(nombreDeEquipo(L,p.visita))}</b>
+                <span>${esc([nombreDeFecha(p.ronda), cuandoJuega(p.fecha)].filter(Boolean).join(" · "))}</span>
+              </div>
+              <button class="acc part-btn" data-part="${p.id}">Simular</button>
+            </div>`).join("")}</div>
             <p class="aviso" style="margin-top:8px">${L.calibrada
               ? "Calibrada con " + L.calibrada.partidos + " partidos de " + L.calibrada.temporada + "."
               : "Todavía sin calibrar: la temporada recién arranca y uso los números de respaldo."}
@@ -4099,6 +4328,7 @@ function vistaJuego(){
 
   if(J.paso==="armar"||J.paso==="resultado"||J.paso==="revelado"){
     const armado=`
+      ${J.paso==="armar" ? avisoDeFormaciones() : ""}
       <h3 class="sec">Tocá un jugador para cambiarlo</h3>
       ${campoHTML()}
       <div class="fila2" style="margin-top:11px">
@@ -4446,11 +4676,22 @@ function enganchar(){
     pintar();
   });
   document.querySelectorAll("[data-liga]").forEach(b=>b.onclick=()=>{
-    J.liga = (J.liga===b.dataset.liga) ? null : b.dataset.liga; J.err=""; pintar(); });
+    /* Se mira ANTES de tocar `J.liga`: el mismo botón abre y cierra, y
+       solo hay que bajar cuando abre. Bajar al cerrar sería perseguir a
+       alguien que acaba de decir que no quería ver eso. */
+    const abre = J.liga !== b.dataset.liga;
+    J.liga = abre ? b.dataset.liga : null; J.err=""; pintar();
+    if(abre) bajarALosPartidos();
+  });
   document.querySelectorAll("[data-part]").forEach(el=>{
     const ir = () => simularDeLiga(J.liga, el.dataset.part);
     el.onclick = ir;
-    el.onkeydown = e => { if(e.key==="Enter"||e.key===" "){ e.preventDefault(); ir(); } };
+    /* OJO: desde que esto es un `<button>` de verdad, Enter y Espacio ya
+       disparan `click` solos. Dejar además el `keydown` llamaba a `ir()`
+       DOS veces, y cada una gasta una simulación del cupo. El teclado se
+       atiende a mano solo si el elemento no es un botón. */
+    if(el.tagName !== "BUTTON")
+      el.onkeydown = e => { if(e.key==="Enter"||e.key===" "){ e.preventDefault(); ir(); } };
   });
   const bv=$("bvolver"); if(bv) bv.onclick=volverAMiClub;
 
@@ -4710,6 +4951,10 @@ function pintarCuenta(aviso="", mal=false){
         }else{
           await entrarConClave(mail, clave);
         }
+        /* El final del embudo. Solo cuenta el que llegó hasta acá: el que
+           pidió confirmar el mail todavía no tiene cuenta y se fue por el
+           `return` de arriba. */
+        contar("cuenta");
         miNombre=null;
         try{ miNombre=await miUsuario(); }catch(e){}
         pintarCuenta();

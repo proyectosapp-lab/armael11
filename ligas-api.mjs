@@ -23,14 +23,25 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync, rmSync, readdirSync } from "node:fs";
 import { constantesDeLiga, MINIMO_PARTIDOS } from "./juego.js";
 
+import { partidosDeLaFecha } from "./fecha-de-liga.mjs";
+
 const aca  = p => new URL(p, import.meta.url);
 const KEY  = process.env.API_FOOTBALL_KEY || process.argv[2] || "";
 const BASE = "https://v3.football.api-sports.io";
 
 const CFG = JSON.parse(readFileSync(aca("./ligas.json")));
 const TEMPORADA = +(process.env.TEMPORADA || CFG.temporada || 2026);
-const TOPE_EQUIPOS = CFG.porLiga?.equiposPorRonda || 12;
-const ULTIMOS      = CFG.porLiga?.partidosParaRatings || 5;
+/* El techo de partidos que se publican por liga. NO es la forma de elegir
+   cuáles —eso lo hace la fecha, más abajo—: es el freno de gasto para que
+   una liga rara con una fecha enorme no se coma la cuota de la API.
+
+   Quince porque la fecha más grande de las once ligas es la argentina, con
+   treinta equipos, o sea quince partidos. El nombre viejo del ajuste
+   —`equiposPorRonda`— se sigue leyendo para no romper un `ligas.json` que
+   venga de antes, pero contaba PARTIDOS, no equipos. */
+const TOPE_PARTIDOS = CFG.porLiga?.partidosPorFecha || CFG.porLiga?.equiposPorRonda || 15;
+const MINIMO_FECHA  = CFG.porLiga?.minimoPorFecha || 4;
+const ULTIMOS       = CFG.porLiga?.partidosParaRatings || 5;
 
 const SALIDA = new URL("./sitio/datos/", import.meta.url);
 mkdirSync(SALIDA, { recursive: true });
@@ -123,9 +134,11 @@ for (const L of CFG.ligas) {
   }
 
   /* ─── 2. el próximo partido de cada equipo ───────────────────────────── */
-  const porJugar = fixtures.filter(POR_JUGAR)
-    .sort((a, b) => new Date(a.fixture.date) - new Date(b.fixture.date))
-    .slice(0, TOPE_EQUIPOS);
+  /* La fecha entera, no "los doce que vengan". El porqué, largo y con el
+     caso real que lo destapó, está en `fecha-de-liga.mjs`. */
+  const proximos = fixtures.filter(POR_JUGAR)
+    .sort((a, b) => new Date(a.fixture.date) - new Date(b.fixture.date));
+  const porJugar = partidosDeLaFecha(proximos, { minimo: MINIMO_FECHA, tope: TOPE_PARTIDOS });
 
   if (!porJugar.length) {
     console.log("    sin partidos por jugar: no la publico");

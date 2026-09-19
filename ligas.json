@@ -1,100 +1,101 @@
 {
-  "_porqueExiste": "Las ligas que se pueden simular. Sumar una liga es agregar una fila acá: el motor se calibra solo con los partidos de cada una. Los ids son los de API-Football. La ventaja del modelo sobre la vara sale del backtest (claude/modelo-backtest.md) y la app la MUESTRA: Argentina es la peor liga del modelo y eso se dice en la pantalla, porque el que cree cuando decimos que en Portugal le gana claro es el que nos vio decir que en Argentina casi no le gana.",
-  "_nombres": "El nombre y el país se escriben como los lee un hincha, en castellano. Los que llegan del backtest vienen de la API en inglés (Brazil, Peru, Mexico) y se corrigen acá.",
-  "temporada": 2026,
-  "porLiga": {
-    "equiposPorRonda": 12,
-    "partidosParaRatings": 5
+ "_porqueExiste": "Las ligas que se pueden simular. Sumar una liga es agregar una fila acá: el motor se calibra solo con los partidos de cada una. Los ids son los de API-Football. La ventaja del modelo sobre la vara sale del backtest (claude/modelo-backtest.md) y la app la MUESTRA: Argentina es la peor liga del modelo y eso se dice en la pantalla, porque el que cree cuando decimos que en Portugal le gana claro es el que nos vio decir que en Argentina casi no le gana.",
+ "_nombres": "El nombre y el país se escriben como los lee un hincha, en castellano. Los que llegan del backtest vienen de la API en inglés (Brazil, Peru, Mexico) y se corrigen acá.",
+ "temporada": 2026,
+ "porLiga": {
+  "partidosPorFecha": 15,
+  "minimoPorFecha": 4,
+  "partidosParaRatings": 5
+ },
+ "ligas": [
+  {
+   "id": 128,
+   "slug": "argentina",
+   "nombre": "Liga Profesional",
+   "pais": "Argentina",
+   "zona": "america",
+   "propia": true,
+   "ventajaBacktest": 0.0046
   },
-  "ligas": [
-    {
-      "id": 128,
-      "slug": "argentina",
-      "nombre": "Liga Profesional",
-      "pais": "Argentina",
-      "zona": "america",
-      "propia": true,
-      "ventajaBacktest": 0.0046
-    },
-    {
-      "id": 71,
-      "slug": "brasil",
-      "nombre": "Brasileirão",
-      "pais": "Brasil",
-      "zona": "america",
-      "ventajaBacktest": 0.0193
-    },
-    {
-      "id": 239,
-      "slug": "colombia",
-      "nombre": "Primera A",
-      "pais": "Colombia",
-      "zona": "america",
-      "ventajaBacktest": 0.0245
-    },
-    {
-      "id": 262,
-      "slug": "mexico",
-      "nombre": "Liga MX",
-      "pais": "México",
-      "zona": "america",
-      "ventajaBacktest": 0.0406
-    },
-    {
-      "id": 281,
-      "slug": "peru",
-      "nombre": "Primera División",
-      "pais": "Perú",
-      "zona": "america",
-      "ventajaBacktest": 0.0538
-    },
-    {
-      "id": 78,
-      "slug": "alemania",
-      "nombre": "Bundesliga",
-      "pais": "Alemania",
-      "zona": "europa",
-      "ventajaBacktest": 0.0531
-    },
-    {
-      "id": 140,
-      "slug": "espana",
-      "nombre": "LaLiga",
-      "pais": "España",
-      "zona": "europa",
-      "ventajaBacktest": 0.0505
-    },
-    {
-      "id": 61,
-      "slug": "francia",
-      "nombre": "Ligue 1",
-      "pais": "Francia",
-      "zona": "europa",
-      "ventajaBacktest": 0.0466
-    },
-    {
-      "id": 39,
-      "slug": "inglaterra",
-      "nombre": "Premier League",
-      "pais": "Inglaterra",
-      "zona": "europa",
-      "ventajaBacktest": 0.0519
-    },
-    {
-      "id": 135,
-      "slug": "italia",
-      "nombre": "Serie A",
-      "pais": "Italia",
-      "zona": "europa",
-      "ventajaBacktest": 0.0676
-    },
-    {
-      "id": 94,
-      "slug": "portugal",
-      "nombre": "Primeira Liga",
-      "pais": "Portugal",
-      "zona": "europa",
-      "ventajaBacktest": 0.0979
-    }
-  ]
+  {
+   "id": 71,
+   "slug": "brasil",
+   "nombre": "Brasileirão",
+   "pais": "Brasil",
+   "zona": "america",
+   "ventajaBacktest": 0.0193
+  },
+  {
+   "id": 239,
+   "slug": "colombia",
+   "nombre": "Primera A",
+   "pais": "Colombia",
+   "zona": "america",
+   "ventajaBacktest": 0.0245
+  },
+  {
+   "id": 262,
+   "slug": "mexico",
+   "nombre": "Liga MX",
+   "pais": "México",
+   "zona": "america",
+   "ventajaBacktest": 0.0406
+  },
+  {
+   "id": 281,
+   "slug": "peru",
+   "nombre": "Primera División",
+   "pais": "Perú",
+   "zona": "america",
+   "ventajaBacktest": 0.0538
+  },
+  {
+   "id": 78,
+   "slug": "alemania",
+   "nombre": "Bundesliga",
+   "pais": "Alemania",
+   "zona": "europa",
+   "ventajaBacktest": 0.0531
+  },
+  {
+   "id": 140,
+   "slug": "espana",
+   "nombre": "LaLiga",
+   "pais": "España",
+   "zona": "europa",
+   "ventajaBacktest": 0.0505
+  },
+  {
+   "id": 61,
+   "slug": "francia",
+   "nombre": "Ligue 1",
+   "pais": "Francia",
+   "zona": "europa",
+   "ventajaBacktest": 0.0466
+  },
+  {
+   "id": 39,
+   "slug": "inglaterra",
+   "nombre": "Premier League",
+   "pais": "Inglaterra",
+   "zona": "europa",
+   "ventajaBacktest": 0.0519
+  },
+  {
+   "id": 135,
+   "slug": "italia",
+   "nombre": "Serie A",
+   "pais": "Italia",
+   "zona": "europa",
+   "ventajaBacktest": 0.0676
+  },
+  {
+   "id": 94,
+   "slug": "portugal",
+   "nombre": "Primeira Liga",
+   "pais": "Portugal",
+   "zona": "europa",
+   "ventajaBacktest": 0.0979
+  }
+ ]
 }
