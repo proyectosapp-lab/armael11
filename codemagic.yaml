@@ -44,9 +44,23 @@ workflows:
       cocoapods: default
       vars:
         BUNDLE_ID: "com.armael11.app"
-      ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.armael11.app
+      # ── POR QUÉ ACÁ NO HAY UN BLOQUE `ios_signing` ──────────────────────
+      # Codemagic ofrece dos maneras de firmar y comparten el mismo mensaje
+      # de error, que es lo que nos hizo perder dos compilaciones:
+      #
+      #   1. `ios_signing:` con `distribution_type` y `bundle_identifier`.
+      #      Codemagic busca el perfil ANTES de empezar, y si no lo
+      #      encuentra ni lo puede crear, corta con "No matching profiles
+      #      found" sin decir por qué: no dice si falta el perfil, si falta
+      #      el identificador, o si la clave no tiene permiso.
+      #
+      #   2. Pedirlo a mano en un paso, con la herramienta que Codemagic
+      #      trae en la Mac. Es lo que se hace abajo.
+      #
+      # Se eligió la segunda, y no por gusto: la primera falla ANTES de que
+      # exista un log que leer. La segunda falla adentro de un paso, con la
+      # respuesta de Apple escrita. Cuando hay que diagnosticar a ciegas
+      # desde un navegador, un error legible vale más que una línea menos.
 
     integrations:
       app_store_connect: armael11
@@ -98,9 +112,33 @@ workflows:
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" "$P"
           plutil -p "$P" | head -40
 
-      - name: Compilar y firmar
+      - name: Traer (o crear) el certificado y el perfil
         script: |
+          set -e
+          # Si la integración no llegó al entorno, el error de Apple sería
+          # confuso. Mejor decirlo acá, en castellano y en el primer renglón.
+          if [ -z "$APP_STORE_CONNECT_ISSUER_ID" ]; then
+            echo "══════════════════════════════════════════════════════════"
+            echo " La integración de App Store Connect no llegó a este paso."
+            echo " Revisá que en Codemagic → Settings → Integrations →"
+            echo " Developer Portal exista una clave llamada EXACTAMENTE"
+            echo " 'armael11'. El nombre es lo que las une."
+            echo "══════════════════════════════════════════════════════════"
+            exit 1
+          fi
+          keychain initialize
+          # `--create` es la palabra importante: si el identificador, el
+          # certificado o el perfil no existen todavía, los crea. Para eso
+          # la clave de API necesita rol Admin; con App Manager no alcanza,
+          # porque no llega a Certificates, Identifiers & Profiles.
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --create
+          keychain add-certificates
           xcode-project use-profiles
+
+      - name: Compilar
+        script: |
           xcode-project build-ipa \
             --workspace "ios/App/App.xcworkspace" \
             --scheme "App"

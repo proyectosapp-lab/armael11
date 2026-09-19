@@ -1,3 +1,49 @@
+Arma el 11 - version 2026-09-19 y55 (que el error de la firma se pueda leer)
+
+  · SE SUBE ESTE SOLO. Incluye y50 a y54. Cambia UN archivo: codemagic.yaml.
+
+  · QUE PASO. Las dos primeras compilaciones en Codemagic murieron con el
+    mismo renglon:
+
+      No matching profiles found for bundle identifier "com.armael11.app"
+      and distribution type "app_store"
+
+    Y murieron ANTES de correr un solo paso, asi que no habia log que leer.
+    Eso es lo peor que puede pasar cuando se diagnostica a ciegas desde un
+    navegador: el error no dice si falta el perfil, si falta el
+    identificador, o si la clave de API no tiene permiso para crearlos. Son
+    tres problemas distintos con tres arreglos distintos.
+
+  · QUE SE CAMBIO. Codemagic ofrece dos maneras de firmar y comparten el
+    mensaje de error:
+
+      1. El bloque `ios_signing:` en el entorno. Codemagic busca el perfil
+         antes de empezar y corta si no lo encuentra. Una linea menos, cero
+         informacion cuando falla.
+      2. Pedirlo a mano en un paso, con la herramienta que Codemagic ya trae
+         instalada en la Mac.
+
+    Se paso a la segunda. Ahora la firma es un paso propio que corre
+    `app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE
+    --create`, y lo que conteste Apple queda escrito en el log.
+
+    NO es una solucion al problema: es hacer que el problema se pueda ver.
+    Puede ser que con esto ande de una (el `--create` crea lo que falte) o
+    puede ser que falle igual, pero diciendo por que.
+
+  · Y UN CARTEL EN CASTELLANO ANTES DE TODO. Si la integracion de App Store
+    Connect no llego al entorno del paso, el error de Apple seria confuso.
+    Asi que el paso primero comprueba que este, y si no, corta con tres
+    renglones que dicen que revisar: que en Codemagic exista una clave
+    llamada EXACTAMENTE `armael11`, porque el nombre es lo que las une.
+
+  · LO QUE SE APRENDIO Y QUEDA ESCRITO EN EL ARCHIVO: la clave de API de App
+    Store Connect necesita rol ADMIN. Con App Manager alcanza para subir a
+    TestFlight pero NO para crear el certificado y el perfil, porque ese rol
+    no llega a Certificates, Identifiers & Profiles. Fue mi recomendacion y
+    estuvo mal: el criterio de dar el minimo permiso posible es correcto,
+    pero el minimo que sirve para firmar es Admin.
+
 Arma el 11 - version 2026-09-19 y54 (el envoltorio de iPhone)
 
   · SE SUBE ESTE SOLO. Incluye y50 a y53.
