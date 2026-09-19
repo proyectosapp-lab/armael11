@@ -1,3 +1,45 @@
+Arma el 11 - version 2026-09-19 y49 (instalar desde la web, y por que Play no contesta)
+
+  · INCLUYE y45 a y48. Se sube este solo.
+
+  · SE PUEDE INSTALAR DESDE LA WEB, Y AHORA SE OFRECE. El sitio ya era
+    instalable -manifest, service worker, iconos- y no lo proponia nunca:
+    quedaba escondido en el menu de Chrome, donde no lo encuentra nadie.
+
+    Dos costos concretos de eso. El que llega de Instagram se queda en una
+    pestana: sin icono, no vuelve solo, y sobre todo NO PUEDE RECIBIR EL
+    AVISO del once del DT, que es el gancho para que vuelva cada fecha. Y
+    una app instalada desde la web no es una app de Play: el cobro sigue
+    por Mercado Pago, sin comision. Play se lleva 15%.
+
+    El boton se comporta distinto en cada lado:
+      - Android con oferta del navegador: un toque y se instala.
+      - iPhone: no existe el evento, van las instrucciones de Compartir ->
+        Agregar a inicio. Y ahi no es comodidad: en iOS los avisos SOLO
+        llegan si la app se agrego a la pantalla de inicio.
+      - Ya instalada, o adentro de la app de Play: no aparece nada.
+      - Sin oferta del navegador: tampoco. Un boton que no puede hacer lo
+        que dice es peor que ninguno.
+
+  · EL CARTEL DE PLAY AHORA DICE EL ERROR DE GOOGLE. `servicioDePlay` se
+    tragaba la excepcion en un catch vacio, y ese texto es lo unico que
+    distingue "no se instalo desde Play" de "todavia no propagaron los
+    productos". Nos costo una noche de adivinar. Ahora se muestra.
+
+  · LAS TARJETAS DE PLAN, UNA DEBAJO DE LA OTRA. Con `flex:1 1 150px` los
+    tres planes envolvian en el telefono y cada uno quedaba de un ancho
+    distinto, escalonados como una escalera rota. Tres precios desalineados
+    se leen como un error de la app, no como una lista de planes.
+
+  · PRUEBAS: 58 en el puente nativo (14 nuevos, la decision de instalar es
+    pura y se prueba sin navegador) y 286 en la suite del navegador (4
+    nuevos). Todo el resto verde.
+
+  · ARCHIVOS: nativo.js, app.tpl.html, probar-nativo.mjs, probar-sitio.cjs,
+    VERSION.txt, mas todo lo de y45/y46/y47/y48 (cuentas.js,
+    construir-sitio.mjs, publicar.mjs, formaciones.mjs, ligas-api.mjs,
+    probar-formaciones.mjs).
+
 Arma el 11 - version 2026-09-19 y48 (los planes en la portada, y el cartel que dice por que)
 
   · INCLUYE y45, y46 y y47. Se sube este solo.

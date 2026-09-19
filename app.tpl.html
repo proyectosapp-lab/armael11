@@ -3361,6 +3361,49 @@ function bloqueCupo(){
    productos no están dados de alta— los botones se apagan y se dice por
    qué. Lo que NO se hace nunca es ofrecer Mercado Pago ni mandar a pagar
    afuera: eso es exactamente lo que Google prohíbe. */
+/* ══════════════════ INSTALAR LA APP DESDE LA WEB ══════════════════════
+   Chrome avisa que la app se puede instalar con un evento, y si nadie lo
+   atiende el navegador se guarda la oferta para sí mismo, escondida en su
+   menú. Acá se lo queda la app para poder ofrecerlo donde se ve.
+
+   Se captura lo antes posible —el evento llega una sola vez y temprano— y
+   por eso este bloque va arriba de todo lo demás. */
+let PROMPT_INSTALAR = null;
+if(typeof window !== "undefined"){
+  window.addEventListener("beforeinstallprompt", ev => {
+    ev.preventDefault();
+    PROMPT_INSTALAR = ev;
+    try{ pintar(); }catch(e){}
+  });
+  window.addEventListener("appinstalled", () => {
+    PROMPT_INSTALAR = null;
+    try{ pintar(); }catch(e){}
+  });
+}
+
+function bloqueInstalar(){
+  let modo = "no";
+  try{
+    modo = modoDeInstalacion(window, { enLaTienda: esDeLaTienda(), hayPrompt: !!PROMPT_INSTALAR });
+  }catch(e){ return ""; }
+  if(modo === "no" || modo === "ya" || modo === "tienda") return "";
+
+  /* En iPhone no hay evento: hay que explicar los dos toques. Y no es un
+     detalle de comodidad —en iOS los avisos SOLO llegan si la app se agregó
+     a la pantalla de inicio—, así que se dice para qué sirve hacerlo. */
+  if(modo === "ios")
+    return `<div class="pendiente" style="margin-top:12px">
+      <b>Agregala a tu pantalla de inicio.</b><br>
+      Tocá el botón de Compartir de Safari y elegí <b>Agregar a inicio</b>.
+      Queda con ícono propio, abre sin barra del navegador y es la única forma
+      de que te llegue el aviso cuando sale el once del DT.</div>`;
+
+  return `<button class="acc" id="binstalar" style="width:100%;margin-top:12px">
+      Instalar Armá el 11</button>
+    <p class="aviso" style="margin:6px 0 0">Queda con ícono propio, abre sin la barra
+      del navegador y te puede avisar cuando sale el once del DT.</p>`;
+}
+
 function tarjetasDePlan(){
   /* ── OJO CON EL ORDEN, QUE YA NOS MORDIÓ ──────────────────────────────
      Esto ahora se dibuja en la PORTADA, o sea en el primer `pintar()`, y
@@ -3384,14 +3427,18 @@ function tarjetasDePlan(){
   const porPlay = esDeLaTienda();
   const playListo = !porPlay || PLAY_OK !== false;
   const apagado = comprando || !CUPO_CFG.cobrando || !playListo;
+  /* ANCHO COMPLETO, UNO DEBAJO DEL OTRO. Con `flex:1 1 150px` los tres
+     envolvían en el teléfono y cada uno quedaba de un ancho distinto,
+     escalonados como una escalera rota. Tres precios desalineados se leen
+     como un error de la app, no como una lista de planes. */
   const tarjeta = p => `<button class="boton flaco" data-plan="${esc(p.id)}"
       ${apagado ? "disabled" : ""}
-      style="flex:1 1 150px;text-align:left;line-height:1.35">
+      style="width:100%;text-align:left;line-height:1.35">
       <b>${esc(p.nombre || "Plan")}</b><br>
       <span style="opacity:.72;font-size:12px">${esc(p.detalle || "")}</span><br>
       <span style="opacity:.75">${esc(plata(p.precio))} por mes</span></button>`;
 
-  return `<div class="par" style="margin-top:10px;flex-wrap:wrap;gap:8px">
+  return `<div style="margin-top:10px;display:flex;flex-direction:column;gap:8px">
       ${PLANES.map(tarjeta).join("")}
     </div>
     <p class="aviso" style="margin-top:8px">${!CUPO_CFG.cobrando
@@ -3992,7 +4039,7 @@ function vistaJuego(){
        mes"— no es un cartel de venta, es información que la persona
        necesita antes de gastar la primera. */
     return heroPortada() +
-      `<div class="tarjeta" style="margin-top:12px">${bloqueCupo()}</div>` +
+      `<div class="tarjeta" style="margin-top:12px">${bloqueInstalar()}${bloqueCupo()}</div>` +
       ligas + cab;
   }
 
@@ -4332,6 +4379,24 @@ function enganchar(){
      enganchaban al dibujar el panel de cuenta, y por eso los de la vista
      principal eran de adorno. */
   if(typeof engancharPremium === "function") engancharPremium();
+  /* El botón de instalar. El evento del navegador se puede disparar UNA
+     sola vez y solo desde un gesto de la persona, así que se llama derecho
+     acá adentro del click y después se suelta. */
+  const bi = $("binstalar");
+  if(bi) bi.onclick = async () => {
+    if(!PROMPT_INSTALAR) return;
+    const ev = PROMPT_INSTALAR;
+    bi.disabled = true;
+    try{
+      ev.prompt();
+      const r = await ev.userChoice;
+      /* Si dijo que no, el navegador no vuelve a ofrecerlo en esta visita:
+         guardar el evento gastado sería dejar un botón que ya no hace nada. */
+      if(r && r.outcome !== "accepted") bi.textContent = "Lo podés instalar después, desde el menú del navegador";
+      PROMPT_INSTALAR = null;
+    }catch(e){ PROMPT_INSTALAR = null; }
+    pintar();
+  };
   const k=$("k"); if(k) k.oninput=e=>J.key=e.target.value.trim();
   const t=$("temp"); if(t) t.onchange=e=>J.temporada=+e.target.value;
   const bc=$("bcargar"); if(bc) bc.onclick=()=>{
@@ -4810,10 +4875,16 @@ function esDeLaTienda(){
 /* null = todavía no se preguntó · true/false = hay o no facturación de Play.
    Se pregunta una vez al abrir y la pantalla se vuelve a dibujar. */
 let PLAY_OK = null;
+/* El error de Google se guarda tal cual, sin traducir: cuando la
+   facturación no contesta, lo único que distingue "no está instalada desde
+   Play" de "todavía no propagó" es lo que dice Google, y tragarse ese texto
+   en un `catch` vacío nos dejó una noche adivinando. */
+let PLAY_ERROR = "";
 async function servicioDePlay(){
-  if(!window.getDigitalGoodsService) return null;
+  PLAY_ERROR = "";
+  if(!window.getDigitalGoodsService){ PLAY_ERROR = "sin getDigitalGoodsService"; return null; }
   try{ return await window.getDigitalGoodsService("https://play.google.com/billing"); }
-  catch(e){ return null; }
+  catch(e){ PLAY_ERROR = (e && (e.message || e.name)) || "sin detalle"; return null; }
 }
 /* ── POR QUÉ NO SE PUEDE COMPRAR, DICHO EN CRISTIANO ─────────────────────
    Antes esto era un `!!` y un solo cartel para tres problemas completamente
@@ -4843,7 +4914,10 @@ async function mirarPlay(){
   const svc = await servicioDePlay();
   if(!svc){
     PLAY_OK = false;
-    PLAY_POR_QUE = "Google Play no contestó en este teléfono. Probá de nuevo en un rato.";
+    PLAY_POR_QUE = "Google Play no contestó en este teléfono" +
+                   (PLAY_ERROR ? " (" + PLAY_ERROR + ")" : "") +
+                   ". Suele pasar cuando la app no se instaló desde Play, o las primeras " +
+                   "horas después de activar los productos.";
     pintarCuenta(); pintar(); return;
   }
 

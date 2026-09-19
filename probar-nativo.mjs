@@ -14,7 +14,7 @@
    ══════════════════════════════════════════════════════════════════════════ */
 import { tiene, hayNativo, vibrar, compartirNativo, abrirAfuera,
          esLinkDeAfuera, engancharLinks, hayConexion, alCambiarConexion,
-         arrancarNativo } from "./nativo.js";
+         arrancarNativo, yaInstalada, esIOS, modoDeInstalacion } from "./nativo.js";
 import { porQueNoSalioElMail } from "./cuentas.js";
 
 const casos = [];
@@ -203,6 +203,51 @@ const sinCapacitor = () => ponerVentana(null, false);
   caso("un error que no entendemos pasa tal cual, sin inventar",
        r("violación de política 42501") === "violación de política 42501");
   caso("sin mensaje, algo honesto igual", /No pudimos/i.test(porQueNoSalioElMail(null)));
+}
+
+/* ─── instalar desde la web ──────────────────────────────────────────────
+   El botón se comporta distinto en cada lado y mostrar el que no va es
+   peor que no mostrar ninguno: en iPhone un botón que no hace nada, en la
+   app de Play una oferta de instalar algo que ya está instalado. */
+{
+  const vent = (ua, extra) => ({
+    navigator: { userAgent: ua, maxTouchPoints: (extra||{}).touch || 0,
+                 standalone: (extra||{}).safariInstalada || false },
+    matchMedia: q => ({ matches: /standalone/.test(q) ? !!(extra||{}).standalone : false }),
+  });
+  const ANDROID = "Mozilla/5.0 (Linux; Android 14) Chrome/130 Mobile";
+  const IPHONE  = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_5) Safari/605";
+  const IPAD    = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) Safari/605";
+  const COMPU   = "Mozilla/5.0 (Windows NT 10.0) Chrome/130";
+
+  caso("el iPhone se reconoce", esIOS(vent(IPHONE)) === true);
+  /* El iPad moderno dice que es una Mac. Se lo delata el tacto: una Mac no
+     tiene pantalla táctil. */
+  caso("y el iPad, que se hace pasar por Mac", esIOS(vent(IPAD, { touch: 5 })) === true);
+  caso("una Mac de verdad no es iOS", esIOS(vent(IPAD, { touch: 0 })) === false);
+  caso("Android no es iOS", esIOS(vent(ANDROID)) === false);
+
+  caso("una app abierta en modo standalone ya está instalada",
+       yaInstalada(vent(ANDROID, { standalone: true })) === true);
+  caso("y en Safari se mira navigator.standalone, que es lo único que hay",
+       yaInstalada(vent(IPHONE, { safariInstalada: true })) === true);
+  caso("una pestaña común no está instalada", yaInstalada(vent(ANDROID)) === false);
+
+  const m = (v, o) => modoDeInstalacion(v, o);
+  caso("adentro de la app de Play no se ofrece instalar nada",
+       m(vent(ANDROID), { enLaTienda: true, hayPrompt: true }) === "tienda");
+  caso("ya instalada tampoco", m(vent(ANDROID, { standalone: true }), { hayPrompt: true }) === "ya");
+  caso("en Android con oferta del navegador, va el botón",
+       m(vent(ANDROID), { hayPrompt: true }) === "android");
+  caso("en iPhone van las instrucciones: ahí no existe el evento",
+       m(vent(IPHONE), {}) === "ios");
+  caso("y en iPhone no se muestra un botón aunque hubiera evento",
+       m(vent(IPHONE), { hayPrompt: true }) === "ios");
+  /* Sin evento no hay botón: uno que no puede instalar nada es peor que
+     ninguno. */
+  caso("en Android sin oferta del navegador, no se muestra nada",
+       m(vent(ANDROID), {}) === "no");
+  caso("en una compu tampoco", m(vent(COMPU), {}) === "no");
 }
 
 const linea = "─".repeat(70);

@@ -220,6 +220,36 @@ srv.listen(8099, async () => {
     caso("con sus escuchadores puestos", port.escuchan === true);
   }
 
+  /* ══ INSTALAR DESDE LA WEB ═════════════════════════════════════════
+     El sitio era instalable y no lo ofrecía nunca: quedaba escondido en
+     el menú de Chrome. Sin instalar, la persona no tiene ícono, no vuelve
+     sola y no puede recibir el aviso del once del DT —que es el gancho
+     para que vuelva cada fecha—. Y una app instalada desde la web no paga
+     comisión de Play.
+
+     Lo que se fija acá: que el botón aparezca cuando el navegador ofrece
+     instalar, y que NO aparezca cuando no hay nada que instalar. Un botón
+     que no puede hacer lo que dice es peor que ninguno. */
+  {
+    const ins = await pg.evaluate(() => {
+      const antes = PROMPT_INSTALAR;
+      PROMPT_INSTALAR = null; pintar();
+      const sin = !!document.getElementById("binstalar");
+      /* Se finge la oferta del navegador, que en headless no llega. */
+      PROMPT_INSTALAR = { prompt(){}, userChoice: Promise.resolve({ outcome:"accepted" }) };
+      pintar();
+      const b = document.getElementById("binstalar");
+      const con = !!b, escucha = !!(b && typeof b.onclick === "function");
+      const texto = document.querySelector("#vista").innerText;
+      PROMPT_INSTALAR = antes; pintar();
+      return { sin, con, escucha, avisa: /once del DT/i.test(texto) };
+    });
+    caso("sin oferta del navegador no hay botón de instalar", ins.sin === false);
+    caso("con oferta, el botón aparece en la portada", ins.con === true);
+    caso("y escucha", ins.escucha === true);
+    caso("y dice para qué sirve: el aviso del once del DT", ins.avisa === true);
+  }
+
   caso("y no pide ninguna API key: es el simulador de ligas",
        await pg.locator('#k').count() === 0 && await pg.locator('h3.sec', { hasText: /Elegí la liga/i }).count() === 1);
 

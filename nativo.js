@@ -182,3 +182,63 @@ export function arrancarNativo(alCambiar) {
   try { if (P && P.SplashScreen) P.SplashScreen.hide(); } catch (e) {}
   return true;
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   INSTALAR DESDE LA WEB
+
+   El sitio ya era instalable —manifest, service worker, íconos— y no lo
+   ofrecía nunca. Quedaba escondido en el menú de Chrome, donde no lo
+   encuentra nadie, y eso tiene dos costos concretos:
+
+   - El que llega de Instagram se queda en una pestaña: no tiene ícono, no
+     vuelve solo y, sobre todo, NO PUEDE RECIBIR EL AVISO del once del DT,
+     que es el gancho para que vuelva cada fecha.
+   - Una app instalada desde la web no es una app de Play: el cobro sigue
+     siendo por Mercado Pago, sin comisión. Play se lleva 15%.
+
+   El botón se comporta distinto en cada lado, así que la decisión es una
+   función pura y se prueba sin navegador.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ¿Ya está instalada? Dos formas, porque ningún navegador tiene las dos:
+   `display-mode: standalone` es el estándar y `navigator.standalone` es lo
+   que usa Safari en iPhone desde siempre. */
+export function yaInstalada(ventana) {
+  const w = ventana || (typeof window !== "undefined" ? window : null);
+  if (!w) return false;
+  try {
+    if (w.matchMedia && w.matchMedia("(display-mode: standalone)").matches) return true;
+  } catch (e) {}
+  return !!(w.navigator && w.navigator.standalone);
+}
+
+/* iPhone y iPad. El iPad moderno miente y dice que es una Mac, así que
+   además se mira si la pantalla responde al tacto: una Mac no. */
+export function esIOS(ventana) {
+  const w = ventana || (typeof window !== "undefined" ? window : null);
+  const n = (w && w.navigator) || null;
+  if (!n) return false;
+  const ua = String(n.userAgent || "");
+  if (/iPhone|iPad|iPod/i.test(ua)) return true;
+  return /Mac/i.test(ua) && (n.maxTouchPoints || 0) > 1;
+}
+
+/* La decisión, en una sola función pura:
+
+     "tienda"  → viene de la app de Play. No se ofrece nada: ya la tiene.
+     "ya"      → ya está instalada. Tampoco.
+     "ios"     → iPhone. No existe el evento de instalación del navegador,
+                 así que van las instrucciones de Compartir → Agregar a
+                 inicio. Y en iOS es OBLIGATORIO instalarla así para que
+                 lleguen los avisos.
+     "android" → hay evento guardado: un botón y listo.
+     "no"      → una compu, o un navegador que no lo soporta. No se
+                 muestra nada antes que mostrar algo que no funciona.  */
+export function modoDeInstalacion(ventana, opciones) {
+  const o = opciones || {};
+  if (o.enLaTienda) return "tienda";
+  if (yaInstalada(ventana)) return "ya";
+  if (esIOS(ventana)) return "ios";
+  if (o.hayPrompt) return "android";
+  return "no";
+}
