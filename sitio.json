@@ -15,7 +15,7 @@
  "contador": "",
  "_contador": "Código de GoatCounter para contar visitas. Vacío = no se carga ningún script de terceros, que es como está ahora. Si ponés 'tste', se carga https://tste.goatcounter.com/count.js. GoatCounter no usa cookies, no guarda IPs completas y no sigue a nadie entre sitios: cuenta páginas vistas y de dónde vinieron. Crear la cuenta es gratis en goatcounter.com y lleva dos minutos.",
  "publicidad": {
-  "cliente": "",
+  "cliente": "ca-pub-2032639837955609",
   "bloque": ""
  },
  "_publicidad": "AdSense, para la WEB. Los dos vacíos = apagada, y así no entra ningún script de terceros. 'cliente' es el ca-pub-XXXXXXXXXXXXXXXX que da AdSense al aprobar la cuenta: con eso solo entra el script de Google pero la app NO dibuja ningún hueco, que es lo correcto mientras todavía no creaste unidades. 'bloque' es el id numérico de la unidad de anuncio (AdSense → Anuncios → Por unidad de anuncio → Display, formato horizontal o adaptable); recién con los dos puestos aparece el aviso, debajo de la cancha, mientras el partido se juega. OJO, Y ES LO MÁS IMPORTANTE: esto NO se muestra adentro de la app de Google Play. AdSense es un producto para sitios web y usarlo dentro del webview de una app es una infracción cuya sanción cae sobre la cuenta entera. La app de la tienda va sin avisos hasta que exista AdMob, que es otra cuenta y otro SDK. El candado está en `sePuedePublicidad()`, en app.tpl.html, y no se saca. Las reglas de cuándo corresponde un aviso -nunca en la primera simulación, después una cada dos, con un piso de 60 segundos entre avisos, y ninguno para el que pagó- están en `tocaAviso` y tienen sus propias pruebas.",

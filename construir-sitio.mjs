@@ -194,10 +194,41 @@ const contador = CFG.contador
    de su servidor no frene el dibujado de la página: un aviso que tarda no
    puede hacer esperar al partido.                                       */
 const PUB = (CFG.publicidad && CFG.publicidad.cliente) ? CFG.publicidad : null;
+
+/* ── POR QUÉ ESTO NO ES UN `<script src>` Y PUNTO ─────────────────────────
+   El sitio y la app de Play son EL MISMO HTML: la TWA es Chrome cargando
+   armael11.com. O sea que un `<script src>` estático de AdSense viajaría
+   también adentro de la app, y eso es exactamente lo que la política de
+   AdSense prohíbe —es un producto para sitios web—. La sanción no sería
+   sobre el aviso: sería sobre la cuenta, que es de donde sale la plata.
+
+   El candado de `sePuedePublicidad()` impide que se DIBUJE un aviso adentro
+   de la app, pero no impediría que el código de Google se CARGUE ahí. Por
+   eso la carga también se decide, y se decide antes de pedirle nada a
+   Google: si estamos adentro de la app, el script no se agrega y punto.
+
+   La comprobación está repetida acá a mano —el mismo referrer y la misma
+   marca que usa `esDeLaTienda()` en la app— y la repetición es a propósito:
+   esto tiene que correr sin depender de que ningún otro archivo haya
+   cargado todavía. Si dependiera del orden de los `<script>`, el día que
+   alguien mueva uno de lugar el candado se abre sin que nadie se entere.
+
+   Para un navegador normal —y para el robot de Google que revisa el sitio—
+   la condición da falso y el script entra como siempre.                 */
 const publicidad = PUB
-  ? `\n<script async crossorigin="anonymous" src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=${PUB.cliente}"></script>`
+  ? `\n<script>(function(){try{` +
+    `var P=${JSON.stringify("android-app://" + ((CFG.android || {}).paquete || ""))},K="armaEl11.deLaTienda",t=false;` +
+    `try{if(String(document.referrer||"").indexOf(P)===0){localStorage.setItem(K,"1");t=true;}` +
+    `else{t=localStorage.getItem(K)==="1";}}` +
+    `catch(e){t=String(document.referrer||"").indexOf("android-app://")===0;}` +
+    `if(t)return;` +
+    `var s=document.createElement("script");s.async=true;s.crossOrigin="anonymous";` +
+    `s.src=${JSON.stringify("https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=" + PUB.cliente)};` +
+    `document.head.appendChild(s);` +
+    `}catch(e){}})();</script>`
   : "";
-if (PUB) console.log("  publicidad: ENCENDIDA (" + PUB.cliente + ")");
+if (PUB) console.log("  publicidad: ENCENDIDA (" + PUB.cliente +
+  (PUB.bloque ? ", unidad " + PUB.bloque : ", sin unidad todavía") + ")");
 
 function cabeza(club) {
   const titulo = club.nom + " · Armá el 11";

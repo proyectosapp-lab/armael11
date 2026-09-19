@@ -419,12 +419,22 @@ srv.listen(8099, async () => {
   caso("si la imagen se cae, la tarjeta sigue entera (no queda el cuadrado roto)",
        !!img && img.quedan === 0, img ? "quedaron " + img.quedan : "");
 
-  /* Y que el interruptor de sitio.json mande de verdad. */
+  /* Y que el interruptor de sitio.json mande de verdad.
+
+     OJO CON CÓMO SE TOCA `window.SITIO`: acá decía `window.SITIO = {...}`,
+     o sea que REEMPLAZABA el objeto entero y se llevaba puesto todo lo
+     demás -supabase, cupo, avisos, publicidad- para todas las pruebas que
+     vienen después. Era invisible mientras ninguna las mirara; el día que
+     una prueba nueva leyó `SITIO.publicidad` empezó a fallar sin razón
+     aparente, a doscientas líneas de distancia del culpable.
+
+     Ahora se toca SOLO la clave que esta prueba necesita y se la devuelve
+     como estaba. */
   const apagadas = await pg.evaluate(() => {
     const antes = window.SITIO && window.SITIO.miniaturas;
-    window.SITIO = { miniaturas: "ninguna" }; pintar();
+    window.SITIO.miniaturas = "ninguna"; pintar();
     const n = document.querySelectorAll('.foto, .mini-f').length;
-    window.SITIO = { miniaturas: antes || "todas" }; pintar();
+    window.SITIO.miniaturas = antes || "todas"; pintar();
     return n;
   });
   caso("con miniaturas en 'ninguna' no se baja ni una imagen", apagadas === 0,
@@ -448,10 +458,24 @@ srv.listen(8099, async () => {
   caso("el manifiesto existe y abre en este club",
        !!manif && manif.start_url.includes(CLUB), manif ? manif.start_url : "no cargó");
 
-  /* La promesa fue contar visitas sin espiar a nadie. Mientras no haya un
-     código de contador configurado, no puede cargarse NINGÚN script de otro
-     dominio. Esto lo verifica en vez de confiar.                        */
-  caso("no carga ningún script de terceros", ajenos.length === 0, ajenos.join(", "));
+  /* La promesa fue contar visitas sin espiar a nadie, y durante mucho tiempo
+     eso se pudo decir en su forma más fuerte: NINGÚN script de otro dominio.
+
+     Desde y51 hay una excepción, y una sola: el de AdSense, y solo porque
+     `sitio.json` tiene la publicidad configurada. La regla que queda en pie
+     -y que es la que hay que cuidar- es que ese sea el ÚNICO, y que sin
+     publicidad configurada no haya ni ese. Un analytics, un CDN de fuentes
+     o una librería traída de afuera siguen estando prohibidos.           */
+  {
+    const hayPub = await pg.evaluate(() => !!(window.SITIO && window.SITIO.publicidad));
+    const deGoogle = ajenos.filter(h => /googlesyndication|doubleclick|googleads/.test(h));
+    const otros = ajenos.filter(h => !/googlesyndication|doubleclick|googleads/.test(h));
+    caso("no carga ningún script de terceros, salvo el de la publicidad",
+         otros.length === 0, otros.join(", "));
+    if (!hayPub)
+      caso("y sin publicidad configurada, tampoco el de Google",
+           deGoogle.length === 0, deGoogle.join(", "));
+  }
 
   /* El dominio propio. La regla es que no queden dos direcciones vivas: si
      hay dominio, TODO sale desde ahí —la tarjeta de WhatsApp, la canónica y
@@ -1413,11 +1437,19 @@ srv.listen(8099, async () => {
        reglas.duracion * 3 === reglas.espera,
        reglas.duracion + " x 3 = " + (reglas.duracion*3) + ", espera " + reglas.espera);
 
-  /* La propiedad de siempre: que esto exista no puede haber metido un
-     script de terceros. Hay otra prueba que lo mira en el HTML; esta mira
-     que la configuración esté efectivamente apagada. */
-  caso("y hoy la publicidad está apagada en el sitio publicado",
-       await pg.evaluate(() => !(window.SITIO && window.SITIO.publicidad)));
+  /* Cómo está la publicidad en el sitio publicado HOY. Son dos momentos
+     distintos y el de en medio importa: con la cuenta aprobada pero sin
+     unidad de anuncio creada todavía, la app tiene que verse exactamente
+     como si no hubiera publicidad. Esta prueba fija ese estado; cuando se
+     cree la unidad va a fallar, y ahí hay que mirarla y actualizarla a
+     mano, que es justo lo que se quiere. */
+  {
+    const p = await pg.evaluate(() => (window.SITIO && window.SITIO.publicidad) || null);
+    caso("la publicidad está configurada con cliente",
+         !!(p && p.cliente), JSON.stringify(p));
+    caso("y todavía sin unidad, así que no se dibuja ningún hueco",
+         !(p && p.bloque) && await pg.locator('.publi').count() === 0);
+  }
 
   /* ── EL CUPO DE SIMULACIONES ──────────────────────────────────────────
      Diez por mes gratis, y después los planes. Lo que se prueba acá es la

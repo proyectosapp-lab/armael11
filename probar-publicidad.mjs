@@ -30,6 +30,9 @@ const construir = () => execFileSync("node", ["construir-sitio.mjs"],
   { cwd: new URL(".", import.meta.url), stdio: "pipe" });
 const leer = f => existsSync(aca(f)) ? readFileSync(aca(f), "utf8") : "";
 const PAGINAS = ["./sitio/index.html", "./sitio/talleres-cba.html"];
+/* Fuera del `try` porque el `finally` lo usa: ahí se comprueba que el id de
+   mentira de la prueba no haya quedado en el sitio publicado. */
+const ID = "ca-pub-0000000000000001";
 
 try {
   /* ─── 1. APAGADA ──────────────────────────────────────────────────────── */
@@ -63,7 +66,6 @@ try {
   }
 
   /* ─── 2. ENCENDIDA ────────────────────────────────────────────────────── */
-  const ID = "ca-pub-0000000000000001";
   cfg.publicidad = { cliente: ID };
   writeFileSync(CFG, JSON.stringify(cfg, null, 2));
   construir();
@@ -78,9 +80,22 @@ try {
          html.includes("client=" + ID));
     /* Google lo pide así, y sin `async` un problema en su servidor frenaría
        el dibujado de la página: un aviso que tarda no puede hacer esperar
-       al partido. */
+       al partido. Van como propiedades del elemento porque el script NO se
+       escribe como etiqueta: se crea y se agrega, y solo si corresponde. */
     caso("async y crossorigin, como pide Google",
-         /<script async crossorigin="anonymous" src="https:\/\/pagead2/.test(html));
+         /s\.async=true;s\.crossOrigin="anonymous"/.test(html));
+
+    /* EL CANDADO QUE PROTEGE LA CUENTA. El sitio y la app de Play son el
+       MISMO HTML -la TWA es Chrome cargando armael11.com-, así que una
+       etiqueta estática viajaría también adentro de la app, y AdSense
+       adentro de una app es una infracción cuya sanción cae sobre la cuenta
+       entera. Por eso la carga se decide: si el referrer dice que venimos
+       de la app, el script no se agrega. */
+    caso("y NO es una etiqueta suelta: la carga se decide",
+         !/<script async crossorigin="anonymous" src="https:\/\/pagead2/.test(html));
+    caso("mirando si estamos adentro de la app de Play",
+         html.includes("android-app://com.armael11.app") &&
+         /if\(t\)return;/.test(html));
     /* `window.SITIO` solo existe en las páginas de club: la portada es la
        lista de clubes y no corre la app. El script de Google sí va en las
        dos, porque Auto Ads trabaja sobre el sitio entero. */
@@ -123,13 +138,22 @@ try {
   }
 } finally {
   /* Pase lo que pase, sitio.json vuelve a ser el de Fausto y el sitio se
-     reconstruye sin publicidad. Una prueba que deja el sitio con avisos
-     encendidos es peor que no tener prueba. */
+     reconstruye con SU configuración. Una prueba que deja el sitio con la
+     publicidad en un estado distinto del que eligió Fausto —encendida con
+     un id de mentira, o apagada cuando él la prendió— es peor que no tener
+     prueba. Por eso no se compara contra "apagada": se compara contra lo
+     que sitio.json diga en ese momento. */
   writeFileSync(CFG, original);
   construir();
   const html = leer("./sitio/talleres-cba.html");
-  caso("y al terminar la prueba el sitio queda como estaba, sin publicidad",
-       !/googlesyndication/.test(html));
+  const suyo = JSON.parse(original).publicidad;
+  const deberia = !!(suyo && suyo.cliente);
+  caso("y al terminar, el sitio queda con la publicidad que eligió Fausto",
+       /googlesyndication/.test(html) === deberia,
+       deberia ? "debería estar encendida y no está" : "quedó encendida y no debía");
+  if (deberia)
+    caso("con su id, no con el de la prueba",
+         html.includes("client=" + suyo.cliente) && !html.includes(ID));
 }
 
 const linea = "─".repeat(70);

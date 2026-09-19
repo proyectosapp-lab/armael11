@@ -2,6 +2,31 @@ Arma el 11 - version 2026-09-19 y51 (la publicidad, enchufada de verdad)
 
   · SE SUBE ESTE SOLO. Incluye y50.
 
+  · LA CUENTA DE ADSENSE YA ESTA: cliente ca-pub-2032639837955609 puesto en
+    sitio.json. Falta la UNIDAD DE ANUNCIO -el `bloque`-, que se crea en
+    AdSense recien cuando Google aprueba el sitio. Hasta entonces la app se
+    ve EXACTAMENTE como hasta ahora: entra el script de Google, que es lo
+    que le permite a Google revisar, y no se dibuja ningun hueco.
+
+  · EL SCRIPT DE GOOGLE NO ES UNA ETIQUETA SUELTA, Y ESTO PROTEGE LA CUENTA.
+    El sitio y la app de Play son EL MISMO HTML -la TWA es Chrome cargando
+    armael11.com-, asi que un `<script src>` estatico viajaria tambien
+    adentro de la app. AdSense es un producto para sitios web y usarlo
+    adentro de una app es una infraccion cuya sancion cae sobre la CUENTA
+    ENTERA, que es de donde sale la plata.
+
+    El candado de `sePuedePublicidad()` impedia que se DIBUJE un aviso
+    adentro de la app, pero no que el codigo de Google se CARGUE ahi. Ahora
+    la carga tambien se decide: seis lineas que miran el referrer y, si
+    venimos de la app, no agregan nada. Para un navegador normal -y para el
+    robot que revisa el sitio- entra como siempre.
+
+    La comprobacion esta repetida a mano en construir-sitio.mjs en vez de
+    reusar `esDeLaTienda()`, y es a proposito: tiene que correr sin depender
+    de que ningun otro archivo haya cargado. Si dependiera del orden de los
+    <script>, el dia que alguien mueva uno el candado se abre en silencio.
+
+
   · HASTA AHORA LAS REGLAS ESTABAN Y EL AVISO NO. `momentoDeAviso` decidia
     que correspondia uno y despues no pasaba nada: no habia ningun hueco
     donde mostrarlo. Esto es la otra mitad.
@@ -62,6 +87,15 @@ Arma el 11 - version 2026-09-19 y51 (la publicidad, enchufada de verdad)
     bandera, que no la vea el que pago, que NO APAREZCA ADENTRO DE LA APP DE
     PLAY, que no se dibuje con la cuenta aprobada pero sin unidad, y que no
     se empuje dos veces.
+
+  · Y APARECIO UN BICHO VIEJO EN LAS PRUEBAS, QUE VALE ANOTAR. La prueba de
+    las miniaturas hacia `window.SITIO = {miniaturas:"ninguna"}`: REEMPLAZABA
+    el objeto entero y se llevaba puesto todo lo demas -supabase, cupo,
+    avisos, publicidad- para todas las pruebas que venian despues. Era
+    invisible mientras ninguna lo mirara. El dia que una prueba nueva leyo
+    `SITIO.publicidad` empezo a fallar sin razon aparente, a doscientas
+    lineas de distancia del culpable. Ahora toca solo su clave y la
+    devuelve.
 
   · UNA PRUEBA VIEJA SE AJUSTO, Y VALE DECIR POR QUE. Miraba que la palabra
     "adsbygoogle" no apareciera en el HTML. Ahora esa palabra esta adentro
