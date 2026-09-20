@@ -1,3 +1,59 @@
+Arma el 11 - version 2026-09-20 y64 (un arreglo subido tiene que verse hoy)
+
+  · SE SUBEN TRES ARCHIVOS: frescura.mjs, publicar.mjs, probar-frescura.mjs.
+    Ninguno empieza con punto, o sea que los tres se suben arrastrando.
+
+  · QUE ARREGLA. El 20/9, un sabado, Atletico-Real Madrid salio en la app con
+    los dos equipos en 4-3-3. El arreglo del dibujo estaba escrito, probado y
+    subido desde la noche anterior: ligas-api.mjs ya calcula el dibujo
+    habitual de cada equipo y juego.js ya traduce "Attacker" a delantero.
+
+    No servia de nada. El sello de `ligas` dura 24 horas. El paso se salteaba
+    con toda prolijidad y el archivo publicado seguia siendo el que habia
+    hecho el codigo VIEJO.
+
+    El sello contestaba "esto se bajo hace poco". La pregunta que faltaba es
+    "¿y lo bajo ESTE codigo?".
+
+  · COMO. Cada paso caro lleva ahora, ademas de la hora, una FIRMA: un hash
+    de los archivos que lo producen. Si cambio cualquiera de ellos, lo
+    guardado lo hizo otro programa y no cuenta como fresco.
+
+      ligas    ligas-api.mjs, juego.js, fecha-de-liga.mjs, ligas.json
+      juego    datos-juego.mjs, juego.js, formaciones.mjs, clubes.json
+      tabla    stats-api.mjs
+      fantasy  fantasy-api.mjs, fantasy.mjs, fases.mjs, fases-reglas.mjs
+      puntos   puntos-api.mjs, fantasy.mjs
+
+    La lista se elige a mano y no siguiendo los `import`: seguir los imports
+    meteria frescura.mjs en todos los pasos, y entonces tocar un comentario
+    costaria una corrida completa.
+
+  · LO QUE CUESTA. Una corrida completa cada vez que se toca uno de esos
+    archivos, y solo esa vez. Es exactamente el precio que uno quiere pagar:
+    hoy son 1.200 pedidos de los 7.500 del dia.
+
+  · AL SUBIR ESTE ZIP pasa eso mismo, una vez: no hay ninguna firma guardada
+    todavia, asi que la primera corrida rehace los pasos caros. Es lo que
+    hace falta para que los dibujos aparezcan hoy y no manana. NO hace falta
+    apretar "Run workflow".
+
+  · LO QUE NO ARREGLA. El cartel de "Formaciones tentativas" es otra cosa y
+    sigue igual: dice que todavia no hay once del DT publicado para ese
+    partido. Eso lo trae la ronda corta, cada 15 minutos, desde 120 minutos
+    antes del partido, y lo escribe en sitio/datos/onces-<liga>.js. Si el
+    cartel sigue apareciendo con el partido encima, hay que mirar el log de
+    la ronda corta en Actions: imprime un renglon por liga con cuantos
+    partidos vio en ventana y cuantos onces encontro.
+
+  · PROBADO. probar-frescura.mjs pasa de 22 a 34 casos. Los nuevos cubren que
+    la firma no dependa del orden, que un archivo que falta tambien cuente
+    como cambio, que un sello fresco con otra firma se rehaga, y —el que mas
+    importa— que los archivos nombrados en las listas EXISTAN: una ruta mal
+    escrita ahi se firma como "falta", la firma nunca coincide, y el paso mas
+    caro del dia se reharia en CADA corrida. Serian 1.200 pedidos cada quince
+    minutos y la cuota se acabaria en una hora.
+
 Arma el 11 - version 2026-09-20 y63 (el minimo de iOS)
 
   · SE SUBE ESTE SOLO. Cambia UN archivo: codemagic.yaml.

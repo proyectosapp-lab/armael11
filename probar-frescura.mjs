@@ -10,7 +10,7 @@
    Por eso la decisión es una función pura que recibe números: cada caso se
    prueba con un valor en vez de esperar seis horas.
    ══════════════════════════════════════════════════════════════════════════ */
-import { hayQueCorrer, CADA_HORAS, leerSellos, sellar, listaVacia } from "./frescura.mjs";
+import { hayQueCorrer, CADA_HORAS, leerSellos, sellar, listaVacia, firmaDe } from "./frescura.mjs";
 import { writeFileSync, rmSync, existsSync } from "node:fs";
 
 const casos = [];
@@ -107,6 +107,80 @@ caso("el fantasy es el más seguido: es barato y sin fecha no hay pestaña",
                       hayResultado: true }).correr === false &&
        hayQueCorrer({ sello: undefined, ahora: Date.now(), cada: 24,
                       hayResultado: true }).correr === true);
+}
+
+/* ── LA FIRMA DEL CÓDIGO ─────────────────────────────────────────────────
+   El caso real: el arreglo de los dibujos estaba subido y probado el
+   20/9/2026, y los partidos seguían saliendo 4-3-3 porque el sello de
+   `ligas` dura un día y el paso se salteaba. El dato era fresco de reloj y
+   viejo de código. */
+{
+  const tmp = new URL("./.probar-firma-" + process.pid, import.meta.url);
+  const tmp2 = new URL("./.probar-firma2-" + process.pid, import.meta.url);
+  writeFileSync(tmp, "uno");
+  writeFileSync(tmp2, "dos");
+
+  const f1 = firmaDe([tmp, tmp2]);
+  caso("la firma es estable: los mismos archivos dan la misma firma",
+       f1 === firmaDe([tmp, tmp2]));
+  caso("y no depende del orden en que se los nombre",
+       f1 === firmaDe([tmp2, tmp]));
+
+  writeFileSync(tmp, "uno, con un arreglo");
+  const f2 = firmaDe([tmp, tmp2]);
+  caso("cambiar UN archivo cambia la firma", f1 !== f2);
+
+  caso("un archivo que falta también cambia la firma",
+       firmaDe([tmp, tmp2]) !== firmaDe([tmp, tmp2, new URL("./.no-existe", import.meta.url)]));
+
+  /* El corazón del asunto: sello fresco, resultado en su lugar, y aun así
+     hay que rehacerlo porque lo hizo otro programa. */
+  const fresco = { sello: haceHoras(1), ahora: AHORA, cada: 24, hayResultado: true };
+  caso("sello fresco y misma firma: se saltea",
+       hayQueCorrer({ ...fresco, firma: f1, firmaVieja: f1 }).correr === false);
+  caso("sello fresco pero OTRA firma: se rehace",
+       hayQueCorrer({ ...fresco, firma: f2, firmaVieja: f1 }).correr === true);
+  caso("y lo dice con todas las letras",
+       hayQueCorrer({ ...fresco, firma: f2, firmaVieja: f1 }).porque ===
+       "cambió el código que lo produce");
+  caso("sello viejo sin firma guardada: se rehace una vez",
+       hayQueCorrer({ ...fresco, firma: f1, firmaVieja: null }).correr === true);
+  caso("sin firma en juego, todo sigue como antes",
+       hayQueCorrer({ ...fresco }).correr === false);
+
+  /* Que la firma viaje en el mismo archivo que el sello no es un detalle:
+     si viajaran separados, un cache a medias reharía todo cada corrida. */
+  const arch = new URL("./.probar-sellos-firma-" + process.pid, import.meta.url);
+  const s = sellar(arch, {}, "ligas", AHORA, f1);
+  caso("sellar guarda la firma al lado del sello",
+       s.ligas === AHORA && s["firma:ligas"] === f1);
+  caso("y se lee de vuelta del disco",
+       leerSellos(arch)["firma:ligas"] === f1);
+  caso("sellar sin firma no inventa ninguna",
+       sellar(arch, {}, "tabla", AHORA)["firma:tabla"] === undefined);
+
+  [tmp, tmp2, arch].forEach(u => rmSync(u, { force: true }));
+}
+
+/* Las listas de `publicar.mjs` tienen que nombrar archivos que existen: una
+   ruta mal escrita ahí se firma como "falta", la firma nunca coincide y el
+   paso más caro del día se rehace en CADA corrida. Eso son 1.200 pedidos
+   cada quince minutos, y la cuota se acaba en una hora. */
+{
+  const CODIGO_DE = {
+    ligas:   ["ligas-api.mjs", "juego.js", "fecha-de-liga.mjs", "ligas.json"],
+    juego:   ["datos-juego.mjs", "juego.js", "formaciones.mjs", "clubes.json"],
+    tabla:   ["stats-api.mjs"],
+    fantasy: ["fantasy-api.mjs", "fantasy.mjs", "fases.mjs", "fases-reglas.mjs"],
+    puntos:  ["puntos-api.mjs", "fantasy.mjs"],
+  };
+  const faltan = [];
+  for (const [sello, archivos] of Object.entries(CODIGO_DE))
+    for (const a of archivos)
+      if (!existsSync(new URL("./" + a, import.meta.url))) faltan.push(sello + " → " + a);
+  caso("los archivos que firman cada paso existen todos", !faltan.length, faltan.join(", "));
+  caso("los pasos firmados son los que tienen vencimiento",
+       Object.keys(CODIGO_DE).every(s => CADA_HORAS[s] > 0));
 }
 
 const linea = "─".repeat(70);

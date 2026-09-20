@@ -17,7 +17,7 @@
 import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync, appendFileSync, rmSync } from "node:fs";
 import { enHoraArgentina } from "./fantasy.mjs";
-import { CADA_HORAS, hayQueCorrer, leerSellos, sellar, hayAlguno, listaVacia } from "./frescura.mjs";
+import { CADA_HORAS, hayQueCorrer, leerSellos, sellar, hayAlguno, listaVacia, firmaDe } from "./frescura.mjs";
 
 const aca = p => new URL(p, import.meta.url);
 const soloPruebas = process.argv.includes("--sin-red");
@@ -95,16 +95,39 @@ const datosDe = pre => { try {
     .filter(f => f.startsWith(pre)).map(f => dat(f));
 } catch (e) { return []; } };
 
+/* ── QUÉ ARCHIVOS HACEN CADA PASO ────────────────────────────────────────
+   No es la lista de todo lo que el script importa: es la de los archivos
+   que, al cambiar, cambian el RESULTADO. Con eso alcanza para que un
+   arreglo se vea en la corrida siguiente y no al día siguiente.
+
+   Se elige a mano y no siguiendo los `import`: seguir los imports metería
+   `frescura.mjs` en todos los pasos, y entonces tocar este comentario
+   costaría una corrida completa. Mejor una lista corta y explícita.
+
+   Si un archivo de estos no está, `firmaDe` lo firma como "falta": la firma
+   cambia, el paso se rehace, y eso es lo correcto — un archivo que
+   desapareció es un cambio de código como cualquier otro.              */
+const CODIGO_DE = {
+  ligas:   ["ligas-api.mjs", "juego.js", "fecha-de-liga.mjs", "ligas.json"],
+  juego:   ["datos-juego.mjs", "juego.js", "formaciones.mjs", "clubes.json"],
+  tabla:   ["stats-api.mjs"],
+  fantasy: ["fantasy-api.mjs", "fantasy.mjs", "fases.mjs", "fases-reglas.mjs"],
+  puntos:  ["puntos-api.mjs", "fantasy.mjs"],
+};
+const firmaDelPaso = sello => firmaDe((CODIGO_DE[sello] || []).map(n => aca("./" + n)));
+
 /* `obligatorio` es lo que, si falla, no vale la pena publicar. El resto sigue:
    que YouTube no conteste no es razón para dejar el sitio sin feed.        */
 function paso(nombre, script, { obligatorio = false, args = [], sello = null,
                                produce = [] } = {}) {
+  const firma = sello ? firmaDelPaso(sello) : null;
   /* El salteo va ANTES de imprimir el título: un paso que no corrió no
      merece un encabezado que parezca que corrió. */
   if (sello) {
     const q = hayQueCorrer({ sello: sellos[sello], ahora: Date.now(),
                              cada: CADA_HORAS[sello], forzar: FORZAR,
-                             hayResultado: hayAlguno(produce) });
+                             hayResultado: hayAlguno(produce),
+                             firma, firmaVieja: sellos["firma:" + sello] });
     if (!q.correr) {
       console.log("\n  ↷ " + nombre + ": " + q.porque);
       salteados.push(sello);
@@ -129,7 +152,7 @@ function paso(nombre, script, { obligatorio = false, args = [], sello = null,
   /* El sello se pone SOLO si salió bien. Sellar un paso que falló haría que
      la corrida siguiente lo saltee creyendo que hay datos frescos, y el
      error se volvería permanente sin que nada lo diga. */
-  if (ok && sello) sellar(SELLOS_EN, sellos, sello);
+  if (ok && sello) sellar(SELLOS_EN, sellos, sello, Date.now(), firma);
   return ok;
 }
 
