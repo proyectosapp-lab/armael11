@@ -2704,14 +2704,20 @@ function simularDeLiga(slug, fixtureId){
      la API con lo que hay: id, fecha, los dos equipos. Goles en null porque
      todavía no se jugó -a las otras ligas solo se les mira el once, no el
      resultado-, y `status` en NS por lo mismo. */
-  J.liga = slug; J.jugado = false; J.real = null; J.sim = null; J.err = "";
+  /* EL ESTADO Y LOS GOLES SALEN DEL ARCHIVO. Esto estaba clavado en "NS" y
+     goles en null, que era verdad mientras el archivo traía solo partidos
+     por jugar. Desde que trae la fecha entera hay partidos terminados
+     adentro, y decir que no se jugaron sería mentir en la pantalla: el
+     resultado real es justamente lo que hace que simularlo tenga gracia. */
+  J.liga = slug; J.real = null; J.sim = null; J.err = "";
   J.fx = {
-    fixture: { id: p.id, date: p.fecha, status: { short: "NS" } },
+    fixture: { id: p.id, date: p.fecha, status: { short: p.estado || "NS" } },
     teams: { home: { id: p.local, name: nombreDeEquipo(L, p.local) },
              away: { id: p.visita, name: nombreDeEquipo(L, p.visita) } },
-    goals: { home: null, away: null },
+    goals: { home: p.golL ?? null, away: p.golV ?? null },
     league: { id: L.id, name: L.nombre, round: p.ronda || "" },
   };
+  J.jugado = JUGADO(J.fx);
   J.esLocalA = true;
   J.id = { A:p.local, B:p.visita };
   J.nom = { A:nombreDeEquipo(L,p.local), B:nombreDeEquipo(L,p.visita) };
@@ -3071,8 +3077,14 @@ function avisoDeFormaciones(){
      por jugar, no     → explicar que sale una hora antes (y guardar el link) */
 function pieDelResultado(){
   if(!J.fx) return "";
-  if(J.jugado) return `<button class="acc" id="brev" style="width:100%;margin-top:12px">
+  if(J.jugado){
+    /* En las otras ligas el once del DT solo existe si la ronda corta lo
+       alcanzó a bajar, y se poda a las 24 horas. Ofrecer el botón sin eso
+       es ofrecer un error: el resultado real ya está arriba, a la vista. */
+    if(J.liga && !onceGuardado(J.fx.fixture.id)) return "";
+    return `<button class="acc" id="brev" style="width:100%;margin-top:12px">
       Revelar el once del DT y lo que pasó</button>`;
+  }
   const link = (clase) => `<button class="${clase}" id="bguardar" style="width:100%;margin-top:10px">
       Copiar el link de mi pronóstico</button><p class="aviso" id="avisoLink"></p>`;
   /* CAMBIÓ EL SENTIDO DE ESTE BOTÓN. Antes el once del DT estaba escondido
@@ -3238,9 +3250,16 @@ async function revelar(){
        momento con más gracia -"salió el once, ¿con los míos ganábamos?"- y
        antes no se podía porque el sitio recién tenía la formación después
        del partido. Ahora la ronda corta la trae una hora antes. */
+    /* LOS EVENTOS SON OPCIONALES, EL ONCE NO. En las otras ligas lo único
+       bajado es el once del DT: no hay eventos, y sin API key pedirlos tira
+       "por ahora están cargados…". Con `Promise.all` ese error se llevaba
+       puesto al once, que sí estaba, y el revelado entero fallaba. Ahora
+       los eventos que no se pueden traer son una lista vacía: se revela el
+       once igual y lo único que falta son las expulsiones. */
     const [al,ev]=await Promise.all([
       api("/fixtures/lineups",{fixture:J.fx.fixture.id}),
-      J.jugado ? api("/fixtures/events",{fixture:J.fx.fixture.id}) : Promise.resolve([]),
+      J.jugado ? api("/fixtures/events",{fixture:J.fx.fixture.id}).catch(()=>[])
+               : Promise.resolve([]),
     ]);
     const mio=al.find(x=>x.team.id===J.id.A);
     if(!mio || !(mio.startXI||[]).length)
@@ -4537,14 +4556,26 @@ function vistaJuego(){
 
              Clase propia y no `.mini`: esa la usan otras pantallas y
              pisarla acá les cambiaría el aspecto sin que nadie lo pida. */
-          return `<div class="partidos" style="margin-top:10px">${L.partidos.map(p=>
-            `<div class="part">
+          /* LA FECHA ENTERA, CON LO QUE YA PASÓ. El que terminó muestra el
+             resultado en vez de la hora, y el botón dice otra cosa: no es
+             lo mismo "simular" un partido que falta que uno que ya se
+             jugó. El segundo es la pregunta que hace un hincha el lunes.  */
+          const terminado = e => ["FT","AET","PEN"].includes(e);
+          const enJuego = e => ["1H","HT","2H","ET","BT","P","LIVE","INT"].includes(e);
+          return `<div class="partidos" style="margin-top:10px">${L.partidos.map(p=>{
+            const est = p.estado || "NS", hayGol = p.golL != null && p.golV != null;
+            const cuando = terminado(est) && hayGol
+              ? "Terminó " + p.golL + "-" + p.golV
+              : enJuego(est) && hayGol ? "En juego · " + p.golL + "-" + p.golV
+              : cuandoJuega(p.fecha);
+            return `<div class="part">
               <div class="part-txt">
                 <b>${esc(nombreDeEquipo(L,p.local))} <span class="vs">vs</span> ${esc(nombreDeEquipo(L,p.visita))}</b>
-                <span>${esc([nombreDeFecha(p.ronda), cuandoJuega(p.fecha)].filter(Boolean).join(" · "))}</span>
+                <span>${esc([nombreDeFecha(p.ronda), cuando].filter(Boolean).join(" · "))}</span>
               </div>
-              <button class="acc part-btn" data-part="${p.id}">Simular</button>
-            </div>`).join("")}</div>
+              <button class="${terminado(est) ? "gh" : "acc"} part-btn" data-part="${p.id}"
+                >${terminado(est) ? "¿Y si…?" : "Simular"}</button>
+            </div>`;}).join("")}</div>
             <p class="aviso" style="margin-top:8px">${L.calibrada
               ? "Calibrada con " + L.calibrada.partidos + " partidos de " + L.calibrada.temporada + "."
               : "Todavía sin calibrar: la temporada recién arranca y uso los números de respaldo."}

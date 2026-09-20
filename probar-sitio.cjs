@@ -1260,7 +1260,11 @@ srv.listen(8099, async () => {
       media:6.83, local:1.62, visita:1.28, zona:"europa", ventajaBacktest:0.0519,
       calibrada:{ partidos:380, temporada:2025 },
       equipos:{ 1: plantel("Rojos", 1000), 2: plantel("Azules", 2000) },
-      partidos:[{ id:98, fecha:"2026-09-05T14:00:00+00:00", ronda:"Fecha 5", local:1, visita:2 },
+      /* El 96 ya se jugó: es la mitad de la fecha que hasta el 20/9 el
+         archivo de liga no traía, y por eso la fecha se borraba sola. */
+      partidos:[{ id:96, fecha:"2026-09-05T11:00:00+00:00", ronda:"Fecha 5", local:1, visita:2,
+                  estado:"FT", golL:2, golV:1 },
+                { id:98, fecha:"2026-09-05T14:00:00+00:00", ronda:"Fecha 5", local:1, visita:2 },
                 { id:97, fecha:"2026-09-05T16:00:00+00:00", ronda:"Fecha 5", local:2, visita:1 }],
     }};
     window.LIGAS_DISPONIBLES = ["inglaterra"];
@@ -1361,6 +1365,47 @@ srv.listen(8099, async () => {
        /la cancha va a arrancar con ese/i.test(sinOnce.txt), sinOnce.txt.slice(0, 300));
   caso("y ahí no se ofrece el aviso al teléfono: los avisos son por club",
        !/avis/i.test(sinOnce.pie), sinOnce.pie.slice(0, 200));
+
+  /* ── LA FECHA EN JUEGO NO SE BORRA ─────────────────────────────────────
+     Fausto, 20/9: "se borró toda la fecha en juego, en la liga de España
+     aparece directamente la próxima fecha".
+
+     El archivo de liga traía SOLO los partidos que no habían empezado, así
+     que la fecha se iba borrando a medida que se jugaba y, cuando quedaban
+     menos de cuatro, arrancaba la siguiente. Ahora viaja entera, con el
+     estado y los goles de cada uno. */
+  const jugadoDeLiga = await pg.evaluate(() => {
+    J.liga = "inglaterra"; J.paso = "liga"; pintar();
+    const txt = document.body.innerText;
+    const botones = [...document.querySelectorAll("[data-part]")].map(b =>
+      ({ id: b.dataset.part, dice: b.textContent.trim() }));
+    simularDeLiga("inglaterra", 96);
+    return { txt, botones, paso: J.paso, err: J.err, jugado: J.jugado,
+             goles: J.fx && J.fx.goals, estado: J.fx && J.fx.fixture.status.short,
+             pie: pieDelResultado() };
+  });
+  caso("el partido ya jugado sigue estando en la lista de la fecha",
+       jugadoDeLiga.botones.some(b => b.id === "96"),
+       JSON.stringify(jugadoDeLiga.botones));
+  caso("y muestra el resultado en vez de la hora",
+       /Terminó 2-1/.test(jugadoDeLiga.txt), jugadoDeLiga.txt.slice(0, 400));
+  caso("con un botón que no promete simular un partido que ya pasó",
+       (jugadoDeLiga.botones.find(b => b.id === "96") || {}).dice === "¿Y si…?",
+       JSON.stringify(jugadoDeLiga.botones));
+  caso("se puede abrir igual, y se arma",
+       jugadoDeLiga.paso === "armar" && !jugadoDeLiga.err, jugadoDeLiga.err);
+  caso("el partido sabe que se jugó, y con qué resultado",
+       jugadoDeLiga.jugado === true && jugadoDeLiga.estado === "FT" &&
+       jugadoDeLiga.goles.home === 2 && jugadoDeLiga.goles.away === 1,
+       JSON.stringify(jugadoDeLiga));
+  /* Sin once bajado no se puede revelar nada: ofrecer el botón sería
+     ofrecer un error, porque los eventos necesitan la API key. */
+  caso("sin el once del DT no se ofrece revelar un partido de otra liga",
+       !/Revelar/.test(jugadoDeLiga.pie), jugadoDeLiga.pie.slice(0, 200));
+
+  /* Y el que falta sigue diciendo cuándo se juega, sin resultado inventado. */
+  caso("el que todavía no se jugó no muestra ningún marcador",
+       !/Terminó/.test(jugadoDeLiga.txt.split("Terminó 2-1")[1] || ""));
 
   /* El dato que importa: lo bajado se lee del archivo nuevo, no de la API. */
   const porApi = await pg.evaluate(async () => {

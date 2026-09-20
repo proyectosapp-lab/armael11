@@ -39,14 +39,58 @@ export const rondaDe = f => (f && f.league && f.league.round) || "";
    partidos caen en la misma cadena vacía y esto es el `slice` de antes.
    No es lo ideal, pero es exactamente lo que había: ninguna liga queda peor
    que como estaba. */
-export function partidosDeLaFecha(proximos, { minimo = 4, tope = 15 } = {}) {
+export function partidosDeLaFecha(proximos, { minimo = 4, tope = 15, todos = null } = {}) {
   const l = proximos || [];
   if (!l.length) return [];
   const laFecha = rondaDe(l[0]);
   let out = l.filter(f => rondaDe(f) === laFecha);
-  if (out.length < minimo) {
+  /* ── CUÁNTOS SON "POCOS" ─────────────────────────────────────────────
+     El piso mide LA FECHA, no lo que queda de ella. Son dos preguntas
+     distintas y confundirlas fue el error del 20/9/2026: el domingo a la
+     noche quedaban dos partidos de LaLiga sin jugar, esto los contó como
+     "una fecha de dos" y le pegó la fecha siguiente al lado. En la app, la
+     fecha en curso había desaparecido y arrancaba directamente la que
+     viene.
+
+     Con `todos` —el calendario entero, jugados incluidos— la cuenta es la
+     de la fecha completa: diez partidos de los cuales ocho ya se jugaron
+     siguen siendo una fecha de diez, y no hay nada que mezclar.
+
+     Sin `todos` se comporta igual que antes, que es lo que hace que las
+     pruebas viejas sigan diciendo lo mismo.                            */
+  const tamaño = todos
+    ? (todos.filter(f => rondaDe(f) === laFecha).length || out.length)
+    : out.length;
+  if (tamaño < minimo) {
     const siguiente = rondaDe(l.find(f => rondaDe(f) !== laFecha));
     if (siguiente) out = out.concat(l.filter(f => rondaDe(f) === siguiente));
   }
   return out.slice(0, tope);
+}
+
+/* ── LA FECHA ENTERA, NO LO QUE QUEDA DE ELLA ────────────────────────────
+   Fausto, 20/9/2026: "se borró toda la fecha en juego, en la liga de España
+   aparece directamente la próxima fecha".
+
+   El archivo de liga traía SOLO los partidos que todavía no habían
+   empezado. Eso significa que la fecha se iba borrando sola a medida que se
+   jugaba: el sábado al mediodía estaban los diez, el sábado a la noche
+   quedaban seis, el domingo a la noche ninguno. Y ahí aparecía la
+   siguiente.
+
+   Estuvo así siempre. No se veía porque el paso se rehacía una vez por día
+   y el archivo publicado quedaba congelado en el estado que tenía a esa
+   hora. Al arreglar el sello —que era correcto— el archivo empezó a
+   rehacerse cuando de verdad cambiaba el código, y el problema de fondo
+   quedó a la vista. Es la clase de error que un cache viejo esconde.
+
+   Acá se devuelve la fecha completa: los jugados, el que está en juego y
+   los que faltan, ordenados por hora. Cuál es cuál lo dice el estado de
+   cada uno, y la pantalla decide qué hacer con eso.                    */
+export function fechaEntera(todos, porJugar) {
+  const rondas = new Set((porJugar || []).map(rondaDe));
+  if (!rondas.size) return [];
+  return (todos || [])
+    .filter(f => rondas.has(rondaDe(f)))
+    .sort((a, b) => new Date(a.fixture.date) - new Date(b.fixture.date));
 }

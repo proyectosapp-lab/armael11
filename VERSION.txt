@@ -1,3 +1,90 @@
+Arma el 11 - version 2026-09-20 y67 (la fecha entera, jugados incluidos)
+
+  · SE SUBEN TRECE ARCHIVOS, todos sueltos y sin punto adelante. Incluye el
+    y64, el y65 y el y66 enteros: si no subiste ninguno, con este alcanza.
+
+  ── QUE PASO, DICHO SIN ADORNO ───────────────────────────────────────────
+
+    "Se borro toda la fecha en juego. En la liga de España aparece
+    directamente la proxima fecha."
+
+    El archivo de liga traia SOLO los partidos que todavia no habian
+    empezado. `POR_JUGAR` son los estados "NS" y "TBD": en cuanto un partido
+    arranca, desaparece del archivo.
+
+    O sea que la fecha se borraba sola a medida que se jugaba. El sabado al
+    mediodia estaban los diez; el sabado a la noche quedaban seis; el
+    domingo a la noche, dos. Y ahi se cruzaba el otro umbral —el piso de
+    cuatro, que existe para que no quede una lista de un solo partido— y le
+    pegaba la fecha SIGUIENTE al lado. Con cero de la actual y diez de la
+    que viene, lo que se ve es exactamente lo que viste.
+
+    ESTUVO ASI DESDE SIEMPRE. Lo que cambio ayer no fue esto: fue que el
+    paso de ligas dejo de saltearse. Con el sello de 24 horas, el archivo
+    publicado quedaba congelado en el estado que tenia a la hora en que se
+    habia rehecho, casi siempre de madrugada, con la fecha entera todavia
+    por jugar. El arreglo del sello es correcto y lo dejo. Lo que hizo fue
+    destapar esto, que es lo que hacen los arreglos de cache: no rompen,
+    muestran.
+
+    Es un error mio de todas formas. El sintoma lo iba a ver igual el primer
+    domingo a la noche que mirara la app.
+
+  ── COMO QUEDA ───────────────────────────────────────────────────────────
+
+    La fecha viaja ENTERA: los jugados, el que esta en juego y los que
+    faltan, ordenados por hora, con el estado y los goles de cada uno.
+
+      · En la lista, el que termino dice "Terminó 2-1" en vez de la hora, y
+        el que esta jugandose dice "En juego · 1-0".
+      · El boton del que ya se jugo dice "¿Y si…?" y no "Simular". No es lo
+        mismo simular un partido que falta que uno que ya paso, y el segundo
+        es la pregunta que hace un hincha el lunes.
+      · El piso de cuatro ahora mide LA FECHA, no lo que queda de ella. Diez
+        partidos de los cuales ocho ya se jugaron siguen siendo una fecha de
+        diez: no hay nada que mezclar. Una fecha que DE VERDAD es chica —una
+        llave de copa con tres— sigue sumando la siguiente, como antes.
+      · Ningun partido de la fecha cuenta para los niveles de los
+        jugadores. Si los ratings de Atletico-Real entraran al plantel,
+        simular Atletico-Real estaria usando lo que paso EN Atletico-Real:
+        el modelo sabria el resultado y no seria una simulacion, seria una
+        descripcion. La pagina de un club ya lo hacia asi.
+      · Revelar el once del DT de una liga ya no falla. Los eventos —las
+        expulsiones— necesitan la API key y no existen para las otras ligas;
+        pedirlos junto al once hacia fallar el revelado entero. Ahora los
+        eventos que no se pueden traer son una lista vacia. Y si no hay once
+        bajado, el boton directamente no aparece: ofrecerlo seria ofrecer un
+        error, con el resultado real ya a la vista arriba.
+
+    LO QUE NO CAMBIA: una fecha que todavia no empezo se ve exactamente
+    igual que antes. Hay una prueba que lo fija, porque este arreglo no
+    puede cambiar lo que se ve un viernes.
+
+    Lo que si cambia es cuanto sale bajar una liga a mitad de fecha: los
+    equipos ahora son los veinte de la fecha y no los cuatro que quedaban.
+    Es a proposito —un partido que se ve tiene que poder simularse, y para
+    eso hacen falta sus dos planteles— y es exactamente lo que costaba esa
+    liga un viernes, antes de que la fecha empezara. El total del dia no se
+    mueve.
+
+  ── PROBADO ──────────────────────────────────────────────────────────────
+
+    probar-fecha.mjs      9 →  20
+    probar-sitio.cjs    344 → 351
+    Todo verde, incluida la corrida completa de `publicar.mjs --sin-red`.
+
+    La prueba que mas vale es la que reproduce el caso tal cual: ocho
+    jugados, dos por jugar, y la fecha siguiente esperando. Con la regla
+    vieja salen doce partidos y la fecha en curso desaparece; con la nueva
+    salen los diez de la fecha, y ni uno de la que viene.
+
+  ── AL SUBIRLO ───────────────────────────────────────────────────────────
+
+    Cambian `ligas-api.mjs` y `fecha-de-liga.mjs`, que son dos de los
+    archivos que firman el paso de ligas. O sea que la firma cambia y el
+    paso se rehace en la primera corrida, sin apretar nada. La fecha vuelve
+    a aparecer entera ahi mismo.
+
 Arma el 11 - version 2026-09-20 y66 (las indicaciones, de cada equipo)
 
   · SE SUBEN LOS MISMOS DIEZ ARCHIVOS DEL y65, actualizados. Todos sueltos,

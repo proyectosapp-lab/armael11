@@ -23,7 +23,7 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync, rmSync, readdirSync } from "node:fs";
 import { constantesDeLiga, MINIMO_PARTIDOS } from "./juego.js";
 
-import { partidosDeLaFecha } from "./fecha-de-liga.mjs";
+import { partidosDeLaFecha, fechaEntera } from "./fecha-de-liga.mjs";
 import { puestoDe, formacionDeSalida, formacionHabitual } from "./juego.js";
 
 const aca  = p => new URL(p, import.meta.url);
@@ -139,19 +139,45 @@ for (const L of CFG.ligas) {
      caso real que lo destapó, está en `fecha-de-liga.mjs`. */
   const proximos = fixtures.filter(POR_JUGAR)
     .sort((a, b) => new Date(a.fixture.date) - new Date(b.fixture.date));
-  const porJugar = partidosDeLaFecha(proximos, { minimo: MINIMO_FECHA, tope: TOPE_PARTIDOS });
+  const porJugar = partidosDeLaFecha(proximos,
+    { minimo: MINIMO_FECHA, tope: TOPE_PARTIDOS, todos: fixtures });
 
   if (!porJugar.length) {
     console.log("    sin partidos por jugar: no la publico");
     continue;
   }
 
-  const equiposIds = [...new Set(porJugar.flatMap(f => [f.teams.home.id, f.teams.away.id]))];
+  /* ── LA FECHA ENTERA ──────────────────────────────────────────────────
+     `porJugar` ancla CUÁL es la fecha; `deLaFecha` la trae completa, con
+     los que ya se jugaron y el que está en juego. Hasta el 20/9 se
+     publicaban solo los que no habían empezado, y la fecha se borraba sola
+     a medida que se jugaba. El porqué está en `fecha-de-liga.mjs`.
+
+     No cuesta un pedido más: `fixtures` ya está bajado. Lo que sí cambia es
+     `equiposIds` —ahora son los veinte de la fecha y no los cuatro que
+     quedaban—, y eso es a propósito: un partido que se ve tiene que poder
+     simularse, y para eso hacen falta sus dos planteles. Es exactamente lo
+     que costaba esta liga un viernes, antes de que empezara la fecha. */
+  const deLaFecha = fechaEntera(fixtures, porJugar).slice(0, TOPE_PARTIDOS * 2);
+
+  const equiposIds = [...new Set(deLaFecha.flatMap(f => [f.teams.home.id, f.teams.away.id]))];
 
   /* ─── 3. los ratings, de los últimos partidos de cada equipo ─────────── */
+  /* ── NI UN MINUTO DEL PARTIDO QUE SE VA A SIMULAR ─────────────────────
+     Desde que la fecha se publica entera, algunos de sus partidos ya se
+     jugaron. Si sus ratings entraran al plantel, simular Atlético–Real
+     estaría usando lo que pasó EN Atlético–Real: el modelo sabría el
+     resultado y no sería una simulación, sería una descripción.
+
+     La página de un club ya lo hace así —`cincoAntes` filtra por fecha—.
+     Acá el plantel es por liga y no por partido, así que el corte es la
+     fecha entera: ninguno de sus partidos cuenta para los niveles. */
+  const idsDeLaFecha = new Set(deLaFecha.map(f => f.fixture.id));
+  const anteriores = jugados.filter(f => !idsDeLaFecha.has(f.fixture.id));
+
   const aBajar = new Set();
   for (const id of equiposIds) {
-    const suyos = (jugados.length ? jugados : paraNumeros)
+    const suyos = (anteriores.length ? anteriores : paraNumeros)
       .filter(f => f.teams.home.id === id || f.teams.away.id === id)
       .sort((a, b) => new Date(a.fixture.date) - new Date(b.fixture.date))
       .slice(-ULTIMOS);
@@ -222,7 +248,7 @@ for (const L of CFG.ligas) {
 
   /* ─── 5. a guardar, cocinado ─────────────────────────────────────────── */
   const equipos = {};
-  for (const f of porJugar)
+  for (const f of deLaFecha)
     for (const t of [f.teams.home, f.teams.away])
       equipos[t.id] = equipos[t.id] || {
         n: t.name, j: [],
@@ -253,9 +279,14 @@ for (const L of CFG.ligas) {
     visita: K.suficientes ? K.visita : null,
     calibrada: K.suficientes ? { partidos: K.partidos, temporada: deQue } : null,
     equipos,
-    partidos: porJugar.map(f => ({
+    /* `estado` y los goles viajan con cada partido: sin eso la pantalla no
+       puede distinguir el que falta del que ya terminó, y los mostraría a
+       todos como "por jugar". Los goles van en null mientras no haya. */
+    partidos: deLaFecha.map(f => ({
       id: f.fixture.id, fecha: f.fixture.date, ronda: f.league?.round || "",
       local: f.teams.home.id, visita: f.teams.away.id,
+      estado: f.fixture?.status?.short || "NS",
+      golL: f.goals?.home ?? null, golV: f.goals?.away ?? null,
     })),
     generado: new Date().toISOString(),
   };
@@ -265,7 +296,8 @@ for (const L of CFG.ligas) {
     JSON.stringify(salida) + ";\n");
   publicadas.push(L.slug);
   console.log("    ✓ " + Object.keys(equipos).length + " equipos · " + acum.size +
-    " jugadores · " + porJugar.length + " partidos" +
+    " jugadores · " + deLaFecha.length + " partidos (" +
+    deLaFecha.filter(JUGADO).length + " jugados)" +
     (flacos.length ? "  ⚠ con menos de 11: " + flacos.join(", ") : ""));
 }
 
