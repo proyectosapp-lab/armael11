@@ -1,3 +1,87 @@
+Arma el 11 - version 2026-09-20 y68 (abajo del resultado no va nada mas)
+
+  · SE SUBEN DOS ARCHIVOS: app.tpl.html y probar-sitio.cjs. Mas VERSION.txt.
+    Si no subiste el y67, subilo antes o junto: este NO lo incluye.
+
+  ── LA REGLA, Y ESTA VEZ TRABADA ─────────────────────────────────────────
+
+    "¿Que son todas esas advertencias y aclaraciones abajo del resultado?
+    Ya dejamos establecido que todas esas cosas no van. Grabalo en piedra."
+
+    Tenia razon y es la misma regla de y60 —cuando sacamos el marcador mas
+    probable— que yo habia aplicado a UN renglon cuando valia para el bloque
+    entero:
+
+      Un numero que hay que explicar para que no confunda es un numero que
+      no va. Y un numero que no confunde no necesita que lo expliquen.
+
+    El corolario, que es lo que se estaba violando: una aclaracion defensiva
+    no protege la credibilidad, la gasta. Un parrafo que sale a explicar el
+    resorteo antes de que nadie pregunte le esta diciendo al hincha que hay
+    algo que justificar. La app promete "no es un dado, son 6.000 partidos";
+    cada disclaimer abajo del numero dice lo contrario en voz baja.
+
+  ── LO QUE SE FUE ────────────────────────────────────────────────────────
+
+    · El parrafo del resorteo: "El partido que se dibuja es uno de los
+      6.000, sorteado con esas mismas probabilidades. Si sale un marcador
+      insolito —de esos de menos de uno cada cien— se sortea otro que
+      termine igual…"
+    · "el partido que viste sale 1 de cada 8". La funcion `cuanRaro()` se
+      borro entera.
+    · "· uno de los 6.000 posibles ·", pegado al xG.
+    · "Mismos ajustes, mismo resultado. Estos numeros salen de 6.000
+      partidos simulados con tu once y tu planteo…" — cuatro renglones que
+      explicaban de antemano algo que, cuando pasa, ya se avisa solo.
+    · Las notas de cada perilla ("Con la linea baja te exponés menos…").
+    · Las notas de cada indicacion ("Marcás personal a…", "…es tirar
+      plata"). Se siguen calculando y guardando; no se pintan.
+    · "Ya esta sorteado con estas probabilidades", que quedo en "No gasta
+      otra simulacion".
+
+  ── LO QUE QUEDA, Y POR QUE NO ES LO MISMO ───────────────────────────────
+
+    · El xG. Es un dato, no una aclaracion.
+    · "el partido que acabás de ver", pegado al marcador sorteado. ESTO NO
+      ES UNA ADVERTENCIA: es la etiqueta que impide leer el 0-1 como si
+      fuera el pronostico, que es exactamente el error que sacamos en y60.
+      Sin ella el bloque vuelve a decir dos cosas a la vez —una barra de
+      36/30/35 y un 0-1— y las dos parecen la respuesta.
+    · "Con tus ajustes: 2 cambios en el once · planteo: espera y sale de
+      contra · 1 indicacion · desde el 46'." No explica el motor: repite lo
+      que elegiste. Es un recibo, no un disclaimer.
+    · "No gasta otra simulacion", bajo el boton de ver el partido. No es
+      sobre el modelo sino sobre el cupo, y la pregunta es real.
+
+  ── COMO QUEDO TRABADO (esta es la parte que importa) ────────────────────
+
+    En `probar-sitio.cjs`, un bloque de casos con el TEXTO EXACTO de cada
+    frase sacada. Si alguna vuelve, la prueba se pone en rojo y la
+    publicacion se frena: las pruebas son obligatorias antes de publicar.
+
+    Mas un caso que no nombra ninguna frase: cuenta los parrafos de
+    explicacion en la tarjeta del resultado y exige que sean CERO. Ese es el
+    que atrapa la frase nueva que a nadie se le ocurrio prohibir.
+
+    Y en `app.tpl.html`, donde vivia `cuanRaro()`, quedo escrito que habia
+    ahi y por que no esta, para que ninguna sesion futura lo reinvente
+    creyendo que ayuda.
+
+    La regla entera, con la tabla de lo que se saco, esta en
+    `claude/nada-de-aclaraciones.md`.
+
+  ── UN CASO VIEJO QUE HUBO QUE DAR VUELTA ────────────────────────────────
+
+    Habia una prueba que EXIGIA el parrafo de "mismos ajustes, mismo
+    resultado". Ahora afirma lo contrario: que no este. La garantia sigue
+    intacta y sigue probada —volver a tocar Simular sin cambiar nada no
+    gasta cupo y da el mismo resultado—, y se cuenta donde de verdad sirve:
+    en el aviso que aparece cuando pasa, no todo el tiempo por las dudas.
+
+  ── PROBADO ──────────────────────────────────────────────────────────────
+
+    probar-sitio.cjs  351 → 360. Todo verde.
+
 Arma el 11 - version 2026-09-20 y67 (la fecha entera, jugados incluidos)
 
   · SE SUBEN TRECE ARCHIVOS, todos sueltos y sin punto adelante. Incluye el

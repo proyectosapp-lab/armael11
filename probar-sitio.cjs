@@ -830,6 +830,53 @@ srv.listen(8099, async () => {
   caso("y el marcador dice que es el partido que se vio",
        /el partido que acabás de ver/.test(trasSimular));
 
+  /* ══════════════════════════════════════════════════════════════════════
+     ABAJO DEL RESULTADO NO VA NINGUNA ACLARACIÓN. GRABADO EN PIEDRA.
+
+     Fausto, 20/9/2026: "¿qué son todas esas advertencias y aclaraciones
+     abajo del resultado? Ya dejamos establecido que todas esas cosas no
+     van. Grabalo en piedra".
+
+     Esto es la piedra. Cada frase que se sacó tiene su caso, con el texto
+     exacto, para que volver a ponerla ponga una prueba en rojo y la
+     publicación se frene. La regla completa está en
+     `claude/nada-de-aclaraciones.md`.
+
+     Lo que se afirma NO es "no está esta frase": es que no vuelva ninguna
+     de la familia. Por eso también hay un caso que cuenta párrafos.
+     ══════════════════════════════════════════════════════════════════════ */
+  {
+    const prohibido = [
+      ["el resorteo del marcador insólito", /marcador insólito|se sortea\s+otro/i],
+      ["lo raro que fue el marcador",       /sale 1 de cada/i],
+      ["'uno de los 6.000 posibles' pegado al xG", /ver · uno de los 6\.000/i],
+      ["'mismos ajustes, mismo resultado'", /Mismos ajustes, mismo resultado/i],
+      ["las notas de las perillas",         /te exponés menos|ida y vuelta, más goles/i],
+      ["las notas de las indicaciones",     /Marcás personal|Cargás sobre su lado|tirar plata/i],
+      ["explicar que está sorteado con esas probabilidades", /sorteado con esas mismas/i],
+    ];
+    for (const [que, re] of prohibido)
+      caso("abajo del resultado NO vuelve " + que, !re.test(trasSimular),
+           (trasSimular.match(re) || [""])[0]);
+
+    /* El xG sí: es un dato, no una aclaración. Y la etiqueta del partido
+       sorteado también, porque es lo que impide leer el marcador como si
+       fuera el pronóstico —el error que se sacó en y60—. */
+    caso("pero el xG sigue estando, que es un dato", /xG \d/.test(trasSimular));
+
+    /* El contador: sin esto, alguien agrega una frase nueva que ninguna
+       expresión de arriba atrapa y nadie se entera. */
+    const parrafos = await pg.evaluate(() => {
+      const card = document.querySelector(".res") &&
+                   document.querySelector(".res").closest(".tarjeta");
+      if (!card) return null;
+      return [...card.querySelectorAll("p.nota")].map(p => p.textContent.trim().slice(0, 60));
+    });
+    caso("y no hay NI UN párrafo de explicación en la tarjeta del resultado",
+         parrafos !== null && parrafos.length === 0,
+         JSON.stringify(parrafos));
+  }
+
   /* ── LAS INDICACIONES DEL PLANTEO ──────────────────────────────────────
      Tres, del planteo y no por jugador: el motor compara líneas y no tiene
      aporte individual al que restarle una marca. */
@@ -2044,8 +2091,16 @@ srv.listen(8099, async () => {
       caso("y no cambia el resultado: lo explica",
            despRep.w === antesRep.w && despRep.m === antesRep.m && /no cambiaste nada/i.test(despRep.msg),
            (despRep.msg || "").slice(0, 80));
-      caso("la tarjeta dice que mismos ajustes dan el mismo resultado",
-           /mismos ajustes, mismo resultado/i.test(await pg.locator('.res').locator('..').innerText()));
+      /* Este caso pedía que la tarjeta lo EXPLICARA con un párrafo fijo.
+         Desde el 20/9 abajo del resultado no van aclaraciones, así que lo
+         que se afirma es lo contrario: que el párrafo no esté, y que la
+         garantía siga estando donde de verdad sirve —el aviso que aparece
+         cuando volvés a tocar Simular sin cambiar nada, dos casos más
+         arriba—. La conducta no se movió; lo que se movió es dónde se
+         cuenta: cuando pasa, y no todo el tiempo por las dudas. */
+      caso("y la tarjeta no lo explica de antemano: lo dice cuando pasa",
+           !/mismos ajustes, mismo resultado/i.test(
+             await pg.locator('.res').locator('..').innerText()));
       /* Cambiar algo SÍ vuelve a simular, y con la semilla nueva. */
       await pg.evaluate(() => { J.K.presion = 40; pintar(); });
       await pg.locator('#bsim').click();

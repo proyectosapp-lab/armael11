@@ -3208,6 +3208,11 @@ async function simular11(flash){
        lee como si la hubieras dado vos, y dice lo contrario de lo que pasa. */
     /* Sin `esc` acá: la pantalla ya escapa cada nota al pintarla, y
        escapar dos veces deja "Newell&amp;s" a la vista. */
+    /* Se siguen calculando y guardando, y no se pintan abajo del resultado:
+       son aclaraciones sobre el motor y desde el 20/9 eso no va ahí. Quedan
+       en `J.sim.notas` porque cuestan cero y porque el día que haya una
+       pantalla de "por qué este número" —una, en otro lado, para el que la
+       busque— el dato ya está calculado. */
     const suyas = (ind.notasB || []).map(n => nombreCorto("B") + ": " + n);
     J.sim.notas=[...t.notas, ...ind.notas, ...suyas];
     J.sim.estaVez=marc;
@@ -4098,22 +4103,19 @@ const tanteador = (a, b) => `<div class="marcador">
     <b>${String(b).trim()}</b><span class="eq">${esc(J.nom.B)}</span>
   </div>`;
 
-/* ── CUÁN RARO FUE LO QUE ACABÁS DE VER ──────────────────────────────────
-   Un 3-0 abajo de una barra de "partido parejo" desconcierta hasta que
-   alguien dice cuánto de raro es. Con el número al lado deja de ser una
-   contradicción y pasa a ser información: "sale 1 de cada 22 veces".
+/* ── LO QUE ACÁ NO VA, Y NO ES UN OLVIDO ─────────────────────────────────
+   Acá vivía `cuanRaro()`: "el partido que viste sale 1 de cada 8". La idea
+   era buena —un 3-0 abajo de "partido parejo" desconcierta hasta que
+   alguien dice cuánto de raro es— y aun así se fue el 20/9/2026, con todo
+   el resto de las aclaraciones de abajo del resultado.
 
-   Solo cuando el partido arrancó 0-0: si se simuló desde el minuto 60 con
-   1-0, la probabilidad que guardamos es la de los goles del resto, y
-   pegarla al marcador final diría una cosa por otra.                    */
-function cuanRaro(){
-  const p = J.partido && J.partido.prob, a = J.partido && J.partido.arranca;
-  if(!p || !a || a.A || a.B) return "";
-  const cada = Math.max(2, Math.round(1/p));
-  /* Sin el " · " de adelante: desde y60 esta frase va sola, porque el
-     renglón que la acompañaba —"el más probable era..."— se sacó. */
-  return "el partido que viste sale 1 de cada " + cada;
-}
+   Se anota acá para que ninguna sesión futura la reinvente creyendo que
+   ayuda. La regla está en `claude/nada-de-aclaraciones.md` y se resume en
+   un renglón: abajo del resultado van el marcador, el xG y lo que elegiste.
+   Nada que explique cómo funciona el motor.
+
+   La rareza del marcador sigue existiendo en `J.partido.prob`: si alguna
+   vez hay que mostrarla, hay dónde. Lo que no hay es permiso.          */
 
 const CANCHA = { alto: [3, 97], ancho: [3, 97] };
 /* EL ARQUERO TIENE SU METRO Y NADIE MÁS LO PISA. Los de afuera llegan hasta
@@ -4766,21 +4768,42 @@ function vistaJuego(){
              marcadores de cada clase— y el partido sorteado, que es UNO de
              los 6.000 y se presenta como tal. */""}
         ${J.visto && s.estaVez ? tanteador(s.estaVez.A, s.estaVez.B) : ""}
+        ${/* ── NADA DE EXPLICAR EL MOTOR ABAJO DEL RESULTADO ──────────────
+             Fausto, 20/9/2026, mirando la pantalla: "¿qué son todas esas
+             advertencias y aclaraciones abajo del resultado? Ya dejamos
+             establecido que todas esas cosas no van. Grabalo en piedra".
+
+             Tenía razón, y es la misma regla de y60 que yo había aplicado a
+             un renglón cuando valía para el bloque entero: un número que hay
+             que explicar para que no confunda es un número que no va — y un
+             número que no confunde no necesita que lo expliquen.
+
+             Lo que se fue, y no vuelve sin que lo pida:
+               · "uno de los 6.000 posibles", pegado al xG
+               · "el partido que viste sale 1 de cada 8"
+               · el párrafo del marcador insólito y el resorteo
+               · las notas de cada perilla y de cada indicación
+               · "Mismos ajustes, mismo resultado", con su explicación
+
+             Queda el xG, que es un dato y no una aclaración, y la etiqueta
+             "el partido que acabás de ver", que NO es una advertencia: es lo
+             que impide leer el 0-1 como si fuera el pronóstico, que es
+             exactamente el error que sacamos en y60. Sin ella el bloque
+             vuelve a decir dos cosas a la vez.
+
+             LA REGLA, para no discutirla de nuevo: abajo del resultado van
+             el marcador, el xG y lo que ELEGISTE. Cómo funciona el motor se
+             cuenta en otro lado, una vez.                                */ ''}
         <div class="meta" style="justify-content:center">${J.visto && s.estaVez
-          ? "el partido que acabás de ver · uno de los 6.000 posibles · " : ""}xG ${
+          ? "el partido que acabás de ver · " : ""}xG ${
           s.xgA.toFixed(2)} a ${s.xgB.toFixed(2)}</div>
-        ${J.visto && s.estaVez ? `${cuanRaro() ? `<div class="meta" style="justify-content:center;margin-top:-2px">${cuanRaro()}</div>` : ""}
-          <p class="nota">El partido que se dibuja es uno de los 6.000, sorteado con esas mismas
-          probabilidades. Si sale un marcador insólito —de esos de menos de uno cada cien— se sortea
-          otro que termine igual, así la barra de arriba sigue describiendo lo que acabás de ver.</p>` : ""}
         <p class="conque res-conque">${esc(s.conQue || "")}</p>
-        ${s.notas.map(n=>`<p class="nota">${esc(n)}</p>`).join("")}
+        ${/* Lo único que sobrevive es el precio, que no es una aclaración sobre
+             el modelo sino sobre el cupo: "¿esto me gasta una simulación?" es
+             una pregunta real y se contesta en cuatro palabras.          */ ''}
         ${J.partido && !J.visto ? `<button class="gh" id="bver" style="width:100%;margin-top:10px">
             Ver uno de los 6.000 partidos posibles</button>
-          <p class="aviso" style="margin:6px 0 0">Ya está sorteado con estas probabilidades. No gasta otra simulación.</p>` : ""}
-        ${!J.visto ? `<p class="aviso" style="margin:8px 0 0"><b>Mismos ajustes, mismo resultado.</b>
-          Estos números salen de 6.000 partidos simulados con tu once y tu planteo: si no cambiás nada,
-          no cambian. Cambiá algo y volvé a simular para ver cuánto mueve.</p>` : ""}
+          <p class="aviso" style="margin:6px 0 0">No gasta otra simulación.</p>` : ""}
         ${s.ajustes && !s.ajustes.length ? `<button class="gh" id="bplanteo" style="width:100%;margin-top:10px">
             Cambiar el once o el planteo y volver a simular</button>` : ""}
         ${J.paso!=="revelado" ? pieDelResultado() : ""}
