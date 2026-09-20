@@ -500,6 +500,25 @@ if (HAY_BACKEND && existsSync(aca("./backtest.tpl.html"))) {
       .replaceAll("{{LIGAS_EN_APP}}", JSON.stringify(idsEnLaApp)));
 }
 
+/* ── LA PANTALLA DE CONTROL ──────────────────────────────────────────────
+   Mismo criterio que el backtest: vive en el sitio porque necesita hablar
+   con Supabase, lleva las dos claves PÚBLICAS, y lo que protege de verdad
+   es la clave del panel, que se pide del otro lado —en la función de la
+   base— y no vive en ningún archivo de acá.
+
+   `control.js` viaja al lado, con los `export` sacados igual que `juego.js`:
+   es un módulo ES para poder probarlo con `node`, y la página lo carga como
+   script clásico. Las cuentas de un panel con el que se deciden gastos de
+   plata no pueden vivir adentro de un `<script>` donde no se pueden probar. */
+if (HAY_BACKEND && existsSync(aca("./control.tpl.html"))) {
+  writeFileSync(new URL("control.html", SITIO),
+    readFileSync(aca("./control.tpl.html"), "utf8")
+      .replaceAll("{{SUPABASE_URL}}", CFG.supabase.url)
+      .replaceAll("{{SUPABASE_ANON}}", CFG.supabase.anon));
+  writeFileSync(new URL("control.js", SITIO),
+    readFileSync(aca("./control.js"), "utf8").replace(/^export\s+/gm, ""));
+}
+
 writeFileSync(new URL(".nojekyll", SITIO), "");
 
 /* ══════════════════ LAS DOS PÁGINAS QUE PIDE PLAY ══════════════════

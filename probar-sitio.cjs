@@ -877,6 +877,103 @@ srv.listen(8099, async () => {
          JSON.stringify(parrafos));
   }
 
+  /* ══════════════════════════════════════════════════════════════════════
+     QUIÉN ES EL QUE NO ESTÁ
+
+     Fausto, 20/9/2026: "no es lo mismo simular si echaron un defensor, pero
+     con los cambios queda jugando con un delantero menos, que quedar jugando
+     con uno menos en abstracto".
+
+     Lo que se prueba acá es la pantalla: que la lista aparezca solo cuando
+     hay expulsado, que el arquero NO esté en ella, que el elegido se apague
+     en la cancha, y que elegirlo cambie la semilla. Lo del motor —que el
+     golpe promedio siga siendo el medido— está en probar-once.mjs.
+     ══════════════════════════════════════════════════════════════════════ */
+  {
+    const sinRoja = await pg.evaluate(() => {
+      J.desde = { minuto:0, golesA:0, golesB:0, rojasA:0, rojasB:0, faltanA:[], faltanB:[] };
+      pintar();
+      return document.querySelectorAll("[data-falta]").length;
+    });
+    caso("sin expulsados no se pregunta quién falta", sinRoja === 0);
+
+    const conRoja = await pg.evaluate(() => {
+      J.desde = { minuto:55, golesA:1, golesB:0, rojasA:1, rojasB:0, faltanA:[], faltanB:[] };
+      pintar();
+      const bs = [...document.querySelectorAll('[data-falta="A"]')];
+      const ids = bs.map(b => +b.dataset.faltaid).filter(Boolean);
+      const arqueros = J.xiA.filter(p => p && p.slotCat === "G").map(p => p.id);
+      return { cuantos: bs.length, ids, arqueros,
+               deB: document.querySelectorAll('[data-falta="B"]').length,
+               txt: document.body.innerText };
+    });
+    caso("con un expulsado se puede elegir quién no está",
+         conRoja.cuantos > 1, "botones: " + conRoja.cuantos);
+    caso("se ofrecen los diez de campo más la opción de no decirlo",
+         conRoja.ids.length === 10, "" + conRoja.ids.length);
+    caso("y el ARQUERO no está entre ellos: si lo echan, sale uno de campo",
+         !conRoja.arqueros.some(id => conRoja.ids.includes(id)),
+         JSON.stringify(conRoja.arqueros));
+    caso("al equipo sin expulsado no se le pregunta nada", conRoja.deB === 0);
+    caso("y sin elegir, se dice que se usa el promedio",
+         /promedio de todas las expulsiones/i.test(conRoja.txt));
+
+    const elegido = await pg.evaluate(() => {
+      const antes = firmaDeAjustes();
+      const unD = J.xiA.find(p => p && p.slotCat === "D");
+      const unF = J.xiA.find(p => p && p.slotCat === "F");
+      document.querySelector('[data-falta="A"][data-faltaid="' + unD.id + '"]').click();
+      const conD = { firma: firmaDeAjustes(), faltan: J.desde.faltanA.slice(),
+                     apagados: document.querySelectorAll(".jug.falta").length,
+                     txt: document.body.innerText };
+      document.querySelector('[data-falta="A"][data-faltaid="' + unF.id + '"]').click();
+      const conF = { firma: firmaDeAjustes(), faltan: J.desde.faltanA.slice(),
+                     apagados: document.querySelectorAll(".jug.falta").length };
+      document.querySelector('[data-falta="A"][data-faltaid="0"]').click();
+      return { antes, conD, conF, sinNadie: { firma: firmaDeAjustes(),
+               faltan: J.desde.faltanA.slice(),
+               apagados: document.querySelectorAll(".jug.falta").length },
+               nombreD: unD.nombre };
+    });
+    caso("elegir a uno lo apaga en la cancha, y a uno solo",
+         elegido.conD.apagados === 1, "" + elegido.conD.apagados);
+    caso("y lo dice con nombre y puesto",
+         /Juegan sin .*defensor/i.test(elegido.conD.txt), elegido.conD.txt.slice(0, 200));
+    caso("elegir a otro reemplaza al anterior: hay un solo expulsado",
+         elegido.conF.faltan.length === 1 && elegido.conF.apagados === 1,
+         JSON.stringify(elegido.conF.faltan));
+    caso("'no lo digo' vuelve a dejar la cancha entera",
+         elegido.sinNadie.faltan.length === 0 && elegido.sinNadie.apagados === 0);
+
+    /* La trampa silenciosa de siempre: si el elegido no entra en la firma,
+       cambiar de defensor a delantero da el MISMO resultado. */
+    caso("elegir a alguien cambia la semilla", elegido.conD.firma !== elegido.antes);
+    caso("y no es lo mismo un defensor que un delantero",
+         elegido.conD.firma !== elegido.conF.firma);
+    caso("sin elegir a nadie la semilla vuelve a ser la de antes",
+         elegido.sinNadie.firma === elegido.antes);
+
+    /* Y sacar el expulsado tiene que limpiar al que estaba elegido: si no,
+       queda un jugador apagado para siempre con la cancha completa. */
+    const limpia = await pg.evaluate(() => {
+      const unD = J.xiA.find(p => p && p.slotCat === "D");
+      document.querySelector('[data-falta="A"][data-faltaid="' + unD.id + '"]').click();
+      const sel = document.getElementById("drA");
+      sel.value = "0-0"; sel.onchange();
+      return { faltan: J.desde.faltanA.slice(),
+               apagados: document.querySelectorAll(".jug.falta").length,
+               pregunta: document.querySelectorAll("[data-falta]").length };
+    });
+    caso("sacar el expulsado borra al que estaba elegido",
+         limpia.faltan.length === 0 && limpia.apagados === 0 && limpia.pregunta === 0,
+         JSON.stringify(limpia));
+
+    await pg.evaluate(() => {
+      J.desde = { minuto:0, golesA:0, golesB:0, rojasA:0, rojasB:0, faltanA:[], faltanB:[] };
+      pintar();
+    });
+  }
+
   /* ── LAS INDICACIONES DEL PLANTEO ──────────────────────────────────────
      Tres, del planteo y no por jugador: el motor compara líneas y no tiene
      aporte individual al que restarle una marca. */
@@ -2314,6 +2411,31 @@ srv.listen(8099, async () => {
   {
     const r = await traer('/backtest.html');
     caso("la pantalla del backtest se publica con el sitio", r.estado === 200 && /pedir_backtest/.test(r.texto));
+
+    /* ── LA PANTALLA DE CONTROL ──────────────────────────────────────────
+       Fausto, 20/9: "construí la pantalla que habíamos definido para hacer
+       seguimiento del uso, instalaciones de la app, etc".
+
+       Lo que se fija acá es lo que no se ve mirándola: que se publique con
+       sus cuentas al lado, que NO lleve la clave del panel adentro, y que
+       no cargue un script de terceros — la misma promesa que la app. */
+    const c = await traer('/control.html');
+    caso("la pantalla de control se publica con el sitio",
+         c.estado === 200 && /panel_de_control/.test(c.texto));
+    const cj = await traer('/control.js');
+    caso("y sus cuentas viajan al lado, sin los export",
+         cj.estado === 200 && /function porcentaje/.test(cj.texto) && !/\bexport /.test(cj.texto));
+    caso("lleva la URL y la clave PÚBLICA de Supabase, ya reemplazadas",
+         /https:\/\/[a-z0-9]+\.supabase\.co/.test(c.texto) && !/\{\{SUPABASE/.test(c.texto));
+    /* La clave del panel vive en la base, hasheada, y NUNCA en el sitio.
+       Si algún día alguien la escribe acá para "probar rápido", esto lo
+       frena antes de publicar. */
+    caso("y NO lleva la clave del panel adentro",
+         !/CAMBIAR-ACA/.test(c.texto) && !/panel_clave/.test(c.texto),
+         (c.texto.match(/CAMBIAR-ACA|panel_clave/) || [""])[0]);
+    caso("no carga ningún script de terceros",
+         !/<script[^>]+src=["']https?:/i.test(c.texto));
+    caso("y no la indexa Google", /name="robots"[^>]+noindex/.test(c.texto));
     caso("y no lleva ninguna clave de servidor",
          !/service_role|SUPABASE_SERVICE|BACKTEST_CLAVE\s*=/.test(r.texto) && /"role":"anon"|eyJ/.test(r.texto));
     /* "En la app" tiene que salir de lo PUBLICADO. El 16/9/2026 la base decía

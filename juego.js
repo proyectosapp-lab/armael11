@@ -727,16 +727,83 @@ export function simExpulsion(xgA, xgB, rojas){
       conservador, pero conviene saberlo antes de calibrarlo.             */
 export const ROJA = { ataca: 0.68, concede: 1.42 };
 
+/* ══════════════════════════════════════════════════════════════════════════
+   NO ES LO MISMO QUEDARSE SIN UN DEFENSOR QUE SIN UN DELANTERO
+
+   Fausto, 20/9/2026: "no es lo mismo simular si echaron un defensor, pero
+   con los cambios queda jugando con un delantero menos, que quedar jugando
+   con uno menos en abstracto".
+
+   Es exactamente el problema. `ROJA` es un promedio medido sobre equipos con
+   uno menos, y como promedio está bien; lo que no dice es DÓNDE quedó el
+   hueco. Un equipo que pierde un central y saca un nueve para reacomodarse
+   no juega el mismo partido que uno que se quedó sin el nueve.
+
+   ─── LA DECISIÓN, PARA QUE NO HAYA QUE ADIVINARLA DESPUÉS ────────────────
+   El golpe TOTAL sigue siendo el medido. Lo único que hace el puesto es
+   repartirlo distinto. La media geométrica de los tres ajustes sobre las
+   tres líneas de campo es exactamente 1 —(+1) + 0 + (−1) = 0 en el
+   exponente—, así que sobre el promedio de las expulsiones esto da el mismo
+   0,68 / 1,42 de siempre y la calibración que pasó el backtest no se toca.
+
+   Dicho de otra manera: el tamaño del golpe está MEDIDO; el reparto es una
+   decisión de diseño declarada. Mezclarlos sería pasar por medido algo que
+   no lo es, y esa es la línea que esta app no cruza.
+
+   ─── POR QUÉ LOS DOS FACTORES SE MUEVEN PARA EL MISMO LADO ───────────────
+   Parece raro y no lo es. Sin un defensor: atacás casi lo mismo que antes
+   —el que falta no era el que atacaba— pero concedés bastante más. O sea
+   los dos números suben. Sin un delantero es al revés: el ataque se cae y
+   la defensa casi no se entera, y los dos bajan.
+
+   ─── EL ARQUERO NO ESTÁ EN LA TABLA, Y ES A PROPÓSITO ────────────────────
+   Si el expulsado es el arquero, entra el suplente y sale un jugador de
+   campo: el hueco que queda en la cancha es el de ESE, no el del arquero.
+   Que es justo lo que decía Fausto. Así que el arquero no se puede sacar, y
+   lo que se elige es el que realmente no está.                            */
+export const ROJA_POR_PUESTO = { D: 1, M: 0, F: -1 };
+/* Cuánto inclina cada puesto, en el exponente. Con 0,10: sin un defensor
+   atacás un 25% menos (en vez de 32) y concedés un 57% más (en vez de 42);
+   sin un delantero, 38% menos y 29% más. Se nota y no es una locura. */
+export const ROJA_TILT = 0.10;
+
+/* Pura: dados los PUESTOS de los que faltan, cuánto ataca y cuánto concede
+   el equipo. Una lista vacía devuelve 1 y 1, o sea no pasa nada.
+
+   Un puesto desconocido —o `null`, que es "hay uno menos y no dije quién"—
+   cae en 0 y da exactamente el número de siempre. Eso es lo que hace que
+   esto no cambie ni un decimal de lo que ya estaba publicado mientras nadie
+   elija a nadie.                                                         */
+export function rojaDe(puestos){
+  let ataca = 1, concede = 1;
+  for(const c of (puestos || [])){
+    const t = Math.exp(ROJA_TILT * (ROJA_POR_PUESTO[c] || 0));
+    ataca *= ROJA.ataca * t;
+    concede *= ROJA.concede * t;
+  }
+  return { ataca, concede };
+}
+
 export function simDesde({ xgA, xgB, minuto = 0, golesA = 0, golesB = 0,
-                           rojasA = 0, rojasB = 0, n = 6000, rnd = Math.random }){
+                           rojasA = 0, rojasB = 0,
+                           faltanA = null, faltanB = null,
+                           n = 6000, rnd = Math.random }){
   const min = Math.max(0, Math.min(90, Math.round(minuto)));
   const resto = (90 - min) / 90;
   let a = xgA * resto, b = xgB * resto;
 
+  /* Los PUESTOS de los que faltan, si se eligieron. Si no, tantos huecos
+     como expulsados y sin puesto: `rojaDe` los trata como neutros y la
+     cuenta sale idéntica a la de antes de que esto existiera. */
+  const puestos = (faltan, cuantos) => faltan && faltan.length
+    ? faltan : Array.from({ length: Math.max(0, cuantos) }, () => null);
+  const rA = rojaDe(puestos(faltanA, rojasA));
+  const rB = rojaDe(puestos(faltanB, rojasB));
+
   /* Cada expulsión pesa por el tiempo que le queda de vigencia, que es
      justamente el resto. */
-  for(let i = 0; i < rojasA; i++){ a *= ROJA.ataca; b *= ROJA.concede; }
-  for(let i = 0; i < rojasB; i++){ b *= ROJA.ataca; a *= ROJA.concede; }
+  a *= rA.ataca; b *= rA.concede;
+  b *= rB.ataca; a *= rB.concede;
 
   let w = 0, d = 0, l = 0; const marc = {};
   for(let i = 0; i < n; i++){
@@ -747,7 +814,8 @@ export function simDesde({ xgA, xgB, minuto = 0, golesA = 0, golesB = 0,
   const top = Object.entries(marc).sort((x,y)=>y[1]-x[1])[0];
   return { win:w/n*100, draw:d/n*100, loss:l/n*100,
            marcador:top[0], probMarcador:top[1]/n*100,
-           xgA:a, xgB:b, desde:{ minuto:min, golesA, golesB, rojasA, rojasB } };
+           xgA:a, xgB:b,
+           desde:{ minuto:min, golesA, golesB, rojasA, rojasB, faltanA, faltanB } };
 }
 
 /* Arma el once más fuerte disponible respetando la formación. */

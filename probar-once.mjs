@@ -9,7 +9,8 @@
    ══════════════════════════════════════════════════════════════════════════ */
 import { autoXI, slotsDe, fuerza, penalPuesto,
          usarLiga, ligaActual, LIGA_POR_DEFECTO, constantesDeLiga, MINIMO_PARTIDOS,
-         simDesde, aplicarIndicaciones, indicacionesDeLosDos, lineas, INDICACIONES,
+         simDesde, ROJA, rojaDe, ROJA_POR_PUESTO, ROJA_TILT,
+         aplicarIndicaciones, indicacionesDeLosDos, lineas, INDICACIONES,
          INDICACIONES_POR_DEFECTO, PLANTEOS, planteoDe, planteo,
          planteoSugerido, tacticas, KNOBS,
          formaDe, formacionDeSalida, formacionHabitual, FORMS,
@@ -582,6 +583,88 @@ for (const form of ["4-4-2", "4-3-3", "3-5-2", "4-2-3-1", "5-3-2"]) {
      todo lo demás. Una letra rara acá dejaría al nueve sin lugar. */
   caso("los puestos del once del DT pasan por el traductor de siempre",
        ["G","D","M","F"].every(c => puestoDe(c) === c) && puestoDe("Attacker") === "F");
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   NO ES LO MISMO SIN UN DEFENSOR QUE SIN UN DELANTERO
+
+   Fausto, 20/9/2026. Lo que hay que fijar acá son dos cosas que tiran para
+   lados contrarios: que el puesto MUEVA el número, y que el tamaño total
+   del golpe siga siendo el medido. Si solo probáramos la primera, cualquier
+   número inventado pasaría.
+   ══════════════════════════════════════════════════════════════════════════ */
+{
+  caso("sin nadie afuera no pasa nada",
+       rojaDe([]).ataca === 1 && rojaDe([]).concede === 1);
+  caso("un expulsado sin puesto da EXACTAMENTE lo de siempre",
+       rojaDe([null]).ataca === ROJA.ataca && rojaDe([null]).concede === ROJA.concede);
+  caso("y un puesto que no existe tampoco inventa nada",
+       rojaDe(["Z"]).ataca === ROJA.ataca);
+
+  const D = rojaDe(["D"]), M = rojaDe(["M"]), F = rojaDe(["F"]);
+  caso("sin un volante es el promedio: es el puesto neutro",
+       M.ataca === ROJA.ataca && M.concede === ROJA.concede);
+  caso("sin un DEFENSOR concedés más que el promedio", D.concede > ROJA.concede);
+  caso("y atacás menos de lo que perdés sin un delantero", D.ataca > F.ataca);
+  caso("sin un DELANTERO atacás menos que el promedio", F.ataca < ROJA.ataca);
+  caso("y concedés menos que si perdieras un defensor", F.concede < D.concede);
+
+  /* EL ANCLA. Esto es lo que hace que el reparto sea una decisión de diseño
+     y no una recalibración encubierta: sobre las tres líneas de campo, el
+     efecto promedio es exactamente el medido. Si alguien toca los números
+     del reparto sin que sumen cero en el exponente, esto se pone en rojo. */
+  const geom = xs => Math.cbrt(xs.reduce((a, b) => a * b, 1));
+  caso("el golpe promedio sigue siendo el MEDIDO: ataca",
+       Math.abs(geom([D.ataca, M.ataca, F.ataca]) - ROJA.ataca) < 1e-12,
+       geom([D.ataca, M.ataca, F.ataca]).toFixed(6));
+  caso("y concede",
+       Math.abs(geom([D.concede, M.concede, F.concede]) - ROJA.concede) < 1e-12,
+       geom([D.concede, M.concede, F.concede]).toFixed(6));
+  caso("los tres puestos de campo suman cero en el exponente",
+       ROJA_POR_PUESTO.D + ROJA_POR_PUESTO.M + ROJA_POR_PUESTO.F === 0);
+  caso("el arquero NO está en la tabla: si lo echan, sale un jugador de campo",
+       ROJA_POR_PUESTO.G === undefined);
+
+  /* Que se note, pero que no sea una locura. */
+  caso("el reparto se nota: sin un defensor concedés al menos 8% más",
+       D.concede / ROJA.concede > 1.08);
+  caso("y no es una locura: nunca más del 25%",
+       D.concede / ROJA.concede < 1.25 && ROJA.ataca / F.ataca < 1.25);
+
+  /* Dos expulsados se acumulan, como antes. */
+  caso("dos afuera pegan dos veces",
+       Math.abs(rojaDe(["D","D"]).ataca - D.ataca * D.ataca) < 1e-12);
+
+  /* ── LA COMPATIBILIDAD, QUE ES LO QUE PROTEGE LO PUBLICADO ────────────
+     Mientras nadie elija a nadie, `simDesde` tiene que dar el MISMO
+     resultado que antes de que esto existiera. Si esto falla, el cambio
+     movió en silencio todos los números que la app ya mostró. */
+  const base = simDesde({ xgA:1.4, xgB:1.1, minuto:60, golesA:1, rojasA:1, rnd: azarDe(7) });
+  const igual = simDesde({ xgA:1.4, xgB:1.1, minuto:60, golesA:1, rojasA:1,
+                           faltanA: [], rnd: azarDe(7) });
+  caso("sin elegir a nadie, la cuenta es la de siempre",
+       base.win === igual.win && base.xgA === igual.xgA);
+
+  const sinD = simDesde({ xgA:1.4, xgB:1.1, minuto:60, golesA:1, rojasA:1,
+                          faltanA: ["D"], rnd: azarDe(7) });
+  const sinF = simDesde({ xgA:1.4, xgB:1.1, minuto:60, golesA:1, rojasA:1,
+                          faltanA: ["F"], rnd: azarDe(7) });
+  caso("elegir el puesto SÍ mueve el resultado",
+       sinD.win !== base.win && sinF.win !== base.win);
+  caso("quedarse sin un defensor te deja peor que sin un delantero",
+       sinD.win < sinF.win, sinD.win.toFixed(1) + "% vs " + sinF.win.toFixed(1) + "%");
+  caso("y el que se queda con diez sigue estando peor que con once",
+       sinD.win < simDesde({ xgA:1.4, xgB:1.1, minuto:60, golesA:1,
+                             rnd: azarDe(7) }).win);
+
+  /* El del rival va para el otro lado. */
+  const rivalSinD = simDesde({ xgA:1.4, xgB:1.1, minuto:60, golesA:1, rojasB:1,
+                               faltanB: ["D"], rnd: azarDe(7) });
+  caso("si al que le falta un defensor es al rival, te conviene a vos",
+       rivalSinD.win > base.win);
+
+  caso("el puesto elegido queda anotado en la respuesta",
+       (sinD.desde.faltanA || []).join() === "D");
 }
 
 /* ─── resultado ──────────────────────────────────────────────────────────── */

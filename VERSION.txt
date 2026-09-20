@@ -1,3 +1,175 @@
+Arma el 11 - version 2026-09-20 y71 (la pantalla de control)
+
+  · SE SUBEN DIECINUEVE ARCHIVOS, todos sueltos y sin punto adelante.
+    ESTE ZIP REEMPLAZA DEL y64 AL y70. Con este solo alcanza.
+
+  · Y ADEMAS HAY QUE PEGAR UN SQL. Es el unico paso que no es arrastrar:
+    abri `panel-de-control.sql`, CAMBIA la linea que dice CAMBIAR-ACA por
+    una clave larga, y pegalo entero en Supabase → SQL Editor → Run.
+
+  ── LA PANTALLA ──────────────────────────────────────────────────────────
+
+    armael11.com/control.html
+
+    Cuantos entran, de donde vienen y que se cobro. Todo de nuestra propia
+    base: no hay un solo script de terceros, igual que en la app. No la
+    indexa Google.
+
+    LA CLAVE NO ESTA EN NINGUN ARCHIVO DEL PROYECTO NI EN EL SITIO. En la
+    base queda solo su huella bcrypt, que no se puede dar vuelta; en tu
+    navegador queda la clave, para no escribirla cada vez. Hay una prueba
+    que verifica que la pagina publicada no la lleve adentro: si alguna vez
+    alguien la escribe ahi para "probar rapido", no publica.
+
+  ── LO QUE MUESTRA ───────────────────────────────────────────────────────
+
+    1. EL USO DE TODOS LOS DIAS. Separa la app instalada del navegador, que
+       es justo la distincion que Google pedia y que ninguna medicion de
+       sitio puede hacer, porque la version de Play es un TWA.
+
+       El numero grande de la izquierda es DIAS CON 12+ EN LA APP, que es el
+       que se lleva al formulario. Al lado, el mejor dia — que no es lo
+       mismo: llegar una vez y nunca mas no es una prueba de catorce dias.
+
+       Despues el grafico por dia y la tabla completa.
+
+       UNA RAYA ES UN DIA DEL QUE NO HAY DATO; UN CERO ES UN DIA EN EL QUE
+       NO ENTRO NADIE. No es una sutileza: entre el 19 y el 20 el contador
+       no estaba publicado, la tabla habria dicho cero, y la conclusion
+       —"los testers no abren la app"— habria sido la equivocada.
+
+    2. CAMPAÑAS. El embudo de cada codigo: llegaron → simularon →
+       instalaron → cuenta, con el porcentaje de cada paso.
+
+       El campo "Lo que gastaste" se escribe en la pantalla y QUEDA EN ESE
+       NAVEGADOR: lo que Meta cobro es asunto tuyo y la base no tiene por
+       que enterarse para hacer una division. Con eso calcula el costo por
+       visita, por simulacion y por cuenta.
+
+       El costo por SIMULACION es el que casi nunca se mira y el que decide:
+       una visita que rebota a los tres segundos cuesta lo mismo que una que
+       arma un once, y no valen lo mismo para nada.
+
+    3. CUENTAS, PLATA Y AVISOS. Cuentas totales y nuevas, el reparto por
+       plan, los pagos ACREDITADOS —uno pendiente de Mercado Pago todavia no
+       es plata— y cuantos telefonos estan suscriptos al once del DT.
+
+  ── LO QUE NO ESTA, Y NO ES UN OLVIDO ────────────────────────────────────
+
+    Las instalaciones de Google Play y de la App Store. Viven en las
+    consolas de las tiendas y no hay forma de leerlas sin la API de cada
+    una. Lo que esta base sabe es cuantos telefonos ABRIERON la app
+    instalada, que para la discusion con Google es el numero que importa:
+    instalar y no volver a entrar no cuenta como prueba.
+
+    Y no hay identificador de persona, ni IP, ni hora. Una fila por codigo,
+    dia e hito, con un numero al lado.
+
+  ── POR QUE LAS CUENTAS VIVEN EN UN ARCHIVO APARTE ───────────────────────
+
+    `control.js`, y no adentro del HTML. Con estos numeros se deciden gastos
+    de plata y se va a contestar el rechazo de Google. Un panel que divide
+    mal no avisa: muestra un numero plausible y alguien decide con el.
+    Adentro de un <script> de una pagina no hay forma de correr un caso.
+
+    La regla que ordena ese archivo: NINGUNA FUNCION INVENTA UN NUMERO.
+    Cuando el dato no alcanza —cero llegadas, ningun dia con uso, la plata
+    sin cargar— devuelve null y la pantalla escribe una raya.
+
+  ── PROBADO ──────────────────────────────────────────────────────────────
+
+    probar-control.mjs  0 → 45   (nuevo)
+    probar-sitio.cjs  374 → 380
+    Todo verde, incluida la corrida completa de `publicar.mjs --sin-red`.
+
+Arma el 11 - version 2026-09-20 y70 (quien es el que no esta)
+
+  · SE SUBEN CATORCE ARCHIVOS, todos sueltos y sin punto adelante.
+    ESTE ZIP REEMPLAZA AL y64, y65, y66, y67, y68 Y y69. Con este solo
+    alcanza, hayas subido los otros o no.
+
+  ── LO QUE PEDISTE ───────────────────────────────────────────────────────
+
+    "No es lo mismo simular si echaron un defensor, pero con los cambios
+    queda jugando con un delantero menos, que quedar jugando con uno menos
+    en abstracto."
+
+    Ahora, cuando marcas un expulsado, aparece la lista del once de ese
+    equipo y elegis QUIEN no esta. El elegido se apaga en la cancha —con un
+    guion en vez de la letra del puesto y el nombre tachado—, asi se ve de
+    una con cuantos quedo cada linea. Y el numero cambia segun el puesto.
+
+    El arquero NO esta en la lista, y ese es el punto entero: si al que
+    echaron fue al arquero, entra el suplente y sale un jugador de campo. El
+    hueco que queda en la cancha es el de ESE, que es justo lo que decias.
+
+    Elegir es OPCIONAL. Hay un boton "No lo digo" y es lo que viene puesto:
+    sin elegir a nadie, la cuenta sale exactamente como salia antes. Elegir
+    no agrega precision falsa, agrega la que tenes vos.
+
+  ── COMO SE MODELO, Y QUE SE CUIDO ───────────────────────────────────────
+
+    El golpe TOTAL de jugar con uno menos sigue siendo el MEDIDO: ataca 32%
+    menos y concede 42% mas. Lo unico que hace el puesto es repartirlo
+    distinto.
+
+      sin un DEFENSOR    atacas 25% menos (en vez de 32) y concedes 57% mas
+      sin un VOLANTE     el promedio exacto de siempre
+      sin un DELANTERO   atacas 38% menos y concedes 29% mas
+
+    Parece raro que los dos numeros se muevan para el mismo lado y no lo es:
+    sin un defensor atacas casi lo mismo que antes —el que falta no era el
+    que atacaba— pero concedes bastante mas. Sin un delantero, al reves.
+
+    LA MEDIA GEOMETRICA de los tres ajustes es exactamente 1. O sea que
+    sobre el promedio de las expulsiones esto da el mismo 0,68 / 1,42 de
+    siempre y la calibracion que paso el backtest no se toca. Hay una prueba
+    que lo verifica con doce decimales: si alguien cambia los numeros del
+    reparto sin que sumen cero, se pone en rojo.
+
+    Dicho como corresponde: **el tamaño del golpe esta medido; el reparto es
+    una decision de diseño declarada.** Mezclar las dos cosas seria pasar
+    por medido algo que no lo es.
+
+  ── LO QUE DECIDI NO HACER, Y POR QUE ────────────────────────────────────
+
+    Al que falta NO se lo saca de las lineas del equipo. Suena raro y es lo
+    correcto por dos motivos:
+
+      1. `ROJA` ya trae adentro el golpe de jugar con diez. Sacarlo tambien
+         del promedio de su linea lo contaria dos veces.
+      2. `lineas` PROMEDIA. Sacar al PEOR defensor de un promedio de cuatro
+         lo sube: el modelo diria que te quedaste con mejor defensa por
+         perder un jugador. Un absurdo que ninguna prueba hubiera visto
+         porque el numero seguiria siendo plausible.
+
+    El once queda entero para la cuenta y el hueco se dibuja aparte.
+
+    TAMPOCO pesa QUE TAN BUENO era el que falta, solo su puesto. Perder a tu
+    mejor central y perder al cuarto central dan lo mismo. Es una limitacion
+    de verdad y la anoto en vez de inventar un numero para taparla.
+
+    Y en el revelado de un partido ya jugado —cuando la app lee las rojas
+    reales de los eventos— sigue usando el promedio, porque cruzar el nombre
+    del expulsado contra el once tiene riesgo de errarle en silencio. Se
+    puede hacer; queda anotado.
+
+  ── DE PASO, MENOS TEXTO ─────────────────────────────────────────────────
+
+    El parrafo largo de "¿El partido ya empezo?" —el que explicaba que el
+    planteo lo decidis vos y que al rival lo planteas arriba— quedo en un
+    renglon. Es la misma regla del y68 aplicada a la otra tarjeta.
+
+  ── PROBADO ──────────────────────────────────────────────────────────────
+
+    probar-once.mjs   116 → 137
+    probar-sitio.cjs  360 → 374
+    Todo verde, incluida la corrida completa de `publicar.mjs --sin-red`.
+
+    La prueba que mas importa no es que el numero cambie: es que el promedio
+    de los tres puestos siga dando el numero medido. Sin esa, cualquier
+    invento pasaria.
+
 Arma el 11 - version 2026-09-20 y69 (que Apple no pregunte mas)
 
   · SE SUBE UN SOLO ARCHIVO: codemagic.yaml. No empieza con punto, o sea

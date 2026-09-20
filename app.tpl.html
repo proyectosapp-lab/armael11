@@ -307,6 +307,15 @@ button.gh{background:transparent;color:var(--tinta-2);border:1px solid var(--bor
   box-shadow:0 2px 6px rgba(0,0,0,.45)}
 .jug .n{font-size:8.5px;color:#fff;text-shadow:0 1px 3px rgba(0,0,0,.9);margin-top:2px;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+/* EL QUE NO ESTÁ. Se dibuja igual, en su lugar y apagado, con un guion en
+   vez de la letra del puesto. Borrarlo dejaría un agujero que no se
+   entiende; apagado se lee de una: ese es el que falta, y ahí se ve con
+   cuántos quedó cada línea. Tachado además del gris, porque en una cancha
+   verde el gris solo no alcanza para decir "este no cuenta". */
+.jug.falta{opacity:.42}
+.jug.falta .b{background:#3b4046 !important;color:#c9ced4 !important;
+  border-color:rgba(255,255,255,.35) !important;box-shadow:none}
+.jug.falta .n{text-decoration:line-through;font-weight:500}
 .pelota{position:absolute;width:12px;height:12px;border-radius:50%;background:#fff;z-index:3;
   box-shadow:0 0 10px rgba(0,0,0,.6);transform:translate(-50%,-50%);
   transition:left .5s cubic-bezier(.4,0,.3,1),top .5s cubic-bezier(.4,0,.3,1)}
@@ -2227,7 +2236,10 @@ const J={ key:"", reqs:0, temporada:2026, fixtures:[], fx:null, pool:{A:[],B:[]}
      aporte por jugador— pero cada una publica su efecto. */
   IND: { ...INDICACIONES_POR_DEFECTO }, INDB: { ...INDICACIONES_POR_DEFECTO },
   /* Desde dónde se simula. Minuto 0 es "desde el arranque", que es lo normal. */
-  desde: { minuto:0, golesA:0, golesB:0, rojasA:0, rojasB:0 },
+  /* `faltanA` / `faltanB`: los ids de los que NO están en la cancha. No es
+     lo mismo que `rojasA`: podés decir que hay uno menos sin decir quién, y
+     ahí la cuenta sale como salía antes de que esto existiera. */
+  desde: { minuto:0, golesA:0, golesB:0, rojasA:0, rojasB:0, faltanA:[], faltanB:[] },
   /* Si el partido se MIRA o se va derecho al resultado. Es una elección de
      cómo verlo, no de qué se simula: las dos usan el mismo once, la misma
      formación y las mismas perillas. Que antes fueran dos botones distintos
@@ -2723,7 +2735,7 @@ function simularDeLiga(slug, fixtureId){
   J.nom = { A:nombreDeEquipo(L,p.local), B:nombreDeEquipo(L,p.visita) };
   J.pool.A = poolDeLiga(L, p.local);
   J.pool.B = poolDeLiga(L, p.visita);
-  J.desde = { minuto:0, golesA:0, golesB:0, rojasA:0, rojasB:0 };
+  J.desde = { minuto:0, golesA:0, golesB:0, rojasA:0, rojasB:0, faltanA:[], faltanB:[] };
 
   if(J.pool.A.length < 11 || J.pool.B.length < 11){
     J.err = "Todavía no hay partidos previos suficientes de esos equipos.";
@@ -2764,7 +2776,7 @@ function volverAMiClub(){
   J.liga = null; J.fx = null; J.sim = null; J.real = null; J.err = ""; J.msg = "";
   usarLiga(null);
   J.id.A = CLUB.apiId;
-  J.desde = { minuto:0, golesA:0, golesB:0, rojasA:0, rojasB:0 };
+  J.desde = { minuto:0, golesA:0, golesB:0, rojasA:0, rojasB:0, faltanA:[], faltanB:[] };
   J.paso = PORTADA ? "liga" : "fixture";
   pintar();
 }
@@ -3200,7 +3212,8 @@ async function simular11(flash){
     const rnd = azarDe(semillaDe(firma));
     J.sim = empezado
       ? simDesde({ xgA, xgB, minuto:d.minuto, golesA:d.golesA, golesB:d.golesB,
-                   rojasA:d.rojasA, rojasB:d.rojasB, rnd })
+                   rojasA:d.rojasA, rojasB:d.rojasB,
+                   faltanA:puestosQueFaltan("A"), faltanB:puestosQueFaltan("B"), rnd })
       : simular(xgA, xgB, 6000, rnd);
     J.ultimaFirma = firma;
     /* Las del rival van con el nombre del equipo adelante. Sin eso, "carga
@@ -3373,6 +3386,83 @@ function colocarJugadores(){
 
 const apellido = nom => { const w=String(nom||"").trim().split(/\s+/); return w[w.length-1]||"—"; };
 
+/* ── QUIÉN NO ESTÁ EN LA CANCHA ──────────────────────────────────────────
+   Fausto, 20/9/2026: "no es lo mismo simular si echaron un defensor, pero
+   con los cambios queda jugando con un delantero menos, que quedar jugando
+   con uno menos en abstracto".
+
+   `J.desde.faltanA` guarda ids y no puestos: el id es lo que permite decir
+   el nombre y apagar el globito. El puesto se deduce del once, que es donde
+   vive la verdad de en qué línea jugaba.
+
+   IMPORTANTE, Y NO ES OBVIO: al que falta NO se lo saca de `J.xiA`. Las
+   líneas se calculan con el once completo y el golpe de jugar con uno menos
+   lo pone `ROJA`, que está MEDIDO. Si además lo sacáramos del promedio de su
+   línea, el golpe se contaría dos veces — y peor: como `lineas` promedia,
+   sacar al PEOR defensor MEJORARÍA la defensa, que es exactamente al revés.
+   El once queda entero para la cuenta y el hueco se dibuja aparte.      */
+function faltan(lado){
+  const l = (J.desde && J.desde["faltan" + lado]) || [];
+  return Array.isArray(l) ? l : [];
+}
+function estaAfuera(lado, id){ return id != null && faltan(lado).includes(id); }
+
+/* Los PUESTOS de los que faltan, que es lo único que mira el motor. */
+function puestosQueFaltan(lado){
+  const xi = J["xi" + lado] || [];
+  return faltan(lado).map(id => {
+    const p = xi.find(x => x && x.id === id);
+    return p ? (p.slotCat || p.pos || null) : null;
+  });
+}
+
+/* Los que se pueden sacar: el once menos el arquero. Si al arquero lo
+   echaron, entra el suplente y sale un jugador de campo — el hueco que
+   queda es el de ESE. Es justo lo que decía Fausto, y por eso el arquero no
+   está en la lista. */
+function candidatosAFaltar(lado){
+  return (J["xi" + lado] || []).filter(p => p && p.slotCat !== "G");
+}
+
+const PUESTO_LARGO = { G:"arquero", D:"defensor", M:"volante", F:"delantero" };
+
+/* ── ELEGIR AL QUE NO ESTÁ ───────────────────────────────────────────────
+   Aparece solo cuando ese equipo tiene un expulsado. Es OPCIONAL: si no
+   elegís a nadie, la cuenta sale igual que siempre, con el promedio medido.
+   Elegir no agrega precisión falsa, agrega la que tenés vos.
+
+   El arquero no está en la lista, y ese es el punto entero: si al que
+   echaron fue al arquero, entra el suplente y sale un jugador de campo. El
+   hueco en la cancha es el de ese, y ese es el que se elige acá.       */
+function quienFaltaHTML(lado){
+  const rojas = lado === "A" ? J.desde.rojasA : J.desde.rojasB;
+  if(!rojas) return "";
+  const cands = candidatosAFaltar(lado);
+  if(!cands.length) return "";
+  const elegidos = faltan(lado);
+  const quien = cands.find(p => elegidos.includes(p.id));
+  const titulo = partidoPropio()
+    ? (lado === "A" ? "¿Quién no está en tu equipo?" : "¿Quién no está en el rival?")
+    : "¿Quién no está en " + esc(nombreCorto(lado)) + "?";
+  return `<div style="margin-top:12px">
+    <label>${titulo}</label>
+    <nav class="filtros" style="padding-bottom:4px">
+      <button class="chip" data-falta="${lado}" data-faltaid="0"
+        aria-pressed="${!quien}">No lo digo</button>
+      ${cands.map(p=>`<button class="chip" data-falta="${lado}" data-faltaid="${p.id}"
+        aria-pressed="${quien && quien.id===p.id}">${esc(apellido(p.nombre))}<small
+        style="opacity:.7"> ${p.slotCat}</small></button>`).join("")}
+    </nav>
+    <p class="aviso" style="margin:0">${quien
+      ? "Juegan sin " + esc(apellido(quien.nombre)) + ", que es " +
+        PUESTO_LARGO[quien.slotCat] + ": el golpe pega más " +
+        (quien.slotCat === "D" ? "atrás que adelante."
+         : quien.slotCat === "F" ? "adelante que atrás."
+         : "parejo, que es el promedio.")
+      : "Sin elegir a nadie se usa el promedio de todas las expulsiones."}</p>
+  </div>`;
+}
+
 function campoHTML(){
   const cA=ajustarTactica(coordsDe(J.formA,false), false, J.K), cB=coordsDe(J.formB,true);
   const globo=(p,c,lado,i)=>{
@@ -3380,9 +3470,13 @@ function campoHTML(){
     const tinta = tintaSobre(fondo);
     /* El anillo también: blanco sobre blanco no es un anillo. */
     const anillo = tinta==="#101418" ? "rgba(16,20,24,.55)" : "rgba(255,255,255,.9)";
+    /* El que no está se dibuja igual, apagado y en su lugar. Borrarlo del
+       todo dejaría un agujero que no se entiende; apagado se lee de una:
+       "ese es el que falta, y jugaban con cuatro atrás". */
+    const afuera = estaAfuera(lado, p && p.id);
     return `
-    <div class="jug" style="left:${c.x}%;top:${c.y}%" data-lado="${lado}" data-slot="${i}" data-cat="${c.cat}">
-      <div class="b" style="background:${fondo};color:${tinta};border-color:${anillo}">${c.cat}</div>
+    <div class="jug${afuera?" falta":""}" style="left:${c.x}%;top:${c.y}%" data-lado="${lado}" data-slot="${i}" data-cat="${c.cat}">
+      <div class="b" style="background:${fondo};color:${tinta};border-color:${anillo}">${afuera?"−":c.cat}</div>
       <div class="n">${esc(apellido(p&&p.nombre))}</div></div>`;};
   return `<div class="campo" id="campo">
     <div class="ln" style="left:0;right:0;top:50%;height:0"></div>
@@ -3890,7 +3984,11 @@ function firmaDeAjustes(){
              la pantalla ofrecería una palanca que no mueve nada. */
           Object.keys(INDICACIONES_POR_DEFECTO).map(x=>J.IND[x]).join(","),
           Object.keys(INDICACIONES_POR_DEFECTO).map(x=>J.INDB[x]).join(","),
-          d.minuto, d.golesA, d.golesB, d.rojasA, d.rojasB].join("|");
+          d.minuto, d.golesA, d.golesB, d.rojasA, d.rojasB,
+          /* QUIÉN falta, no solo cuántos. Sin esto, cambiar al expulsado de
+             defensor a delantero daría la misma semilla y el mismo
+             resultado: una palanca que se ve y no hace nada. */
+          faltan("A").join(","), faltan("B").join(",")].join("|");
 }
 
 /* ── TU ONCE CONTRA EL DEL DT ────────────────────────────────────────────
@@ -4700,16 +4798,11 @@ function vistaJuego(){
           <div><label for="dgB">${partidoPropio() ? "Sus goles" : "Goles de " + esc(nombreCorto("B",12))}</label>
             <input type="number" id="dgB" min="0" max="9" step="1" value="${J.desde.golesB}"></div>
         </div>
-        ${J.desde.minuto>0?`<p class="nota" style="margin-top:10px">Va a simular
-          los ${90-J.desde.minuto} minutos que faltan y sumarle el
-          ${J.desde.golesA}-${J.desde.golesB} que ya está.
-          <b>Cómo se juegan esos minutos lo decidís vos</b>, con las perillas y
-          las indicaciones de arriba: si vas ganando con uno menos, metete
-          atrás y jugá de contra, y la cuenta lo toma. Lo que el modelo no
-          hace es adivinarlo solo.
-          <b>Y al rival lo planteás arriba</b>, con su propia tanda de
-          perillas: si el que se metió atrás con diez es él, ahora sí se puede
-          decir.</p>`:""}
+        ${quienFaltaHTML("A") + quienFaltaHTML("B")}
+        ${J.desde.minuto>0?`<p class="nota" style="margin-top:10px">Se simulan
+          los ${90-J.desde.minuto} minutos que faltan y se le suma el
+          ${J.desde.golesA}-${J.desde.golesB} que ya está. Cómo se juegan esos
+          minutos lo decidís vos, arriba.</p>`:""}
       </div>
 
       <div class="segm" role="group" aria-label="Cómo verlo" style="margin-top:14px">
@@ -5098,10 +5191,24 @@ function enganchar(){
     J.desde.golesB = nEntero("dgB",9) ?? 0;
     const r=($("drA")||{}).value||"0-0";
     J.desde.rojasA=+r.split("-")[0]; J.desde.rojasB=+r.split("-")[1];
+    /* Sin expulsado no hay nadie afuera. Si no se limpiara, sacar el
+       expulsado dejaría un jugador apagado en la cancha para siempre y la
+       firma seguiría llevándolo adentro. */
+    if(!J.desde.rojasA) J.desde.faltanA = [];
+    if(!J.desde.rojasB) J.desde.faltanB = [];
     pintar();
   };
   ["dmin","dgA","dgB"].forEach(id=>{ const e=$(id); if(e) e.onchange=leerDesde; });
   const dr=$("drA"); if(dr) dr.onchange=leerDesde;
+  /* Uno solo por equipo: el selector de arriba ofrece como máximo un
+     expulsado por lado, así que elegir a otro reemplaza al anterior en vez
+     de sumar. Dos apagados con un solo expulsado sería una pantalla que se
+     contradice a sí misma. */
+  document.querySelectorAll("[data-falta]").forEach(b=>b.onclick=()=>{
+    const lado = b.dataset.falta, id = +b.dataset.faltaid;
+    J.desde["faltan" + lado] = id ? [id] : [];
+    pintar();
+  });
   const br=$("brev"); if(br) br.onclick=revelar;
   /* Compartir de verdad, no copiar. En el teléfono —que es donde esto se usa—
      `navigator.share` abre WhatsApp directo; copiar al portapapeles obliga a

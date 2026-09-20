@@ -185,6 +185,7 @@ const IMPRESCINDIBLES = [
   "probar-empaquetado-ios.mjs",
   "fecha-de-liga.mjs", "probar-fecha.mjs",
   "backtest.mjs", "probar-backtest.mjs", "backtest.tpl.html",
+  "control.js", "probar-control.mjs", "control.tpl.html", "panel-de-control.sql",
 ];
 const faltan = IMPRESCINDIBLES.filter(f => !existsSync(aca("./" + f)));
 if (faltan.length) {
@@ -206,7 +207,8 @@ for (const t of ["probar.mjs", "probar-clubes.mjs", "probar-once.mjs", "probar-s
                  "probar-pagos.mjs", "probar-fases.mjs", "probar-publicidad.mjs",
                  "probar-frescura.mjs", "probar-formaciones.mjs", "probar-avisos.mjs",
                  "probar-backtest.mjs", "probar-nativo.mjs", "probar-campana.mjs",
-                 "probar-fecha.mjs", "probar-datos-ios.mjs", "probar-empaquetado-ios.mjs"])
+                 "probar-fecha.mjs", "probar-datos-ios.mjs", "probar-empaquetado-ios.mjs",
+                 "probar-control.mjs"])
   paso("Pruebas · " + t, t, { obligatorio: true });
 
 if (soloPruebas) { console.log("\n  Solo pruebas. Listo.\n"); process.exit(0); }
