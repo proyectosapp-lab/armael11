@@ -2225,7 +2225,7 @@ const J={ key:"", reqs:0, temporada:2026, fixtures:[], fx:null, pool:{A:[],B:[]}
   K:{linea:0,presion:0,ancho:0,ritmo:0}, KB:{linea:0,presion:0,ancho:0,ritmo:0},
   /* Las indicaciones del planteo. No son por jugador —el motor no tiene
      aporte por jugador— pero cada una publica su efecto. */
-  IND: { ...INDICACIONES_POR_DEFECTO },
+  IND: { ...INDICACIONES_POR_DEFECTO }, INDB: { ...INDICACIONES_POR_DEFECTO },
   /* Desde dónde se simula. Minuto 0 es "desde el arranque", que es lo normal. */
   desde: { minuto:0, golesA:0, golesB:0, rojasA:0, rojasB:0 },
   /* Si el partido se MIRA o se va derecho al resultado. Es una elección de
@@ -2739,7 +2739,7 @@ function simularDeLiga(slug, fixtureId){
   J.formA = dibujoDeEquipo(L, p.local);
   J.formB = dibujoDeEquipo(L, p.visita);
   J.K = { linea:0, presion:0, ancho:0, ritmo:0 }; J.KB = { linea:0, presion:0, ancho:0, ritmo:0 };
-  J.IND = { ...INDICACIONES_POR_DEFECTO };
+  J.IND = { ...INDICACIONES_POR_DEFECTO }; J.INDB = { ...INDICACIONES_POR_DEFECTO };
   ponerOnces();
   J.msg = L.nombre + " · " + (L.calibrada
     ? "calibrada con " + L.calibrada.partidos + " partidos de " + L.calibrada.temporada
@@ -2805,7 +2805,7 @@ async function elegirPartido(i){
     J.formA = pa.forma || FORMA_DE_RESPALDO;
     J.formB = pb.forma || FORMA_DE_RESPALDO;
     J.K = { linea:0, presion:0, ancho:0, ritmo:0 }; J.KB = { linea:0, presion:0, ancho:0, ritmo:0 };
-    J.IND = { ...INDICACIONES_POR_DEFECTO };
+    J.IND = { ...INDICACIONES_POR_DEFECTO }; J.INDB = { ...INDICACIONES_POR_DEFECTO };
     if(J.pool.A.length<11||J.pool.B.length<11)
       throw new Error("No hay suficientes partidos previos. Elegí uno más avanzado en la temporada.");
     ponerOnces();
@@ -2885,13 +2885,17 @@ function golEsperadoDe(xiA, xiB){
      quién juega, cambia a qué se dedica. Y devuelve sus propias notas, que
      es lo que permite discutir el número en vez de creerlo. */
   const tB=tacticas(J.KB);
-  const ind=aplicarIndicaciones(lineas(xiA), lineas(xiB), J.IND, xiA, xiB);
+  const ind=indicacionesDeLosDos(lineas(xiA), lineas(xiB), J.IND, J.INDB, xiA, xiB,
+                                 partidoPropio() ? "vos" : "el");
   const LA=ind.A, LB=ind.B;
   /* Cada planteo pesa sobre su propio ataque y sobre el del otro. Con el
      rival en neutro, `tacticas` devuelve todo en 1 y la cuenta queda
      exactamente igual a la de antes: nada de lo viejo se movió. */
+  /* `ind.regaloB` es el pelotazo DEL RIVAL: su salida directa regala la
+     pelota y eso te suma gol esperado a vos, igual que el tuyo se lo suma
+     a él. Faltaba porque hasta ahora el rival no tenía indicaciones. */
   const xgA=xgDe(LA,LB, J.esLocalA, t.mine*tB.theirs, bonusAncho(xiA,t.ancho))
-            + tB.theirsFlat;
+            + tB.theirsFlat + ind.regaloB;
   const xgB=xgDe(LB,LA,!J.esLocalA, tB.mine*t.theirs, bonusAncho(xiB,tB.ancho))
             + t.theirsFlat + ind.regalo;
   return { xgA, xgB, t, ind };
@@ -3187,7 +3191,13 @@ async function simular11(flash){
                    rojasA:d.rojasA, rojasB:d.rojasB, rnd })
       : simular(xgA, xgB, 6000, rnd);
     J.ultimaFirma = firma;
-    J.sim.notas=[...t.notas, ...ind.notas];
+    /* Las del rival van con el nombre del equipo adelante. Sin eso, "carga
+       sobre el lado más flojo del rival" en la misma lista que las tuyas se
+       lee como si la hubieras dado vos, y dice lo contrario de lo que pasa. */
+    /* Sin `esc` acá: la pantalla ya escapa cada nota al pintarla, y
+       escapar dos veces deja "Newell&amp;s" a la vista. */
+    const suyas = (ind.notasB || []).map(n => nombreCorto("B") + ": " + n);
+    J.sim.notas=[...t.notas, ...ind.notas, ...suyas];
     J.sim.estaVez=marc;
     J.sim.ajustes=ajustes(); J.sim.conQue=conQue(J.sim.ajustes);
     J.paso="resultado"; pintar();
@@ -3829,7 +3839,9 @@ function ajustes(){
   else if(!pl) a.push("perillas propias");
   if(plB && plB!=="normal") a.push("rival: "+(PLANTEOS.find(x=>x.id===plB)||{}).n.toLowerCase());
   else if(!plB) a.push("perillas del rival");
-  const ind = Object.keys(INDICACIONES_POR_DEFECTO).filter(k=>J.IND[k]!==INDICACIONES_POR_DEFECTO[k]).length;
+  const cuantas = T => Object.keys(INDICACIONES_POR_DEFECTO)
+    .filter(k=>(T||{})[k]!==INDICACIONES_POR_DEFECTO[k]).length;
+  const ind = cuantas(J.IND) + cuantas(J.INDB);
   if(ind) a.push(ind===1 ? "1 indicación" : ind+" indicaciones");
   const d = J.desde;
   if(d.minuto>0||d.golesA||d.golesB||d.rojasA||d.rojasB) a.push("desde el "+d.minuto+"'");
@@ -3848,7 +3860,12 @@ function firmaDeAjustes(){
   const k = K => [K.linea,K.presion,K.ancho,K.ritmo].join(",");
   const d = J.desde;
   return [J.fx?.fixture?.id || J.liga || "", J.id.A, J.id.B, ids(J.xiA), ids(J.xiB), J.formA, J.formB,
-          k(J.K), k(J.KB), Object.keys(INDICACIONES_POR_DEFECTO).map(x=>J.IND[x]).join(","),
+          k(J.K), k(J.KB),
+          /* LAS DOS TANDAS. Con una sola acá, cambiarle una indicación al
+             rival daba la MISMA semilla y por lo tanto el mismo resultado:
+             la pantalla ofrecería una palanca que no mueve nada. */
+          Object.keys(INDICACIONES_POR_DEFECTO).map(x=>J.IND[x]).join(","),
+          Object.keys(INDICACIONES_POR_DEFECTO).map(x=>J.INDB[x]).join(","),
           d.minuto, d.golesA, d.golesB, d.rojasA, d.rojasB].join("|");
 }
 
@@ -4387,15 +4404,56 @@ function tarjetaPlanteo(lado){
           aria-pressed="${p.id===activo}">${esc(p.n)}</button>`).join("")}
         ${activo?"":`<button class="chip" aria-pressed="true" disabled>A mano</button>`}
       </nav>
-      <p class="aviso" style="margin:2px 0 8px">${elegido ? esc(elegido.dice)
-        : "Las perillas están movidas a mano. Tocá un planteo para volver a uno armado."}</p>
+      ${/* El "Normal" dice "sin nada cargado para ningún lado": explicar que
+            no pasa nada ocupa un renglón fijo en todas las pantallas. Las
+            otras sí cuentan algo y se muestran. */
+        !elegido ? `<p class="aviso" style="margin:2px 0 8px">Las perillas están
+          movidas a mano. Tocá un planteo para volver a uno armado.</p>`
+        : elegido.id === "normal" ? ""
+        : `<p class="aviso" style="margin:2px 0 8px">${esc(elegido.dice)}</p>`}
       ${ofrecer}
       ${KNOBS.map(k=>{const v=K[k.id];return `
         <div class="perilla"><div class="ph"><b>${k.n}</b>
           <span class="pv">${Math.abs(v)<15?"neutro":(v<0?k.izq:k.der)+" "+Math.abs(v)+"%"}</span></div>
           <input type="range" min="-100" max="100" value="${v}" ${attr}="${k.id}">
           <div class="ends"><span>${k.izq}</span><span>${k.der}</span></div></div>`;}).join("")}
+      ${indicacionesHTML(lado)}
     </div>`;
+}
+
+/* ── LAS INDICACIONES, ADENTRO DE LA TARJETA DE CADA EQUIPO ──────────────
+   Fausto: "la parte de indicaciones está en un solo equipo. ¿A cuál
+   modifica?". Modificaba al A y nada lo decía.
+
+   La respuesta no fue ponerle un título que aclare a cuál: fue MUDARLAS
+   adentro de la tarjeta del equipo, que ya tiene su nombre arriba. Un
+   bloque suelto con una etiqueta se puede seguir leyendo mal; un bloque que
+   vive adentro de la tarjeta de Real Madrid, no. Y de paso desaparece un
+   encabezado de la pantalla, que es lo otro que pidió.
+
+   ─── LO QUE SE SACÓ DE TEXTO, Y POR QUÉ ESO Y NO OTRA COSA ───────────────
+   La explicación larga del final —"son del planteo y no de cada jugador a
+   propósito…"— era buena y estaba en el peor lugar posible: se lee una vez
+   en la vida y ocupaba cinco renglones en todas las pantallas para siempre.
+
+   Y la frase de cada opción se muestra SOLO si la opción no es la de por
+   defecto. "Cada uno cubre su sector. Es lo normal y no cuesta nada" es
+   texto que explica que no pasa nada: tres renglones, uno por grupo, que
+   están ahí justamente cuando no hay nada para contar. Cuando elegís algo
+   que sí mueve el número, la frase aparece y dice cuánto.                */
+function indicacionesHTML(lado){
+  const IND = lado === "A" ? J.IND : J.INDB;
+  return `<div style="margin-top:6px">${INDICACIONES.map(g=>{
+    const eleg = IND[g.id] || g.opciones[0].v;
+    const o = g.opciones.find(x=>x.v===eleg) || g.opciones[0];
+    const porDefecto = eleg === INDICACIONES_POR_DEFECTO[g.id];
+    return `<div class="perilla" style="padding-bottom:2px">
+      <div class="ph"><b>${g.n}</b></div>
+      <nav class="filtros" style="padding-bottom:4px">${g.opciones.map(x=>
+        `<button class="chip" data-ind="${g.id}" data-indlado="${lado}" data-val="${x.v}"
+          aria-pressed="${x.v===eleg}">${x.n}</button>`).join("")}</nav>
+      ${porDefecto ? "" : `<p class="aviso" style="margin:0">${esc(o.dice)}</p>`}
+    </div>`;}).join("")}</div>`;
 }
 
 function vistaJuego(){
@@ -4590,28 +4648,9 @@ function vistaJuego(){
       <div class="tarjeta">
       </div>
 
-      <h3 class="sec">Indicaciones</h3>
-      <div class="tarjeta">${INDICACIONES.map(g=>{
-        const eleg = J.IND[g.id] || g.opciones[0].v;
-        const o = g.opciones.find(x=>x.v===eleg) || g.opciones[0];
-        return `<div class="perilla" style="padding-bottom:4px">
-          <div class="ph"><b>${g.n}</b></div>
-          <nav class="filtros" style="padding-bottom:6px">${g.opciones.map(x=>
-            `<button class="chip" data-ind="${g.id}" data-val="${x.v}"
-              aria-pressed="${x.v===eleg}">${x.n}</button>`).join("")}</nav>
-          <p class="aviso" style="margin:0">${esc(o.dice)}</p>
-        </div>`;}).join("")}
-        <p class="nota" style="margin-top:10px">Son del planteo y no de cada
-        jugador a propósito: el motor calcula el gol esperado comparando
-        LÍNEAS, así que no hay número al que restarle una marca individual.
-        Estas tres se pueden calcular con lo que el motor ya sabe, y por eso
-        cada una dice cuánto mueve.</p>
-      </div>
-
       <h3 class="sec">¿El partido ya empezó?</h3>
       <div class="tarjeta">
-        <p class="bajada" style="margin-top:0">Poné cómo va y se simula lo que
-        falta. El gol esperado se reparte por el tiempo que queda.</p>
+        <p class="bajada" style="margin-top:0">Poné cómo va y se simula lo que falta.</p>
         <div class="fila2">
           <div><label for="dmin">Minuto</label>
             <input type="number" id="dmin" min="0" max="89" step="1" value="${J.desde.minuto}"></div>
@@ -4991,7 +5030,11 @@ function enganchar(){
   const ba=$("bauto"); if(ba) ba.onclick=()=>{ J.xiA=autoXI(J.pool.A,J.formA); pintar(); };
 
   document.querySelectorAll("[data-ind]").forEach(b=>b.onclick=()=>{
-    J.IND[b.dataset.ind]=b.dataset.val; pintar(); });
+    /* `data-indlado` y no "la tanda de siempre": hay dos tandas desde que
+       cada equipo tiene las suyas, y sin esto los botones del rival
+       escribirían sobre las tuyas sin que se note. */
+    const tanda = b.dataset.indlado === "B" ? J.INDB : J.IND;
+    tanda[b.dataset.ind]=b.dataset.val; pintar(); });
 
   const nEntero=(id,max)=>{ const e=$(id); if(!e) return null;
     const n=Math.round(+e.value||0); return Math.max(0, Math.min(max, n)); };

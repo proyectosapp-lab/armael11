@@ -1,3 +1,87 @@
+Arma el 11 - version 2026-09-20 y66 (las indicaciones, de cada equipo)
+
+  · SE SUBEN LOS MISMOS DIEZ ARCHIVOS DEL y65, actualizados. Todos sueltos,
+    ninguno empieza con punto. Incluye el y64 y el y65 enteros: si no
+    subiste ninguno de los dos, con este solo alcanza.
+
+  ── "LA PARTE DE INDICACIONES ESTA EN UN SOLO EQUIPO. ¿A CUAL MODIFICA?" ──
+
+    Al A. Y nada lo decia.
+
+    Las perillas ya venian por lado -J.K y J.KB, con el nombre del equipo
+    arriba de cada tanda-. Las indicaciones se habian quedado en UNA sola
+    tanda, sin etiqueta, flotando debajo de las dos tarjetas. En el partido
+    de tu club se podia adivinar que eran tuyas. En Atletico-Real Madrid,
+    donde ninguno de los dos sos vos, era imposible.
+
+    Ahora cada equipo tiene las suyas, y la respuesta no fue ponerle un
+    titulo que aclare a cual: fue MUDARLAS adentro de la tarjeta de cada
+    equipo, que ya tiene el nombre arriba. Un bloque suelto con una etiqueta
+    se puede seguir leyendo mal; un bloque que vive adentro de la tarjeta de
+    Real Madrid, no. Y de paso desaparece un encabezado de la pantalla.
+
+    Lo que hubo que hacer del lado del motor, que es mas de lo que parece:
+
+      · `aplicarIndicaciones` corre DOS VECES, una por equipo, con los lados
+        dados vuelta la segunda. Y de cada pasada se saca cuanto MOVIO, no
+        el resultado: la marca personal del A baja el ataque del B y la del
+        B baja el del A, asi que tomar la segunda pasada tal cual borraria
+        la primera. Las dos diferencias se suman sobre la misma base, y por
+        eso el orden no importa: ninguno de los dos tiene prioridad por ser
+        el de la izquierda. Hay una prueba que lo corre al reves y compara.
+
+      · La SEMILLA. Esta era la trampa silenciosa: si las del rival no
+        entran en `firmaDeAjustes`, cambiarlas da exactamente el mismo
+        resultado. La pantalla ofreceria tres palancas nuevas y ninguna
+        moveria nada. Ahora entran las dos tandas.
+
+      · El pelotazo del rival te regala gol esperado A VOS. Faltaba, porque
+        hasta ahora el rival no tenia salida que elegir.
+
+      · Las notas cambian de voz. "Cargas sobre su lado mas flojo" dicho por
+        el rival diria que el rival te ataca a vos en segunda persona. Las
+        del rival van en tercera y con el nombre del equipo adelante.
+
+    Con el rival en neutro la cuenta da EXACTAMENTE lo de antes. Nada de lo
+    ya publicado se movio, y hay una prueba que lo fija.
+
+  ── "MENOS EXPLICACION Y MENOS TEXTO EN TODA LA PANTALLA" ────────────────
+
+    Se saco esto, y el criterio fue el mismo en los tres casos: **el texto
+    que explica que NO pasa nada.**
+
+      · El parrafo del final de Indicaciones ("son del planteo y no de cada
+        jugador a proposito: el motor calcula el gol esperado comparando
+        LINEAS..."). Era bueno y estaba en el peor lugar posible: se lee una
+        vez en la vida y ocupaba cinco renglones en todas las pantallas para
+        siempre.
+      · La frase de cada indicacion, cuando esta en la opcion por defecto.
+        "Cada uno cubre su sector. Es lo normal y no cuesta nada" son tres
+        renglones -uno por grupo- que estan ahi justamente cuando no hay
+        nada para contar. Elegis algo que si mueve el numero y la frase
+        aparece, diciendo cuanto mueve.
+      · La frase del planteo "Normal" ("sin nada cargado para ningun lado").
+        Mismo caso.
+      · La bajada de "¿El partido ya empezo?", que explicaba lo que los
+        campos de abajo ya dicen solos.
+
+    Queda mas para sacar si te parece. Lo que NO saque, y digo por que: las
+    notas que salen DESPUES de simular. Esas no explican el juego, dicen que
+    paso en esta cuenta en particular ("cargas sobre su lado mas flojo, pero
+    su defensa es pareja: casi no cambia nada"), y son lo que permite
+    discutir el numero en vez de creerlo.
+
+  ── PROBADO ──────────────────────────────────────────────────────────────
+
+    probar-once.mjs     105 → 116
+    probar-sitio.cjs    335 → 344
+    Todo verde, incluida la corrida completa de `publicar.mjs --sin-red`.
+
+    Los casos que mas importan de los nuevos no son que aparezcan los
+    botones: son que los del rival NO escriban sobre los tuyos, que entren
+    en la semilla, y que muevan el gol esperado de verdad. Una palanca que
+    se ve y no hace nada es peor que no tenerla.
+
 Arma el 11 - version 2026-09-20 y65 (en la cancha esta el once del DT)
 
   · SE SUBEN SIETE ARCHIVOS, TODOS SUELTOS Y SIN PUNTO ADELANTE:

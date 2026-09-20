@@ -369,8 +369,14 @@ export const INDICACIONES_POR_DEFECTO = { marca:"zona", ataque:"parejo", salida:
    líneas corregidas y las notas para mostrar, que es lo que hace que se
    pueda discutir. `misXI` y `susXI` son los onces, para poder mirar
    jugador por jugador lo que las líneas ya promediaron.                  */
-export function aplicarIndicaciones(A, B, ind, misXI, susXI){
+export function aplicarIndicaciones(A, B, ind, misXI, susXI, voz = "vos"){
   const I = { ...INDICACIONES_POR_DEFECTO, ...(ind || {}) };
+  /* `voz` existe porque estas notas ahora las puede decir CUALQUIERA de los
+     dos equipos. Mientras las indicaciones eran solo tuyas, "cargás sobre su
+     lado flojo" alcanzaba; con las dos, la misma frase aplicada al rival
+     diría que el rival te ataca a vos en segunda persona. En un partido de
+     otra liga no hay un "vos": son dos equipos y ninguno es el tuyo. */
+  const yo = voz === "vos";
   const M = LIGA.media;
   const a = { ...A }, b = { ...B }, notas = [];
   const val = p => fuerza(p).v - penalPuesto(p.pos, p.slotCat);
@@ -389,8 +395,10 @@ export function aplicarIndicaciones(A, B, ind, misXI, susXI){
       b.ATA -= deMas * NEUTRALIZA * 0.68 / nF;
       const nD = suyos(misXI,"D").length || 1;
       a.DEF -= Math.max(0, val(miMejorD) - M) * CUESTA_MARCAR * 0.72 / nD;
-      notas.push("Marcás personal a " + (peligro.nombre || "su mejor jugador") +
-                 ", y para eso ocupás a " + (miMejorD.nombre || "tu mejor defensor") + ".");
+      const suMejor = peligro.nombre || (yo ? "su mejor jugador" : "el mejor del rival");
+      const miD = miMejorD.nombre || (yo ? "tu mejor defensor" : "su mejor defensor");
+      notas.push(yo ? "Marcás personal a " + suMejor + ", y para eso ocupás a " + miD + "."
+                    : "Marca personal a " + suMejor + ", y para eso ocupa a " + miD + ".");
     } else {
       notas.push("No hay a quién marcar personal con este once: se juega por zona.");
     }
@@ -402,9 +410,11 @@ export function aplicarIndicaciones(A, B, ind, misXI, susXI){
       const flojo = Math.min(...sus), prom = sus.reduce((x,y)=>x+y,0)/sus.length;
       const gana = (prom - flojo) / 2;
       a.ATA += gana;
+      const donde = yo ? "Cargás sobre su lado más flojo"
+                       : "Carga sobre el lado más flojo del rival";
       notas.push(gana > 0.12
-        ? "Cargás sobre su lado más flojo, y ahí hay diferencia."
-        : "Cargás sobre su lado más flojo, pero su defensa es pareja: casi no cambia nada.");
+        ? donde + ", y ahí hay diferencia."
+        : donde + ", pero esa defensa es pareja: casi no cambia nada.");
     }
   }
 
@@ -414,11 +424,58 @@ export function aplicarIndicaciones(A, B, ind, misXI, susXI){
     a.ATA = ata*(0.68 + PELOTAZO.medio - PELOTAZO.directo) + med*(0.32 - PELOTAZO.medio) +
             A.def*PELOTAZO.directo;
     notas.push(med > ata
-      ? "Con pelotazo salteás a tus volantes, que son lo mejor que tenés. Es tirar plata."
-      : "El pelotazo te saltea el mediocampo, que no es tu fuerte.");
+      ? (yo ? "Con pelotazo salteás a tus volantes, que son lo mejor que tenés. Es tirar plata."
+            : "Con pelotazo saltea a sus volantes, que son lo mejor que tiene. Es tirar plata.")
+      : (yo ? "El pelotazo te saltea el mediocampo, que no es tu fuerte."
+            : "El pelotazo le saltea el mediocampo, que no es su fuerte."));
   }
 
   return { A:a, B:b, notas, regalo: I.salida === "pelotazo" ? PELOTAZO.regalo : 0 };
+}
+
+/* ── LAS INDICACIONES DE LOS DOS ─────────────────────────────────────────
+   Fausto, 20/9/2026, mirando la pantalla: "la parte de indicaciones está en
+   un solo equipo. ¿A cuál modifica?".
+
+   Modificaba al A, y nada lo decía. Las perillas ya venían por lado —J.K y
+   J.KB, con el nombre del equipo arriba— y las indicaciones se habían
+   quedado en una sola tanda sin etiqueta. En el partido de tu club se podía
+   adivinar; en Atlético–Real Madrid, donde ninguno de los dos sos vos, era
+   imposible.
+
+   Esta función corre `aplicarIndicaciones` DOS VECES, una por equipo, con
+   los lados dados vuelta la segunda.
+
+   ─── POR QUÉ SE SUMAN DIFERENCIAS Y NO SE PISAN LOS RESULTADOS ───────────
+   Cada pasada devuelve las dos líneas ya modificadas, no lo que cambió: la
+   marca personal del A baja el ataque del B, y la del B baja el del A. Si
+   se tomara la segunda pasada tal cual, borraría lo que hizo la primera.
+   Por eso de cada pasada se saca cuánto MOVIÓ respecto de la base, y las
+   dos diferencias se suman sobre la misma base. El orden no importa, que es
+   la propiedad que uno quiere acá: ninguno de los dos equipos tiene
+   prioridad sobre el otro por ser el de la izquierda.
+
+   Con el B en neutro, la segunda pasada mueve cero y la cuenta queda
+   EXACTAMENTE igual a la de antes. Nada de lo viejo se movió.           */
+const CAMPOS_DE_LINEA = ["arq", "def", "med", "ata", "DEF", "MED", "ATA"];
+export function indicacionesDeLosDos(LA, LB, indA, indB, xiA, xiB, vozA = "vos"){
+  const uno = aplicarIndicaciones(LA, LB, indA, xiA, xiB, vozA);
+  const dos = aplicarIndicaciones(LB, LA, indB, xiB, xiA, "el");
+  const sumar = (base, ...modificadas) => {
+    const out = { ...base };
+    for (const c of CAMPOS_DE_LINEA)
+      for (const m of modificadas)
+        if (typeof m[c] === "number" && typeof base[c] === "number")
+          out[c] += m[c] - base[c];
+    return out;
+  };
+  return {
+    A: sumar(LA, uno.A, dos.B),
+    B: sumar(LB, uno.B, dos.A),
+    notas: uno.notas, notasB: dos.notas,
+    /* El regalo del pelotazo va al OTRO: el de A le suma gol esperado a B. */
+    regalo: uno.regalo, regaloB: dos.regalo,
+  };
 }
 
 /* ─── LOS PLANTEOS ARMADOS ────────────────────────────────────────────────

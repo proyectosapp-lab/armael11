@@ -841,7 +841,99 @@ srv.listen(8099, async () => {
   });
   caso("hay tres indicaciones del planteo", ind.grupos.length === 3, ind.grupos.join(", "));
   caso("cada una explica qué hace",
-       /Personal al mejor|Por el lado flojo|se saltea el mediocampo/i.test(ind.texto));
+       /Personal al mejor|Por el lado flojo|Directa/i.test(ind.texto));
+
+  /* ── ¿A CUÁL DE LOS DOS EQUIPOS MODIFICA? ──────────────────────────────
+     Fausto, 20/9, mirando la pantalla: "la parte de indicaciones está en un
+     solo equipo. ¿A cuál modifica?".
+
+     Modificaba al A y nada lo decía. En el partido de tu club se podía
+     adivinar; en Atlético–Real Madrid, donde ninguno de los dos sos vos,
+     era imposible. Ahora cada equipo tiene las suyas, adentro de su propia
+     tarjeta, que ya lleva el nombre arriba.
+
+     Lo que estos casos fijan es lo que hace que eso no sea decorativo: que
+     los botones de un equipo NO escriban sobre las del otro, y que los del
+     rival muevan el número de verdad. */
+  const dosTandas = await pg.evaluate(() => {
+    const porLado = {};
+    for (const b of document.querySelectorAll('[data-ind]'))
+      (porLado[b.dataset.indlado || "sin lado"] =
+        porLado[b.dataset.indlado || "sin lado"] || new Set()).add(b.dataset.ind);
+    return Object.fromEntries(Object.entries(porLado).map(([k, v]) => [k, [...v].sort()]));
+  });
+  caso("los dos equipos tienen las tres indicaciones, y cada botón dice de cuál es",
+       (dosTandas.A || []).length === 3 && (dosTandas.B || []).length === 3 &&
+       !dosTandas["sin lado"], JSON.stringify(dosTandas));
+
+  const noSePisan = await pg.evaluate(() => {
+    J.IND = { marca:"zona", ataque:"parejo", salida:"elaborada" };
+    J.INDB = { marca:"zona", ataque:"parejo", salida:"elaborada" };
+    pintar();
+    document.querySelector('[data-ind="marca"][data-indlado="B"][data-val="personal"]').click();
+    const trasB = { A: J.IND.marca, B: J.INDB.marca };
+    document.querySelector('[data-ind="salida"][data-indlado="A"][data-val="pelotazo"]').click();
+    return { trasB, trasA: { A: J.IND.salida, B: J.INDB.salida, marcaB: J.INDB.marca } };
+  });
+  caso("tocar una del rival NO toca las tuyas",
+       noSePisan.trasB.B === "personal" && noSePisan.trasB.A === "zona",
+       JSON.stringify(noSePisan.trasB));
+  caso("y tocar una tuya no le borra las del rival",
+       noSePisan.trasA.A === "pelotazo" && noSePisan.trasA.B === "elaborada" &&
+       noSePisan.trasA.marcaB === "personal", JSON.stringify(noSePisan.trasA));
+
+  /* La trampa silenciosa: la semilla. Si las del rival no entran en la
+     firma, cambiarlas da EXACTAMENTE el mismo resultado y la pantalla
+     ofrece una palanca que no mueve nada. */
+  const firmas = await pg.evaluate(() => {
+    J.IND = { marca:"zona", ataque:"parejo", salida:"elaborada" };
+    J.INDB = { marca:"zona", ataque:"parejo", salida:"elaborada" };
+    const limpia = firmaDeAjustes();
+    J.INDB.marca = "personal";
+    const conRival = firmaDeAjustes();
+    J.INDB.marca = "zona"; J.IND.marca = "personal";
+    const conVos = firmaDeAjustes();
+    return { limpia, conRival, conVos };
+  });
+  caso("cambiarle una indicación al rival cambia la semilla",
+       firmas.conRival !== firmas.limpia);
+  caso("y no es la misma que si la cambiaras vos: son dos tandas distintas",
+       firmas.conRival !== firmas.conVos);
+
+  const rivalMueve = await pg.evaluate(() => {
+    J.IND = { marca:"zona", ataque:"parejo", salida:"elaborada" };
+    J.INDB = { marca:"zona", ataque:"parejo", salida:"elaborada" };
+    const quieto = golEsperadoDe(J.xiA, J.xiB);
+    J.INDB.salida = "pelotazo";
+    const suPelotazo = golEsperadoDe(J.xiA, J.xiB);
+    J.INDB = { marca:"zona", ataque:"parejo", salida:"elaborada" };
+    return { antes: quieto.xgA, despues: suPelotazo.xgA };
+  });
+  caso("el pelotazo del rival te regala gol esperado a vos, que es lo que dice el modelo",
+       rivalMueve.despues > rivalMueve.antes,
+       rivalMueve.antes.toFixed(3) + " → " + rivalMueve.despues.toFixed(3));
+
+  /* Y lo que pidió junto con esto: menos texto. Las frases que explican que
+     NO pasa nada no van; la del final, que se lee una vez en la vida,
+     tampoco. */
+  const menosTexto = await pg.evaluate(() => {
+    J.IND = { marca:"zona", ataque:"parejo", salida:"elaborada" };
+    J.INDB = { marca:"zona", ataque:"parejo", salida:"elaborada" };
+    J.K = { linea:0, presion:0, ancho:0, ritmo:0 };
+    J.KB = { linea:0, presion:0, ancho:0, ritmo:0 };
+    pintar();
+    const quieto = document.body.innerText;
+    document.querySelector('[data-ind="marca"][data-indlado="A"][data-val="personal"]').click();
+    const movido = document.body.innerText;
+    J.IND = { marca:"zona", ataque:"parejo", salida:"elaborada" }; pintar();
+    return { quieto, movido };
+  });
+  caso("con todo en lo normal no se explica que no pasa nada",
+       !/Es lo normal y no cuesta nada/.test(menosTexto.quieto));
+  caso("ni se repite el párrafo de por qué son del planteo",
+       !/no hay número al que restarle una marca/.test(menosTexto.quieto));
+  caso("pero al elegir algo que sí mueve, aparece cuánto mueve",
+       /55%|lo corre un/.test(menosTexto.movido));
 
   const cambio = await pg.evaluate(() => {
     const antes = JSON.stringify(J.IND);
@@ -860,7 +952,9 @@ srv.listen(8099, async () => {
   caso("y marcar personal baja de verdad el ataque del rival",
        mueve.personal < mueve.zona,
        mueve.zona.toFixed(3) + " → " + mueve.personal.toFixed(3));
-  await pg.evaluate(() => { J.IND = { marca:"zona", ataque:"parejo", salida:"elaborada" }; pintar(); });
+  await pg.evaluate(() => {
+    J.IND = { marca:"zona", ataque:"parejo", salida:"elaborada" };
+    J.INDB = { marca:"zona", ataque:"parejo", salida:"elaborada" }; pintar(); });
 
   /* ── LOS PLANTEOS ARMADOS ──────────────────────────────────────────────
      Un planteo no es otro modo: es un atajo que escribe las mismas perillas.

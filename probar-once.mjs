@@ -9,7 +9,7 @@
    ══════════════════════════════════════════════════════════════════════════ */
 import { autoXI, slotsDe, fuerza, penalPuesto,
          usarLiga, ligaActual, LIGA_POR_DEFECTO, constantesDeLiga, MINIMO_PARTIDOS,
-         simDesde, aplicarIndicaciones, lineas, INDICACIONES,
+         simDesde, aplicarIndicaciones, indicacionesDeLosDos, lineas, INDICACIONES,
          INDICACIONES_POR_DEFECTO, PLANTEOS, planteoDe, planteo,
          planteoSugerido, tacticas, KNOBS,
          formaDe, formacionDeSalida, formacionHabitual, FORMS,
@@ -303,6 +303,72 @@ for (const form of ["4-4-2", "4-3-3", "3-5-2", "4-2-3-1", "5-3-2"]) {
 
   caso("son tres indicaciones, no once jugadores con dos cada uno",
        INDICACIONES.length === 3);
+
+  /* ── LAS DOS TANDAS ───────────────────────────────────────────────────
+     Fausto: "¿a cuál modifica?". Modificaba al A. Ahora cada equipo tiene
+     las suyas, y lo que hay que probar es que la segunda tanda no se lleve
+     puesta a la primera. */
+  const LA = lineas(mio), LB = lineas(suyo);
+  const NADA = INDICACIONES_POR_DEFECTO;
+
+  const neutro = indicacionesDeLosDos(LA, LB, NADA, NADA, mio, suyo);
+  caso("con los dos en neutro no se mueve absolutamente nada",
+       neutro.A.ATA === LA.ATA && neutro.B.ATA === LB.ATA &&
+       neutro.A.DEF === LA.DEF && neutro.B.DEF === LB.DEF);
+  caso("y no hay notas de ninguno de los dos",
+       !neutro.notas.length && !neutro.notasB.length);
+
+  /* La compatibilidad hacia atrás, que es lo que evita que un cambio de
+     pantalla mueva en silencio todos los números ya publicados. */
+  const soloA = indicacionesDeLosDos(LA, LB,
+    { ...NADA, marca: "personal" }, NADA, mio, suyo);
+  caso("con el rival en neutro, la cuenta es EXACTAMENTE la de antes",
+       soloA.A.DEF === marca.A.DEF && soloA.B.ATA === marca.B.ATA);
+
+  /* Para probar la marca del RIVAL hacen falta dos equipos que tengan a
+     quién marcar. `mio` no tiene un jugador por encima de la media, así que
+     marcarlo personal no neutraliza nada — que está bien y es lo que dice
+     la otra nota, pero no sirve para ver si la segunda tanda se aplica. */
+  const rojo = [...once("G", [6.5]), ...once("D", [6.5, 6.5, 6.5, 7.4]),
+                ...once("M", [6.5, 6.5, 6.5]), ...once("F", [8.2, 6.5, 6.5])];
+  const azul = [...once("G", [6.5]), ...once("D", [6.5, 6.5, 6.5, 7.4]),
+                ...once("M", [6.5, 6.5, 6.5]), ...once("F", [8.2, 6.5, 6.5])];
+  const LR = lineas(rojo), LZ = lineas(azul);
+
+  const soloB = indicacionesDeLosDos(LR, LZ,
+    NADA, { ...NADA, marca: "personal" }, rojo, azul);
+  caso("ahora el rival también puede marcar personal, y se nota",
+       soloB.A.ATA < LR.ATA, "" + (soloB.A.ATA - LR.ATA).toFixed(3));
+  caso("y le cuesta su propia defensa, igual que a vos",
+       soloB.B.DEF < LZ.DEF);
+  caso("sus notas van aparte de las tuyas, para poder decir de quién son",
+       !soloB.notas.length && soloB.notasB.length === 1);
+  caso("y están en tercera persona: el rival no te habla de vos",
+       /Marca personal/.test(soloB.notasB[0]) && !/Marcás/.test(soloB.notasB[0]),
+       soloB.notasB[0]);
+
+  /* El caso que justifica sumar diferencias en vez de pisar resultados: si
+     la segunda pasada se tomara tal cual, borraría lo que hizo la primera y
+     una de las dos marcas no existiría. */
+  const soloR = indicacionesDeLosDos(LR, LZ,
+    { ...NADA, marca: "personal" }, NADA, rojo, azul);
+  const losDos = indicacionesDeLosDos(LR, LZ,
+    { ...NADA, marca: "personal" }, { ...NADA, marca: "personal" }, rojo, azul);
+  caso("marcando personal los dos, los dos atacan menos",
+       losDos.A.ATA < LR.ATA && losDos.B.ATA < LZ.ATA);
+  caso("y ninguna de las dos se come a la otra",
+       Math.abs(losDos.B.ATA - (LZ.ATA + (soloR.B.ATA - LZ.ATA))) < 0.001 &&
+       Math.abs(losDos.A.ATA - (LR.ATA + (soloB.A.ATA - LR.ATA))) < 0.001,
+       [losDos.A.ATA, losDos.B.ATA, soloR.B.ATA, soloB.A.ATA].map(x=>x.toFixed(3)).join(" "));
+  caso("el orden no le da ventaja al de la izquierda",
+       (() => { const alReves = indicacionesDeLosDos(LZ, LR,
+                  { ...NADA, marca: "personal" }, { ...NADA, marca: "personal" }, azul, rojo);
+                return Math.abs(alReves.B.ATA - losDos.A.ATA) < 0.001; })());
+
+  const pelotazoB = indicacionesDeLosDos(LA, LB,
+    NADA, { ...NADA, salida: "pelotazo" }, mio, suyo);
+  caso("el pelotazo del rival te regala gol esperado a vos",
+       pelotazoB.regaloB > 0 && pelotazoB.regalo === 0);
   caso("y cada opción dice qué hace, en castellano",
        INDICACIONES.every(g => g.opciones.every(o => o.dice && o.dice.length > 20)));
 }
