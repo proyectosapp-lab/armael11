@@ -2316,15 +2316,23 @@ const JUGADO = f => ["FT","AET","PEN"].includes(f.fixture.status.short);
    mandando para el nivel, que es lo que el modelo necesita.
 
    Si el pedido falla o viene raro, no pasa nada: se sigue con lo de antes. */
-const PUESTO = { Goalkeeper:"G", Defender:"D", Midfielder:"M", Attacker:"F" };
+/* La traducción vive en `juego.js`, que es el archivo que ven las dos
+   puntas —el navegador y los scripts que bajan los datos—. Tenerla dos
+   veces fue exactamente el bug: acá estaba bien y en `ligas-api.mjs` mal,
+   y las otras diez ligas salían con los delanteros fuera de puesto. */
 
 async function plantilla(teamId){
   try{
     const r = await api("/players/squads",{team:teamId});
     const eq = (r||[]).find(x=>x.team?.id===teamId) || (r||[])[0];
     return (eq?.players||[])
-      .map(p=>({ id:p.id, nombre:p.name, pos:PUESTO[p.position] }))
-      .filter(p=>p.id && p.pos);
+      .map(p=>({ id:p.id, nombre:p.name, pos:puestoDe(p.position) }))
+      /* Solo el id: `puestoDe` siempre devuelve una categoría usable, así
+         que un puesto que no conocemos ya no borra al jugador de la lista.
+         Antes sí lo borraba, y era la decisión equivocada: si algún día la
+         API agrega una etiqueta nueva, preferimos un jugador de más en el
+         medio antes que un titular que desaparece sin que nadie lo note. */
+      .filter(p=>p.id);
   }catch(e){ return []; }
 }
 
@@ -2540,9 +2548,26 @@ const bandera = slug => `<svg class="fl" viewBox="0 0 30 20" aria-hidden="true">
 function poolDeLiga(L, equipoId){
   const e = L.equipos[equipoId] || L.equipos[String(equipoId)];
   if(!e) return [];
-  return e.j.map(j => ({ id:j.i, nombre:j.n, pos:(j.p||"M"),
+  /* `puestoDe` y no `j.p` tal cual: hasta el 20/9 los archivos de liga
+     guardaban "A" para los delanteros —`/players/squads` contesta "Attacker"
+     y alguien le tomó la inicial— y "A" no es una categoría de ninguna
+     formación. `autoXI` no los podía ubicar y salían improvisados por toda
+     la cancha, pagando castigo por jugar de lo que son.
+
+     Traducirlo ACÁ y no solo al bajar los datos es lo que hace que los
+     archivos que ya están publicados se curen con este zip, en vez de
+     dentro de 24 horas, que es cada cuánto se rehacen. */
+  return e.j.map(j => ({ id:j.i, nombre:j.n, pos:puestoDe(j.p),
                          ratings: (j.r!=null ? [j.r] : []), mins: j.m||0 }));
 }
+/* El dibujo habitual que viene en el archivo de liga. Se comprueba contra
+   FORMS y no se usa tal cual: un valor raro en un archivo bajado no puede
+   convertirse en una formación inexistente adentro de `slotsDe`. */
+function dibujoDeEquipo(L, equipoId){
+  const e = (L.equipos||{})[equipoId] || (L.equipos||{})[String(equipoId)] || {};
+  return (FORMS.includes(e.f) ? e.f : FORMA_DE_RESPALDO);
+}
+
 const nombreDeEquipo = (L, id) =>
   (L.equipos[id] || L.equipos[String(id)] || {}).n || "?";
 
@@ -2664,11 +2689,21 @@ function simularDeLiga(slug, fixtureId){
     J.err = "Todavía no hay partidos previos suficientes de esos equipos.";
     J.paso = "liga"; return pintar();
   }
-  /* El archivo de liga no trae quién fue titular, así que acá no se puede
-     deducir el dibujo. Se vuelve al de respaldo en vez de arrastrar el del
-     club de la página: un partido de la Premier dibujado con la forma de
-     Talleres es peor que uno dibujado con la forma por defecto. */
-  J.formA = FORMA_DE_RESPALDO; J.formB = FORMA_DE_RESPALDO;
+  /* EL DIBUJO DE CADA EQUIPO, no 4-3-3 para todos. Desde el 20/9 el archivo
+     de liga trae `f`: el dibujo habitual de los últimos partidos, calculado
+     al bajar los datos con la misma función que usa la página de un club.
+
+     Antes acá había un `FORMA_DE_RESPALDO` clavado para los dos lados, y era
+     la misma queja que los testers hicieron en agosto para los clubes
+     argentinos: "toma todas las formaciones como 4-3-3, no las adapta al
+     equipo". Estaba arreglado para Argentina y seguía roto para las otras
+     diez ligas.
+
+     Si un equipo no tiene `f` —liga recién arrancada, pocos partidos— se usa
+     el de respaldo SOLO para ese equipo. `formacionHabitual` nunca inventa
+     un dibujo, así que un null acá quiere decir "no sé", no "4-3-3". */
+  J.formA = dibujoDeEquipo(L, p.local);
+  J.formB = dibujoDeEquipo(L, p.visita);
   J.K = { linea:0, presion:0, ancho:0, ritmo:0 }; J.KB = { linea:0, presion:0, ancho:0, ritmo:0 };
   J.IND = { ...INDICACIONES_POR_DEFECTO };
   J.xiA = autoXI(J.pool.A, J.formA);
@@ -3981,7 +4016,9 @@ function cuanRaro(){
   const p = J.partido && J.partido.prob, a = J.partido && J.partido.arranca;
   if(!p || !a || a.A || a.B) return "";
   const cada = Math.max(2, Math.round(1/p));
-  return " · este sale 1 de cada " + cada;
+  /* Sin el " · " de adelante: desde y60 esta frase va sola, porque el
+     renglón que la acompañaba —"el más probable era..."— se sacó. */
+  return "el partido que viste sale 1 de cada " + cada;
 }
 
 const CANCHA = { alto: [3, 97], ancho: [3, 97] };
@@ -4582,15 +4619,29 @@ function vistaJuego(){
           <div style="flex:${s.loss};background:#D64550">${s.loss.toFixed(0)}%</div>
         </div>
         <div class="meta"><b>${veredicto}</b><span>·</span><span>ganás / empatás / perdés</span></div>
-        ${J.visto && s.estaVez ? tanteador(s.estaVez.A, s.estaVez.B)
-                              : tanteador(...String(s.marcador).split("-"))}
+        ${/* ── POR QUÉ ACÁ NO ESTÁ "EL MARCADOR MÁS PROBABLE" ─────────────
+             Fausto, 20/9: "por mera estadística el 1 a 1 se va a repetir más
+             que la mayoría. Una victoria puede ser 1-0, 2-0, 2-1, etc., y
+             las categorías de empates son más reducidas, por eso el
+             resultado se repite más".
+
+             Tiene razón y es la trampa clásica de la moda contra la suma.
+             El marcador más repetido de 6.000 partidos casi siempre es un
+             empate o un 1-0, porque los empates concentran su probabilidad
+             en pocos marcadores —1-1, 0-0, 2-2— mientras que ganar la
+             reparte entre muchos. Se podía leer "el modelo dice 1-1" arriba
+             de una barra que decía 55% de ganar, y las dos cosas eran
+             ciertas al mismo tiempo. Un número que hay que explicar para
+             que no confunda es un número que no va.
+
+             Queda lo que sí significa algo: la barra —la suma de todos los
+             marcadores de cada clase— y el partido sorteado, que es UNO de
+             los 6.000 y se presenta como tal. */""}
+        ${J.visto && s.estaVez ? tanteador(s.estaVez.A, s.estaVez.B) : ""}
         <div class="meta" style="justify-content:center">${J.visto && s.estaVez
-          ? "el partido que acabás de ver · uno de los 6.000 posibles"
-          : "el marcador más probable · sale "+s.probMarcador.toFixed(0)+"% de las veces"} ·
-          xG ${s.xgA.toFixed(2)} a ${s.xgB.toFixed(2)}</div>
-        ${J.visto && s.estaVez ? `<div class="meta" style="justify-content:center;margin-top:-2px">
-          el más probable era ${esc(String(s.marcador).replace("-"," - "))} (${s.probMarcador.toFixed(0)}%)${
-          cuanRaro()}</div>
+          ? "el partido que acabás de ver · uno de los 6.000 posibles · " : ""}xG ${
+          s.xgA.toFixed(2)} a ${s.xgB.toFixed(2)}</div>
+        ${J.visto && s.estaVez ? `${cuanRaro() ? `<div class="meta" style="justify-content:center;margin-top:-2px">${cuanRaro()}</div>` : ""}
           <p class="nota">El partido que se dibuja es uno de los 6.000, sorteado con esas mismas
           probabilidades. Si sale un marcador insólito —de esos de menos de uno cada cien— se sortea
           otro que termine igual, así la barra de arriba sigue describiendo lo que acabás de ver.</p>` : ""}
@@ -4665,7 +4716,9 @@ function vistaJuego(){
                 <thead><tr><th class="l"></th><th>Tu once</th>${D ? "<th>El del DT</th>" : ""}</tr></thead>
                 <tbody>
                   ${fila("Ganás", pct("win"))}${fila("Empatás", pct("draw"))}${fila("Perdés", pct("loss"))}
-                  ${fila("Más probable", s => String(s.marcador).replace("-", " - "))}
+                  ${/* "Más probable" salió en y60: ver el comentario largo en
+                       la tarjeta del resultado. Comparar dos modas entre sí es
+                       todavía peor que mostrar una sola. */""}
                   ${fila("xG", s => s.xgA.toFixed(2) + " a " + s.xgB.toFixed(2))}
                 </tbody></table></div>
               <p class="nota" style="margin-top:8px">${frase}${J.liga ? "" : ` Cuando termine el partido, la tercera columna
@@ -4691,7 +4744,6 @@ function vistaJuego(){
                 ${fila("Ganás" + marca("win"), pct("win"))}
                 ${fila("Empatás" + marca("draw"), pct("draw"))}
                 ${fila("Perdés" + marca("loss"), pct("loss"))}
-                ${fila("Más probable", s => String(s.marcador).replace("-", " - "))}
                 ${fila("xG", s => s.xgA.toFixed(2) + " a " + s.xgB.toFixed(2))}
               </tbody></table></div>
             <p class="nota" style="margin-top:8px">${esc(J.nom.A)} <b>${paso} ${R.misG}-${R.susG}</b>.

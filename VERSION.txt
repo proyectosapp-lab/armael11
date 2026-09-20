@@ -1,3 +1,148 @@
+Arma el 11 - version 2026-09-20 y60 (fuera el marcador mas probable)
+
+  · SE SUBE ESTE SOLO. Incluye y59.
+
+  · FAUSTO: "deja de mostrar el resultado mas repetido. Genera confusion y
+    por mera estadistica siempre el 1 a 1 se va a repetir mas que la
+    mayoria. Una victoria puede ser 1 a 0, 2 a 0, 2 a 1, etc., y las
+    categorias de empates son mas reducidas, por eso el resultado se repite
+    mas".
+
+    Tiene razon y el argumento es exacto. Es la trampa clasica de la MODA
+    contra la SUMA. El marcador mas repetido de 6.000 partidos casi siempre
+    es un empate o un 1-0, no porque el modelo crea que va a terminar asi
+    sino porque los empates concentran su probabilidad en pocos marcadores
+    -1-1, 0-0, 2-2- mientras que ganar la reparte entre muchos. Sumados, los
+    marcadores de victoria pueden valer 55% y aun asi el mas repetido de
+    todos ser un 1-1 con 9%.
+
+    O sea que se podia leer "el modelo dice 1-1" arriba de una barra que
+    decia 55% de ganar, y las dos cosas eran ciertas al mismo tiempo. Un
+    numero que hay que explicar para que no confunda es un numero que no va.
+
+  · QUE SE SACO, EXACTAMENTE
+
+    - El tanteador grande ANTES de ver el partido. Ahora, hasta que no toques
+      "Ver uno de los 6.000 partidos posibles", no hay ningun marcador en
+      pantalla: esta la barra, el veredicto y el xG.
+    - El renglon "el mas probable era 1 - 1 (9%)" que aparecia DEBAJO del
+      partido que viste.
+    - La fila "Mas probable" de las dos tablas de comparacion (tu once
+      contra el del DT, y la que agrega lo que paso). Comparar dos modas
+      entre si es todavia peor que mostrar una sola.
+
+  · QUE QUEDA, Y POR QUE
+
+    - LA BARRA. Es la SUMA de todos los marcadores de cada clase, que es
+      justo lo que la moda no es.
+    - EL PARTIDO SORTEADO, cuando lo pedis. Ese se presenta por lo que es:
+      "uno de los 6.000 posibles", y debajo dice cada cuanto sale uno asi.
+    - EL xG, que no depende de ningun marcador.
+
+  · LO QUE NO SE TOCO: el calculo. `simular()` sigue devolviendo `marcador` y
+    `probMarcador`, y tiene que seguir haciendolo: la rareza del partido que
+    se sortea se mide contra ellos, y la poda de marcadores insolitos
+    tambien. Se saco de la PANTALLA, no del modelo. Sacarlo del modelo
+    hubiera sido romper otra cosa para arreglar esta.
+
+  · LA PRUEBA QUE MAS IMPORTA, REESCRITA. En `probar-sitio.cjs` habia un
+    bloque llamado "NO ES UN DADO", que nacio del video de un tester tocando
+    Simular doce veces y sacando doce resultados distintos. Su primer caso
+    era "sin ver el partido, el numero grande es el MAS PROBABLE", y ese
+    caso ahora dice lo contrario: "sin ver el partido NO SE MUESTRA NINGUN
+    MARCADOR", mas otro que exige que el texto tampoco lo nombre.
+
+    El resto del bloque no cambia y es el que de verdad sostiene la promesa:
+    volver a simular sin cambiar nada no gasta ni cambia, cambiar una
+    perilla si simula de nuevo, y volver exactamente a como estaba devuelve
+    exactamente los mismos numeros. 328 casos en el navegador (eran 327).
+
+  · PENDIENTE PARA LA FICHA DE LA APP STORE: la descripcion dice "cuanto
+    ganas, cuanto empatas, cuanto perdes y cual es el marcador mas
+    probable". Esa ultima frase hay que sacarla antes de enviar. Queda
+    corregida en `ficha-app-store.md`.
+
+Arma el 11 - version 2026-09-20 y59 (el bug de los delanteros, y el dibujo de cada equipo)
+
+  · SE SUBE ESTE SOLO. Es el mas importante de los ultimos cinco zips: esto
+    estaba ROTO Y PUBLICADO, y lo ven los testers.
+
+  · FAUSTO: "no esta actualizando las alineaciones, todos los equipos salen
+    4 3 3 y acomoda los jugadores en cualquier lado".
+
+    Son DOS bugs distintos que se veian como uno, los dos en las otras diez
+    ligas. En las paginas de los clubes argentinos no pasaba, y por eso no
+    se habia notado antes.
+
+  · BUG 1: TODOS LOS DELANTEROS SIN PUESTO. API-Football contesta el puesto
+    en DOS formatos segun a que le preguntes:
+
+      /fixtures/players -> games.position = "G" | "D" | "M" | "F"
+      /players/squads   -> position       = "Goalkeeper" | "Defender" |
+                                            "Midfielder" | "Attacker"
+
+    `ligas-api.mjs` tomaba la PRIMERA LETRA del segundo formato. Funciona
+    para tres de los cuatro: G, D, M... y **A**. "Attacker" empieza con A y
+    la categoria del juego es **F**.
+
+    Resultado: todos los delanteros de las otras diez ligas quedaban con
+    puesto "A", que no existe en ninguna formacion. `autoXI` los buscaba
+    entre los "F" y no encontraba ninguno, asi que caian en la rama de
+    improvisar y salian repartidos por toda la cancha. Eso es literalmente
+    "acomoda los jugadores en cualquier lado".
+
+    Y hay una segunda mitad del dano, peor y menos visible:
+    `penalPuesto("A","F")` no encuentra esa combinacion y devuelve el 0,5
+    por defecto. O sea que un delantero PAGABA CASTIGO POR JUGAR DE
+    DELANTERO. No ensuciaba solo el dibujo: ensuciaba la simulacion, que es
+    el producto entero.
+
+    La tabla estaba BIEN en `app.tpl.html` y MAL en `ligas-api.mjs`. Tenerla
+    dos veces fue el bug. Ahora hay una sola, `puestoDe` en `juego.js`, que
+    es el archivo que ven las dos puntas: el navegador y los scripts que
+    bajan los datos.
+
+  · Y SE CURA SOLO, HOY. Los archivos de liga que estan publicados AHORA
+    tienen la "A" adentro. `puestoDe` tambien la traduce, y `poolDeLiga` la
+    llama al leer. O sea que con subir este zip se arregla, sin esperar las
+    24 horas que tarda en rehacerse un archivo de liga.
+
+  · BUG 2: 4-3-3 PARA TODOS. `simularDeLiga` tenia
+    `J.formA = FORMA_DE_RESPALDO` clavado para los dos lados, con un
+    comentario que decia que el archivo de liga no traia el dibujo. Era
+    cierto y era arreglable.
+
+    Es exactamente la misma queja que los testers hicieron en agosto -"toma
+    todas las formaciones como 4-3-3, no las adapta al equipo"-, que
+    arreglamos para los clubes argentinos y que seguia rota para las otras
+    diez ligas. Es una de las tres cosas que le dijimos a Google que estaban
+    corregidas.
+
+    El dato NO CUESTA UN PEDIDO MAS: cada `/fixtures/players` que
+    `ligas-api.mjs` ya baja para los ratings dice, por jugador, si fue
+    titular y en que categoria jugo. Contar los titulares da el dibujo de
+    ese partido; la moda de los ultimos cinco da el habitual. Es la misma
+    funcion que usa la pagina de un club.
+
+    Ahora el archivo de liga trae `f` por equipo y la pantalla lo usa. Si un
+    equipo no tiene suficientes partidos, `formacionHabitual` devuelve null
+    y se usa el de respaldo SOLO para ese equipo: un null quiere decir "no
+    se", no "4-3-3".
+
+  · PRUEBAS. 93 en `probar-once.mjs` (eran 85) y 327 en el navegador (eran
+    322). Las que importan:
+
+    - '"Attacker" es F, NO "A"'. El caso exacto del bug.
+    - "un delantero de delantero no paga castigo". La otra mitad del dano.
+    - "las categorias del traductor son las de las formaciones": compara los
+      valores de la tabla contra las categorias que salen de FORMS. Si
+      alguien agrega una quinta categoria a una y no a la otra, se cae.
+    - En el navegador, un archivo de liga con la letra "A" adentro A
+      PROPOSITO -es lo que hay publicado ahora mismo- y se exige que el once
+      salga entero y sin nadie fuera de puesto.
+    - Que un dibujo raro en un archivo bajado ("9-9-9") NO llegue a
+      `slotsDe`.
+
 Arma el 11 - version 2026-09-19 y58 (la foto sale del sitio publicado)
 
   · SE SUBE ESTE SOLO. Cambia dos archivos: empaquetar-ios.mjs y su prueba.

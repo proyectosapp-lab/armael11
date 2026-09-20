@@ -1835,15 +1835,22 @@ srv.listen(8099, async () => {
        El video del tester: doce "Simular" seguidos sin tocar nada, doce
        marcadores distintos. Tres cosas tienen que ser ciertas para que eso
        no vuelva a pasar:
-         1. sin ver el partido, el número grande es el MÁS PROBABLE, que no
-            se mueve -no una realización suelta-;
+         1. sin ver el partido NO SE MUESTRA NINGÚN MARCADOR. Hasta y60 se
+            mostraba el más probable, y Fausto lo hizo sacar con un
+            argumento que es correcto: por pura estadística ese marcador
+            casi siempre es un empate o un 1-0, porque los empates
+            concentran su probabilidad en pocos marcadores y ganar la
+            reparte entre muchos. Se leía "el modelo dice 1-1" arriba de
+            una barra que decía 55% de ganar;
          2. volver a simular sin cambiar nada no gasta ni cambia: explica;
          3. con los mismos ajustes, los porcentajes son idénticos. */
     {
-      const grande = (await tanteador(pg)).goles;
-      const probable = await pg.evaluate(() => J.sim.marcador);
-      caso("sin ver el partido, el número grande es el marcador más probable",
-           grande === probable, "grande " + grande + " · probable " + probable);
+      caso("sin ver el partido no se muestra ningún marcador",
+           await pg.locator('.marcador').count() === 0,
+           "quedó un tanteador: " + JSON.stringify(await tanteador(pg)));
+      /* Y el texto tampoco lo nombra por ningún lado. */
+      caso("ni se lo nombra en el texto de la tarjeta",
+           !/m[áa]s probable/i.test(await pg.locator('.res').locator('..').innerText()));
       const antesRep = await pg.evaluate(() => ({ u: CUPO.usadas, w: J.sim.win, m: J.sim.marcador }));
       await pg.locator('#bsim').click(); await pg.waitForTimeout(400);
       const despRep = await pg.evaluate(() => ({ u: CUPO.usadas, w: J.sim.win, m: J.sim.marcador, msg: J.msg }));
@@ -2160,6 +2167,110 @@ srv.listen(8099, async () => {
     caso("un código inventado en la dirección se descarta", c.codigoMalo === null);
     /* Si esto se cae, algún nombre de campana.js pisó algo del juego. */
     caso("y no pisó nada del juego", c.juego === true);
+  }
+
+  /* ══ EL PUESTO Y EL DIBUJO DE LAS OTRAS LIGAS (y59) ══════════════
+     Hasta el 20/9, los archivos de liga guardaban "A" para los
+     delanteros —`/players/squads` contesta "Attacker" y alguien le tomó
+     la inicial— y la pantalla simulaba todos los partidos con 4-3-3.
+     Los dos arreglos se prueban acá, en el navegador, porque los dos
+     viven en la página: `poolDeLiga` y `dibujoDeEquipo`.
+
+     El archivo de liga de la prueba trae "A" A PROPÓSITO: es lo que hay
+     publicado ahora mismo, y lo que la app tiene que poder leer hoy sin
+     esperar a que se rehagan los datos. */
+  {
+    const r = await pg.evaluate(() => {
+      const antes = window.LIGAS;
+      window.LIGAS = { prueba: { id: 99, nombre: "Prueba", equipos: {
+        7: { n: "Once Completo", f: "3-4-3", j: [
+          { i:1, n:"Arquero", p:"G", r:7, m:400 },
+          ...Array.from({length:6}, (_,k)=>({ i:10+k, n:"Def"+k, p:"D", r:7, m:400 })),
+          ...Array.from({length:6}, (_,k)=>({ i:20+k, n:"Vol"+k, p:"M", r:7, m:400 })),
+          /* los de siempre, con la letra vieja */
+          ...Array.from({length:4}, (_,k)=>({ i:30+k, n:"Del"+k, p:"A", r:7, m:400 })),
+        ]},
+        8: { n: "Sin Dibujo", f: null, j: [] },
+        9: { n: "Dibujo Roto", f: "9-9-9", j: [] },
+      }}};
+      try {
+        const L = window.LIGAS.prueba;
+        const pool = poolDeLiga(L, 7);
+        const delanteros = pool.filter(p => p.pos === "F").length;
+        const letraVieja = pool.filter(p => p.pos === "A").length;
+        const xi = autoXI(pool, dibujoDeEquipo(L, 7));
+        return {
+          delanteros, letraVieja,
+          dibujo: dibujoDeEquipo(L, 7),
+          sinDibujo: dibujoDeEquipo(L, 8),
+          roto: dibujoDeEquipo(L, 9),
+          fueraDePuesto: xi.filter(j => j && j.pos !== j.slotCat).length,
+          cuantos: xi.filter(Boolean).length,
+        };
+      } finally { window.LIGAS = antes; }
+    });
+    caso('la "A" de los archivos publicados se lee como delantero',
+         r.delanteros === 4 && r.letraVieja === 0,
+         r.delanteros + " delanteros, " + r.letraVieja + ' con "A"');
+    caso("el dibujo sale del equipo y no de 4-3-3 para todos",
+         r.dibujo === "3-4-3", r.dibujo);
+    /* Sin dato NO se inventa: se usa el de respaldo, que es otra cosa que
+       decir "este equipo juega 4-3-3". */
+    caso("un equipo sin dibujo cae en el de respaldo", r.sinDibujo === "4-3-3", r.sinDibujo);
+    /* Un dibujo raro en un archivo bajado no puede llegar a `slotsDe`. */
+    caso("un dibujo que no existe no se usa", r.roto === "4-3-3", r.roto);
+    caso("y el once sale entero, cada uno en su puesto",
+         r.cuantos === 11 && r.fueraDePuesto === 0,
+         r.cuantos + " jugadores, " + r.fueraDePuesto + " fuera de puesto");
+  }
+
+  /* ══ EL USO DE TODOS LOS DÍAS (y52) ══════════════════════════════
+     Este cuenta a TODOS, no solo al que vino de un anuncio, y es el que
+     va a contestar por qué Google dijo que los testers no estuvieron
+     activos. Dos cosas que tienen que ser ciertas en el navegador de
+     verdad y no se pueden ver en las pruebas de Node:
+
+     1. Que `usar(...)` esté realmente enganchado en la app. En Node se
+        prueba la función; acá se prueba que ALGUIEN la llame. Un
+        contador perfecto que nadie invoca da cero todos los días y
+        parece que no entró nadie.
+     2. Que llamarlo muchas veces siga siendo un teléfono. `enganchar()`
+        corre en cada pintado —decenas de veces en una tarde—. */
+  {
+    const u = await pg.evaluate(() => {
+      const antes = localStorage.getItem("armaEl11.usoDia");
+      const fOriginal = window.fetch;
+      const mandados = [];
+      window.fetch = (x, o) => {
+        if (String(x).includes("sumar_hito")) { mandados.push(JSON.parse(o.body)); return Promise.resolve({ ok: true }); }
+        return fOriginal(x, o);
+      };
+      try {
+        localStorage.removeItem("armaEl11.usoDia");
+        const hay = typeof usoDiario === "function" && typeof usar === "function";
+        /* Por el camino real: el mismo `usar` que llama la app. */
+        if (hay) { usar("abrio"); usar("abrio"); for (let i = 0; i < 20; i++) usar("abrio"); }
+        return { hay, mandados: mandados.length,
+                 codigo: (mandados[0] || {}).p_codigo,
+                 hito: (mandados[0] || {}).p_hito,
+                 juego: typeof simular === "function" };
+      } finally {
+        window.fetch = fOriginal;
+        if (antes) localStorage.setItem("armaEl11.usoDia", antes);
+        else localStorage.removeItem("armaEl11.usoDia");
+      }
+    });
+    caso("el contador de uso viaja en la página y la app lo llama", u.hay === true);
+    caso("veintidós pintados siguen siendo un teléfono",
+         u.mandados === 1, "mandó " + u.mandados);
+    /* En el navegador de la prueba no hay referrer de la app, así que
+       tiene que caer del lado de la web. Si esto diera `uso-app`, el
+       número que le mostraríamos a Google estaría inflado con gente que
+       entró por el navegador —justo lo que él no cuenta—. */
+    caso("y desde el navegador cuenta como web, no como app",
+         u.codigo === "uso-web" && u.hito === "abrio",
+         u.codigo + " / " + u.hito);
+    caso("tampoco pisó nada del juego", u.juego === true);
   }
 
   /* El `?c=` no puede quedar en la barra: el primero que comparta el link
