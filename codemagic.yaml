@@ -101,8 +101,33 @@ workflows:
 
       - name: Instalar Capacitor y generar el proyecto de Xcode
         script: |
+          set -e
           npm install
-          npx cap add ios || npx cap sync ios
+          npx cap add ios || true
+
+          # ── EL MÍNIMO DE iOS ─────────────────────────────────────────────
+          # Capacitor genera el proyecto con iOS 14.0 y Apple avisó en la
+          # primera subida:
+          #   ITMS-90068: MinimumOSVersion too low. Starting in Spring 2027,
+          #   all iOS apps must have a MinimumOSVersion of 15.0 or later.
+          # No rechazó nada -la subida entró igual- pero es una fecha con
+          # nombre y apellido, y arreglarlo ahora cuesta dos líneas.
+          #
+          # 15.0 y no más: es lo que Apple pide y no deja a nadie afuera que
+          # importe. Un iPhone que no llega a iOS 15 es un 6 o anterior, de
+          # 2014, que además no podría con la cancha.
+          #
+          # Va ANTES de `cap sync`, que es el que corre `pod install`: el
+          # Podfile y el proyecto tienen que decir lo mismo antes de que
+          # CocoaPods resuelva nada, o las dependencias quedan compiladas
+          # para una versión y la app para otra.
+          sed -i '' "s/IPHONEOS_DEPLOYMENT_TARGET = 1[0-9]\.[0-9]*;/IPHONEOS_DEPLOYMENT_TARGET = 15.0;/g" \
+            ios/App/App.xcodeproj/project.pbxproj
+          sed -i '' "s/platform :ios, '1[0-9]\.[0-9]*'/platform :ios, '15.0'/" ios/App/Podfile
+          echo "── mínimo de iOS ──"
+          grep -m2 IPHONEOS_DEPLOYMENT_TARGET ios/App/App.xcodeproj/project.pbxproj
+          grep -m1 "platform :ios" ios/App/Podfile
+
           npx cap sync ios
 
       - name: Los textos que Apple exige en el Info.plist

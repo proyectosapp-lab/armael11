@@ -1,3 +1,51 @@
+Arma el 11 - version 2026-09-20 y63 (el minimo de iOS)
+
+  · SE SUBE ESTE SOLO. Cambia UN archivo: codemagic.yaml.
+
+  · PRIMERO LO QUE IMPORTA: LA COMPILACION SALIO. "Although delivery was
+    successful": Arma el 11 version 1.0, build 10, entro a App Store Connect.
+    Compilo, firmo y subio. Diez compilaciones.
+
+    Lo que faltaba, en orden, y cada una escondida detras de la anterior:
+      1. La clave de API con rol App Manager, que no llega a Certificates,
+         Identifiers & Profiles. Tenia que ser Admin.
+      2. El certificado, que no existia.
+      3. La clave privada del certificado, que la Mac no puede inventar en
+         cada corrida.
+      4. El perfil de aprovisionamiento, que es otra cosa que el certificado
+         y vive en otra pantalla.
+
+    Las cuatro daban el MISMO mensaje: "No matching profiles found". Por eso
+    la unica decision que de verdad destrabo esto fue sacar la firma
+    automatica un rato para que el error quedara escrito en un log.
+
+  · LO QUE AVISO APPLE, Y NO ES UN RECHAZO:
+
+      ITMS-90068: MinimumOSVersion too low. This app has a MinimumOSVersion
+      of 14.0. Starting in Spring 2027, all iOS apps must have a
+      MinimumOSVersion of 15.0 or later.
+
+    La subida entro igual. Es una fecha con nombre y apellido, y arreglarlo
+    ahora cuesta dos lineas.
+
+  · EL ARREGLO. Capacitor genera el proyecto con iOS 14.0. Se sube a 15.0 en
+    el proyecto de Xcode Y en el Podfile, y va ANTES de `cap sync` -que es el
+    que corre `pod install`-: los dos tienen que decir lo mismo antes de que
+    CocoaPods resuelva nada, o las dependencias quedan compiladas para una
+    version y la app para otra.
+
+    15.0 y no mas. Es lo que Apple pide y no deja afuera a nadie que
+    importe: un iPhone que no llega a iOS 15 es un 6 o anterior, de 2014, que
+    ademas no podria con la cancha.
+
+    Y el paso imprime que quedo puesto, en las dos partes. Esa es la leccion
+    de la noche: lo que no se imprime, no se sabe.
+
+  · LO QUE SIGUE, QUE NO ES CODIGO: la build 10 tiene que aparecer en App
+    Store Connect -> TestFlight. Ahi se instala en un iPhone de verdad y se
+    prueba. Recien despues se aprieta a mano el boton de mandar a revision:
+    `submit_to_app_store` sigue en false a proposito.
+
 Arma el 11 - version 2026-09-20 y62 (se nombra lo que hay)
 
   · SE SUBE ESTE SOLO. Cambia UN archivo: codemagic.yaml.
