@@ -48,6 +48,7 @@
 
 const CAMP_LLAVE = "armaEl11.campana";   /* de dónde vino esta persona */
 const CAMP_HITOS = "armaEl11.hitos";     /* qué ya contamos de ella */
+const CAMP_USO   = "armaEl11.usoDia";    /* qué ya contamos HOY de ella */
 const CAMP_DIAS  = 30;                   /* cuánto vale una visita de campaña */
 
 const campCfg = () => (typeof window !== "undefined" && window.SITIO && window.SITIO.supabase) || {};
@@ -154,13 +155,9 @@ export function tocaMandar(hitos, codigo, hito) {
    reintentaría en cada recarga y sumaría de más. Preferimos contar de
    menos —un hito perdido— antes que de más: un número inflado se parece
    demasiado a una buena noticia.                                        */
-function mandarHito(codigo, hito) {
+function campMandar(codigo, hito) {
   const { url, anon } = campCfg();
   if (!url || !anon) return false;
-  const guardados = campYaMandados();
-  if (!tocaMandar(guardados, codigo, hito)) return false;
-  guardados[codigo + ":" + hito] = 1;
-  campPoner(CAMP_HITOS, JSON.stringify(guardados));
   try {
     fetch(url + "/rest/v1/rpc/sumar_hito", {
       method: "POST",
@@ -170,6 +167,77 @@ function mandarHito(codigo, hito) {
     }).catch(() => {});
   } catch (e) {}
   return true;
+}
+
+function mandarHito(codigo, hito) {
+  const { url, anon } = campCfg();
+  if (!url || !anon) return false;
+  const guardados = campYaMandados();
+  if (!tocaMandar(guardados, codigo, hito)) return false;
+  guardados[codigo + ":" + hito] = 1;
+  campPoner(CAMP_HITOS, JSON.stringify(guardados));
+  return campMandar(codigo, hito);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   EL USO DE TODOS LOS DÍAS — Y NO SOLO EL DE LOS QUE VINIERON DE UN ANUNCIO
+
+   ─── POR QUÉ HIZO FALTA ──────────────────────────────────────────────────
+   Google rechazó la prueba cerrada por falta de actividad de los testers, y
+   nos encontró sin una sola cifra propia para discutirlo. El contador de
+   arriba mide el embudo de las campañas: no sabe nada del que entró por su
+   cuenta, que es casi todo el mundo.
+
+   Y hay una razón peor, específica de esta app: **la versión de Play es un
+   TWA**, o sea el sitio adentro de una ventana. Para cualquier medición de
+   sitio web, una persona usando la app instalada y una persona en el
+   navegador son indistinguibles. Justo la distinción que Google nos pedía.
+
+   ─── QUÉ CUENTA ──────────────────────────────────────────────────────────
+   Dos códigos, no uno: `uso-app` y `uso-web`. Van a la MISMA tabla y por la
+   misma vía que los hitos, así que no hay infraestructura nueva ni una
+   segunda promesa de privacidad que sostener. Sigue sin haber identificador
+   de persona: una fila por código, día e hito, con un número al lado.
+
+   ─── UNA VEZ POR DÍA, Y EL DÍA ES EL DEL TELÉFONO ────────────────────────
+   `enganchar()` corre en cada pintado —decenas de veces en una tarde—, así
+   que sin tope esto contaría pintados y no personas.
+
+   El día se toma del RELOJ LOCAL y no de UTC, y no es un detalle: en
+   Argentina, a partir de las nueve de la noche, UTC ya está en el día
+   siguiente. Con UTC, el que juega todas las noches contaría dos veces por
+   día y el número que le íbamos a mostrar a Google sería el doble del real.
+   Un número inflado se parece demasiado a una buena noticia.            */
+export function codigoDeUso(enLaApp) { return enLaApp ? "uso-app" : "uso-web"; }
+
+const campDiaLocal = () => {
+  const d = new Date(), p = n => String(n).padStart(2, "0");
+  return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate());
+};
+
+/* Pura, para poder probar el cambio de día sin esperar a mañana. */
+export function tocaHoy(dias, hito, hoy) {
+  if (!hito || !hoy) return false;
+  return (dias || {})[hito] !== hoy;
+}
+
+export function usoDiario(hito, enLaApp) {
+  try {
+    const { url, anon } = campCfg();
+    if (!url || !anon || !hito) return false;
+    const hoy = campDiaLocal();
+    let dias = {};
+    try { dias = JSON.parse(campLeer(CAMP_USO) || "{}") || {}; } catch (e) { dias = {}; }
+    if (!tocaHoy(dias, hito, hoy)) return false;
+    /* Se anota ANTES de mandar, igual que los hitos: contar de menos es
+       preferible a contar de más. Y se guarda SOLO lo de hoy, así la llave
+       no crece un renglón por día para siempre. */
+    const limpio = {};
+    for (const k of Object.keys(dias)) if (dias[k] === hoy) limpio[k] = hoy;
+    limpio[hito] = hoy;
+    campPoner(CAMP_USO, JSON.stringify(limpio));
+    return campMandar(codigoDeUso(enLaApp), hito);
+  } catch (e) { return false; }
 }
 
 /* Lo que llama el resto de la app. Si esta persona no vino de una campaña

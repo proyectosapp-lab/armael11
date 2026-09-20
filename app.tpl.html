@@ -2213,6 +2213,12 @@ const FORMA_DE_RESPALDO = "4-3-3";
 const J={ key:"", reqs:0, temporada:2026, fixtures:[], fx:null, pool:{A:[],B:[]},
   nom:{A:"",B:""}, id:{A:CLUB.apiId,B:0}, esLocalA:true, xiA:[], xiB:[],
   formA:FORMA_DE_RESPALDO, formB:FORMA_DE_RESPALDO,
+  /* Cuál de los dos once que están en la cancha es el que puso el DT y no
+     el que armó la app. No se deduce de "¿hay formación publicada?": puede
+     haberla y no poder usarse —diez nombres, un puesto que no se entiende—,
+     y ahí la cancha muestra el de la app. Esto dice qué se está mostrando,
+     que es lo único que el cartel tiene permitido afirmar. */
+  delDT:{A:false,B:false},
   /* Las perillas de cada uno. Antes había una sola tanda —la tuya— y el
      rival no se podía plantear: si el que se metía atrás con diez era él,
      eso no se podía decir. */
@@ -2653,6 +2659,34 @@ function bajarALosPartidos(){
   });
 }
 
+/* ── LOS ONCE DE LA CANCHA ───────────────────────────────────────────────
+   Un solo lugar donde se decide con qué once arranca cada lado, y los dos
+   caminos —el partido de tu club y el de otra liga— pasan por acá.
+
+   La regla es una sola: SI EL DT YA PUBLICÓ SU ONCE, ESE ES EL QUE VA. Y si
+   no salió, o salió y no se puede armar con él, lo arma la app como siempre.
+
+   Se llama al ELEGIR el partido y no al pintar: el once del DT es el punto
+   de partida, no una corrección que aparece encima. Si alguien entró antes
+   de que saliera la formación y movió cuatro nombres, no se le pisa el
+   trabajo a mitad de camino.                                             */
+function ponerOnces(){
+  const al = (window.CACHE || {})["/fixtures/lineups?fixture=" + J.fx.fixture.id]
+          || onceGuardado(J.fx.fixture.id) || [];
+  J.delDT = { A:false, B:false };
+  for(const lado of ["A","B"]){
+    const t = Array.isArray(al) ? al.find(x => x.team?.id === J.id[lado]) : null;
+    const dib = t && dibujoDelOnce(t.startXI, t.formation);
+    const xi  = dib && xiDelDT(t.startXI, J.pool[lado], dib);
+    if(xi){ J["form"+lado] = dib; J["xi"+lado] = xi; J.delDT[lado] = true; }
+    else  { J["xi"+lado] = autoXI(J.pool[lado], J["form"+lado]); }
+  }
+  /* El punto de partida contra el que se cuentan los cambios. Cuando la
+     cancha arranca con el del DT, "3 cambios en el once" pasa a querer
+     decir lo que uno espera que quiera decir: tres cambios AL DEL DT. */
+  J.auto = { xiA: J.xiA.filter(Boolean).map(p=>p.id), formA: J.formA };
+}
+
 function simularDeLiga(slug, fixtureId){
   const L = (window.LIGAS || {})[slug];
   const p = L && L.partidos.find(x => String(x.id) === String(fixtureId));
@@ -2706,9 +2740,7 @@ function simularDeLiga(slug, fixtureId){
   J.formB = dibujoDeEquipo(L, p.visita);
   J.K = { linea:0, presion:0, ancho:0, ritmo:0 }; J.KB = { linea:0, presion:0, ancho:0, ritmo:0 };
   J.IND = { ...INDICACIONES_POR_DEFECTO };
-  J.xiA = autoXI(J.pool.A, J.formA);
-  J.xiB = autoXI(J.pool.B, J.formB);
-  J.auto = { xiA: J.xiA.filter(Boolean).map(p=>p.id), formA: J.formA };
+  ponerOnces();
   J.msg = L.nombre + " · " + (L.calibrada
     ? "calibrada con " + L.calibrada.partidos + " partidos de " + L.calibrada.temporada
     : "sin calibrar todavía: uso los números de respaldo");
@@ -2776,8 +2808,7 @@ async function elegirPartido(i){
     J.IND = { ...INDICACIONES_POR_DEFECTO };
     if(J.pool.A.length<11||J.pool.B.length<11)
       throw new Error("No hay suficientes partidos previos. Elegí uno más avanzado en la temporada.");
-    J.xiA=autoXI(J.pool.A,J.formA); J.xiB=autoXI(J.pool.B,J.formB);
-    J.auto = { xiA: J.xiA.filter(Boolean).map(p=>p.id), formA: J.formA };
+    ponerOnces();
     J.msg=J.pool.A.length+" jugadores tuyos · "+J.pool.B.length+" del rival · "+J.reqs+" pedidos";
     J.paso="armar";
   }catch(e){ J.err=e.message; J.msg=""; }
@@ -2998,24 +3029,36 @@ function avisoDeLaFoto(){
 }
 
 function avisoDeFormaciones(){
-  const cuantas = formacionesConfirmadas();
-  if(cuantas === null) return "";
-  const comoSeArmaron = "Los once de la cancha los armó la app con los que vienen jugando " +
-    "en cada equipo; los podés cambiar jugador por jugador.";
+  if(!J.fx) return "";
+  const losArmoLaApp = "los armó la app con los que vienen jugando; " +
+    "los podés cambiar jugador por jugador.";
+  const dt = J.delDT || { A:false, B:false };
 
-  if(cuantas === 2) return `<div class="pendiente salio" style="margin:12px 0 0">
-      <b>Las formaciones ya están confirmadas.</b>
-      Los dos DT publicaron su once para este partido. ${comoSeArmaron}
-      Más abajo podés simular el del DT contra el tuyo.</div>`;
+  /* Los dos reales: no hay nada que aclarar sobre cómo se armaron, porque
+     no los armamos nosotros. Lo que sí hay que decir es qué se puede hacer
+     con ellos, que es la gracia. */
+  if(dt.A && dt.B) return `<div class="pendiente salio" style="margin:12px 0 0">
+      <b>Estos son los once que pusieron los DT.</b>
+      Las dos formaciones están confirmadas y la cancha arranca con ellas.
+      Cambiá lo que vos cambiarías y simulá.</div>`;
 
-  if(cuantas === 1) return `<div class="pendiente salio" style="margin:12px 0 0">
-      <b>Una de las dos formaciones ya está confirmada.</b>
-      Falta que salga la del otro equipo. ${comoSeArmaron}</div>`;
+  /* Uno sí y otro no es el caso incómodo: en la misma cancha conviven un
+     once real y uno armado por la app. Decir cuál es cuál —con nombre y
+     apellido del equipo— es lo único que evita que el de la app pase por
+     confirmado. */
+  if(dt.A || dt.B){
+    const real = dt.A ? "A" : "B", otro = dt.A ? "B" : "A";
+    return `<div class="pendiente salio" style="margin:12px 0 0">
+      <b>Salió el once de ${esc(nombreCorto(real))}.</b>
+      Ese es el que puso el DT y es el que está en la cancha. El de
+      ${esc(nombreCorto(otro))} todavía no salió: ${losArmoLaApp}</div>`;
+  }
 
   return `<div class="pendiente" style="margin:12px 0 0">
       <b>Formaciones tentativas.</b>
-      ${comoSeArmaron} El once que pone el DT sale alrededor de una hora antes
-      del partido, y cuando salga vas a poder simularlo contra el tuyo.</div>`;
+      Los once de la cancha ${losArmoLaApp} El que pone el DT sale alrededor
+      de una hora antes del partido, y cuando salga la cancha va a arrancar
+      con ese.</div>`;
 }
 
 /* Lo que va al pie de la tarjeta del resultado, segun el momento:
@@ -3028,23 +3071,38 @@ function pieDelResultado(){
       Revelar el once del DT y lo que pasó</button>`;
   const link = (clase) => `<button class="${clase}" id="bguardar" style="width:100%;margin-top:10px">
       Copiar el link de mi pronóstico</button><p class="aviso" id="avisoLink"></p>`;
-  if(hayOnceDelDT()) return `<div class="pendiente salio" style="margin-top:12px">
-      <b>¡Salió el once del DT!</b> Todavía no se jugó, pero la formación ya está.
-      Simulala contra la tuya y decidí antes que el árbitro.</div>
-    <button class="acc" id="brev" style="width:100%;margin-top:10px">Simular el once del DT</button>
+  /* CAMBIÓ EL SENTIDO DE ESTE BOTÓN. Antes el once del DT estaba escondido
+     y esto lo traía a la pantalla. Ahora la cancha YA arranca con él, así
+     que "simular el once del DT" solo dice algo si vos lo tocaste: es tu
+     versión contra la original. Si no cambiaste nada, las dos simulaciones
+     serían la misma y ofrecerla sería un botón que miente. */
+  if(hayOnceDelDT()){
+    const tocaste = (J.delDT || {}).A &&
+      J.xiA.filter(Boolean).some(p => !(J.auto.xiA || []).includes(p.id));
+    return `<div class="pendiente salio" style="margin-top:12px">
+      <b>${(J.delDT || {}).A ? "En la cancha está el once del DT."
+                             : "¡Salió el once del DT!"}</b>
+      Todavía no se jugó${(J.delDT || {}).A
+        ? ", pero la formación ya es la de verdad." : ", pero la formación ya está."}
+      ${tocaste ? "Compará tu versión contra la que puso él."
+                : "Cambiá lo que cambiarías y simulá."}</div>
+    ${tocaste || !(J.delDT || {}).A
+      ? `<button class="acc" id="brev" style="width:100%;margin-top:10px">Simular el once del DT</button>`
+      : ""}
     ${J.liga ? "" : link("gh")}`;
+  }
   /* En una liga que no es la de tu club no va el aviso al teléfono -los
      avisos son por club, nadie se suscribió al Bayern- ni el link del
      pronóstico, que guarda el club de la página y volvería con otro partido.
      Queda lo único que sí se puede hacer acá: esperar el once. */
   if(J.liga) return `<div class="pendiente" style="margin-top:12px">
       <b>Este partido todavía no se jugó.</b><br>
-      El once del DT sale una hora antes del partido: cuando aparezca, acá mismo
-      vas a poder simularlo contra el tuyo.</div>`;
+      El once del DT sale una hora antes: cuando aparezca, la cancha va a
+      arrancar con ese y vas a poder cambiar lo que cambiarías.</div>`;
   return `<div class="pendiente" style="margin-top:12px">
       <b>Este partido todavía no se jugó.</b><br>
-      El once del DT sale una hora antes: cuando aparezca, acá mismo vas a poder
-      simularlo contra el tuyo. Y cuando termine, ver el resultado de verdad.</div>
+      El once del DT sale una hora antes: cuando aparezca, la cancha va a
+      arrancar con ese. Y cuando termine, vas a ver el resultado de verdad.</div>
     ${bloqueAviso(false)}
     ${link(AVISO_ON ? "acc" : "gh")}`;
 }

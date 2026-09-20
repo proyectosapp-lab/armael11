@@ -176,6 +176,89 @@ export function formacionHabitual(formas){
   return mejor;
 }
 
+/* ── EL ONCE QUE PUSO EL DT, PUESTO EN LA CANCHA ─────────────────────────
+   Fausto, 20/9/2026: "justamente la idea es que si ya están las formaciones
+   confirmadas, veas eso".
+
+   Hasta acá el once del DT existía pero vivía aparte: se lo revelaba con un
+   botón y se lo simulaba contra el tuyo. La cancha, mientras tanto, seguía
+   mostrando once nombres que había elegido la app. Media hora antes del
+   partido, con la formación ya publicada en todos lados, eso se lee como un
+   error de la app y no como una propuesta.
+
+   Estas dos funciones traducen la respuesta de `/fixtures/lineups` a lo que
+   el motor entiende. Son puras: reciben el once y el plantel, devuelven el
+   XI. Ninguna pide nada a la red.
+
+   ─── LAS TRES DECISIONES QUE HAY QUE TOMAR ACÁ ───────────────────────────
+
+   1. QUÉ DIBUJO USAR. El DT dice "4-2-3-1" y eso puede no estar en FORMS, o
+      estar y no coincidir con los once que realmente puso. Manda el conteo
+      de los titulares, que es un hecho; la etiqueta se usa solo si el
+      conteo la respalda. Así la asignación siempre cierra sin improvisar.
+
+   2. QUÉ HACER CON EL QUE NO ESTÁ EN EL PLANTEL. Un refuerzo que debuta, un
+      juvenil que sube: el DT lo pone y nosotros no tenemos un solo minuto
+      suyo. Entra igual, con cero minutos, y `fuerza` lo ancla en la media de
+      la liga con confianza cero — que es exactamente lo que sabemos de él.
+      Dejarlo afuera sería peor: un once de diez no es el once del DT.
+
+   3. CON QUÉ PUESTO PESA. El puesto del PARTIDO decide dónde se para; el
+      puesto OFICIAL decide cuánto rinde ahí. Si el DT manda a un defensor de
+      volante, el castigo se cobra igual — el modelo no le cree a nadie que
+      un defensor sea volante porque lo pongan de volante.               */
+export function dibujoDelOnce(startXI, etiqueta){
+  const cats = (startXI || []).map(x => puestoDe(x?.player?.pos));
+  if(cats.length !== 11) return null;
+  const n = c => cats.filter(x => x === c).length;
+  const D = n("D"), M = n("M"), F = n("F");
+  if(n("G") !== 1 || !D || !M) return null;
+  /* La etiqueta del DT, pero solo si los once que puso la respaldan. */
+  if(FORMS.includes(etiqueta)){
+    const c = { D:0, M:0, F:0 };
+    for(const l of slotsDe(etiqueta)) if(l.cat !== "G") c[l.cat] += l.n;
+    if(c.D === D && c.M === M && c.F === F) return etiqueta;
+  }
+  return formaDe(D, M, F);
+}
+
+export function xiDelDT(startXI, pool, form){
+  if(!form || !FORMS.includes(form)) return null;
+  const slots = slotsDe(form).flatMap(l => Array.from({length:l.n}, () => l.cat));
+  const porId = new Map((pool || []).map(p => [p.id, p]));
+  const gente = [];
+  for(const x of (startXI || [])){
+    const id = x?.player?.id; if(id == null) continue;
+    const cat = puestoDe(x?.player?.pos);
+    const p = porId.get(id);
+    /* El de adentro conserva SU puesto oficial y sus minutos; el de afuera
+       entra con lo único que sabemos de él, que es dónde lo pusieron. */
+    gente.push(p ? { ...p, catDT: cat }
+                 : { id, nombre: x?.player?.name || "?", pos: cat,
+                     ratings: [], mins: 0, catDT: cat });
+  }
+  if(gente.length !== slots.length) return null;
+
+  const xi = new Array(slots.length).fill(null);
+  const libres = new Set(gente);
+  /* Primero cada uno donde el DT lo paró. */
+  slots.forEach((c, i) => {
+    if(xi[i]) return;
+    const cand = [...libres].find(p => p.catDT === c);
+    if(cand){ libres.delete(cand); xi[i] = { ...cand, slotCat: c }; }
+  });
+  /* Lo que sobre —pasa cuando la etiqueta y el conteo no coincidían— va
+     donde más rinda, con el castigo puesto. Mismo criterio que `autoXI`. */
+  slots.forEach((c, i) => {
+    if(xi[i]) return;
+    const cand = [...libres]
+      .sort((a, b) => (fuerza(b).v - penalPuesto(b.pos, c)) -
+                      (fuerza(a).v - penalPuesto(a.pos, c)))[0];
+    if(cand){ libres.delete(cand); xi[i] = { ...cand, slotCat: c }; }
+  });
+  return xi.every(Boolean) ? xi : null;
+}
+
 export function lineas(xi){
   const g = x => xi.filter(p=>p&&p.slotCat===x).map(p => fuerza(p).v - penalPuesto(p.pos,p.slotCat));
   const m = a => a.length ? a.reduce((x,y)=>x+y,0)/a.length : LIGA.media;

@@ -1,3 +1,96 @@
+Arma el 11 - version 2026-09-20 y65 (en la cancha esta el once del DT)
+
+  · SE SUBEN SIETE ARCHIVOS, TODOS SUELTOS Y SIN PUNTO ADELANTE:
+    juego.js, app.tpl.html, campana.js, frescura.mjs, publicar.mjs,
+    probar-once.mjs, probar-sitio.cjs, probar-campana.mjs,
+    probar-frescura.mjs, VERSION.txt.
+    (Incluye el y64 entero: si no lo subiste, con este solo alcanza.)
+
+  ── 1. EL ONCE DEL DT, EN LA CANCHA ──────────────────────────────────────
+
+    Fausto: "justamente la idea es que si ya estan las formaciones
+    confirmadas, veas eso".
+
+    Tenia razon y era un problema de diseño, no un bug. El once del DT
+    existia desde hace semanas pero vivia detras de un boton: la cancha
+    mostraba siempre once nombres elegidos por la app. Media hora antes del
+    partido, con la formacion publicada en todos lados, eso no se lee como
+    una propuesta: se lee como que la app se equivoco en cuatro nombres.
+
+    Ahora, si el DT ya publico su once, ESE es el que esta en la cancha.
+    Los dos equipos. Y lo que hacias antes —cambiar lo que cambiarias—
+    ahora arranca de la formacion de verdad.
+
+    Lo que eso cambio en la pantalla:
+      · El cartel de arriba pasa de "las formaciones estan confirmadas
+        (pero estos once los armo la app)" a "estos son los once que
+        pusieron los DT".
+      · Si salio uno solo, lo dice con el nombre del equipo: no se puede
+        dejar que el de la app pase por confirmado.
+      · El boton "Simular el once del DT" aparece solo si tocaste algo.
+        Si no cambiaste nada, las dos simulaciones serian identicas y
+        ofrecerlo seria un boton que miente.
+      · "3 cambios en el once" pasa a querer decir lo que uno espera:
+        tres cambios AL DEL DT.
+
+    Las tres decisiones finas, por si alguna vez hay que revisarlas:
+      1. El DIBUJO sale del conteo de titulares, no de la etiqueta. Si el
+         DT dice "4-3-3" y puso cinco volantes y un nueve, creerle a la
+         etiqueta dejaria cuatro jugadores mal parados.
+      2. El que NO esta en el plantel —un refuerzo que debuta— entra
+         igual, con cero minutos, anclado en la media de la liga. Dejarlo
+         afuera daria un once de diez, que no es el del DT.
+      3. El puesto del PARTIDO dice donde se para; el OFICIAL, cuanto
+         rinde ahi. Un defensor puesto de volante paga el castigo igual:
+         el modelo no le cree a nadie que un defensor sea volante porque
+         lo pongan de volante.
+
+  ── 2. EL CONTADOR DE USO NUNCA HABIA LLEGADO AL REPO ─────────────────────
+
+    Hallazgo de revisar el repo con las pruebas del navegador: `campana.js`
+    era la version vieja. El contador diario de uso —el que escribimos el
+    19/9 para poder discutir el rechazo de la prueba cerrada de Google—
+    NO ESTABA. La app lo llama con un guardarrail (`typeof usoDiario ===
+    "function"`), asi que no rompia nada: simplemente no contaba nada.
+
+    Desde el 19 creiamos estar midiendo testers activos y estabamos
+    midiendo cero. Va completo en este zip, con once pruebas nuevas.
+
+    Cuenta dos codigos, `uso-app` y `uso-web`, por la misma via y en la
+    misma tabla que los hitos: la version de Play es un TWA, o sea el
+    sitio adentro de una ventana, y sin esto una persona con la app
+    instalada y una en el navegador son indistinguibles. Justo la
+    distincion que Google pedia.
+
+    El dia se toma del reloj LOCAL y no de UTC: en Argentina, despues de
+    las nueve de la noche, UTC ya esta en el dia siguiente, y el que juega
+    todas las noches contaria dos veces por dia.
+
+  ── 3. LO DEL y64, POR SI NO LO SUBISTE ──────────────────────────────────
+
+    Cada paso caro lleva ahora una FIRMA ademas de la hora: un hash de los
+    archivos que lo producen. Si cambio alguno, lo guardado lo hizo otro
+    programa y no cuenta como fresco. Eso es lo que hace que los dibujos
+    de equipo aparezcan HOY y no dentro de 24 horas.
+
+    Al subir este zip pasa eso una vez: no hay firmas guardadas todavia,
+    asi que la primera corrida rehace los pasos caros. Son 1.200 pedidos
+    de los 7.500 del dia. NO hace falta apretar "Run workflow".
+
+  ── PROBADO ──────────────────────────────────────────────────────────────
+
+    probar-once.mjs      93 → 105
+    probar-campana.mjs   21 →  33
+    probar-frescura.mjs  22 →  34
+    probar-sitio.cjs    328 → 335
+    Todo verde, incluida la corrida completa de `publicar.mjs --sin-red`.
+
+    El caso que mas importa de los nuevos no es que el cartel diga
+    "confirmadas": es que los once que estan parados en la cancha sean
+    EXACTAMENTE los que puso cada DT, comparados uno por uno contra el
+    archivo. Un cartel que afirma algo que la cancha no muestra es peor
+    que no tener cartel.
+
 Arma el 11 - version 2026-09-20 y64 (un arreglo subido tiene que verse hoy)
 
   · SE SUBEN TRES ARCHIVOS: frescura.mjs, publicar.mjs, probar-frescura.mjs.

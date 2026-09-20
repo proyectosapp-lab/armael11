@@ -13,6 +13,7 @@ import { autoXI, slotsDe, fuerza, penalPuesto,
          INDICACIONES_POR_DEFECTO, PLANTEOS, planteoDe, planteo,
          planteoSugerido, tacticas, KNOBS,
          formaDe, formacionDeSalida, formacionHabitual, FORMS,
+         dibujoDelOnce, xiDelDT, puestoDe,
          azarDe, semillaDe, simular,
          sortearMarcador, probGoles, poissonUno, RAREZA_MINIMA } from "./juego.js";
 
@@ -403,6 +404,118 @@ for (const form of ["4-4-2", "4-3-3", "3-5-2", "4-2-3-1", "5-3-2"]) {
   caso("el sorteo devuelve qué tan probable era, que es lo que la pantalla cuenta",
        (() => { const s = sortearMarcador(1.66, 1.26, azarDe(7));
                 return s.prob > 0 && s.prob < 1 && Number.isInteger(s.gA); })());
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   EL ONCE DEL DT PUESTO EN LA CANCHA
+
+   "Justamente la idea es que si ya están las formaciones confirmadas, veas
+   eso." Lo que se prueba acá es que lo que se ve SEA el once del DT: los
+   once nombres que él puso, en las líneas en que los puso, y ninguno de
+   relleno.
+   ══════════════════════════════════════════════════════════════════════════ */
+{
+  const j = (id, pos) => ({ player: { id, name: "J" + id, pos } });
+  /* 1-4-4-2 */
+  const XI442 = [j(1,"G"), j(2,"D"), j(3,"D"), j(4,"D"), j(5,"D"),
+                 j(6,"M"), j(7,"M"), j(8,"M"), j(9,"M"), j(10,"F"), j(11,"F")];
+  /* 1-4-5-1, que es como se ve un 4-2-3-1 contando titulares */
+  const XI4231 = [j(1,"G"), j(2,"D"), j(3,"D"), j(4,"D"), j(5,"D"),
+                  j(6,"M"), j(7,"M"), j(8,"M"), j(9,"M"), j(10,"M"), j(11,"F")];
+  const pool = n => Array.from({ length: n }, (_, i) => ({
+    id: i + 1, nombre: "J" + (i + 1), ratings: [7], mins: 450,
+    pos: i === 0 ? "G" : i < 5 ? "D" : i < 9 ? "M" : "F" }));
+
+  caso("de los once titulares sale el dibujo, aunque el DT no diga nada",
+       dibujoDelOnce(XI442, "") === "4-4-2");
+  caso("la etiqueta del DT manda cuando los once la respaldan",
+       dibujoDelOnce(XI4231, "4-2-3-1") === "4-2-3-1");
+  /* El caso que rompe: el DT dice 4-3-3 y puso cinco volantes y un nueve.
+     Creerle a la etiqueta dejaría dos lugares de delantero vacíos y dos
+     volantes sin lugar, o sea cuatro jugadores mal parados.
+
+     Lo que se afirma NO es qué nombre sale —4-5-1, 4-2-3-1 y 4-1-4-1 son el
+     mismo reparto y el desempate es el orden de FORMS— sino que el reparto
+     sea el que el DT puso de verdad. */
+  {
+    const d = dibujoDelOnce(XI4231, "4-3-3");
+    const c = { D:0, M:0, F:0 };
+    for(const l of slotsDe(d || "")) if(l.cat !== "G") c[l.cat] += l.n;
+    caso("una etiqueta que NO coincide con los once se descarta: mandan los once",
+         c.D === 4 && c.M === 5 && c.F === 1, "salió " + d);
+  }
+  caso("una etiqueta que no existe en el juego tampoco rompe nada",
+       FORMS.includes(dibujoDelOnce(XI4231, "3-4-2-1")));
+  caso("un once incompleto no da dibujo: no se inventa",
+       dibujoDelOnce(XI442.slice(0, 9), "4-4-2") === null &&
+       dibujoDelOnce([], "4-4-2") === null);
+  caso("sin arquero tampoco", dibujoDelOnce(
+       [j(1,"D"), ...XI442.slice(1)], "") === null);
+
+  const xi = xiDelDT(XI442, pool(11), "4-4-2");
+  caso("el once del DT entra entero en la cancha", xi && xi.length === 11);
+  caso("y son EXACTAMENTE los once que puso, ni uno de relleno",
+       xi && xi.map(p => p.id).sort((a, b) => a - b).join(",") ===
+            "1,2,3,4,5,6,7,8,9,10,11");
+  caso("cada uno en la línea en que lo paró el DT",
+       xi && xi.map(p => p.slotCat).join("") === "GDDDDMMMMFF");
+
+  /* El refuerzo que debuta: el DT lo pone y nosotros no tenemos un minuto
+     suyo. Dejarlo afuera daría un once de diez, que no es el del DT. */
+  {
+    const sinEl10 = pool(11).filter(p => p.id !== 10);
+    const x = xiDelDT(XI442, sinEl10, "4-4-2");
+    caso("un jugador que no está en el plantel entra igual",
+         x && x.some(p => p.id === 10));
+    const nuevo = x && x.find(p => p.id === 10);
+    caso("y entra sin minutos, o sea anclado en la media de la liga",
+         nuevo && nuevo.mins === 0 && nuevo.ratings.length === 0);
+    caso("con el puesto en el que el DT lo puso",
+         nuevo && nuevo.slotCat === "F");
+  }
+
+  /* El puesto del PARTIDO dice dónde se para; el OFICIAL, cuánto rinde. Si
+     los fundiéramos, un defensor de volante saldría gratis. */
+  {
+    const conDefensor = [j(1,"G"), j(2,"D"), j(3,"D"), j(4,"D"), j(5,"D"),
+                         j(6,"M"), j(7,"M"), j(8,"M"), j(12,"M"),
+                         j(10,"F"), j(11,"F")];
+    const p12 = { id:12, nombre:"J12", pos:"D", ratings:[7], mins:450 };
+    const x = xiDelDT(conDefensor, [...pool(11).filter(p => p.id !== 9), p12], "4-4-2");
+    const el12 = x && x.find(p => p.id === 12);
+    caso("el defensor que el DT puso de volante se para de volante",
+         el12 && el12.slotCat === "M");
+    caso("pero sigue siendo defensor para el modelo, y paga el castigo",
+         el12 && el12.pos === "D" && penalPuesto(el12.pos, el12.slotCat) > 0);
+  }
+
+  caso("un dibujo que no existe no devuelve once", xiDelDT(XI442, pool(11), "9-9-9") === null);
+  caso("y un once de diez tampoco", xiDelDT(XI442.slice(0, 10), pool(11), "4-4-2") === null);
+
+  /* Lo que la pantalla hace con esto: el once del DT y el que arma la app
+     son dos cosas distintas, y tienen que poder distinguirse. */
+  {
+    /* El plantel tiene suplentes MEJORES que los titulares del DT. La app
+       sola pondría a los mejores; el DT puso a los suyos. Si las dos listas
+       salieran iguales, esta función no estaría haciendo nada. */
+    const flojos = pool(11).map(p => ({ ...p, ratings: [6.0] }));
+    const cracks = pool(11).map(p => ({ ...p, id: p.id + 100, nombre: "C" + p.id,
+                                        ratings: [8.5] }));
+    const plantel = [...flojos, ...cracks];
+    const auto = autoXI(plantel, "4-4-2");
+    const dt = xiDelDT(XI442, plantel, "4-4-2");
+    caso("la app sola pondría a los mejores",
+         auto && auto.every(p => p.id > 100));
+    caso("el once del DT son los del DT, no los mejores",
+         dt && dt.every(p => p.id <= 11));
+    caso("o sea que los dos once son distintos",
+         auto && dt && auto.map(p => p.id).join(",") !== dt.map(p => p.id).join(","));
+  }
+
+  /* "Attacker" otra vez: el once del DT pasa por el MISMO traductor que
+     todo lo demás. Una letra rara acá dejaría al nueve sin lugar. */
+  caso("los puestos del once del DT pasan por el traductor de siempre",
+       ["G","D","M","F"].every(c => puestoDe(c) === c) && puestoDe("Attacker") === "F");
 }
 
 /* ─── resultado ──────────────────────────────────────────────────────────── */

@@ -1191,20 +1191,64 @@ srv.listen(8099, async () => {
   caso("sin inventar un resultado: todavía no se jugó",
        conOnce.jugado === false && conOnce.fx.goles.home === null);
   caso("el once del DT de la Premier se ve, sin pedirle nada a la API", conOnce.salio === true);
-  /* Fausto, 19/9: "un aviso si esas formaciones ya están confirmadas o son
-     tentativas al ingresar al Armá el 11 de ese partido". La trampa que
-     este aviso desactiva: los once de la cancha SIEMPRE los armó la app,
-     también cuando el DT ya publicó el suyo. Sin decirlo, el que entra
-     media hora antes cree que la app se equivocó en cuatro nombres. */
+
+  /* ── LO QUE SE VE EN LA CANCHA ES EL ONCE DEL DT ───────────────────────
+     Fausto, 20/9: "justamente la idea es que si ya están las formaciones
+     confirmadas, veas eso".
+
+     Antes el once del DT existía pero vivía detrás de un botón, y la cancha
+     mostraba once nombres elegidos por la app. Media hora antes del partido,
+     con la formación publicada en todos lados, eso se lee como un error de
+     la app. Ahora la cancha ARRANCA con el del DT.
+
+     Estos casos son el corazón del cambio: no alcanza con que el cartel
+     diga "confirmadas", tienen que ser esos once los que están parados. */
   {
-    const av = await pg.evaluate(() => ({ cuantas: formacionesConfirmadas(),
-                                          txt: document.body.innerText }));
-    caso("con los dos once publicados, el aviso dice que están confirmadas",
-         av.cuantas === 2 && /formaciones ya están confirmadas/i.test(av.txt));
-    caso("y aclara igual que los de la cancha los armó la app",
-         /los armó la app/i.test(av.txt));
+    const cancha = await pg.evaluate(() => {
+      const ids = lado => J["xi" + lado].filter(Boolean).map(p => p.id);
+      const delArchivo = tid => (window.ONCES["98"].o.find(x => x.team.id === tid)
+        .startXI || []).map(x => x.player.id);
+      return { delDT: J.delDT, A: ids("A"), B: ids("B"),
+               esperadoA: delArchivo(1), esperadoB: delArchivo(2),
+               formA: J.formA, formB: J.formB,
+               auto: J.auto.xiA, txt: document.body.innerText };
+    });
+    caso("los dos lados quedan marcados como once del DT",
+         cancha.delDT.A === true && cancha.delDT.B === true, JSON.stringify(cancha.delDT));
+    caso("en la cancha están EXACTAMENTE los once que puso cada DT",
+         cancha.A.slice().sort().join() === cancha.esperadoA.slice().sort().join() &&
+         cancha.B.slice().sort().join() === cancha.esperadoB.slice().sort().join(),
+         JSON.stringify({ A: cancha.A, esp: cancha.esperadoA }));
+    /* El plantel del archivo son 16 con "GDDDDMMMFFFDMFMG": los primeros
+       once son 4-3-3, y esa tiene que ser la formación, no la etiqueta
+       "4-4-2" que el archivo trae para el equipo 1. */
+    caso("y la formación sale de los once que puso, no de la etiqueta",
+         cancha.formA === "4-3-3" && cancha.formB === "4-3-3",
+         cancha.formA + " / " + cancha.formB);
+    caso("el punto de partida para contar cambios pasa a ser el del DT",
+         cancha.auto.slice().sort().join() === cancha.esperadoA.slice().sort().join());
+    caso("con los dos once publicados, el cartel dice que son los de los DT",
+         /once que pusieron los DT/i.test(cancha.txt), cancha.txt.slice(0, 300));
+    caso("y ya no dice que los armó la app, porque no los armó la app",
+         !/los armó la app/i.test(cancha.txt));
   }
-  caso("y el pie invita a simularlo", /Salió el once del DT/.test(conOnce.pie));
+  caso("y el pie dice que el once del DT está en la cancha",
+       /En la cancha está el once del DT/.test(conOnce.pie), conOnce.pie.slice(0, 200));
+  caso("sin ofrecer simular el del DT: es el mismo que ya está puesto",
+       !/Simular el once del DT/.test(conOnce.pie), conOnce.pie.slice(0, 200));
+
+  /* Si tocás un nombre, las dos simulaciones vuelven a ser distintas y el
+     botón vuelve a tener sentido. */
+  {
+    const tocado = await pg.evaluate(() => {
+      const fuera = J.xiA.findIndex(p => p && p.slotCat === "F");
+      const suplente = J.pool.A.find(p => !J.xiA.some(x => x && x.id === p.id));
+      J.xiA[fuera] = { ...suplente, slotCat: "F" };
+      return pieDelResultado();
+    });
+    caso("cambiando un nombre, vuelve a ofrecerse simular el once del DT",
+         /Simular el once del DT/.test(tocado), tocado.slice(0, 200));
+  }
   caso("pero no ofrece el link del pronóstico, que es del club de la página",
        !/Copiar el link/.test(conOnce.pie), conOnce.pie.slice(0, 200));
 
@@ -1219,6 +1263,8 @@ srv.listen(8099, async () => {
        sinOnce.cuantas === 0 && /formaciones tentativas/i.test(sinOnce.txt));
   caso("diciendo cuándo sale la de verdad, que es lo accionable",
        /una hora antes/i.test(sinOnce.txt));
+  caso("y qué va a pasar cuando salga: la cancha arranca con esa",
+       /la cancha va a arrancar con ese/i.test(sinOnce.txt), sinOnce.txt.slice(0, 300));
   caso("y ahí no se ofrece el aviso al teléfono: los avisos son por club",
        !/avis/i.test(sinOnce.pie), sinOnce.pie.slice(0, 200));
 

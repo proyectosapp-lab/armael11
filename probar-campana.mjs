@@ -188,4 +188,100 @@ prueba("sin c= no toca la barra", () => {
   assert.equal(h.url, null);
 });
 
+/* ══════════════════════════════════════════════════════════════════════════
+   EL USO DE TODOS LOS DÍAS
+
+   Es el número con el que se va a discutir el rechazo de la prueba cerrada
+   de Google, así que tiene que ser el real: ni uno de más ni uno de menos.
+   Un número inflado se parece demasiado a una buena noticia.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+prueba("la app y la web se cuentan por separado", () => {
+  assert.equal(M.codigoDeUso(true), "uso-app");
+  assert.equal(M.codigoDeUso(false), "uso-web");
+});
+
+prueba("el mismo hito, el mismo día, se cuenta una sola vez", () => {
+  assert.equal(M.tocaHoy({}, "abrio", "2026-09-20"), true);
+  assert.equal(M.tocaHoy({ abrio: "2026-09-20" }, "abrio", "2026-09-20"), false);
+});
+
+prueba("pero al día siguiente vuelve a contar: eso es un tester activo", () => {
+  assert.equal(M.tocaHoy({ abrio: "2026-09-19" }, "abrio", "2026-09-20"), true);
+});
+
+prueba("y abrir no tapa simular: son dos hitos distintos", () => {
+  assert.equal(M.tocaHoy({ abrio: "2026-09-20" }, "simulo", "2026-09-20"), true);
+});
+
+prueba("sin hito o sin día no se manda nada", () => {
+  assert.equal(M.tocaHoy({}, "", "2026-09-20"), false);
+  assert.equal(M.tocaHoy({}, "abrio", ""), false);
+});
+
+/* El camino entero, con el almacenamiento y el fetch de mentira. */
+prueba("mandar el uso: un solo envío por más veces que se llame", () => {
+  ponerAlmacen();
+  enviados.length = 0;
+  assert.equal(M.usoDiario("abrio", true), true);
+  for (let i = 0; i < 20; i++) M.usoDiario("abrio", true);
+  assert.equal(enviados.length, 1);
+  assert.equal(enviados[0].cuerpo.p_codigo, "uso-app");
+  assert.equal(enviados[0].cuerpo.p_hito, "abrio");
+});
+
+prueba("desde el navegador cuenta como web", () => {
+  ponerAlmacen();
+  enviados.length = 0;
+  M.usoDiario("abrio", false);
+  assert.equal(enviados[0].cuerpo.p_codigo, "uso-web");
+});
+
+prueba("no manda nada que identifique a nadie", () => {
+  ponerAlmacen();
+  enviados.length = 0;
+  M.usoDiario("simulo", true);
+  assert.deepEqual(Object.keys(enviados[0].cuerpo).sort(), ["p_codigo", "p_hito"]);
+});
+
+/* Esto no es un hito de campaña: cuenta a TODOS, hayan venido de un anuncio
+   o no. Si dependiera del código de campaña volveríamos a medir solo a los
+   que trajo la plata, que es el agujero que esto tapa. */
+prueba("cuenta también al que no vino de ninguna campaña", () => {
+  const datos = ponerAlmacen();
+  datos.delete("armaEl11.campana");
+  enviados.length = 0;
+  assert.equal(M.usoDiario("abrio", true), true);
+  assert.equal(enviados.length, 1);
+});
+
+/* La llave no puede crecer un renglón por día para siempre en el teléfono
+   de alguien que usa la app todos los días durante un año. */
+prueba("solo se guarda lo de hoy", () => {
+  const datos = ponerAlmacen();
+  datos.set("armaEl11.usoDia", JSON.stringify({ abrio: "2020-01-01", simulo: "2020-01-02" }));
+  M.usoDiario("abrio", true);
+  const guardado = JSON.parse(datos.get("armaEl11.usoDia"));
+  assert.deepEqual(Object.keys(guardado), ["abrio"]);
+});
+
+/* La regla de todo el archivo: esto no puede romper nada. */
+prueba("con el almacenamiento negado no tira, cuenta igual", () => {
+  ponerAlmacen("niega");
+  enviados.length = 0;
+  assert.equal(M.usoDiario("abrio", true), true);
+  assert.equal(enviados.length, 1);
+  ponerAlmacen();
+});
+
+prueba("sin backend configurado no hace absolutamente nada", () => {
+  ponerAlmacen();
+  const antes = globalThis.window;
+  globalThis.window = { SITIO: {} };
+  enviados.length = 0;
+  assert.equal(M.usoDiario("abrio", true), false);
+  assert.equal(enviados.length, 0);
+  globalThis.window = antes;
+});
+
 console.log("campaña: " + hechos + " pruebas, todo bien");
