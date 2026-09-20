@@ -24,6 +24,7 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync, rmSync, readdirSync
 import { constantesDeLiga, MINIMO_PARTIDOS } from "./juego.js";
 
 import { partidosDeLaFecha } from "./fecha-de-liga.mjs";
+import { puestoDe, formacionDeSalida, formacionHabitual } from "./juego.js";
 
 const aca  = p => new URL(p, import.meta.url);
 const KEY  = process.env.API_FOOTBALL_KEY || process.argv[2] || "";
@@ -159,8 +160,27 @@ for (const L of CFG.ligas) {
 
   const acum = new Map();                       /* jugador -> {suma, n, mins, equipo} */
   const todosLosRatings = [];
+  /* ── EL DIBUJO HABITUAL DE CADA EQUIPO ────────────────────────────────
+     Hasta el 20/9 los partidos de las otras diez ligas se simulaban SIEMPRE
+     con 4-3-3, porque el archivo de liga no traía el dibujo y la pantalla
+     caía en el de respaldo. Es la misma queja que los testers hicieron en
+     agosto para los clubes argentinos —"toma todas las formaciones como
+     4-3-3, no las adapta al equipo"— y que ahí ya estaba arreglada.
+
+     El dato no cuesta un pedido más: cada `/fixtures/players` que se baja
+     para los ratings dice, por jugador, si fue titular y en qué categoría
+     jugó. Contar los titulares da el dibujo de ESE partido; la moda de los
+     últimos cinco da el habitual. Es exactamente lo que ya hace la página
+     de un club, con la misma función. */
+  const dibujos = new Map();                    /* equipo -> [formaciones] */
   for (const fid of aBajar) {
-    for (const eq of await api("/fixtures/players", { fixture: fid })) {
+    const resp = await api("/fixtures/players", { fixture: fid });
+    for (const eq of resp) {
+      const tid = eq.team?.id;
+      if (tid) {
+        const f = formacionDeSalida(resp, tid);
+        if (f) dibujos.set(tid, [...(dibujos.get(tid) || []), f]);
+      }
       for (const j of (eq.players || [])) {
         const e = (j.statistics || [])[0]; if (!e) continue;
         const r = parseFloat(e.games?.rating), mins = num(e.games?.minutes);
@@ -176,13 +196,19 @@ for (const L of CFG.ligas) {
     }
   }
 
+
   /* La lista oficial del plantel manda para el PUESTO: sin esto, un lateral
      que tapó un hueco en el medio queda de volante para siempre. */
   const puestoOficial = new Map();
   for (const id of equiposIds)
     for (const g of (await api("/players/squads", { team: id })))
       for (const j of (g.players || []))
-        puestoOficial.set(j.id, (j.position || "Midfielder")[0].toUpperCase());
+        /* `puestoDe` y no la primera letra: `/players/squads` contesta
+           "Attacker", cuya inicial es A y la categoría del juego es F.
+           Ese bug dejaba a TODOS los delanteros de las otras diez ligas sin
+           un puesto válido: `autoXI` no los podía ubicar y salían
+           improvisados por toda la cancha. Ver `puestoDe` en juego.js. */
+        puestoOficial.set(j.id, puestoDe(j.position));
 
   /* ─── 4. los números de la liga ──────────────────────────────────────── */
   const K = constantesDeLiga(paraNumeros, todosLosRatings);
@@ -198,11 +224,19 @@ for (const L of CFG.ligas) {
   const equipos = {};
   for (const f of porJugar)
     for (const t of [f.teams.home, f.teams.away])
-      equipos[t.id] = equipos[t.id] || { n: t.name, j: [] };
+      equipos[t.id] = equipos[t.id] || {
+        n: t.name, j: [],
+        /* `f` es el dibujo habitual, sacado de los últimos partidos. Si no
+           alcanzaron los datos queda null y la pantalla usa el de respaldo:
+           `formacionHabitual` nunca inventa uno. */
+        f: formacionHabitual(dibujos.get(t.id) || []) };
 
   for (const [id, a] of acum) {
     const e = equipos[a.equipo]; if (!e) continue;
-    e.j.push({ i:id, n:a.nombre, p:(puestoOficial.get(id) || a.pos || "M").slice(0,1),
+    /* Los dos orígenes pasan por el MISMO traductor. El de los partidos ya
+       viene en letra, pero se normaliza igual: una letra rara acá es un
+       jugador que no entra en ninguna formación. */
+    e.j.push({ i:id, n:a.nombre, p:(puestoOficial.get(id) || puestoDe(a.pos)),
                r: a.n ? Math.round(a.suma / a.n * 100) / 100 : null, m: a.mins });
   }
 

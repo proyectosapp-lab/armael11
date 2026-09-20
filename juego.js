@@ -76,6 +76,40 @@ export function penalPuesto(real, slot){
   return PENAL[[real,slot].sort().join("")] ?? 0.5;
 }
 
+/* ── EL PUESTO, DICHO DE LAS DOS MANERAS QUE LO DICE LA API ──────────────
+   API-Football contesta el puesto en DOS formatos distintos según a qué le
+   preguntes, y esto costó un bug que estuvo publicado:
+
+     `/fixtures/players` → `games.position` = "G" | "D" | "M" | "F"
+     `/players/squads`   → `position`       = "Goalkeeper" | "Defender" |
+                                              "Midfielder" | "Attacker"
+
+   La tentación es agarrar la primera letra del segundo formato, y funciona
+   para tres de los cuatro: G, D, M... y **A**. "Attacker" empieza con A, y
+   la categoría del juego es **F**. Un delantero quedaba con puesto "A", que
+   no existe en ninguna formación, así que `autoXI` no lo podía poner en
+   ningún lugar de delantero y todos terminaban improvisados y fuera de
+   puesto. Peor todavía: `penalPuesto("A","F")` no encuentra la combinación y
+   cobra 0,5 de castigo, o sea que un delantero pagaba por jugar de
+   delantero. Ensuciaba la simulación, no solo el dibujo.
+
+   Por eso el traductor es UNO SOLO y está acá, que es el archivo que ven
+   las dos puntas: el navegador y los scripts que bajan los datos.
+
+   Y traduce también desde "A": los archivos de liga que ya están publicados
+   tienen esa letra adentro, y la app tiene que entenderlos hoy y no cuando
+   se rehagan. */
+export const PUESTO_OFICIAL = { Goalkeeper:"G", Defender:"D", Midfielder:"M", Attacker:"F" };
+
+export function puestoDe(v){
+  const s = String(v == null ? "" : v).trim();
+  if(!s) return "M";
+  if(PUESTO_OFICIAL[s]) return PUESTO_OFICIAL[s];
+  const c = s[0].toUpperCase();
+  if(c === "A") return "F";                 /* "Attacker", y la letra vieja */
+  return (c === "G" || c === "D" || c === "M" || c === "F") ? c : "M";
+}
+
 export function slotsDe(f){
   const l = f.split("-").map(Number).filter(n=>n>0), s = [{cat:"G",n:1}];
   s.push({cat:"D", n:l[0]});
