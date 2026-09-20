@@ -1,3 +1,28 @@
+Arma el 11 - version 2026-09-20 y69 (que Apple no pregunte mas)
+
+  · SE SUBE UN SOLO ARCHIVO: codemagic.yaml. No empieza con punto, o sea
+    que se sube arrastrando como cualquier otro.
+
+  · QUE ARREGLA. En la build 10, App Store Connect freno la compilacion con
+    "Falta informacion de exportacion" y hubo que contestar a mano un
+    cuestionario de cuatro opciones. Se eligio la segunda —"algoritmos
+    estandar en lugar de, o ademas de"— y la correcta era la cuarta:
+    "ninguno de los algoritmos mencionados".
+
+    La app no usa criptografia propia: habla HTTPS y nada mas, que es
+    justamente la excepcion que la ley contempla.
+
+  · COMO. Una linea en el Info.plist, puesta por el mismo paso que ya pone
+    la version y la orientacion:
+
+      ITSAppUsesNonExemptEncryption = false
+
+    Con eso Apple no vuelve a preguntar en NINGUNA compilacion. Es la misma
+    respuesta que se dio a mano, escrita donde se contesta sola.
+
+  · CUANDO TIENE EFECTO. En la proxima compilacion, o sea al crear la
+    etiqueta. No hace falta tocar nada en Codemagic.
+
 Arma el 11 - version 2026-09-20 y68 (abajo del resultado no va nada mas)
 
   · SE SUBEN DOS ARCHIVOS: app.tpl.html y probar-sitio.cjs. Mas VERSION.txt.

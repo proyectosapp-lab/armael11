@@ -147,6 +147,18 @@ workflows:
           # La versión sale del número de compilación de Codemagic, así no
           # hay que acordarse de subirlo a mano nunca.
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" "$P"
+          # ── LA PREGUNTA DE EXPORTACIÓN, CONTESTADA DE UNA VEZ ───────────
+          # Sin esto, App Store Connect frena CADA compilación con "Falta
+          # información de exportación" y hay que contestar a mano un
+          # cuestionario de cuatro opciones. En la build 10 se eligió la
+          # segunda —"algoritmos estándar"— y era la cuarta: "ninguno".
+          #
+          # La app no usa criptografía propia. Habla HTTPS y nada más, que
+          # es exactamente la excepción que la ley contempla, así que la
+          # respuesta correcta es `false`. Puesta acá, Apple no vuelve a
+          # preguntar en ninguna compilación.
+          /usr/libexec/PlistBuddy -c "Add :ITSAppUsesNonExemptEncryption bool false" "$P" || \
+          /usr/libexec/PlistBuddy -c "Set :ITSAppUsesNonExemptEncryption false" "$P"
           plutil -p "$P" | head -40
 
       - name: Poner el perfil en el proyecto
