@@ -1,3 +1,66 @@
+Arma el 11 - version 2026-09-20 y62 (se nombra lo que hay)
+
+  · SE SUBE ESTE SOLO. Cambia UN archivo: codemagic.yaml.
+
+  · ANTES DE SUBIRLO HAY QUE CREAR EL PERFIL. Ver abajo. Sin eso, este zip
+    falla igual pero con un error distinto -y ese error SI dice cual de las
+    dos piezas falta, que es la mejora-.
+
+  · LA NOVENA COMPILACION VOLVIO A DECIR "No matching profiles found" CON EL
+    CERTIFICADO YA CREADO. Y eso cierra el diagnostico: el certificado era
+    la MITAD. Firmar necesita dos cosas, y Codemagic las guarda en dos
+    cajones distintos de la misma pantalla:
+
+      iOS certificates          -> `armael11`, production, vence 19/9/2027
+      iOS provisioning profiles -> VACIO
+
+    La firma automatica estaba buscando un perfil en un cajon vacio.
+
+  · QUE SON LAS DOS COSAS, PORQUE CUESTA:
+      El CERTIFICADO dice "esta persona puede firmar apps". Es la identidad.
+      El PERFIL dice "esta app, firmada con ese certificado, puede
+      instalarse en tal lado". Es el permiso, y es por app.
+    Tener uno sin el otro no sirve para nada, y por eso el mensaje generico
+    de Codemagic -"no encuentro perfiles"- aparecio tres veces por tres
+    motivos distintos.
+
+  · EL CAMBIO: SE NOMBRAN LAS DOS PIEZAS EN VEZ DE PEDIR QUE LAS BUSQUE.
+
+      ios_signing:
+        certificates:
+          - armael11
+        provisioning_profiles:
+          - armael11
+
+    Antes decia `distribution_type` + `bundle_identifier`, que es pedirle a
+    Codemagic que salga a buscar o crear las dos cosas por su cuenta. Ahora
+    estan guardadas, tienen nombre, y se las nombra. Es la forma mas aburrida
+    y la unica que no depende de que algo le pregunte a Apple en el momento
+    equivocado.
+
+    Y si alguna se renombra, la compilacion falla diciendo CUAL falta, en vez
+    del mensaje generico de siempre.
+
+  · LO QUE HAY QUE HACER EN EL NAVEGADOR, UNA VEZ
+
+    En developer.apple.com -> Certificates, Identifiers & Profiles ->
+    Profiles -> el mas (+):
+
+      Tipo:        App Store Connect  (en Distribution, NO Development)
+      App ID:      com.armael11.app
+      Certificado: el que dice "Fausto Manuel Vergara", vence 19/9/2027
+      Nombre:      armael11
+
+    Se descarga un archivo `.mobileprovision`.
+
+    Despues, en Codemagic -> Settings -> Code signing identities ->
+    pestana "iOS provisioning profiles" -> subir ese archivo con
+    Reference name `armael11`, exactamente igual que el certificado.
+
+    Si esa pestana tiene un boton para traerlos de Apple, tambien sirve:
+    con el perfil ya creado, lo encuentra. Lo que importa es que quede
+    listado con ese nombre.
+
 Arma el 11 - version 2026-09-20 y61 (la firma, con el renglon que faltaba)
 
   · SE SUBE ESTE SOLO. Cambia UN archivo: codemagic.yaml.

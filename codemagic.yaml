@@ -44,30 +44,34 @@ workflows:
       cocoapods: default
       vars:
         BUNDLE_ID: "com.armael11.app"
-      # ── LA FIRMA, Y POR QUÉ VOLVIÓ A SER AUTOMÁTICA ────────────────────
-      # Este bloque estuvo, se sacó, y volvió. La historia importa porque
-      # explica por qué no es dar vueltas:
+      # ── LA FIRMA: SE NOMBRA LO QUE HAY, NO SE PIDE QUE LO ADIVINE ──────
+      # Nueve compilaciones para llegar acá, y la historia vale porque
+      # explica por qué esta versión es distinta de las otras tres:
       #
-      # 1. Estaba, y las compilaciones 1 y 2 murieron con "No matching
-      #    profiles found" ANTES de correr un solo paso. Sin log.
-      # 2. Se sacó y se pidió la firma a mano en un paso, para que el error
-      #    quedara escrito. Funcionó: la compilación 6 dijo
-      #       "Cannot save Signing Certificates without certificate private key"
-      #    Un certificado sin su clave privada no firma nada, y la clave
-      #    privada no la puede inventar la Mac en cada corrida: si lo
-      #    hiciera, cada compilación crearía un certificado nuevo y Apple
-      #    deja tener dos.
-      # 3. Manejar esa clave entre corridas es EXACTAMENTE lo que hace la
-      #    firma automática. Así que vuelve.
+      # 1. `distribution_type` + `bundle_identifier`. Codemagic tenía que
+      #    ir a buscar o crear el certificado y el perfil. Murió con "No
+      #    matching profiles found" ANTES de correr un paso, o sea sin log.
+      # 2. Se pidió la firma a mano, solo para que el error quedara
+      #    escrito. Funcionó: "Cannot save Signing Certificates without
+      #    certificate private key". Faltaba la clave privada.
+      # 3. Se generó el certificado en Codemagic, que crea la clave y la
+      #    guarda. Y volvió a fallar igual: porque el certificado era la
+      #    MITAD. El perfil de aprovisionamiento es la otra, se guarda en
+      #    otro cajón, y ese cajón estaba vacío.
       #
-      # Y lo que hacía fallar a la 1 y a la 2 ya no está: la clave de API
-      # tenía rol App Manager, que no llega a Certificates, Identifiers &
-      # Profiles. Ahora tiene Admin. O sea que el paso a mano no fue una
-      # vuelta al pescuezo: fue el que consiguió el renglón que decía qué
-      # arreglar.
+      # Así que ahora no se le pide a nadie que busque ni cree nada. Las dos
+      # piezas están guardadas en Codemagic con nombre propio, y acá se las
+      # nombra. Es la forma más aburrida y la única que no depende de que
+      # algo salga a preguntarle a Apple en el momento equivocado.
+      #
+      # `armael11` es el `Reference name` de las dos, en
+      # Settings → Code signing identities. Si alguna se renombra, esto se
+      # rompe con un error que SÍ dice cuál falta.
       ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.armael11.app
+        certificates:
+          - armael11
+        provisioning_profiles:
+          - armael11
 
     integrations:
       app_store_connect: armael11
