@@ -1,3 +1,56 @@
+Arma el 11 - version 2026-09-20 y61 (la firma, con el renglon que faltaba)
+
+  · SE SUBE ESTE SOLO. Cambia UN archivo: codemagic.yaml.
+
+  · EL RENGLON QUE APARECIO, despues de mover la firma a un paso propio:
+
+      Cannot save Signing Certificates without certificate private key
+
+    Eso es todo lo que hacia falta y es muy concreto. `fetch-signing-files`
+    pidio el certificado a Apple y lo consiguio, pero para GUARDARLO en el
+    llavero necesita la CLAVE PRIVADA que le corresponde. Un certificado sin
+    su clave privada no firma nada: es la mitad de un par.
+
+    Y esa clave privada NO la puede inventar la Mac en cada corrida. Si lo
+    hiciera, cada compilacion crearia un certificado nuevo, y Apple deja
+    tener dos certificados de distribucion. En tres compilaciones se acaban.
+
+  · EL ARREGLO: VUELVE LA FIRMA AUTOMATICA. Manejar esa clave privada entre
+    corridas -generarla una vez, guardarla, reusarla- es EXACTAMENTE lo que
+    hace el bloque `ios_signing` de Codemagic. Por eso vuelve.
+
+  · Y NO, NO ES DAR VUELTAS. La historia completa, que queda escrita adentro
+    del propio archivo:
+
+      1. El bloque estaba, y las compilaciones 1 y 2 murieron con "No
+         matching profiles found" ANTES de correr un solo paso. Sin log.
+      2. Se saco y se pidio la firma a mano, para que el error quedara
+         escrito. Funciono: la compilacion 6 dijo con todas las letras que
+         faltaba la clave privada.
+      3. Con eso sabido, la firma automatica es la respuesta.
+
+    Y lo que hacia fallar a la 1 y a la 2 ya no esta: la clave de API tenia
+    rol App Manager, que no llega a Certificates, Identifiers & Profiles.
+    Ahora tiene Admin. El paso a mano no fue una vuelta al pescuezo: fue el
+    que consiguio el renglon que decia que arreglar.
+
+  · LO QUE QUEDA DEL PASO A MANO: `xcode-project use-profiles`, que mete el
+    perfil adentro del proyecto de Xcode recien generado, y un `ls` de los
+    perfiles disponibles. Ese `ls` es a proposito: si algo vuelve a fallar
+    ahi, que haya un renglon que leer en vez de una adivinanza. La leccion
+    de las compilaciones 1 y 2 se queda aunque el codigo vuelva atras.
+
+  · SI VUELVE A FALLAR, EL PLAN B ESTA PENSADO: Codemagic puede generar la
+    clave privada del certificado desde su propia pantalla, sin terminal
+    (Settings -> Code signing identities -> iOS certificates). No hace falta
+    generarla a mano ni que pase por ningun lado.
+
+  · Y ALGO PARA MIRAR SI APARECE UN ERROR DE LIMITE: la compilacion 6 pudo
+    haber creado un certificado de distribucion en la cuenta de Apple del
+    que nadie tiene la clave privada. Es un certificado huerfano y ocupa uno
+    de los dos lugares. Si en algun momento Apple dice que no se pueden
+    crear mas, es ese, y se revoca en developer.apple.com.
+
 Arma el 11 - version 2026-09-20 y60 (fuera el marcador mas probable)
 
   · SE SUBE ESTE SOLO. Incluye y59.
