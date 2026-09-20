@@ -42,7 +42,7 @@ alter table panel_clave enable row level security;
 
 -- ─── ACÁ. CAMBIAR ESTO Y NADA MÁS ─────────────────────────────────────────
 insert into panel_clave (id, huella)
-values (1, crypt('CAMBIAR-ACA-POR-UNA-CLAVE-LARGA', gen_salt('bf')))
+values (1, crypt('@Totito22', gen_salt('bf')))
 on conflict (id) do update
   set huella = excluded.huella, puesta = now();
 
