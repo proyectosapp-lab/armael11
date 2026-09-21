@@ -5762,7 +5762,20 @@ function bloquePremium(){
       <b>Tenés el pase</b> ${esc(cuantoFalta(PREMIUM.hasta))}. Simulás sin espera
       y sin avisos.</div>${contador}`;
 
-  if(!PLANES.length) return contador;
+  /* ── SIN PLANES DEL SERVIDOR NO HAY NADA QUE OFRECER… SALVO EN EL IPHONE
+     En la web y en Play los precios los pone el servidor, así que si no
+     contestó no hay ningún precio que mostrar y se deja solo el contador.
+
+     Adentro del iPhone es al revés: los nombres de los tres planes viven en
+     `tienda-ios.js` y el precio lo pone StoreKit, o sea que la pantalla de
+     compra NO depende de nuestro servidor. Este corte, puesto sin la
+     excepción, habría dejado la pantalla de compra en blanco justo cuando
+     el servidor no contesta — que es exactamente el escenario que el corte
+     de `tarjetasDePlan()` estaba tratando de cubrir. Uno de los dos cortes
+     anulaba al otro, dos funciones más arriba y sin síntoma visible salvo
+     el día equivocado, con el revisor de Apple mirando. */
+  if(!PLANES.length && !(typeof esNativaIos === "function" && esNativaIos()))
+    return contador;
 
   /* Los precios y los cupos salen del servidor, nunca de acá: si estuvieran
      escritos en la app, el día que cambie uno la pantalla diría un número y

@@ -1,4 +1,4 @@
-Arma el 11 - version 2026-09-21 y76 (se puede pagar desde el iPhone, por Apple)
+Arma el 11 - version 2026-09-21 y76b (se puede pagar desde el iPhone, por Apple)
 
   · SE SUBEN AL REPO: tienda-ios.js, probar-tienda-ios.mjs,
     funcion-pago-apple.ts, app.tpl.html, cuentas.js, construir-sitio.mjs,
@@ -209,9 +209,38 @@ Arma el 11 - version 2026-09-21 y76 (se puede pagar desde el iPhone, por Apple)
     junto con Capacitor- y es el unico lugar del proyecto donde esta
     escrita. El paso imprime la version que quedo, justamente para eso.
 
+  ── ARREGLO DEL y76b: UN CORTE MAS ARRIBA QUE ANULABA AL OTRO ────────────
+
+    `tarjetasDePlan()` resuelve el iPhone en su primera linea, antes del
+    `if(!PLANES.length)`, para que el revisor de Apple vea la pantalla de
+    compra aunque nuestro servidor no conteste.
+
+    Pero `bloquePremium()`, dos funciones mas arriba, tenia SU PROPIO corte
+    -`if(!PLANES.length) return contador;`- y ni siquiera llegaba a llamar a
+    `tarjetasDePlan()`. O sea que el cuidado de adentro estaba anulado desde
+    afuera, sin ningun sintoma, y se habria visto solo el dia equivocado.
+
+    Se encontro sacandole la foto a la pantalla de compra con la red
+    cortada: el panel no aparecia. La regla de siempre -dibujarlo y mirarlo,
+    no solo pasar la prueba- otra vez.
+
+  ── LA FOTO PARA LA REVISION (foto-compra.cjs) ───────────────────────────
+
+    Apple pide una captura de la pantalla de compra por cada suscripcion, y
+    sin ella la suscripcion se queda en "Falta metadata" — estado en el que
+    StoreKit NO la devuelve, ni siquiera en sandbox. O sea que sin la foto
+    no se puede ni probar.
+
+    Y se pide antes de que exista una compilacion con la pantalla adentro.
+    Se resuelve dibujando la pantalla de verdad: `foto-compra.cjs` abre el
+    sitio armado, le enchufa `tienda-ios.js` tal cual viaja en el .ipa, le
+    pone un plugin de Capacitor falso que devuelve los tres productos con
+    sus precios, y saca la foto a 1284 x 2778. No es una maqueta: es el
+    mismo HTML, el mismo CSS y la misma funcion que va a correr.
+
   ── PRUEBAS ──────────────────────────────────────────────────────────────
 
-    probar-tienda-ios.mjs   0 -> 52 (nueva)
+    probar-tienda-ios.mjs   0 -> 53 (nueva)
     probar-pagos.mjs       31 -> 64
     probar-empaquetado-ios 11 -> 15
     probar-sitio.cjs      408 -> 411

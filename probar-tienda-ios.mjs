@@ -279,6 +279,14 @@ caso("y llamarla dos veces no configura dos veces",
        "ios:" + iOS + " backend:" + backend + " mp:" + mp);
 }
 
+/* EL CORTE DE MÁS ARRIBA, QUE ANULABA AL DE ADENTRO. `bloquePremium()` no
+   llama a `tarjetasDePlan()` si el servidor no devolvió planes, y eso dejaba
+   la pantalla de compra del iPhone en blanco justo en el escenario que el
+   corte de `tarjetasDePlan()` venía a cubrir. Dos funciones más arriba, sin
+   síntoma, y visible solo el día equivocado. */
+caso("y bloquePremium deja pasar al iPhone aunque el servidor no haya dado planes",
+     /!PLANES\.length && !\(typeof esNativaIos === "function" && esNativaIos\(\)\)/.test(APP));
+
 /* Y en el botón de comprar, lo mismo: el iPhone primero y con `return`. Sin
    ese return, una compra fallida seguiría de largo hasta Mercado Pago. */
 {
