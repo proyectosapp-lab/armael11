@@ -207,6 +207,65 @@ export function formacionHabitual(formas){
       puesto OFICIAL decide cuánto rinde ahí. Si el DT manda a un defensor de
       volante, el castigo se cobra igual — el modelo no le cree a nadie que
       un defensor sea volante porque lo pongan de volante.               */
+/* ══════════════════════════════════════════════════════════════════════════
+   EN QUÉ ESTÁ UN PARTIDO, MIRANDO TAMBIÉN EL RELOJ
+
+   Fausto, 21/9/2026, mirando la lista de la fecha: "fijate todos estos
+   partidos que ya están jugados y figuran para simular".
+
+   El estado lo escribe la ronda completa, que corre una vez por día. O sea
+   que el archivo puede decir "NS" —no empezó— de un partido que se jugó
+   hace veinte horas, y la pantalla le ofrece "Simular · dom 20/09 · 14:45"
+   a alguien que está mirando el lunes a la noche. Es la peor versión del
+   problema: no es que falte el dato, es que el dato viejo AFIRMA algo falso.
+
+   Antes del y67 esto no se veía porque los partidos jugados directamente
+   desaparecían del archivo. Publicar la fecha entera fue lo correcto y trajo
+   esto de la mano.
+
+   La salida no es bajar datos más seguido —eso cuesta 1.200 pedidos— sino
+   dejar de necesitarlos para esta pregunta: la hora del partido ya está en
+   el archivo, y el reloj del teléfono es gratis y siempre está al día.
+   Cuando el archivo dice algo, se le cree; cuando calla, manda el reloj.
+
+   Los 115 minutos son noventa más el entretiempo más el descuento. Pasado
+   eso, un partido que "no empezó" es un partido que el archivo no alcanzó a
+   actualizar.                                                             */
+export const MINUTOS_DE_PARTIDO = 115;
+const EST_JUGADO  = ["FT", "AET", "PEN"];
+const EST_EN_JUEGO = ["1H", "HT", "2H", "ET", "BT", "P", "LIVE", "INT"];
+
+export function estadoDePartido(p, ahora = new Date()){
+  const e = String((p && p.estado) || "NS");
+  if(EST_JUGADO.includes(e))   return "jugado";
+  if(EST_EN_JUEGO.includes(e)) return "enJuego";
+  const t = new Date((p && p.fecha) || 0).getTime();
+  if(!isFinite(t) || !t) return "porJugar";
+  const min = (ahora.getTime() - t) / 6e4;
+  if(min >= MINUTOS_DE_PARTIDO) return "jugado";
+  if(min >= 0) return "enJuego";
+  return "porJugar";
+}
+
+/* El orden en que se leen: primero el que se está jugando, después lo que
+   viene, y al final lo que ya pasó, de lo más reciente para atrás.
+
+   Que los jugados vayan últimos no es prolijidad. Es la primera pantalla de
+   alguien que llegó de un anuncio: si arriba de todo hay un partido de ayer,
+   lo va a tocar, y va a estrenar la app simulando algo cuyo resultado ya
+   sabe. La app no dice qué va a pasar, dice con qué probabilidad, y ese
+   matiz no se entiende en el primer minuto de uso. Se entiende con un
+   partido que todavía no se jugó.                                        */
+export function ordenarPartidos(partidos, ahora = new Date()){
+  const peso = { enJuego: 0, porJugar: 1, jugado: 2 };
+  const t = p => new Date((p && p.fecha) || 0).getTime() || 0;
+  return (partidos || []).slice().sort((a, b) => {
+    const ea = estadoDePartido(a, ahora), eb = estadoDePartido(b, ahora);
+    if(peso[ea] !== peso[eb]) return peso[ea] - peso[eb];
+    return ea === "jugado" ? t(b) - t(a) : t(a) - t(b);
+  });
+}
+
 export function dibujoDelOnce(startXI, etiqueta){
   const cats = (startXI || []).map(x => puestoDe(x?.player?.pos));
   if(cats.length !== 11) return null;

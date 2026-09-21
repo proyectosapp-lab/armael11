@@ -15,6 +15,7 @@ import { autoXI, slotsDe, fuerza, penalPuesto,
          planteoSugerido, tacticas, KNOBS,
          formaDe, formacionDeSalida, formacionHabitual, FORMS,
          dibujoDelOnce, xiDelDT, puestoDe,
+         estadoDePartido, ordenarPartidos, MINUTOS_DE_PARTIDO,
          azarDe, semillaDe, simular,
          sortearMarcador, probGoles, poissonUno, RAREZA_MINIMA } from "./juego.js";
 
@@ -665,6 +666,67 @@ for (const form of ["4-4-2", "4-3-3", "3-5-2", "4-2-3-1", "5-3-2"]) {
 
   caso("el puesto elegido queda anotado en la respuesta",
        (sinD.desde.faltanA || []).join() === "D");
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   UN PARTIDO DE AYER NO SE OFRECE PARA SIMULAR
+
+   Fausto, 21/9/2026: "fijate todos estos partidos que ya están jugados y
+   figuran para simular".
+
+   El estado lo escribe la ronda completa, una vez por día. El archivo puede
+   decir "NS" de algo que se jugó hace veinte horas, y ahí la pantalla no
+   muestra un dato viejo: AFIRMA algo falso. El reloj del teléfono es gratis
+   y siempre está al día.
+   ══════════════════════════════════════════════════════════════════════════ */
+{
+  const ahora = new Date("2026-09-21T20:00:00Z");
+  const p = (fecha, estado) => ({ fecha, estado });
+  const hs = n => new Date(ahora.getTime() + n * 36e5).toISOString();
+
+  caso("lo que el archivo AFIRMA se respeta: si dice terminado, terminó",
+       estadoDePartido(p(hs(5), "FT"), ahora) === "jugado");
+  caso("y si dice que se está jugando, también",
+       estadoDePartido(p(hs(-40), "1H"), ahora) === "enJuego");
+
+  caso("un partido de dentro de dos horas está por jugarse",
+       estadoDePartido(p(hs(2), "NS"), ahora) === "porJugar");
+  caso("uno que arrancó hace media hora se está jugando, diga lo que diga",
+       estadoDePartido(p(hs(-0.5), "NS"), ahora) === "enJuego");
+  /* El caso de la captura: domingo 14:45, mirado el lunes. */
+  caso("uno de AYER ya se jugó, aunque el archivo diga que no empezó",
+       estadoDePartido(p("2026-09-20T17:45:00Z", "NS"), ahora) === "jugado");
+
+  caso("el corte son 115 minutos: noventa, el entretiempo y el descuento",
+       MINUTOS_DE_PARTIDO === 115 &&
+       estadoDePartido(p(hs(-1.8), "NS"), ahora) === "enJuego" &&
+       estadoDePartido(p(hs(-2.0), "NS"), ahora) === "jugado");
+  caso("sin fecha no se inventa nada: queda por jugar",
+       estadoDePartido({ estado: "NS" }, ahora) === "porJugar" &&
+       estadoDePartido(null, ahora) === "porJugar");
+
+  /* ── EL ORDEN ─────────────────────────────────────────────────────────
+     La primera pantalla del que llegó de un anuncio no puede abrir con un
+     partido de ayer: lo toca, simula algo cuyo resultado ya sabe, le da
+     distinto, y se va. */
+  const l = [
+    { id: "ayer",    fecha: "2026-09-20T17:45:00Z", estado: "NS" },
+    { id: "manana",  fecha: hs(26), estado: "NS" },
+    { id: "ahora",   fecha: hs(-0.5), estado: "NS" },
+    { id: "enUnRato",fecha: hs(3), estado: "NS" },
+    { id: "anteayer",fecha: "2026-09-19T17:45:00Z", estado: "FT" },
+  ];
+  const o = ordenarPartidos(l, ahora).map(x => x.id);
+  caso("primero el que se está jugando", o[0] === "ahora", o.join(","));
+  caso("después lo que viene, del más cercano al más lejano",
+       o[1] === "enUnRato" && o[2] === "manana", o.join(","));
+  caso("y los jugados al final, del más reciente para atrás",
+       o[3] === "ayer" && o[4] === "anteayer", o.join(","));
+  caso("no se pierde ni se duplica ninguno",
+       o.length === l.length && new Set(o).size === l.length);
+  caso("una lista vacía no rompe", ordenarPartidos(null, ahora).length === 0);
+  caso("y no toca la lista original",
+       l[0].id === "ayer", "la ordenó en el lugar");
 }
 
 /* ─── resultado ──────────────────────────────────────────────────────────── */

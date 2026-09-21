@@ -312,6 +312,8 @@ button.gh{background:transparent;color:var(--tinta-2);border:1px solid var(--bor
    entiende; apagado se lee de una: ese es el que falta, y ahí se ve con
    cuántos quedó cada línea. Tachado además del gris, porque en una cancha
    verde el gris solo no alcanza para decir "este no cuenta". */
+.part-sep{font-size:11px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;
+  color:var(--tinta-3,#8B95A6);padding:16px 2px 6px;opacity:.75}
 .jug.falta{opacity:.42}
 .jug.falta .b{background:#3b4046 !important;color:#c9ced4 !important;
   border-color:rgba(255,255,255,.35) !important;box-shadow:none}
@@ -4660,21 +4662,37 @@ function vistaJuego(){
              resultado en vez de la hora, y el botón dice otra cosa: no es
              lo mismo "simular" un partido que falta que uno que ya se
              jugó. El segundo es la pregunta que hace un hincha el lunes.  */
-          const terminado = e => ["FT","AET","PEN"].includes(e);
-          const enJuego = e => ["1H","HT","2H","ET","BT","P","LIVE","INT"].includes(e);
-          return `<div class="partidos" style="margin-top:10px">${L.partidos.map(p=>{
-            const est = p.estado || "NS", hayGol = p.golL != null && p.golV != null;
-            const cuando = terminado(est) && hayGol
-              ? "Terminó " + p.golL + "-" + p.golV
-              : enJuego(est) && hayGol ? "En juego · " + p.golL + "-" + p.golV
+          /* EL RELOJ MANDA CUANDO EL ARCHIVO CALLA. El estado lo escribe la
+             ronda completa, una vez por día, así que puede decir "no
+             empezó" de un partido de hace veinte horas. `estadoDePartido`
+             mira las dos cosas; el porqué está en juego.js.
+
+             Y los jugados van al final. No es prolijidad: es la primera
+             pantalla del que llegó de un anuncio. Si arriba hay un partido
+             de ayer lo va a tocar, y va a estrenar la app simulando algo
+             cuyo resultado ya sabe — que es la peor manera de conocer un
+             modelo que habla de probabilidades y no de certezas. */
+          const ahora = new Date();
+          const enOrden = ordenarPartidos(L.partidos, ahora);
+          const primerJugado = enOrden.findIndex(p => estadoDePartido(p, ahora) === "jugado");
+          return `<div class="partidos" style="margin-top:10px">${enOrden.map((p,i)=>{
+            const est = estadoDePartido(p, ahora), hayGol = p.golL != null && p.golV != null;
+            /* "Ya se jugó" sin marcador es un estado de verdad y hay que
+               decirlo: lo sabemos por la hora, todavía no por el dato. */
+            const cuando = est === "jugado"
+              ? (hayGol ? "Terminó " + p.golL + "-" + p.golV : "Ya se jugó")
+              : est === "enJuego"
+              ? (hayGol ? "En juego · " + p.golL + "-" + p.golV : "Se está jugando")
               : cuandoJuega(p.fecha);
-            return `<div class="part">
+            const sep = i === primerJugado && i > 0
+              ? `<div class="part-sep">Ya se jugaron</div>` : "";
+            return sep + `<div class="part">
               <div class="part-txt">
                 <b>${esc(nombreDeEquipo(L,p.local))} <span class="vs">vs</span> ${esc(nombreDeEquipo(L,p.visita))}</b>
                 <span>${esc([nombreDeFecha(p.ronda), cuando].filter(Boolean).join(" · "))}</span>
               </div>
-              <button class="${terminado(est) ? "gh" : "acc"} part-btn" data-part="${p.id}"
-                >${terminado(est) ? "¿Y si…?" : "Simular"}</button>
+              <button class="${est === "jugado" ? "gh" : "acc"} part-btn" data-part="${p.id}"
+                >${est === "jugado" ? "¿Y si…?" : "Simular"}</button>
             </div>`;}).join("")}</div>
             <p class="aviso" style="margin-top:8px">${L.calibrada
               ? "Calibrada con " + L.calibrada.partidos + " partidos de " + L.calibrada.temporada + "."

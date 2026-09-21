@@ -1,3 +1,78 @@
+Arma el 11 - version 2026-09-21 y72 (el reloj manda cuando el archivo calla)
+
+  · SE SUBEN CUATRO ARCHIVOS: juego.js, app.tpl.html, probar-once.mjs,
+    probar-sitio.cjs. Mas VERSION.txt. Va ENCIMA del y71, no lo reemplaza.
+
+  ── EL BUG ───────────────────────────────────────────────────────────────
+
+    "Fijate todos estos partidos que ya estan jugados y figuran para
+    simular."
+
+    El estado de cada partido lo escribe la ronda completa, que corre una
+    vez por dia. O sea que el archivo puede decir "NS" —no empezo— de un
+    partido que se jugo hace veinte horas, y la pantalla le ofrece
+    "Simular · dom 20/09 · 14:45" a alguien que esta mirando el lunes a la
+    noche.
+
+    Eso es peor que un dato viejo: es un dato viejo que AFIRMA algo falso.
+
+    Antes del y67 no se veia porque los partidos jugados desaparecian del
+    archivo. Publicar la fecha entera fue lo correcto y trajo esto de la
+    mano. Es la segunda vez en dos dias que un arreglo destapa algo que el
+    cache escondia.
+
+  ── EL ARREGLO, Y POR QUE NO ES "BAJAR DATOS MAS SEGUIDO" ────────────────
+
+    Bajar mas seguido cuesta 1.200 pedidos por vuelta. La salida es dejar de
+    necesitar el dato para esta pregunta: la hora del partido YA esta en el
+    archivo, y el reloj del telefono es gratis y siempre esta al dia.
+
+    `estadoDePartido` mira las dos cosas. Cuando el archivo afirma algo
+    —terminado, en juego— se le cree. Cuando calla, manda el reloj:
+
+      faltan horas           por jugar
+      arranco hace un rato   se esta jugando
+      paso hace mas de 115'  ya se jugo
+
+    115 son noventa, el entretiempo y el descuento.
+
+    Un partido que el reloj da por jugado pero del que todavia no tenemos el
+    marcador dice "Ya se jugo" en vez de una hora. Es la verdad completa: ya
+    paso, y el resultado lo vamos a tener en la proxima ronda.
+
+  ── Y EL ORDEN, QUE ES LO QUE DE VERDAD IMPORTA ──────────────────────────
+
+    Primero el que se esta jugando, despues lo que viene del mas cercano al
+    mas lejano, y al final los jugados con un corte que dice "Ya se
+    jugaron".
+
+    No es prolijidad. Es la primera pantalla del que llego de un anuncio: si
+    arriba de todo hay un partido de ayer, lo va a tocar, y va a estrenar la
+    app simulando algo cuyo resultado ya sabe. Hay una prueba que afirma
+    exactamente eso: el PRIMER boton de la lista nunca puede ser un partido
+    ya jugado.
+
+    Esa es la mitad barata del problema que planteaste. La otra mitad
+    —que abrir un partido jugado siga sintiendose como un pronostico
+    fallado— pide un cambio mas grande y esta escrito en
+    `claude/partidos-jugados.md`.
+
+  ── DE PASO: LAS PRUEBAS TENIAN FECHAS ESCRITAS A MANO ───────────────────
+
+    Los partidos de prueba tenian fecha fija ("2026-09-05"). Desde que la
+    pantalla mira el reloj, esos se dieron por jugados y tres casos se
+    pusieron en rojo — por vejez, no por un error. Ahora las fechas del
+    fixture se calculan relativas a hoy, asi que valen siempre.
+
+    Vale como regla: una prueba que compara contra el reloj no puede tener
+    fechas escritas a mano.
+
+  ── PROBADO ──────────────────────────────────────────────────────────────
+
+    probar-once.mjs   137 → 150
+    probar-sitio.cjs  380 → 386
+    Todo verde.
+
 Arma el 11 - version 2026-09-20 y71 (la pantalla de control)
 
   · SE SUBEN DIECINUEVE ARCHIVOS, todos sueltos y sin punto adelante.

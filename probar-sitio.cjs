@@ -1219,7 +1219,9 @@ srv.listen(8099, async () => {
       media:6.83, local:1.62, visita:1.28,
       calibrada:{ partidos:380, temporada:2025 },
       equipos:{ 1:{ n:"Rojos", j:[] }, 2:{ n:"Azules", j:[] } },
-      partidos:[{ id:99, fecha:"2026-09-05T14:00:00+00:00", local:1, visita:2 }],
+      /* Relativa al día de hoy: con fecha fija, desde el 21/9 el reloj la
+         daría por jugada y el botón diría "¿Y si…?" en vez de "Simular". */
+      partidos:[{ id:99, fecha:new Date(Date.now()+3*864e5).toISOString(), local:1, visita:2 }],
     }};
     window.LIGAS_DISPONIBLES = ["inglaterra"];
     J.paso = "fixture"; pintar();
@@ -1370,7 +1372,9 @@ srv.listen(8099, async () => {
       media:6.83, local:1.62, visita:1.28, zona:"europa", ventajaBacktest:0.0519,
       calibrada:{ partidos:380, temporada:2025 },
       equipos:{ 1:{ n:"Rojos", j:[] }, 2:{ n:"Azules", j:[] } },
-      partidos:[{ id:99, fecha:"2026-09-05T14:00:00+00:00", local:1, visita:2 }],
+      /* Relativa al día de hoy: con fecha fija, desde el 21/9 el reloj la
+         daría por jugada y el botón diría "¿Y si…?" en vez de "Simular". */
+      partidos:[{ id:99, fecha:new Date(Date.now()+3*864e5).toISOString(), local:1, visita:2 }],
     }};
     window.LIGAS_DISPONIBLES = ["inglaterra"];
     J.liga = "inglaterra"; J.paso = "fixture"; pintar();
@@ -1405,11 +1409,19 @@ srv.listen(8099, async () => {
       calibrada:{ partidos:380, temporada:2025 },
       equipos:{ 1: plantel("Rojos", 1000), 2: plantel("Azules", 2000) },
       /* El 96 ya se jugó: es la mitad de la fecha que hasta el 20/9 el
-         archivo de liga no traía, y por eso la fecha se borraba sola. */
-      partidos:[{ id:96, fecha:"2026-09-05T11:00:00+00:00", ronda:"Fecha 5", local:1, visita:2,
-                  estado:"FT", golL:2, golV:1 },
-                { id:98, fecha:"2026-09-05T14:00:00+00:00", ronda:"Fecha 5", local:1, visita:2 },
-                { id:97, fecha:"2026-09-05T16:00:00+00:00", ronda:"Fecha 5", local:2, visita:1 }],
+         archivo de liga no traía, y por eso la fecha se borraba sola.
+
+         LAS FECHAS SE CALCULAN, NO SE ESCRIBEN. Con fechas fijas esta
+         prueba se pudre sola: desde el 21/9 la pantalla mira también el
+         reloj, así que un partido "por jugar" con fecha de hace dos semanas
+         pasa a estar jugado y los casos empiezan a fallar por vejez y no
+         por un error. Relativas al día de hoy, valen siempre. */
+      partidos:[{ id:96, fecha:new Date(Date.now()-5*864e5).toISOString(), ronda:"Fecha 5",
+                  local:1, visita:2, estado:"FT", golL:2, golV:1 },
+                { id:98, fecha:new Date(Date.now()+3*864e5).toISOString(), ronda:"Fecha 5",
+                  local:1, visita:2 },
+                { id:97, fecha:new Date(Date.now()+3*864e5+72e5).toISOString(), ronda:"Fecha 5",
+                  local:2, visita:1 }],
     }};
     window.LIGAS_DISPONIBLES = ["inglaterra"];
     /* El 98 tiene once del DT; el 97 no. */
@@ -1429,7 +1441,7 @@ srv.listen(8099, async () => {
        conOnce.paso === "armar" && !conOnce.err, JSON.stringify(conOnce.err || conOnce.paso));
   caso("y queda con su partido de verdad: id, fecha y los dos equipos",
        conOnce.fx && conOnce.fx.id === 98 && conOnce.fx.local === 1 && conOnce.fx.visita === 2 &&
-       /2026-09-05/.test(conOnce.fx.fecha || ""), JSON.stringify(conOnce.fx));
+       new Date(conOnce.fx.fecha) > new Date(), JSON.stringify(conOnce.fx));
   caso("sin inventar un resultado: todavía no se jugó",
        conOnce.jugado === false && conOnce.fx.goles.home === null);
   caso("el once del DT de la Premier se ve, sin pedirle nada a la API", conOnce.salio === true);
@@ -1550,6 +1562,56 @@ srv.listen(8099, async () => {
   /* Y el que falta sigue diciendo cuándo se juega, sin resultado inventado. */
   caso("el que todavía no se jugó no muestra ningún marcador",
        !/Terminó/.test(jugadoDeLiga.txt.split("Terminó 2-1")[1] || ""));
+
+  /* ══════════════════════════════════════════════════════════════════════
+     UN PARTIDO DE AYER NO SE OFRECE PARA SIMULAR
+
+     Fausto, 21/9: "fijate todos estos partidos que ya están jugados y
+     figuran para simular". El estado lo escribe la ronda completa, una vez
+     por día, así que el archivo puede decir "NS" de algo que se jugó hace
+     veinte horas. Ahí la pantalla no muestra un dato viejo: afirma algo
+     falso. El reloj del teléfono es gratis y siempre está al día.
+
+     Y el orden importa tanto como la etiqueta: el que llega de un anuncio
+     no puede estrenar la app simulando un partido cuyo resultado ya sabe.
+     ══════════════════════════════════════════════════════════════════════ */
+  {
+    const viejo = await pg.evaluate(() => {
+      const L = window.LIGAS.inglaterra;
+      /* Un partido de AYER que el archivo todavía cree por jugar: es
+         exactamente lo que se ve el lunes con datos del domingo. */
+      L.partidos = [
+        { id:80, fecha:new Date(Date.now()-20*36e5).toISOString(), ronda:"Fecha 5",
+          local:1, visita:2, estado:"NS" },
+        { id:81, fecha:new Date(Date.now()+2*36e5).toISOString(),  ronda:"Fecha 5",
+          local:2, visita:1, estado:"NS" },
+        { id:82, fecha:new Date(Date.now()-30*6e4).toISOString(),  ronda:"Fecha 5",
+          local:1, visita:2, estado:"NS" },
+      ];
+      J.liga = "inglaterra"; J.paso = "liga"; pintar();
+      const bs = [...document.querySelectorAll("[data-part]")];
+      return { orden: bs.map(b => b.dataset.part),
+               dicen: bs.map(b => b.textContent.trim()),
+               clases: bs.map(b => b.className),
+               txt: document.body.innerText };
+    });
+    caso("el de ayer YA NO ofrece simular, aunque el archivo diga que no empezó",
+         (viejo.dicen[viejo.orden.indexOf("80")] || "") === "¿Y si…?",
+         JSON.stringify(viejo.dicen));
+    caso("y en vez de la hora dice que ya se jugó",
+         /Ya se jugó/.test(viejo.txt), viejo.txt.slice(0, 400));
+    caso("el que arrancó hace media hora dice que se está jugando",
+         /Se está jugando/.test(viejo.txt));
+    caso("primero el que se está jugando, después el que viene, último el de ayer",
+         viejo.orden.join(",") === "82,81,80", viejo.orden.join(","));
+    caso("y hay un corte que avisa dónde empiezan los jugados",
+         /Ya se jugaron/i.test(viejo.txt));
+    /* La razón de todo esto, dicha como caso: el primer botón de la lista
+       —el que toca el que llegó de un anuncio— nunca puede ser un partido
+       cuyo resultado la persona ya sabe. */
+    caso("el primer botón de la lista NO es un partido ya jugado",
+         !/¿Y si/.test(viejo.dicen[0] || ""), viejo.dicen[0]);
+  }
 
   /* El dato que importa: lo bajado se lee del archivo nuevo, no de la API. */
   const porApi = await pg.evaluate(async () => {
