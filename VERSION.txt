@@ -1,3 +1,60 @@
+Arma el 11 - version 2026-09-21 y73 (lo que salio, y lo que paso de verdad)
+
+  · SE SUBEN DOS ARCHIVOS: app.tpl.html y probar-sitio.cjs. Mas VERSION.txt.
+    Va ENCIMA del y71 y el y72.
+
+  ── LO QUE PEDISTE, TEXTUAL ──────────────────────────────────────────────
+
+    "Con tus ajustes el partido salio 2 a 1, el resultado real fue 1 a 1,
+    recorda que los ajustes mueven el marcador."
+
+    Eso es lo que dice ahora, abajo del marcador, en un recuadro que se lee
+    de una. Asi sale en la pantalla:
+
+      Con tus ajustes salio 2-1. El partido de verdad termino 1-1.
+      Al empate el modelo le daba 26%.
+      Acordate de que el once y el planteo que pusiste mueven el marcador.
+
+  ── LOS CUATRO CASOS ─────────────────────────────────────────────────────
+
+    · Si le pegaste al marcador exacto: "Con tus ajustes salio 1-1, igual
+      que el partido de verdad". No se disimula ni se festeja.
+    · Si fuiste directo al resultado sin ver el partido no hay marcador
+      dibujado, asi que no se inventa uno para comparar: queda el real y el
+      porcentaje.
+    · Si el partido todavia no se jugo, o no tenemos el resultado, no
+      aparece nada.
+    · Y EL QUE MAS IMPORTA: si no tocaste NADA, la frase de los ajustes no
+      aparece. Decirle "los ajustes mueven el marcador" a alguien que no
+      movio ninguno es falso y suena a excusa preparada. Ahi la unica
+      explicacion honesta es el porcentaje.
+
+  ── LA SEGUNDA LINEA, QUE NO ESTABA EN EL PEDIDO ─────────────────────────
+
+    "Al empate el modelo le daba 26%." Es el numero que de verdad contesta
+    la pregunta "¿le erro?", y es el unico que se sostiene: la app no dice
+    que va a salir 2-1, dice con que probabilidad se gana, se empata o se
+    pierde. Con el resultado real a la vista, ese porcentaje es la medida
+    honesta de si leyo bien el partido.
+
+  ── POR QUE ESTO NO ROMPE LA REGLA DEL y68 ───────────────────────────────
+
+    Abajo del resultado no van aclaraciones sobre el motor. Estas tres
+    lineas no lo son: dos son DATOS —el marcador real y el porcentaje— y la
+    tercera habla de lo que hizo la persona, que es la categoria que el y68
+    dejo en pie. Ninguna sale a explicar como funciona nada.
+
+  ── UN ERROR QUE NINGUNA PRUEBA DE NUMEROS HUBIERA VISTO ─────────────────
+
+    La primera version armaba la frase como "A " + "el empate" y escribia
+    "A el empate". Los porcentajes estaban perfectos. Se vio leyendo la
+    frase renderizada, no corriendo casos. Vale como recordatorio: una
+    prueba que verifica que diga "26%" no verifica que este bien escrito.
+
+  ── PROBADO ──────────────────────────────────────────────────────────────
+
+    probar-sitio.cjs  386 → 398. Todo verde.
+
 Arma el 11 - version 2026-09-21 y72 (el reloj manda cuando el archivo calla)
 
   · SE SUBEN CUATRO ARCHIVOS: juego.js, app.tpl.html, probar-once.mjs,

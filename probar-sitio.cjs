@@ -1564,6 +1564,80 @@ srv.listen(8099, async () => {
        !/Terminó/.test(jugadoDeLiga.txt.split("Terminó 2-1")[1] || ""));
 
   /* ══════════════════════════════════════════════════════════════════════
+     EL PARTIDO YA SE JUGÓ Y TE DIO DISTINTO
+
+     Fausto, 21/9: "el usuario simula un partido que ya se jugó, el
+     resultado le da distinto y pierde credibilidad. Debería decir algo bien
+     legible como 'con tus ajustes el partido salió 2 a 1, el resultado real
+     fue 1 a 1, recordá que los ajustes mueven el marcador'".
+
+     Lo que se fija acá: que aparezca, que diga LOS DOS marcadores, que diga
+     qué probabilidad le daba el modelo a lo que de verdad pasó, y —el caso
+     que más fácil se rompe— que la frase de los ajustes NO aparezca cuando
+     la persona no tocó nada, porque ahí sería falsa y sonaría a excusa.
+     ══════════════════════════════════════════════════════════════════════ */
+  {
+    const armar = (mio, real, ajustes) => pg.evaluate(([mio, real, ajustes]) => {
+      J.jugado = true; J.esLocalA = true;
+      J.fx = { fixture:{ id:96, date:new Date().toISOString(), status:{ short:"FT" } },
+               teams:{ home:{ id:1, name:"Rojos" }, away:{ id:2, name:"Azules" } },
+               goals:{ home:real[0], away:real[1] },
+               league:{ id:39, name:"Premier League", round:"Fecha 5" } };
+      J.nom = { A:"Rojos", B:"Azules" };
+      J.sim = { win:52, draw:26, loss:22, xgA:1.4, xgB:1.1,
+                estaVez: mio ? { A:mio[0], B:mio[1] } : null,
+                ajustes, conQue:"", notas:[] };
+      return comparacionConLoReal();
+    }, [mio, real, ajustes]);
+
+    const distinto = await armar([2,1], [1,1], ["3 cambios en el once"]);
+    caso("cuando el partido ya se jugó, se compara con lo que pasó de verdad",
+         /Con tus ajustes salió/.test(distinto), distinto.slice(0, 220));
+    caso("y están los DOS marcadores, el tuyo y el real",
+         /2-1/.test(distinto) && /1-1/.test(distinto), distinto);
+    caso("dice qué probabilidad le daba el modelo a lo que pasó",
+         /26%/.test(distinto), distinto);
+    caso("y le recuerda que los ajustes mueven el marcador",
+         /mueven el marcador/.test(distinto));
+
+    /* EL CASO QUE IMPORTA: sin ajustes, esa frase sería una excusa. */
+    const sinAjustes = await armar([2,1], [1,1], []);
+    caso("si NO tocó nada, no se le echa la culpa a unos ajustes que no hizo",
+         !/mueven el marcador/.test(sinAjustes), sinAjustes);
+    caso("pero los dos marcadores y el porcentaje siguen estando",
+         /2-1/.test(sinAjustes) && /1-1/.test(sinAjustes) && /26%/.test(sinAjustes));
+
+    const clavado = await armar([1,1], [1,1], ["1 cambio en el once"]);
+    caso("si le pegó al marcador exacto, lo dice y no lo disimula",
+         /igual que el partido de verdad/.test(clavado), clavado);
+
+    /* Sin haber mirado el partido no hay marcador sorteado que comparar. */
+    const soloBarra = await armar(null, [1,1], []);
+    caso("sin marcador dibujado no se inventa uno para comparar",
+         !/Con tus ajustes salió/.test(soloBarra) && /terminó/.test(soloBarra), soloBarra);
+
+    const gano = await armar([1,0], [3,0], ["perillas propias"]);
+    caso("si ganó el tuyo, el porcentaje es el de ganar",
+         /52%/.test(gano), gano);
+    const perdio = await armar([1,0], [0,2], []);
+    caso("y si perdió, el de perder", /22%/.test(perdio), perdio);
+
+    /* Y en un partido por jugar no aparece nada de esto. */
+    const porJugar = await pg.evaluate(() => {
+      J.jugado = false; return comparacionConLoReal();
+    });
+    caso("en un partido que todavía no se jugó no hay nada que comparar",
+         porJugar === "");
+    const sinGoles = await pg.evaluate(() => {
+      J.jugado = true; J.fx.goals = { home:null, away:null };
+      return comparacionConLoReal();
+    });
+    caso("y sin el resultado real tampoco se escribe nada",
+         sinGoles === "", sinGoles);
+    await pg.evaluate(() => { J.jugado = false; J.sim = null; J.fx = null; });
+  }
+
+  /* ══════════════════════════════════════════════════════════════════════
      UN PARTIDO DE AYER NO SE OFRECE PARA SIMULAR
 
      Fausto, 21/9: "fijate todos estos partidos que ya están jugados y

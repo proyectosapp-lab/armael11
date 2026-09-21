@@ -3141,6 +3141,74 @@ function pieDelResultado(){
    justa para decir quien leyo mejor el partido: no "acerto el ganador", que
    con tres resultados posibles es casi una moneda, sino cuanto se jugo por
    el resultado que finalmente se dio. */
+/* ══════════════════════════════════════════════════════════════════════════
+   EL PARTIDO YA SE JUGÓ Y TE DIO DISTINTO
+
+   Fausto, 21/9/2026: "el usuario ve la publicidad, entra, simula un partido
+   que ya se jugó, el resultado le da distinto y pierde credibilidad".
+
+   Es el problema más serio de la semana y no es un bug: es lo que pasa
+   cuando todo funciona bien. El marcador que dibuja la app es UNO de los
+   6.000 sorteados, así que aun teniendo razón el modelo, ese sorteo va a
+   diferir del resultado real casi siempre. Y el partido que la persona
+   elige para probar es, justamente, uno del que se acuerda el resultado.
+
+   O sea: el único caso donde puede verificar es el caso donde la app se ve
+   peor.
+
+   Lo que pidió, textual: "debería decir algo bien legible como 'con tus
+   ajustes el partido salió 2 a 1, el resultado real fue 1 a 1, recordá que
+   los ajustes mueven el marcador'". Eso es exactamente lo que hace esto.
+
+   ─── POR QUÉ ESTO NO ROMPE LA REGLA DEL y68 ──────────────────────────────
+   Abajo del resultado no van aclaraciones sobre el motor. Estas tres líneas
+   no lo son: la primera y la segunda son DATOS —el marcador real y la
+   probabilidad que el modelo le dio a lo que pasó— y la tercera habla de lo
+   que hizo la persona, que es la categoría que el y68 dejó en pie. Ninguna
+   sale a explicar cómo funciona nada; las tres dicen qué pasó.
+
+   ─── LA TERCERA LÍNEA ES CONDICIONAL, Y ESO IMPORTA ──────────────────────
+   "Los ajustes mueven el marcador" solo se escribe si esta persona MOVIÓ
+   algo. Dicho a alguien que no tocó nada sería falso y sonaría a excusa
+   preparada. Sin ajustes, la diferencia no la explica nada que haya hecho
+   el usuario, y ahí el único dato honesto es el porcentaje de la segunda
+   línea.                                                                 */
+function comparacionConLoReal(){
+  if(!J.jugado || !J.fx || !J.sim) return "";
+  const g = J.fx.goals || {};
+  const misG = J.esLocalA ? g.home : g.away, susG = J.esLocalA ? g.away : g.home;
+  if(misG == null || susG == null) return "";
+  const s = J.sim, real = misG + "-" + susG;
+  /* El marcador dibujado solo existe si miró el partido. Si fue directo al
+     resultado, no hay nada que comparar contra el real y se dice la barra,
+     que es lo que sí hubo. */
+  const mio = s.estaVez ? s.estaVez.A + "-" + s.estaVez.B : null;
+  const igual = mio === real;
+  const p = leyoMejor(s, misG, susG);
+  const cuantos = (s.ajustes || []).length;
+
+  const primera = mio
+    ? (igual
+        ? "Con tus ajustes salió " + mio + ", igual que el partido de verdad."
+        : "Con tus ajustes salió <b>" + mio + "</b>. El partido de verdad terminó <b>" + real + "</b>.")
+    : "El partido de verdad terminó <b>" + real + "</b>.";
+
+  /* La preposición va adentro de cada caso y no afuera: "A" + "el empate"
+     da "A el empate", que es la clase de error que ninguna prueba de
+     porcentajes ve y que cualquier lector nota en el primer segundo. */
+  const comoTermino = misG > susG ? "A que ganara " + esc(nombreCorto("A"))
+    : misG === susG ? "Al empate" : "A que ganara " + esc(nombreCorto("B"));
+  const segunda = p == null ? "" :
+    " " + comoTermino + " el modelo le daba <b>" + p.toFixed(0) + "%</b>.";
+
+  const tercera = cuantos
+    ? " Acordate de que el once y el planteo que pusiste mueven el marcador."
+    : "";
+
+  return `<div class="pendiente salio" style="margin:12px 0 0">
+    ${primera}${segunda}${tercera}</div>`;
+}
+
 function leyoMejor(sim, misG, susG){
   if(!sim) return null;
   return misG > susG ? sim.win : misG === susG ? sim.draw : sim.loss;
@@ -4909,6 +4977,7 @@ function vistaJuego(){
           ? "el partido que acabás de ver · " : ""}xG ${
           s.xgA.toFixed(2)} a ${s.xgB.toFixed(2)}</div>
         <p class="conque res-conque">${esc(s.conQue || "")}</p>
+        ${comparacionConLoReal()}
         ${/* Lo único que sobrevive es el precio, que no es una aclaración sobre
              el modelo sino sobre el cupo: "¿esto me gasta una simulación?" es
              una pregunta real y se contesta en cuatro palabras.          */ ''}
