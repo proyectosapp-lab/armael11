@@ -157,4 +157,63 @@ await (async () => {
   })();
 })();
 
+/* ══════════════════════════════════════════════════════════════════════════
+   LA TIENDA DE APPLE VIAJA EN EL .IPA Y EN NINGÚN OTRO LADO
+
+   Esto no es una optimización de peso: es la regla 3.1.1 hecha de archivos
+   en vez de condiciones. `tienda-ios.js` es el único archivo del proyecto
+   que sabe comprar por StoreKit, y `app.tpl.html` lo llama con un
+   `typeof ... === "function"`. O sea:
+
+     · Si el archivo NO llega al .ipa, la app del iPhone no puede comprar y
+       muestra que lo básico es gratis. Molesto, y correcto.
+     · Si el archivo SÍ llegara al sitio web, no pasaría nada tampoco —la
+       web no es nativa— pero se habría perdido la propiedad que hace que
+       esto sea seguro: que el camino de Apple y el de Mercado Pago no
+       comparten ni un archivo.
+
+   Las dos mitades se miran acá. La segunda es la que se rompería sin
+   síntoma: nadie se entera de que un archivo empezó a publicarse de más.
+   ══════════════════════════════════════════════════════════════════════════ */
+{
+  const { readFileSync } = await import("node:fs");
+  const lee = f => readFileSync(new URL("./" + f, import.meta.url), "utf8");
+  const EMP = lee("empaquetar-ios.mjs");
+  const CONS = lee("construir-sitio.mjs");
+
+  prueba("el empaquetado copia tienda-ios.js adentro del .ipa", () => {
+    assert.ok(/writeFileSync\(new URL\("tienda-ios\.js", WWW\)/.test(EMP),
+              "no se copia el archivo");
+    assert.ok(/tienda-ios\.js"\), "utf8"\)\.replace\(\/\^export\\s\+\/gm, ""\)/.test(EMP),
+              "no se le sacan los export: entra como <script> clásico");
+  });
+
+  prueba("y lo engancha en las páginas, después de datos-ios.js", () => {
+    const i = EMP.indexOf('<script src="datos-ios.js">');
+    const j = EMP.indexOf('<script src="tienda-ios.js">');
+    assert.ok(i > 0 && j > i, "falta el tag o quedó antes de datos-ios.js");
+  });
+
+  /* Se miran las dos formas de publicarlo —escribirlo en `sitio/` y
+     enchufarlo con un `<script src>`— y no la palabra suelta: el archivo
+     está nombrado en un comentario de `construir-sitio.mjs`, que es
+     justamente donde tiene que estar explicado por qué NO se publica. */
+  prueba("el sitio web NO publica la tienda de Apple", () => {
+    assert.ok(!/writeFileSync\([^)]*tienda-ios/.test(CONS),
+              "construir-sitio.mjs empezó a escribir tienda-ios.js en el sitio");
+    assert.ok(!/<script src="[^"]*tienda-ios/.test(CONS),
+              "construir-sitio.mjs empezó a enchufar tienda-ios.js en las páginas: " +
+              "el camino de StoreKit y el de Mercado Pago dejaron de estar " +
+              "separados por archivo");
+  });
+
+  /* Y la clave pública sí viaja, porque va adentro de window.SITIO, que lo
+     escribe el sitio y el .ipa se lleva tal cual. Sin esto el panel del
+     iPhone no puede ni preguntar un precio. */
+  prueba("pero la clave pública de RevenueCat sí viaja en window.SITIO", () => {
+    assert.ok(/apple: CFG\.apple\?\.revenuecat/.test(CONS),
+              "la clave no entra en window.SITIO");
+  });
+}
+
 console.log("empaquetado de iOS: " + hechos + " pruebas, todo bien");

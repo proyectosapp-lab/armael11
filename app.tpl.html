@@ -3982,12 +3982,44 @@ function tarjetasDePlan(){
 
      Una vez que `PLANES` tiene algo, el script ya corrió completo y el
      resto se puede nombrar normalmente. */
+  /* ══════════════════════════════════════════════════════════════════════
+     ADENTRO DEL IPHONE, LA COMPRA LA HACE APPLE. NO HAY OTRA CAJA.
+
+     VA ANTES QUE TODO LO DEMÁS, INCLUSO ANTES DEL `PLANES.length`. Dos
+     razones y las dos son de la revisión de Apple:
+
+     1. `PLANES` viene del servidor, y el revisor puede abrir la app con la
+        red que se le ocurra. Una pantalla de compra que a veces está vacía
+        es un rechazo por contenido incompleto. Los nombres y los detalles
+        de los planes del iPhone viven en `tienda-ios.js`; lo único que se
+        espera de afuera es el precio, que lo pone StoreKit.
+     2. Poniéndolo primero, no hay ningún camino -ni uno- por el que la app
+        del iPhone llegue a la parte de abajo, que es la que ofrece Mercado
+        Pago. La regla 3.1.1 no se cumple con una condición más: se cumple
+        haciendo que el camino no exista.
+
+     `comprando` se lee adentro de un try porque es un `let` declarado mucho
+     más abajo y esto se dibuja en el primer `pintar()` de la portada. Con
+     una variable que todavía no nació, `typeof` NO salva: tira igual. Ya
+     nos mordió una vez y dejó la portada en blanco.                     */
+  if(typeof esNativaIos === "function" && esNativaIos()){
+    let ocupado = false;
+    try{ ocupado = comprando; }catch(e){}
+    if(typeof iosPanelDePlanes === "function") return iosPanelDePlanes(ocupado);
+    /* `tienda-ios.js` no viajó. No se puede comprar y se dice lo que hay:
+       sin precios, sin "próximamente" y sobre todo sin caer a Mercado
+       Pago. El peor caso del iPhone es no poder comprar, nunca ofrecer
+       otra caja. */
+    return `<p class="aviso" style="margin-top:8px"><b>Lo básico es gratis.</b>
+      Tenés ${CUPO_CFG.gratis} simulaciones por mes en una liga, y se renuevan solas.</p>`;
+  }
+
   try{
     if(!conBackend || !PLANES.length) return "";
   }catch(e){ return ""; }
 
   /* ══════════════════════════════════════════════════════════════════════
-     ADENTRO DEL IPHONE NO SE OFRECE NINGUNA COMPRA. NI UNA.
+     LA HISTORIA DEL AGUJERO QUE SE CERRÓ ACÁ (y75), QUE SIGUE VALIENDO.
 
      La regla 3.1.1 de Apple: los bienes digitales se pagan por StoreKit y
      por nada más. Ni Mercado Pago adentro, ni un link para pagar afuera, ni
@@ -4006,12 +4038,11 @@ function tarjetasDePlan(){
      con AdSense, y la defensa es la misma: que el camino no exista, en vez
      de apagarlo con una condición más.
 
-     Lo que se muestra en su lugar no menciona compras ni precios ni
-     "próximamente": un "coming soon" es contenido incompleto y también se
-     mira mal. Se dice lo que hay, que es que lo básico es gratis.      */
-  if(typeof esNativaIos === "function" && esNativaIos())
-    return `<p class="aviso" style="margin-top:8px"><b>Lo básico es gratis.</b>
-      Tenés ${CUPO_CFG.gratis} simulaciones por mes en una liga, y se renuevan solas.</p>`;
+     Desde el y76 el iPhone SÍ ofrece una compra, pero por StoreKit y solo
+     por StoreKit: el corte está arriba de todo, en la primera línea de esta
+     función, y por eso de acá para abajo ya no hay ninguna posibilidad de
+     que una app de Apple llegue a leer esta parte. La defensa no cambió de
+     naturaleza, cambió de lugar: antes cortaba acá, ahora corta antes.  */
 
   const porPlay = esDeLaTienda();
   const playListo = !porPlay || PLAY_OK !== false;
@@ -5470,6 +5501,24 @@ async function arrancarCuenta(){
      elegirlos. */
   try{ PLANES = await planesPremium(); }catch(e){}
 
+  /* ── LA TIENDA DE APPLE, SI ESTAMOS ADENTRO DEL IPHONE ─────────────────
+     Configurar es lo primero que hay que hacer y lo más fácil de poner en
+     el lugar equivocado: hasta que no corre, pedir un precio devuelve nada
+     y comprar tira un error que dice "SDK not configured", que no se parece
+     a lo que pasó.
+
+     Y le pasa NUESTRO uuid de perfil. Esa es la pieza que une las dos
+     mitades: el mismo id vuelve en el aviso de RevenueCat como
+     `app_user_id` y es a quién se le acredita. Si acá fuera cualquier otra
+     cosa, la compra se cobraría bien, el aviso llegaría bien, y quedaría un
+     pago anotado sin dueño.
+
+     No se espera a que termine: el que todavía no tiene cuenta no puede
+     comprar igual, y la portada no puede quedarse esperando a la App Store.
+     Cuando vuelve, el panel se redibuja solo. */
+  if(typeof iosArrancarTienda === "function")
+    iosArrancarTienda(miUuid());
+
   pintarCuenta();
   pintar();
   if(quienSoy()){
@@ -5503,8 +5552,34 @@ async function arrancarCuenta(){
   }
 }
 
+/* Quién estaba comprando la última vez que se dibujó la cuenta. Sirve para
+   una sola cosa: avisarle a la tienda de Apple cuando cambia. */
+let IOS_QUIEN = null;
+
 function pintarCuenta(aviso="", mal=false){
   const c=$("cuenta");
+
+  /* ── ENTRAR Y SALIR TAMBIÉN SON COSAS DE LA TIENDA ────────────────────
+     RevenueCat tiene que saber de quién es el teléfono AHORA, no de quién
+     era al arrancar. Dos casos concretos que sin esto salen mal:
+
+       · El que abre la app sin cuenta, se registra, y compra. Al arrancar
+         no había uuid, así que RevenueCat le puso uno anónimo; si nadie le
+         avisa, la compra queda a nombre de ese anónimo y el aviso llega con
+         un id que no está en ninguna tabla nuestra.
+       · Dos personas en el mismo iPhone. El segundo que entra hereda la
+         suscripción del primero si nadie cerró la sesión de la tienda.
+
+     Va acá, en el único lugar por el que pasan todos los cambios de cuenta
+     —entrar, salir, borrarla, volver con la sesión guardada—, en vez de en
+     los cinco botones que los provocan. Y solo hace algo cuando de verdad
+     cambió: `logIn` en cada dibujo de pantalla sería un pedido de red por
+     cada tecla. */
+  if(typeof iosQuienCompra === "function"){
+    const u = miUuid();
+    if(u !== IOS_QUIEN){ IOS_QUIEN = u; try{ iosQuienCompra(u); }catch(e){} }
+  }
+
   $("bcuenta").textContent = miNombre ? miNombre[0].toUpperCase() : "◍";
   if(!cuentaAbierta){ c.hidden=true; return; }
   c.hidden=false;
@@ -5849,7 +5924,38 @@ function engancharPremium(){
         return;
       }
       comprando=true; b.textContent="Abriendo…";
-      /* Adentro de la app, por Google; en la web, por Mercado Pago. */
+
+      /* ── EL IPHONE VA PRIMERO, Y DE ACÁ NO SE SALE ────────────────────
+         Este `return` es el que garantiza la regla 3.1.1: pase lo que pase
+         -que la compra salga, que falle, que la persona la cancele- la app
+         de Apple no llega nunca a las dos ramas de abajo. Si mañana alguien
+         agrega un tercer medio de pago acá, tiene que agregarlo DESPUÉS de
+         este bloque y el iPhone lo ignora solo.
+
+         Y si `tienda-ios.js` no viajó, esto NO se cae a Mercado Pago: se
+         dice que no se puede comprar. Eso es peor para nosotros y es lo
+         correcto. */
+      if(typeof esNativaIos === "function" && esNativaIos()){
+        try{
+          if(typeof iosComprar !== "function")
+            throw new Error("La compra no está disponible en esta versión de la app. Actualizala desde la App Store.");
+          await iosComprar(b.dataset.plan);
+          /* Apple ya cobró. Lo que da el pase NO es esto: es el servidor,
+             que le pregunta a RevenueCat con la clave secreta. Al teléfono
+             no se le cree nada, igual que con Play y con Mercado Pago. */
+          await confirmarConApple("Listo: ya tenés el pase.");
+        }catch(e){
+          comprando=false;
+          /* Bajar la hoja de compra con el dedo no es un error y no se
+             pinta de rojo: la persona cambió de idea, que es su derecho. */
+          if(typeof iosCancelada === "function" && iosCancelada(e)) pintarCuenta();
+          else pintarCuenta(typeof iosTextoDeError === "function"
+                            ? iosTextoDeError(e) : (e.message || "No pude completar la compra."), true);
+        }
+        return;
+      }
+
+      /* Adentro de la app de Play, por Google; en la web, por Mercado Pago. */
       if(esDeLaTienda()){
         try{
           await comprarEnPlay(b.dataset.plan);
@@ -5874,6 +5980,66 @@ function engancharPremium(){
       }catch(e){ comprando=false; pintarCuenta(e.message, true); }
     };
   });
+
+  /* ── RESTAURAR COMPRAS, Y LOS DOS LINKS QUE APPLE EXIGE ────────────────
+     Solo existen adentro del iPhone: los dibuja `tienda-ios.js`, que en la
+     web no viaja, así que acá no hay nada que enganchar y la función
+     devuelve cero sin hacer ruido.
+
+     Restaurar no es un lujo ni una cortesía: Apple lo revisa A MANO. El
+     revisor compra, borra la app, la instala de nuevo y busca cómo
+     recuperar lo que pagó. Si no lo encuentra, rechaza. Y afuera de la
+     revisión sirve igual, para el que cambia de teléfono. */
+  if(typeof iosEngancharExtras === "function") iosEngancharExtras(async ()=>{
+    if(comprando) return;
+    if(conBackend && !quienSoy()){
+      cuentaAbierta = true;
+      pintarCuenta("Entrá con tu mail y ahí recupero tu plan: el pase está atado " +
+                   "a tu cuenta, no al teléfono.", false);
+      document.getElementById("cuenta")?.scrollIntoView({ behavior:"smooth", block:"center" });
+      return;
+    }
+    comprando=true; pintarCuenta("Buscando tus compras en la App Store…", false);
+    try{
+      await iosRestaurar();
+      await confirmarConApple("Listo: recuperamos tu plan.");
+    }catch(e){
+      comprando=false;
+      pintarCuenta(typeof iosTextoDeError === "function"
+                   ? iosTextoDeError(e) : (e.message || "No pude recuperar tus compras."), true);
+    }
+  });
+}
+
+/* ── LO QUE DE VERDAD DA EL PASE ──────────────────────────────────────────
+   Comprar y restaurar terminan los dos acá, y hacen exactamente lo mismo,
+   porque la app nunca supo nada de la compra: le pregunta al servidor, el
+   servidor le pregunta a RevenueCat con la clave secreta, y lo que vuelve
+   es lo que vale. Por eso restaurar no necesita ni una línea propia ni
+   ningún dato guardado en el teléfono.
+
+   Después se vuelven a leer el cupo y el pase, en ese orden, que es el que
+   ya usaba Play: primero cuántas simulaciones quedan, después hasta cuándo
+   dura el pase. Si el cupo falla no se corta nada -es información, no
+   permiso- y por eso va en su propio try. */
+/* El uuid del perfil, que es lo que RevenueCat guarda como `app_user_id`.
+   `quienSoy()` devuelve la sesión entera -token, refresh y uid-, no el id:
+   pasarle la sesión a RevenueCat habría guardado un objeto como nombre de
+   usuario y el aviso habría llegado con un id que no existe en ninguna
+   tabla. Una línea, y no se nota hasta que alguien paga. */
+function miUuid(){
+  try{ return (typeof quienSoy === "function" ? (quienSoy() || {}).uid : null) || null; }
+  catch(e){ return null; }
+}
+
+async function confirmarConApple(exito){
+  await avisarPagoDeApple();
+  try{ const c = await miCupo();
+       if(c) CUPO = { plan:c.plan||"gratis", usadas:c.usadas|0,
+                      hasta:c.hasta||null, ligas:c.ligas||[], cobra:c.cobra }; }catch(x){}
+  await refrescarPremium();
+  comprando=false;
+  pintarCuenta(exito, false);
 }
 
 /* Al volver de Mercado Pago la app no se cree lo que diga la dirección: el

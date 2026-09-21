@@ -1,3 +1,221 @@
+Arma el 11 - version 2026-09-21 y76 (se puede pagar desde el iPhone, por Apple)
+
+  · SE SUBEN AL REPO: tienda-ios.js, probar-tienda-ios.mjs,
+    funcion-pago-apple.ts, app.tpl.html, cuentas.js, construir-sitio.mjs,
+    empaquetar-ios.mjs, probar-empaquetado-ios.mjs, probar-pagos.mjs,
+    probar-sitio.cjs, publicar.mjs, package.json, codemagic.yaml,
+    sitio.json. Mas VERSION.txt.
+
+  · Y ADEMAS HAY TRES COSAS QUE NO SE SUBEN AL REPO Y HAY QUE HACER A MANO.
+    Estan al final, en "LO QUE FALTA HACER AFUERA". Sin esas tres, esto
+    compila, publica y no cobra un peso.
+
+  ── QUE CAMBIA PARA EL QUE USA LA APP ────────────────────────────────────
+
+    Hasta ayer, adentro del iPhone el panel de planes decia "lo basico es
+    gratis" y no habia nada que comprar. Desde hoy hay tres botones, con el
+    precio que pone la App Store -en la moneda del pais de cada uno-, un
+    boton de Restaurar compras y los dos links que Apple exige.
+
+    En la web y en Play no cambia absolutamente nada.
+
+  ── LA REGLA 3.1.1, QUE SE MUDO DE LUGAR PERO NO SE AFLOJO ───────────────
+
+    El y75 cerro un agujero: adentro del webview de Capacitor no existe el
+    referrer `android-app://`, asi que `esDeLaTienda()` daba falso, la app
+    se creia LA WEB, y la web ofrece Mercado Pago. Un bien digital pagado
+    fuera de StoreKit no es un mail de Apple: es la baja de la app.
+
+    La defensa de entonces fue que el camino no existiera. Sigue siendo la
+    misma, solo que ahora corta un poco mas arriba:
+
+      1. En `tarjetasDePlan()`, la rama del iPhone es LA PRIMERA LINEA de la
+         funcion, antes incluso del `if(!PLANES.length)`. De ahi para abajo
+         no hay ningun camino por el que una app de Apple llegue a leer la
+         parte que nombra Mercado Pago.
+      2. En el boton de comprar, la rama del iPhone tambien va primera y
+         corta con `return`. Pase lo que pase -que la compra salga, que
+         falle, que la persona la cancele-, no se cae a ninguna otra caja.
+      3. Y lo mas importante: **`tienda-ios.js` no se publica en
+         armael11.com**. Viaja solo adentro del .ipa, lo copia
+         `empaquetar-ios.mjs`. O sea que el camino de StoreKit y el de
+         Mercado Pago no comparten ni un archivo. Un `if` se puede borrar
+         sin querer; un archivo que no existe, no.
+
+    Si por lo que sea `tienda-ios.js` NO llegara al .ipa, la app del iPhone
+    vuelve sola a decir que lo basico es gratis. El peor caso es no poder
+    comprar, nunca ofrecer otra caja. Hay una prueba de eso.
+
+  ── POR QUE REVENUECAT ───────────────────────────────────────────────────
+
+    Una suscripcion auto-renovable no es una compra: es una compra por mes,
+    para siempre. Alguien tiene que enterarse cuando el mes 4 se cobra, el
+    mes 7 rebota la tarjeta y el mes 9 se cancela, y eso es un servidor
+    escuchando a Apple con certificados, JWS y reintentos.
+
+    El derecho -quien tiene que plan y hasta cuando- sigue viviendo en
+    NUESTRA base, igual que con Mercado Pago y con Play. Lo unico que hace
+    RevenueCat es avisarnos y contestar cuando le preguntamos.
+
+  ── LA PIEZA QUE UNE LAS DOS MITADES ─────────────────────────────────────
+
+    El `appUserID` que se le pasa a RevenueCat es EL UUID DE NUESTRO PERFIL.
+    Es el mismo que despues vuelve en el aviso como `app_user_id` y es a
+    quien se le acredita.
+
+    Si ahi fuera cualquier otra cosa -el mail, o la sesion entera en vez del
+    uuid- la compra se cobraria perfecto, el aviso llegaria perfecto, y
+    quedaria un pago anotado sin dueno. Una linea, y no se nota hasta que
+    alguien paga. Por eso existe `miUuid()` y por eso tiene prueba.
+
+    Y se avisa cuando cambia: entrar, salir, borrar la cuenta. Sin eso, dos
+    personas en el mismo iPhone comparten suscripcion.
+
+  ── AL TELEFONO NO SE LE CREE NADA, POR TERCERA VEZ ──────────────────────
+
+    `tienda-ios.js` NO acredita el pase. Termina la compra y despues la app
+    le pregunta AL SERVIDOR, que le pregunta a RevenueCat con la clave
+    secreta y recien ahi acredita. El telefono no manda ni un dato de la
+    compra: el cuerpo del pedido va vacio y lo unico que viaja es su token.
+
+    Restaurar compras hace exactamente lo mismo, y por eso no necesita ni
+    una linea propia ni nada guardado en el telefono: la app nunca supo
+    nada de la compra, asi que no tiene nada que recordar.
+
+  ── EL NUMERO DE PAGO LLEVA LA FECHA DE VENCIMIENTO ──────────────────────
+
+    `apple:<producto>:<vence>`. Toda la idea esta ahi:
+
+      · La renovacion del mes que viene trae un vencimiento nuevo, o sea un
+        id nuevo, y acredita otro mes.
+      · El mismo aviso llegando dos veces, o la app preguntando cinco veces
+        mientras la persona mira la pantalla, traen el mismo vencimiento y
+        acreditan una sola vez.
+
+    Sin ninguna tabla extra y sin nada que contar: el candado contra el doble
+    mes ya vive adentro de `registrar_pago`, que es la misma funcion que usan
+    Mercado Pago y Play. NO HAY SQL PARA PEGAR EN SUPABASE.
+
+    Si alguien lo simplificara a `apple:<producto>`, la suscripcion
+    acreditaria UNA VEZ EN LA VIDA y al segundo mes la persona se quedaria
+    sin el pase, sin un solo error en ningun log. Hay una prueba.
+
+  ── LA FUNCION DEL SERVIDOR VA SIN "VERIFY JWT", Y POR QUE NO PASA NADA ──
+
+    Es la unica de las cuatro que se despliega con esa casilla DESTILDADA.
+    Tiene que ser asi: RevenueCat no tiene ningun token de Supabase que
+    ofrecer, y con la puerta de Supabase prendida el aviso rebota con
+    "Missing authorization header" antes de llegar a una linea.
+
+    Destildarla no abre nada, porque las dos puertas de verdad estan
+    adentro del archivo:
+
+      · El aviso tiene que traer el secreto compartido, comparado sin
+        apurarse (un `===` corta en la primera letra distinta y ese tiempo
+        se mide desde afuera).
+      · La app tiene que traer una sesion valida, y el perfil sale de ese
+        token, nunca del cuerpo.
+
+    Y sobre las dos, la regla de siempre: del que llama se toma UN dato -de
+    quien estamos hablando- y todo lo demas se le va a preguntar a
+    RevenueCat. Que compro, si esta pago y hasta cuando NO viajan en el
+    pedido. Si viajaran, cualquiera con el secreto filtrado se haria premium
+    para siempre mandando un JSON con una fecha de 2099.
+
+  ── LA CARRERA QUE HABRIA APARECIDO SOLO A VECES ─────────────────────────
+
+    `configure` tarda, y la portada mientras tanto dibuja el panel, que pide
+    los precios. Si el pedido de precios salia antes del `configure`,
+    RevenueCat contestaba "SDK not configured" y la pantalla quedaba vacia.
+
+    Ese es el peor tipo de error que hay: depende de que tan rapida estuvo
+    la red ese dia, no se reproduce a pedido y no deja nada a la vista. En
+    un iPhone con buena senal anda; en el del revisor de Apple, un martes,
+    no.
+
+    Ahora el arranque se guarda COMO UNA PROMESA, una sola para toda la vida
+    de la app, y todo lo que habla con la tienda la espera antes de hablar.
+    No importa quien llegue primero.
+
+  ── LA PANTALLA QUE APPLE REVISA A MANO (regla 3.1.2) ────────────────────
+
+    Es el rechazo mas comun que existe y el mas barato de evitar. En la
+    pantalla donde se compra una suscripcion tienen que estar, sin tocar
+    nada: el nombre, el precio, que el periodo es mensual, que se renueva
+    sola, como se cancela, un boton de Restaurar compras, y los links a los
+    terminos y a la privacidad.
+
+    Los siete se verifican leyendo el HTML que de verdad sale. Y hay dos mas
+    que valen igual:
+
+      · El panel del iPhone tiene que ser EXACTAMENTE lo que dibujo la
+        tienda de Apple, sin una palabra agregada. Si manana alguien mueve
+        el `return` dos lineas, el parrafo de "Se paga con Mercado Pago" se
+        pega al final y quedan las dos cajas en la misma pantalla.
+      · Un plan sin precio NO SE DIBUJA. Un boton de comprar sin numero al
+        lado es contenido incompleto para Apple y una trampa para el que lo
+        aprieta.
+
+    Restaurar compras es un boton y esta a la vista porque el revisor lo
+    busca a mano: instala, compra, borra la app, la vuelve a instalar y
+    busca como recuperar lo que pago.
+
+  ── EL PRECIO LO PONE LA TIENDA ──────────────────────────────────────────
+
+    No hay un solo numero de plata en `tienda-ios.js`, y hay una prueba que
+    lo verifica. Los precios salen de `priceString` de StoreKit, que ya
+    viene con el simbolo y el formato del pais de cada uno: un brasileno ve
+    reales y un mexicano pesos mexicanos. Apple lo exige y ademas es el
+    unico lugar donde el precio es cierto.
+
+    Lo que si vive en la app son los nombres y los detalles de los tres
+    planes, a proposito: el revisor puede abrir la app con la red que se le
+    ocurra, y una pantalla de compra que a veces esta vacia es un rechazo.
+
+  ── CANCELAR NO ES FALLAR ────────────────────────────────────────────────
+
+    El que abre la hoja de compra y la baja con el dedo no cometio ningun
+    error. Un cartel rojo ahi es maltratarlo por haber cambiado de idea, y
+    Apple ademas lo mira. Se reconoce por tres senales distintas porque el
+    plugin cambio cual manda entre versiones.
+
+  ── LO QUE FALTA HACER AFUERA (SIN ESTO NO COBRA NADA) ───────────────────
+
+    1. EN REVENUECAT: terminar Products y Entitlements (`todas`, `tres`,
+       `liga`, cada uno con su producto colgado), y en Integrations ->
+       Webhooks poner la direccion de la funcion y una frase larga como
+       "Authorization header value".
+
+    2. EN SUPABASE -> Edge Functions: crear una funcion nueva llamada
+       `pago-apple` y pegar adentro `funcion-pago-apple.ts`.
+       **"Verify JWT" DESTILDADO**, que es lo unico distinto de las otras.
+       Y dos secretos: REVENUECAT_CLAVE (la `sk_` de RevenueCat) y
+       REVENUECAT_AVISO (la misma frase larga del punto 1). Ninguna de las
+       dos va en un archivo del proyecto ni se pega en un chat.
+
+    3. UNA COMPILACION NUEVA EN CODEMAGIC, con etiqueta. `tienda-ios.js` y
+       `app.tpl.html` viajan adentro del .ipa: esto NO llega al iPhone con
+       `datos-ios.js`, que solo refresca datos. Hay que publicar el sitio
+       primero y despues crear la etiqueta.
+
+    Y una cuarta que no es nuestra: el Small Business Program tiene que
+    estar aprobado antes de la primera venta de verdad.
+
+  ── SI LA COMPILACION FALLA EN `npm install` ─────────────────────────────
+
+    Buscar "No matching version found for @revenuecat/purchases-capacitor".
+    Si dice eso, la version pedida en package.json no existe: se cambia ese
+    "^10.0.0" por la que corresponda a Capacitor 7 -el plugin sube de major
+    junto con Capacitor- y es el unico lugar del proyecto donde esta
+    escrita. El paso imprime la version que quedo, justamente para eso.
+
+  ── PRUEBAS ──────────────────────────────────────────────────────────────
+
+    probar-tienda-ios.mjs   0 -> 52 (nueva)
+    probar-pagos.mjs       31 -> 64
+    probar-empaquetado-ios 11 -> 15
+    probar-sitio.cjs      408 -> 411
+
 Arma el 11 - version 2026-09-21 y75 (en el iPhone no se ofrece ninguna compra)
 
   · SE SUBEN DOS ARCHIVOS: app.tpl.html y probar-sitio.cjs. Mas VERSION.txt.

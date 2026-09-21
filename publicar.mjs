@@ -181,6 +181,7 @@ const IMPRESCINDIBLES = [
   "nativo.js", "probar-nativo.mjs",
   "campana.js", "probar-campana.mjs", "contador-campana.sql",
   "datos-ios.js", "probar-datos-ios.mjs", "empaquetar-ios.mjs",
+  "tienda-ios.js", "probar-tienda-ios.mjs", "funcion-pago-apple.ts",
   "capacitor.config.json", "codemagic.yaml", "package.json",
   "probar-empaquetado-ios.mjs",
   "fecha-de-liga.mjs", "probar-fecha.mjs",
@@ -208,7 +209,7 @@ for (const t of ["probar.mjs", "probar-clubes.mjs", "probar-once.mjs", "probar-s
                  "probar-frescura.mjs", "probar-formaciones.mjs", "probar-avisos.mjs",
                  "probar-backtest.mjs", "probar-nativo.mjs", "probar-campana.mjs",
                  "probar-fecha.mjs", "probar-datos-ios.mjs", "probar-empaquetado-ios.mjs",
-                 "probar-control.mjs"])
+                 "probar-control.mjs", "probar-tienda-ios.mjs"])
   paso("Pruebas · " + t, t, { obligatorio: true });
 
 if (soloPruebas) { console.log("\n  Solo pruebas. Listo.\n"); process.exit(0); }

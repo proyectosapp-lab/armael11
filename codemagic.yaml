@@ -98,11 +98,27 @@ workflows:
           node probar-empaquetado-ios.mjs
           node probar-nativo.mjs
           node probar-campana.mjs
+          # La pantalla de compra del iPhone. Esta prueba es la que evita el
+          # rechazo por la regla 3.1.2 —falta el botón de restaurar, falta el
+          # link a los términos, no dice que se renueva sola—, que es el más
+          # común de todos. Corre acá y no solo al publicar el sitio porque
+          # es una compilación la que va a la revisión, no un zip.
+          node probar-tienda-ios.mjs
 
       - name: Instalar Capacitor y generar el proyecto de Xcode
         script: |
           set -e
           npm install
+          # Qué versión del plugin de RevenueCat quedó. Se imprime porque el
+          # día que falle algo de compras, la primera pregunta va a ser esa y
+          # no hay dónde mirarla si no queda escrita.
+          #
+          # SI ESTE PASO FALLA CON "No matching version found for
+          # @revenuecat/purchases-capacitor": la línea del package.json pide
+          # una versión que no existe. Se arregla cambiando ese "^10.0.0" por
+          # la versión que corresponda a Capacitor 7 -el plugin sube de major
+          # junto con Capacitor-, y es el único lugar donde está escrita.
+          npm ls @revenuecat/purchases-capacitor || true
           npx cap add ios || true
 
           # ── EL MÍNIMO DE iOS ─────────────────────────────────────────────

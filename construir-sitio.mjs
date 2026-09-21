@@ -293,6 +293,19 @@ function armarPagina(club, op) {
         /* La clave PUBLICA de los avisos. Es pública por definición: el
            teléfono la necesita para suscribirse y no sirve para mandar. */
         avisos: CFG.avisos?.vapidPublica ? { vapidPublica: CFG.avisos.vapidPublica } : undefined,
+        /* La clave PÚBLICA de RevenueCat, para las suscripciones del
+           iPhone. Es pública igual que las otras dos: viaja compilada
+           adentro de cada .ipa y sola no autoriza más que pedir precios y
+           comprar, que es lo que el dueño del teléfono hace igual.
+
+           Viaja también a la web, y no pasa nada: `tienda-ios.js` —el único
+           que la lee— no se publica en armael11.com. Es una cadena muerta
+           de treinta caracteres, y sacarla de la web costaría una rama más
+           en la plantilla para no ganar nada.
+
+           La SECRETA, la `sk_`, no está acá ni en ningún archivo: vive como
+           secreto de Supabase y solo la usa el servidor para verificar. */
+        apple: CFG.apple?.revenuecat ? { revenuecat: CFG.apple.revenuecat } : undefined,
       }) + '</script>',
     '<script src="datos/nativo.js"></script>',
     HAY_BACKEND ? '<script src="datos/cuentas.js"></script>' : null,

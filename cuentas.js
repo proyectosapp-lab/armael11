@@ -481,6 +481,33 @@ export async function avisarPagoDePlay(plan, comprobante) {
   return d;
 }
 
+/* ─── LA SUSCRIPCIÓN HECHA ADENTRO DEL IPHONE ─────────────────────────────
+   Apple cobra y RevenueCat lo registra. Esta función NO le manda ningún
+   comprobante al servidor, y esa es la diferencia con Play: no hace falta.
+   El servidor le pregunta a RevenueCat "qué tiene ESTE perfil", con la
+   clave secreta, y RevenueCat contesta lo que Apple le dijo a él. El
+   teléfono no aporta ni un dato de la compra; solo dice quién es, con su
+   token, igual que en todos lados.
+
+   Se llama en dos momentos: después de comprar y después de "Restaurar
+   compras". Los dos hacen lo mismo -preguntar- y esa es la razón por la que
+   restaurar funciona sin una línea aparte: la app nunca supo nada de la
+   compra, así que no tiene nada que recordar.                             */
+export async function avisarPagoDeApple() {
+  if (!sesion?.uid) throw new Error("Hay que entrar primero.");
+  const { url, anon } = cfg();
+  const r = await fetch(url + "/functions/v1/pago-apple", {
+    method: "POST",
+    headers: { apikey: anon, Authorization: "Bearer " + sesion.token,
+               "Content-Type": "application/json" },
+    body: JSON.stringify({}),
+  });
+  const d = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(d.error || "No pude confirmar la compra con Apple.");
+  if (!d.ok) throw new Error(d.error || "No encontré ninguna suscripción activa.");
+  return d;
+}
+
 export async function linkDePago(plan = "liga") {
   if (!sesion?.uid) throw new Error("Hay que entrar primero.");
   const { url, anon } = cfg();

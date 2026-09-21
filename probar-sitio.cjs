@@ -2901,7 +2901,15 @@ srv.listen(8099, async () => {
         return { html, txt: d.textContent.trim().replace(/\s+/g, " "),
                  hayPlanes: antesP.length };
       });
-      caso("en el iPhone no se ofrece Mercado Pago",
+      /* ── EL CASO DE ARRIBA ES EL DEL IPHONE SIN `tienda-ios.js` ─────────
+         Esta página es la WEB, y en la web ese archivo no existe a
+         propósito: es la mitad de la defensa. Así que lo que se está
+         midiendo acá es el peor caso del iPhone —que la tienda de Apple no
+         haya viajado en el .ipa— y lo que tiene que pasar en ese caso es
+         que no se pueda comprar. Nunca que se ofrezca otra caja.
+
+         El caso del iPhone CON la tienda está más abajo. */
+      caso("en el iPhone sin la tienda de Apple no se ofrece Mercado Pago",
            !/Mercado Pago/i.test(enIphone.html), enIphone.txt);
       caso("ni hay un botón de comprar",
            !/data-plan/.test(enIphone.html) && !/Comprar/i.test(enIphone.html), enIphone.txt);
@@ -2911,6 +2919,52 @@ srv.listen(8099, async () => {
            !/próximamente|proximamente|pronto/i.test(enIphone.txt), enIphone.txt);
       caso("lo que se dice es lo que hay: que lo básico es gratis",
            /gratis/i.test(enIphone.txt), enIphone.txt);
+
+      /* ══════════════════════════════════════════════════════════════════
+         Y EL IPHONE CON LA TIENDA (y76). LO QUE SE MIDE ES LA DELEGACIÓN.
+
+         Desde el y76 el iPhone sí puede comprar, por StoreKit. La pregunta
+         que reemplaza a "¿muestra algo?" es más exigente: cuando
+         `tienda-ios.js` viajó, ¿`tarjetasDePlan()` devuelve EXACTAMENTE lo
+         que dibujó la tienda de Apple, sin agregarle nada?
+
+         El "sin agregarle nada" es todo el caso. La función termina con un
+         párrafo que dice "Se paga con Mercado Pago"; si mañana alguien
+         mueve el `return` del iPhone dos líneas más abajo, o cambia el
+         `return` por un `if/else` mal cerrado, ese párrafo se pega al final
+         del panel de Apple y la app queda ofreciendo las dos cajas en la
+         misma pantalla. Comparando el HTML COMPLETO contra el de la tienda,
+         cualquier agregado -una palabra- hace fallar esto.
+
+         Se prueba con `PLANES` VACÍO, que es el otro invariante: el corte
+         del iPhone tiene que estar antes del `if(!PLANES.length) return ""`,
+         porque si no, un revisor de Apple con el servidor caído vería una
+         pantalla de compra en blanco. */
+      {
+        const conTienda = await pg.evaluate(() => {
+          const antesP = PLANES.slice();
+          PLANES.length = 0;                       /* el servidor, caído */
+          const antesN = window.esNativaIos, antesT = window.iosPanelDePlanes;
+          const PANEL = '<div class="planes"><div class="plan">' +
+            '<div class="plan-txt"><b>Tu liga</b><span>' +
+            '<b class="plan-precio">US$1.99</b> por mes · una liga</span></div>' +
+            '<button class="acc plan-btn" data-plan="liga">Suscribirme</button>' +
+            '</div></div><p class="aviso">Se renueva sola todos los meses.</p>' +
+            '<p class="aviso"><button data-ios-restaurar>Restaurar compras</button></p>';
+          window.esNativaIos = () => true;
+          window.iosPanelDePlanes = () => PANEL;
+          const html = tarjetasDePlan();
+          window.esNativaIos = antesN; window.iosPanelDePlanes = antesT;
+          antesP.forEach(x => PLANES.push(x));
+          return { html, panel: PANEL };
+        });
+        caso("con la tienda de Apple, el panel del iPhone es el de StoreKit y nada más",
+             conTienda.html === conTienda.panel, conTienda.html.slice(0, 200));
+        caso("y ni una palabra de Mercado Pago se le pega al final",
+             !/Mercado Pago/i.test(conTienda.html), conTienda.html.slice(-160));
+        caso("aunque el servidor no haya dado un solo plan, la pantalla de compra aparece",
+             /data-plan/.test(conTienda.html) && /Restaurar compras/.test(conTienda.html));
+      }
       /* Y en la web sigue todo igual que siempre. */
       const enLaWeb = await pg.evaluate(() => {
         const antesP = PLANES.slice();

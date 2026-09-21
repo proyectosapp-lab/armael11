@@ -24,6 +24,7 @@ const leer = f => readFileSync(new URL("./" + f, import.meta.url), "utf8");
 const CREAR = leer("funcion-crear-pago.ts");
 const AVISO = leer("funcion-pago-avisado.ts");
 const PLAY  = leer("funcion-pago-play.ts");
+const APPLE = leer("funcion-pago-apple.ts");
 const CUENTAS = leer("cuentas.js");
 
 const casos = [];
@@ -245,6 +246,115 @@ caso("la app lee el premium y no intenta escribirlo",
        /Deno\.env\.get\("PLAY_CUENTA"\)/.test(PLAY) && !/\bMII[A-Za-z0-9+/]{20}/.test(PLAY));
   caso("y si Google confirma pero la base falla, se avisa en vez de callarse",
        /Cobramos pero no pude activarlo/.test(PLAY));
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   LA CUARTA PUERTA: APPLE
+
+   Es la más peligrosa de las cuatro por una razón que no tienen las otras:
+   **se despliega con "Verify JWT" destildado**. Las otras tres tienen a
+   Supabase revisando el token antes de que corra una sola línea; esta no
+   puede tenerlo, porque RevenueCat no tiene ningún token de Supabase que
+   ofrecer y el aviso rebotaría con 401 sin llegar nunca.
+
+   O sea que las dos puertas de esta función son las que están escritas
+   adentro del archivo, y son las que se miran acá. Si alguien simplifica
+   una, la dirección queda abierta y no hay ningún síntoma: los pagos siguen
+   entrando igual, y lo único que cambia es que además puede entrar
+   cualquiera.
+   ══════════════════════════════════════════════════════════════════════════ */
+{
+  /* ── PUERTA 1: EL AVISO TRAE EL SECRETO COMPARTIDO ───────────────────── */
+  caso("el aviso de RevenueCat tiene que traer el secreto compartido",
+       /Deno\.env\.get\("REVENUECAT_AVISO"\)/.test(APPLE) &&
+       /mismoSecreto\(auth, RC_AVISO\)/.test(APPLE));
+  /* Un secreto sin configurar NO puede dejar pasar todo: eso sería
+     exactamente el agujero, y sin un solo síntoma. */
+  caso("y si el secreto no está configurado, la puerta queda CERRADA, no abierta",
+       /!RC_AVISO \|\| !mismoSecreto/.test(APPLE));
+  /* Comparar con `===` corta en la primera letra distinta y ese tiempo se
+     mide desde afuera: deja adivinar el secreto letra por letra. */
+  caso("el secreto se compara sin apurarse, no con un ===",
+       /d \|= x\.charCodeAt\(i\) \^ y\.charCodeAt\(i\)/.test(APPLE));
+
+  /* ── PUERTA 2: LA APP DICE QUIÉN ES CON SU TOKEN ─────────────────────── */
+  caso("cuando pregunta la app, el perfil sale del token y no del cuerpo",
+       /auth\/v1\/user/.test(APPLE) &&
+       !/cuerpo\.(perfil|uid|usuario|user_id)\b/.test(APPLE));
+  caso("sin sesión válida no se consulta ni se acredita nada",
+       /if \(!u\.ok\) return json\([^)]*401\)/.test(APPLE));
+
+  /* ── NO SE LE CREE NADA AL QUE LLAMA ─────────────────────────────────── */
+  /* Del aviso se toma UN dato -de quién habla- y todo lo demás se va a
+     buscar. Si se leyera del cuerpo qué compró o hasta cuándo, cualquiera
+     con el secreto filtrado se haría premium para siempre mandando un JSON
+     con una fecha de 2099. */
+  caso("qué compró y hasta cuándo se le pregunta a RevenueCat, no al cuerpo",
+       /api\.revenuecat\.com\/v1\/subscribers\//.test(APPLE) &&
+       !/cuerpo\.(event\.)?(product|expires|entitlement|price)/.test(APPLE));
+  caso("y el id que viene en el aviso tiene que tener forma de uuid",
+       /esPerfil\(e\.app_user_id\)/.test(APPLE) &&
+       /\[0-9a-f\]\{8\}-/.test(APPLE));
+
+  /* ── EL PRECIO NO VIAJA ──────────────────────────────────────────────── */
+  caso("no se lee ningún importe del que llama: lo cobró Apple",
+       /p_monto: 0/.test(APPLE) &&
+       !/cuerpo[^\n]*\b(precio|monto|amount|meses)\b/.test(APPLE));
+
+  /* ── EL CANDADO CONTRA EL DOBLE MES ──────────────────────────────────── */
+  /* Acreditar es UNA operación en la base y no dos pedidos desde acá: dos
+     avisos llegando juntos entregarían dos meses por un mes pago. */
+  caso("anota y acredita con una sola llamada, la misma de Mercado Pago y Play",
+       /rpc\/registrar_pago/.test(APPLE) && !/rpc\/acreditar_premium/.test(APPLE));
+  /* El id lleva la fecha de vencimiento adentro. Esa es toda la idea: la
+     renovación del mes que viene trae un vencimiento nuevo y acredita; el
+     mismo aviso repetido trae el mismo y no acredita dos veces. Si alguien
+     lo simplificara a "apple:" + producto, la suscripción acreditaría UNA
+     VEZ EN LA VIDA y al segundo mes la persona se quedaría sin el pase, sin
+     ningún error en ningún log. */
+  caso("el número de pago lleva el vencimiento, para que la renovación acredite",
+       /"apple:" \+ activo\.producto \+ ":" \+ activo\.venceTxt/.test(APPLE));
+  caso("y no se puede confundir con uno de Play ni con uno de Mercado Pago",
+       /"apple:" \+/.test(APPLE));
+
+  /* ── QUÉ SE CONSIDERA ACTIVO ─────────────────────────────────────────── */
+  caso("solo cuenta la suscripción que todavía no venció",
+       /vence <= ahora\) continue/.test(APPLE));
+  caso("y si hay dos activas gana la que vence más tarde, que es la que acaba de comprar",
+       /vence > mejor\.vence/.test(APPLE));
+  caso("un producto que no es ninguno de los tres se ignora",
+       /if \(!PLANES\[id\]\) continue/.test(APPLE));
+
+  /* ── QUÉ SE CONTESTA CUANDO ALGO SALE MAL ────────────────────────────── */
+  /* Un aviso que no se puede atribuir se contesta 200: con un 500,
+     RevenueCat reintenta el mismo aviso durante días y no va a cambiar
+     nada. Queda en el log, que es donde se mira. */
+  caso("un aviso sin perfil nuestro se contesta 200 y queda en el log",
+       /aviso sin perfil/.test(APPLE));
+  /* Pero si falla NUESTRA base, sí se pide el reintento: esa sí se arregla
+     sola la segunda vez. */
+  caso("pero si falla nuestra base, al aviso se le contesta 500 para que reintente",
+       /esAviso\) return json\(\{ error: "no pude acreditar" \}, 500\)/.test(APPLE));
+  caso("y a la persona que está mirando la pantalla se le dice la verdad",
+       /Apple cobró pero no pude activarlo/.test(APPLE));
+
+  /* ── LAS CLAVES NO ESTÁN EN EL ARCHIVO ───────────────────────────────── */
+  caso("la clave secreta de RevenueCat vive en un secreto, no en el archivo",
+       /Deno\.env\.get\("REVENUECAT_CLAVE"\)/.test(APPLE) &&
+       !/\bsk_[A-Za-z0-9]{10}/.test(APPLE));
+  caso("y la pública tampoco está acá: esta función no la necesita",
+       !/\bappl_[A-Za-z0-9]{10}/.test(APPLE));
+
+  /* ── LO QUE MANDA LA APP ─────────────────────────────────────────────── */
+  /* El cuerpo va vacío a propósito: el teléfono no aporta ni un dato de la
+     compra. Si mañana alguien le agregara el comprobante, estaría abriendo
+     la puerta a que el teléfono decida qué se acredita. */
+  caso("la app no le manda ningún dato de la compra al servidor, solo su token",
+       /functions\/v1\/pago-apple/.test(CUENTAS) &&
+       /body: JSON\.stringify\(\{\}\)/.test(CUENTAS) &&
+       /Authorization: "Bearer " \+ sesion\.token/.test(CUENTAS));
+  caso("y sin sesión ni lo intenta",
+       /avisarPagoDeApple[\s\S]{0,200}Hay que entrar primero/.test(CUENTAS));
 }
 
 const linea = "─".repeat(70);

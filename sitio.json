@@ -33,6 +33,10 @@
   ]
  },
  "_android": "El paquete y las huellas SHA-256 que autorizan a la app de Android a abrir armael11.com a pantalla completa, sin la barra del navegador. Con esto se escribe sitio/.well-known/assetlinks.json. Van DOS huellas y las dos son públicas (son certificados, no llaves). La primera es la de CARGA: la generó PWABuilder y es con la que se firma el .aab que se sube. La segunda es la de FIRMA DE LA APP: Google reemplaza la firma al distribuir, así que es la que de verdad tiene la app instalada desde Play, y se saca de Play Console → Protegido con Play → Firma de apps, columna 'Clave clásica' (la poscuántica NO sirve para esto: Android todavía no la usa acá). Con las dos puestas la app abre a pantalla completa; con una sola abre igual, pero con la barra del navegador arriba. Si el bloque 'android' se saca, el archivo se borra del sitio.",
+ "apple": {
+  "revenuecat": "appl_dQnGEbXpKWceFceVepoLEHQGWNn"
+ },
+ "_apple": "La suscripcion adentro del iPhone. 'revenuecat' es la clave PUBLICA de RevenueCat, la que empieza con appl_, de Project settings -> API keys -> Public app-specific keys. Va aca por la misma razon que la anon de Supabase: viaja compilada adentro de cada copia de la app, cualquiera la puede leer descomprimiendo el .ipa, y sola no autoriza nada mas que pedir precios y comprar, que es lo que el dueno del telefono hace igual. La clave SECRETA -la que empieza con sk_- NO va aca ni en ningun archivo del proyecto: va como secreto de Supabase, REVENUECAT_CLAVE, y es la que usa la funcion pago-apple para verificar. Lo mismo la frase del webhook, REVENUECAT_AVISO. Si este bloque falta, el panel de planes del iPhone dice que lo basico es gratis y no ofrece ninguna compra, que es lo correcto: nunca cae a Mercado Pago. En la web y en Play esto no se lee nunca.",
  "avisos": {
   "vapidPublica": "BBEsHYaHYbStQc4awL0GZN3r0w3vmpPMfqjbS4kphgi9vYm1pRhjnWKfZr7rje7lFwW_7tnoGlbpGmFjTeULU-Y",
   "contacto": "mailto:steelsmartshomes@gmail.com"

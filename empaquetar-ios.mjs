@@ -274,6 +274,19 @@ for (const [ruta, dato] of archivos) {
 writeFileSync(new URL("datos-ios.js", WWW),
   readFileSync(aca("./datos-ios.js"), "utf8").replace(/^export\s+/gm, ""));
 
+/* ── LA TIENDA DE APPLE, QUE VIAJA SOLO ACÁ ──────────────────────────────
+   `tienda-ios.js` NO se publica en armael11.com, y eso no es una
+   optimización: es la regla 3.1.1 hecha de archivos en vez de condiciones.
+   Si estuviera en la web, la única cosa que separaría "ofrecer StoreKit" de
+   "ofrecer Mercado Pago" sería un `if`, y un `if` se puede borrar sin
+   querer. Al no existir el archivo, no hay nada que borrar.
+
+   Los `export` se sacan igual que en `datos-ios.js` y `nativo.js`: esto
+   entra como `<script>` clásico y comparte el ámbito global con la app. Por
+   eso todos los nombres de adentro empiezan con `ios`. */
+writeFileSync(new URL("tienda-ios.js", WWW),
+  readFileSync(aca("./tienda-ios.js"), "utf8").replace(/^export\s+/gm, ""));
+
 /* LA FECHA DE LA FOTO. Para poder DECIRLA: un iPhone recién instalado y sin
    conexión muestra esto, que puede tener una fecha ya jugada, y mostrarla
    como si fuera la de ahora es la misma confusión que arreglamos con el
@@ -290,7 +303,8 @@ writeFileSync(new URL("datos/foto.js", WWW), "window.DATOS_FOTO=" + JSON.stringi
     const marca = t.indexOf('<script src="datos/');
     if (marca < 0) continue;
     writeFileSync(f.url, t.slice(0, marca) +
-      '<script src="datos/foto.js"></script>\n<script src="datos-ios.js"></script>\n' + t.slice(marca));
+      '<script src="datos/foto.js"></script>\n<script src="datos-ios.js"></script>\n' +
+      '<script src="tienda-ios.js"></script>\n' + t.slice(marca));
     tocadas++;
   }
   console.log("  ✓ refresco enchufado en " + tocadas + " páginas · foto " +
