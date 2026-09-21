@@ -3985,6 +3985,34 @@ function tarjetasDePlan(){
   try{
     if(!conBackend || !PLANES.length) return "";
   }catch(e){ return ""; }
+
+  /* ══════════════════════════════════════════════════════════════════════
+     ADENTRO DEL IPHONE NO SE OFRECE NINGUNA COMPRA. NI UNA.
+
+     La regla 3.1.1 de Apple: los bienes digitales se pagan por StoreKit y
+     por nada más. Ni Mercado Pago adentro, ni un link para pagar afuera, ni
+     un precio que insinúe que se paga en otro lado. El rechazo por esto es
+     de los más rápidos que hay, y si llega DESPUÉS de estar aprobada, Apple
+     puede bajar la app.
+
+     Y acá estaba el agujero, que no se veía porque hoy el cobro está
+     apagado: `esDeLaTienda()` reconoce Play mirando el referrer
+     `android-app://`. Adentro del webview de Capacitor ese referrer no
+     existe, así que la app se cree **la web** — y la web ofrece Mercado
+     Pago. El día que se prenda `cobra`, la app del iPhone empieza a ofrecer
+     Mercado Pago sola, sin que nadie toque una línea.
+
+     Es exactamente la misma trampa del referrer que ya nos había mordido
+     con AdSense, y la defensa es la misma: que el camino no exista, en vez
+     de apagarlo con una condición más.
+
+     Lo que se muestra en su lugar no menciona compras ni precios ni
+     "próximamente": un "coming soon" es contenido incompleto y también se
+     mira mal. Se dice lo que hay, que es que lo básico es gratis.      */
+  if(typeof esNativaIos === "function" && esNativaIos())
+    return `<p class="aviso" style="margin-top:8px"><b>Lo básico es gratis.</b>
+      Tenés ${CUPO_CFG.gratis} simulaciones por mes en una liga, y se renuevan solas.</p>`;
+
   const porPlay = esDeLaTienda();
   const playListo = !porPlay || PLAY_OK !== false;
   const apagado = comprando || !CUPO_CFG.cobrando || !playListo;

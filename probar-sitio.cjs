@@ -2869,6 +2869,61 @@ srv.listen(8099, async () => {
     caso("y dice que es publicidad, no se disfraza de contenido", pub.rotulada === true);
     caso("con el id de cliente y el de la unidad", pub.ids === true);
     caso("el que pagó no ve ninguno: es lo que compró", pub.premium === true);
+    /* ══════════════════════════════════════════════════════════════════
+       ADENTRO DEL IPHONE NO SE OFRECE NINGUNA COMPRA
+
+       Regla 3.1.1 de Apple: los bienes digitales se pagan por StoreKit y
+       por nada más. Ni Mercado Pago adentro, ni un link para pagar afuera,
+       ni un precio que insinúe que se paga en otro lado.
+
+       El agujero era el mismo del referrer que ya nos mordió con AdSense:
+       `esDeLaTienda()` reconoce Play mirando `android-app://`, que adentro
+       del webview de Capacitor no existe. O sea que la app del iPhone se
+       creía LA WEB, y la web ofrece Mercado Pago. Hoy no se ve porque el
+       cobro está apagado; el día que se prenda aparecía solo.
+       ══════════════════════════════════════════════════════════════════ */
+    {
+      /* Los planes se arman de `window.SITIO.planes`; en esta página de
+         prueba puede no haber ninguno, y entonces la función devuelve vacío
+         y los casos pasarían por la razón equivocada. Se ponen tres. */
+      const enIphone = await pg.evaluate(() => {
+        const antesP = PLANES.slice();
+        if (!PLANES.length) PLANES.push(
+          { id:"liga",  nombre:"Tu liga",  precio:3000,  detalle:"sin límite en una liga" },
+          { id:"tres",  nombre:"3 ligas",  precio:7500,  detalle:"sin límite en tres" },
+          { id:"todas", nombre:"Todas",    precio:12000, detalle:"sin límite en las once" });
+        const antes = window.esNativaIos;
+        window.esNativaIos = () => true;
+        const html = tarjetasDePlan();
+        window.esNativaIos = antes;
+        PLANES.length = 0; antesP.forEach(x => PLANES.push(x));
+        const d = document.createElement("div"); d.innerHTML = html;
+        return { html, txt: d.textContent.trim().replace(/\s+/g, " "),
+                 hayPlanes: antesP.length };
+      });
+      caso("en el iPhone no se ofrece Mercado Pago",
+           !/Mercado Pago/i.test(enIphone.html), enIphone.txt);
+      caso("ni hay un botón de comprar",
+           !/data-plan/.test(enIphone.html) && !/Comprar/i.test(enIphone.html), enIphone.txt);
+      caso("ni se muestran precios, que insinúan una compra que no se puede hacer",
+           !/\$/.test(enIphone.txt), enIphone.txt);
+      caso("y tampoco se promete nada para más adelante",
+           !/próximamente|proximamente|pronto/i.test(enIphone.txt), enIphone.txt);
+      caso("lo que se dice es lo que hay: que lo básico es gratis",
+           /gratis/i.test(enIphone.txt), enIphone.txt);
+      /* Y en la web sigue todo igual que siempre. */
+      const enLaWeb = await pg.evaluate(() => {
+        const antesP = PLANES.slice();
+        if (!PLANES.length) PLANES.push(
+          { id:"liga", nombre:"Tu liga", precio:3000, detalle:"sin límite en una liga" });
+        const html = tarjetasDePlan();
+        PLANES.length = 0; antesP.forEach(x => PLANES.push(x));
+        return html;
+      });
+      caso("en la web el panel de planes sigue intacto",
+           /data-plan/.test(enLaWeb), enLaWeb.slice(0, 160));
+    }
+
     caso("ADENTRO DE LA APP DE PLAY NUNCA: AdSense es para sitios web",
          pub.enLaTienda === true);
     caso("con cuenta aprobada pero sin unidad creada, tampoco", pub.sinBloque === true);

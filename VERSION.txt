@@ -1,3 +1,55 @@
+Arma el 11 - version 2026-09-21 y75 (en el iPhone no se ofrece ninguna compra)
+
+  · SE SUBEN DOS ARCHIVOS: app.tpl.html y probar-sitio.cjs. Mas VERSION.txt.
+    Va ENCIMA del y71 al y74.
+
+  ── UN AGUJERO QUE HABRIA VOLTEADO LA APP DESPUES DE APROBADA ────────────
+
+    Regla 3.1.1 de Apple: los bienes digitales se pagan por StoreKit y por
+    nada mas. Ni Mercado Pago adentro, ni un link para pagar afuera, ni un
+    precio que insinue que se paga en otro lado.
+
+    `esDeLaTienda()` reconoce Play mirando el referrer `android-app://`.
+    Adentro del webview de Capacitor ese referrer NO EXISTE, asi que la app
+    del iPhone se cree la WEB — y la web ofrece Mercado Pago.
+
+    Hoy no se ve porque el cobro esta apagado y el panel dice "todavia no se
+    cobra nada". El dia que se prenda `cobra`, la app del iPhone empieza a
+    ofrecer Mercado Pago sola, sin que nadie toque una linea. Y si eso pasa
+    con la app YA APROBADA, Apple no manda un mail: la baja.
+
+    Es la MISMA trampa del referrer que ya nos habia mordido con AdSense, y
+    la defensa es la misma: que el camino no exista, en vez de apagarlo con
+    una condicion mas.
+
+  ── QUE SE MUESTRA EN SU LUGAR ───────────────────────────────────────────
+
+    Adentro del iPhone, el panel de planes entero se reemplaza por:
+
+      Lo basico es gratis. Tenes 10 simulaciones por mes en una liga, y se
+      renuevan solas.
+
+    Sin precios, sin boton de comprar, sin nombrar Mercado Pago. Y sin
+    "proximamente": un "coming soon" es contenido incompleto y tambien se
+    mira mal en la revision. Se dice lo que hay.
+
+    En la web y en Play no cambia absolutamente nada.
+
+  ── COMO SE SABE QUE ES UN IPHONE ────────────────────────────────────────
+
+    `esNativaIos()`, que ya existia en `datos-ios.js` desde el y54. Ese
+    archivo solo viaja adentro del .ipa: en la web la funcion no existe, el
+    `typeof` da falso y el camino de siempre queda intacto. O sea que el
+    guardarrail no puede dispararse por error en el navegador.
+
+  ── PROBADO ──────────────────────────────────────────────────────────────
+
+    probar-sitio.cjs  402 → 408.
+
+    Los casos nuevos no dicen "no aparece Mercado Pago" y listo: tambien
+    afirman que no haya boton de comprar, que no haya precios, que no se
+    prometa nada para mas adelante, y que en la web el panel siga entero.
+
 Arma el 11 - version 2026-09-21 y74 (no tocar nada tambien es un planteo)
 
   · SE SUBEN DOS ARCHIVOS: app.tpl.html y probar-sitio.cjs. Mas VERSION.txt.
