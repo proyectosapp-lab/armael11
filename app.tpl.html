@@ -3167,12 +3167,25 @@ function pieDelResultado(){
    que hizo la persona, que es la categoría que el y68 dejó en pie. Ninguna
    sale a explicar cómo funciona nada; las tres dicen qué pasó.
 
-   ─── LA TERCERA LÍNEA ES CONDICIONAL, Y ESO IMPORTA ──────────────────────
-   "Los ajustes mueven el marcador" solo se escribe si esta persona MOVIÓ
-   algo. Dicho a alguien que no tocó nada sería falso y sonaría a excusa
-   preparada. Sin ajustes, la diferencia no la explica nada que haya hecho
-   el usuario, y ahí el único dato honesto es el porcentaje de la segunda
-   línea.                                                                 */
+   ─── LA TERCERA LÍNEA, Y LA CORRECCIÓN DE FAUSTO ─────────────────────────
+   La primera versión callaba cuando la persona no había tocado nada, con el
+   argumento de que echarle la culpa a unos ajustes que no hizo sería una
+   excusa. Fausto lo corrigió en el acto:
+
+     "Ojo con eso: no tocar ningún ajuste también es un ajuste tácito,
+      porque la app no trae por defecto los ajustes reales, trae las
+      formaciones."
+
+   Es exactamente así, y callar era peor que decir de más. Callar deja
+   implícito que lo que se simuló era una reproducción fiel del partido —y
+   aun así dio distinto—, cuando en realidad se simuló un planteo NEUTRO:
+   las cuatro perillas en cero, las indicaciones por defecto y un once que
+   nadie eligió. Los equipos de verdad no jugaron neutros.
+
+   Así que la tercera línea va SIEMPRE. Lo que cambia es qué dice: si
+   tocaste algo, habla de lo que tocaste; si no, nombra lo que quedó puesto
+   por vos sin que lo eligieras. En los dos casos habla de lo que se simuló,
+   que es la categoría que el y68 dejó en pie.                            */
 function comparacionConLoReal(){
   if(!J.jugado || !J.fx || !J.sim) return "";
   const g = J.fx.goals || {};
@@ -3187,10 +3200,14 @@ function comparacionConLoReal(){
   const p = leyoMejor(s, misG, susG);
   const cuantos = (s.ajustes || []).length;
 
+  /* "Con tus ajustes" solo si hubo ajustes. Con la frase de abajo diciendo
+     que no tocó nada, empezar con "con tus ajustes" hacía que el mismo
+     recuadro se contradijera en dos renglones. */
+  const conQue = cuantos ? "Con tus ajustes salió " : "Salió ";
   const primera = mio
     ? (igual
-        ? "Con tus ajustes salió " + mio + ", igual que el partido de verdad."
-        : "Con tus ajustes salió <b>" + mio + "</b>. El partido de verdad terminó <b>" + real + "</b>.")
+        ? conQue + mio + ", igual que el partido de verdad."
+        : conQue + "<b>" + mio + "</b>. El partido de verdad terminó <b>" + real + "</b>.")
     : "El partido de verdad terminó <b>" + real + "</b>.";
 
   /* La preposición va adentro de cada caso y no afuera: "A" + "el empate"
@@ -3201,9 +3218,13 @@ function comparacionConLoReal(){
   const segunda = p == null ? "" :
     " " + comoTermino + " el modelo le daba <b>" + p.toFixed(0) + "%</b>.";
 
+  /* Se nombra el once que de verdad se usó. Desde el y65 puede ser el del
+     DT —si ya estaba publicado— y eso cambia lo que es honesto decir. */
+  const conQueOnce = (J.delDT && J.delDT.A) ? "el once del DT" : "el once que armó la app";
   const tercera = cuantos
     ? " Acordate de que el once y el planteo que pusiste mueven el marcador."
-    : "";
+    : " Se simuló con " + conQueOnce + " y el planteo en neutro: no tocar nada " +
+      "también es un planteo, y mueve el marcador.";
 
   return `<div class="pendiente salio" style="margin:12px 0 0">
     ${primera}${segunda}${tercera}</div>`;

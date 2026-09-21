@@ -1,3 +1,61 @@
+Arma el 11 - version 2026-09-21 y74 (no tocar nada tambien es un planteo)
+
+  · SE SUBEN DOS ARCHIVOS: app.tpl.html y probar-sitio.cjs. Mas VERSION.txt.
+    Va ENCIMA del y71, y72 e y73.
+
+  ── LA CORRECCION DE FAUSTO ──────────────────────────────────────────────
+
+    "Ojo con eso: no tocar ningun ajuste tambien es un ajuste tacito, porque
+    la app no trae por defecto los ajustes reales, trae las formaciones."
+
+    Tiene razon y en el y73 lo tenia al reves. Yo habia decidido CALLAR
+    cuando la persona no tocaba nada, con el argumento de que echarle la
+    culpa a unos ajustes que no hizo seria una excusa.
+
+    Callar era peor. Deja implicito que lo que se simulo fue una
+    reproduccion fiel del partido —y aun asi dio distinto—, cuando en
+    realidad se simulo un planteo NEUTRO: las cuatro perillas en cero, las
+    indicaciones por defecto y un once que nadie eligio. Los equipos de
+    verdad no jugaron neutros.
+
+    O sea que el silencio afirmaba algo falso, que es exactamente el error
+    que veniamos corrigiendo en otro lado.
+
+  ── COMO QUEDA ───────────────────────────────────────────────────────────
+
+    Con ajustes:
+
+      Con tus ajustes salio 2-1. El partido de verdad termino 1-1.
+      Al empate el modelo le daba 26%.
+      Acordate de que el once y el planteo que pusiste mueven el marcador.
+
+    Sin tocar nada:
+
+      Salio 2-1. El partido de verdad termino 1-1.
+      Al empate el modelo le daba 26%.
+      Se simulo con el once que armo la app y el planteo en neutro: no tocar
+      nada tambien es un planteo, y mueve el marcador.
+
+    Y si el once que se uso era el del DT —porque ya estaba publicado— lo
+    dice asi, que no es lo mismo: "se simulo con el once del DT y el planteo
+    en neutro". Nombrar lo que de verdad se uso es la diferencia entre
+    explicar y excusarse.
+
+  ── UN DETALLE QUE SE VIO LEYENDO Y NO CORRIENDO CASOS ───────────────────
+
+    La primera version de este arreglo dejaba el arranque "Con tus ajustes
+    salio 2-1" y le pegaba abajo "no tocar nada tambien es un planteo". El
+    mismo recuadro se contradecia en dos renglones. Ahora sin ajustes
+    arranca con "Salio 2-1" a secas.
+
+    Segunda vez en dos versiones que el error aparece al LEER la frase
+    armada y no al verificar los numeros. Queda como habito: despues de
+    tocar una frase, renderizarla y leerla entera.
+
+  ── PROBADO ──────────────────────────────────────────────────────────────
+
+    probar-sitio.cjs  398 → 402. Todo verde.
+
 Arma el 11 - version 2026-09-21 y73 (lo que salio, y lo que paso de verdad)
 
   · SE SUBEN DOS ARCHIVOS: app.tpl.html y probar-sitio.cjs. Mas VERSION.txt.

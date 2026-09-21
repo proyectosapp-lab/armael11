@@ -1573,8 +1573,11 @@ srv.listen(8099, async () => {
 
      Lo que se fija acá: que aparezca, que diga LOS DOS marcadores, que diga
      qué probabilidad le daba el modelo a lo que de verdad pasó, y —el caso
-     que más fácil se rompe— que la frase de los ajustes NO aparezca cuando
-     la persona no tocó nada, porque ahí sería falsa y sonaría a excusa.
+     que más fácil se rompe— que también diga algo cuando la persona no tocó
+     nada. Fausto, el 21/9: "no tocar ningún ajuste también es un ajuste
+     tácito, porque la app no trae por defecto los ajustes reales, trae las
+     formaciones". Callar ahí deja implícito que se simuló una reproducción
+     fiel del partido, cuando lo que se simuló fue un planteo NEUTRO.
      ══════════════════════════════════════════════════════════════════════ */
   {
     const armar = (mio, real, ajustes) => pg.evaluate(([mio, real, ajustes]) => {
@@ -1600,12 +1603,28 @@ srv.listen(8099, async () => {
     caso("y le recuerda que los ajustes mueven el marcador",
          /mueven el marcador/.test(distinto));
 
-    /* EL CASO QUE IMPORTA: sin ajustes, esa frase sería una excusa. */
+    /* EL CASO QUE IMPORTA: sin ajustes tampoco se calla, porque lo que se
+       simuló no fue el partido de verdad sino un planteo neutro. */
     const sinAjustes = await armar([2,1], [1,1], []);
-    caso("si NO tocó nada, no se le echa la culpa a unos ajustes que no hizo",
-         !/mueven el marcador/.test(sinAjustes), sinAjustes);
-    caso("pero los dos marcadores y el porcentaje siguen estando",
+    caso("si no tocó nada, NO se le echa la culpa a ajustes que no hizo",
+         !/que pusiste/.test(sinAjustes), sinAjustes);
+    caso("pero tampoco se calla: no tocar nada también es un planteo",
+         /no tocar nada también es un planteo/.test(sinAjustes), sinAjustes);
+    caso("y se nombra con qué se simuló, que es lo que la persona no eligió",
+         /planteo en neutro/.test(sinAjustes) && /once que armó la app/.test(sinAjustes),
+         sinAjustes);
+    caso("y no arranca diciendo 'con tus ajustes' si no hubo ninguno",
+         !/Con tus ajustes/.test(sinAjustes), sinAjustes);
+    caso("los dos marcadores y el porcentaje siguen estando",
          /2-1/.test(sinAjustes) && /1-1/.test(sinAjustes) && /26%/.test(sinAjustes));
+
+    /* Y si el once que se usó era el del DT, se dice: no es lo mismo. */
+    const conDT = await pg.evaluate(() => {
+      J.delDT = { A:true, B:true };
+      const t = comparacionConLoReal(); J.delDT = { A:false, B:false }; return t;
+    });
+    caso("si el once era el del DT, se nombra así y no como invento de la app",
+         /once del DT/.test(conDT) && !/once que armó la app/.test(conDT), conDT);
 
     const clavado = await armar([1,1], [1,1], ["1 cambio en el once"]);
     caso("si le pegó al marcador exacto, lo dice y no lo disimula",
