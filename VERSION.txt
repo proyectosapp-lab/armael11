@@ -1,3 +1,111 @@
+Arma el 11 - version 2026-09-23 y77 (el planteo adelante, las perillas plegadas)
+
+  · SE SUBEN DOS ARCHIVOS: app.tpl.html y probar-sitio.cjs. Mas VERSION.txt.
+    Va ENCIMA del y76b.
+
+  · ESTO TOCA app.tpl.html, QUE VIAJA ADENTRO DEL .IPA. Para que llegue al
+    iPhone hay que publicar el sitio Y crear una etiqueta nueva en Codemagic.
+    Con `datos-ios.js` no alcanza: ese refresca datos, no codigo.
+
+  ── SE SACO "SIMULAR TAL CUAL", Y ESTA ES LA RAZON ───────────────────────
+
+    Era un boton en la tarjeta del proximo partido que elegia el partido, no
+    esperaba nada y simulaba de una. Habia nacido de una devolucion de los
+    testers -"tarda mucho prepararla"- y resolvia bien ese problema.
+
+    El problema es QUE simulaba:
+
+      · Sin esperar a las formaciones, el once lo armaba `autoXI` con el
+        plantel crudo. O sea jugadores puestos en posiciones que no son las
+        suyas.
+      · Las cuatro perillas en cero. Cero no es "el planteo de nadie": es la
+        AUSENCIA de planteo.
+
+    Asi que el resultado mas rapido de conseguir era tambien el menos
+    preciso, y era el que mas gente veia. Eso no es una molestia: es el
+    modelo mostrandose en su peor version justo en la primera impresion.
+
+    Y encima contradecia lo que la portada promete con todas las letras
+    -"tocas una perilla y se mueve el resultado"- porque el camino corto era
+    justamente el que no tocaba ninguna.
+
+    La velocidad se recupera del otro lado, que es lo que sigue.
+
+  ── LOS PLANTEOS ARMADOS PASAN A SER LA DECISION PRINCIPAL ───────────────
+
+    Ya existian -"Se para atras", "Espera y sale de contra", "Va a buscarlo",
+    "Se juega la vida"- y son un toque que escribe las cuatro perillas de
+    una. Eso es rapido Y es un planteo de verdad, que es exactamente lo que
+    el atajo no era.
+
+    Pero estaban mal puestos: eran cinco `.chip` adentro de un `.filtros`,
+    que es una tira que scrollea de costado. En un telefono eso muestra dos
+    y medio y esconde los otros dos y medio detras de un gesto que nadie
+    hace. El atajo mas util de la app estaba medio afuera de la pantalla.
+
+    Ahora son una grilla que envuelve: dos por fila, y la quinta ocupa el
+    ancho entero abajo. Se ven las cinco de una, son mas grandes, y el orden
+    sigue siendo el espectro de mas defensivo a mas ofensivo.
+
+    La prueba no mira la clase CSS -esa se puede renombrar- sino que el
+    ancho del contenido no supere al del contenedor, que es lo que el dedo
+    siente.
+
+  ── EL AJUSTE FINO, PLEGADO ──────────────────────────────────────────────
+
+    Las cuatro perillas y las tres indicaciones son cinco pantallazos de
+    scroll POR EQUIPO, o sea diez antes de llegar al boton. Ahora van
+    adentro de un desplegable "Ajuste fino", cerrado por defecto.
+
+    El que quiere jugar rapido elige un planteo y simula. El que quiere
+    afinar, abre — y ademas ve lo que el planteo escribio en cada perilla,
+    que enseña como funcionan.
+
+  ── LO QUE PLEGAR NO PUEDE ESCONDER ──────────────────────────────────────
+
+    "No tocar ningun ajuste tambien es un ajuste tacito" fue la leccion del
+    y74, y plegar el detalle la vuelve a poner en juego: si alguien mueve
+    una perilla, cierra el desplegable y simula, el resultado saldria de
+    ajustes invisibles.
+
+    Asi que TODO LO TOCADO se dice afuera del pliegue, siempre:
+
+      · Perillas movidas a mano -> "Perillas a mano. Ninguno de los cinco
+        planteos describe como estan".
+      · Indicaciones cambiadas  -> "Con una indicacion cambiada."
+
+    Y por eso mismo el desplegable NO se fuerza a abrirse cuando hay algo
+    tocado: no hace falta, porque nada queda en silencio, y forzarlo
+    pelearia contra el dedo de la persona en cada repintado.
+
+    Hay tres casos de prueba sobre esto, incluido uno que verifica que
+    cuando NO hay nada tocado tampoco se invente un aviso.
+
+  ── LA TRAMPA DEL <details> QUE SE CIERRA SOLO ───────────────────────────
+
+    Mover una perilla repinta la tarjeta 450 ms despues. Si el abierto /
+    cerrado viviera en el DOM, un `<details>` recien dibujado volveria a su
+    estado por defecto: el desplegable se cerraria SOLO, debajo del dedo, a
+    media perilla.
+
+    Por eso vive en `J.fino`, igual que los planteos viven en las perillas:
+    un solo lugar de verdad y el HTML lo refleja. Tiene prueba propia.
+
+  ── LO QUE HAY QUE MIRAR DESPUES ─────────────────────────────────────────
+
+    El 12% de los que llegan simulan. Una parte de esos venia por el atajo,
+    asi que ese numero puede bajar los primeros dias. Lo que importa mirar
+    no es solo si baja, sino si sube la proporcion de simulaciones CON
+    ajustes tocados —que es lo que el producto promete y lo que el modelo
+    mide bien—. El panel de control ya cuenta las simulaciones.
+
+    Si el 12% se desploma y no sube nada mas, esto se revisa. Pero un atajo
+    que muestra el modelo en su peor version no se defiende con que lo usan.
+
+  ── PRUEBAS ──────────────────────────────────────────────────────────────
+
+    probar-sitio.cjs   411 -> 422
+
 Arma el 11 - version 2026-09-21 y76b (se puede pagar desde el iPhone, por Apple)
 
   · SE SUBEN AL REPO: tienda-ios.js, probar-tienda-ios.mjs,

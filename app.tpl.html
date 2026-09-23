@@ -506,6 +506,44 @@ h3.sec{font-family:var(--display);font-weight:700;font-size:12.5px;letter-spacin
 .chip:hover{border-color:transparent;background:color-mix(in srgb, var(--tinta) 10%, transparent)}
 .chip:active{transform:scale(.97)}
 .chip[aria-pressed="true"]{background:var(--fuerte,var(--acento));color:var(--sobre-fuerte,var(--sobre-acento));box-shadow:var(--sombra-acento)}
+
+/* ── LOS PLANTEOS ARMADOS ─────────────────────────────────────────────────
+   Eran cinco `.chip` adentro de un `.filtros`, o sea una tira que scrollea
+   de costado. En un teléfono eso muestra dos y medio y esconde los otros
+   dos y medio detrás de un gesto que nadie hace. Justo lo contrario de
+   darles protagonismo: el atajo más útil de la app estaba medio afuera de
+   la pantalla.
+
+   Ahora es una grilla que envuelve: dos por fila, y la quinta -"Se juega la
+   vida"- ocupa el ancho entero abajo. Se ven las cinco de una, sin gestos,
+   y el orden sigue siendo el espectro de más defensivo a más ofensivo.
+   Son más grandes que un chip porque ahora son la decisión principal, no
+   un filtro.                                                              */
+.planteos{display:flex;flex-wrap:wrap;gap:8px;margin:2px 0 10px}
+.planteos button{flex:1 1 calc(50% - 4px);min-width:0;
+  font-family:var(--display);font-weight:600;font-size:13.5px;line-height:1.25;
+  padding:12px 10px;border-radius:var(--r-m);text-align:center;cursor:pointer;
+  border:1px solid transparent;color:var(--tinta-2);
+  background:color-mix(in srgb, var(--tinta) 6%, transparent);
+  transition:background .15s, color .15s, transform .08s}
+.planteos button:active{transform:scale(.98)}
+.planteos button[aria-pressed="true"]{background:var(--fuerte,var(--acento));
+  color:var(--sobre-fuerte,var(--sobre-acento));box-shadow:var(--sombra-acento)}
+
+/* ── EL AJUSTE FINO, PLEGADO ──────────────────────────────────────────────
+   Las cuatro perillas y las indicaciones son cinco pantallazos de scroll
+   por equipo, o sea diez antes de llegar al botón. El que quiere jugar
+   rápido elige un planteo y listo; el que quiere afinar, abre. */
+.finas{border-top:1px solid var(--borde);margin-top:12px;padding-top:4px}
+.finas>summary{list-style:none;cursor:pointer;padding:9px 2px;
+  font-family:var(--display);font-weight:600;font-size:13px;color:var(--tinta-2);
+  display:flex;align-items:center;justify-content:space-between;gap:8px}
+.finas>summary::-webkit-details-marker{display:none}
+.finas>summary::after{content:"›";transform:rotate(90deg);
+  color:var(--tinta-3);font-size:17px;line-height:1;transition:transform .15s}
+.finas[open]>summary::after{transform:rotate(-90deg)}
+.finas>summary span{font-weight:400;font-size:11.5px;color:var(--tinta-3)}
+.finas .perilla:first-of-type{margin-top:4px}
 button.acc,.boton,.fx .ya{font-family:var(--display);font-weight:500;letter-spacing:.1px;
   border-radius:var(--r-m);color:var(--sobre-fuerte,var(--sobre-acento));
   background:linear-gradient(180deg, color-mix(in srgb, var(--fuerte,var(--acento)) 90%, white), var(--fuerte,var(--acento)) 45%,
@@ -710,7 +748,9 @@ th{font-family:var(--display);font-weight:500;letter-spacing:.8px}
   font-family:var(--display);font-weight:500}
 .fxp-eq{font-family:var(--display);font-weight:700;font-size:19px;letter-spacing:-.3px;line-height:1.25}
 .fxp-eq i{font-style:normal;font-weight:500;color:var(--tinta-3);font-size:14px;margin:0 2px}
-.fxp-acc{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px}
+/* Una sola columna desde el y77: era una grilla de dos porque había dos
+   caminos —armarlo o simularlo tal cual— y el atajo se sacó. */
+.fxp-acc{display:grid;grid-template-columns:1fr;gap:8px;margin-top:4px}
 .fxp-acc .acc{padding:12px 10px;font-size:14px}
 .fxp-acc .gh{padding:12px 10px}
 .fxp + .fxp{border-top:1px solid var(--borde);margin-top:6px;padding-top:14px}
@@ -2248,6 +2288,16 @@ const J={ key:"", reqs:0, temporada:2026, fixtures:[], fx:null, pool:{A:[],B:[]}
      -"Simular ya" y "Simular y verlo jugar"- hacía creer que eran dos
      simulaciones distintas, y que las perillas solo valían para una. */
   ver: true,
+  /* ── EL DESPLEGABLE DEL AJUSTE FINO, ABIERTO O CERRADO ─────────────────
+     Tiene que vivir acá y no en el `<details>` del HTML por una razón muy
+     concreta: mover una perilla repinta la tarjeta 450 ms después, y un
+     `<details>` recién dibujado vuelve a su estado por defecto. O sea que
+     el desplegable se cerraría solo, debajo del dedo, a media perilla.
+
+     Guardado acá, el repintado lo vuelve a abrir porque el estado no vive
+     en el DOM. Es la misma regla que ya usan los planteos: un solo lugar de
+     verdad, y el HTML lo refleja. */
+  fino: { A:false, B:false },
   /* Lo que la app puso sola al elegir el partido. Se guarda para poder decir
      después qué cambió la persona y qué no. */
   auto: { xiA:[], formA:null },
@@ -4665,28 +4715,50 @@ function tarjetaPlanteo(lado){
     : "";
 
   const elegido = PLANTEOS.find(p=>p.id===activo);
+
+  /* ── QUÉ QUEDA A LA VISTA AUNQUE EL DESPLEGABLE ESTÉ CERRADO ───────────
+     Todo lo que está TOCADO. Es la misma regla que aprendimos con los
+     partidos ya jugados: no tocar nada también es un ajuste, y esconder un
+     ajuste cambiado es peor que esconder uno en su lugar. Si las perillas
+     están a mano o hay una indicación cambiada, se dice acá arriba, fuera
+     del pliegue, aunque el detalle esté guardado.
+
+     Por eso el desplegable NO se fuerza a abrirse cuando hay algo tocado:
+     no hace falta, porque nada queda en silencio, y forzarlo pelearía
+     contra el dedo de la persona en cada repintado. */
+  const IND = mio ? J.IND : J.INDB;
+  const indTocadas = INDICACIONES.filter(g =>
+    (IND[g.id] || g.opciones[0].v) !== INDICACIONES_POR_DEFECTO[g.id]).length;
+
+  const perillas = KNOBS.map(k=>{const v=K[k.id];return `
+    <div class="perilla"><div class="ph"><b>${k.n}</b>
+      <span class="pv">${Math.abs(v)<15?"neutro":(v<0?k.izq:k.der)+" "+Math.abs(v)+"%"}</span></div>
+      <input type="range" min="-100" max="100" value="${v}" ${attr}="${k.id}">
+      <div class="ends"><span>${k.izq}</span><span>${k.der}</span></div></div>`;}).join("");
+
   return `<h3 class="sec">${partidoPropio() ? (mio ? "Tu planteo" : "El planteo del rival")
       : "El planteo de " + esc(nombreLado(lado))}</h3>
     <div class="tarjeta">
-      <nav class="filtros">${PLANTEOS.map(p=>
-        `<button class="chip" data-pl="${lado}" data-plv="${p.id}"
+      <div class="planteos" role="group" aria-label="Planteo">${PLANTEOS.map(p=>
+        `<button data-pl="${lado}" data-plv="${p.id}"
           aria-pressed="${p.id===activo}">${esc(p.n)}</button>`).join("")}
-        ${activo?"":`<button class="chip" aria-pressed="true" disabled>A mano</button>`}
-      </nav>
+      </div>
       ${/* El "Normal" dice "sin nada cargado para ningún lado": explicar que
             no pasa nada ocupa un renglón fijo en todas las pantallas. Las
             otras sí cuentan algo y se muestran. */
-        !elegido ? `<p class="aviso" style="margin:2px 0 8px">Las perillas están
-          movidas a mano. Tocá un planteo para volver a uno armado.</p>`
+        !elegido ? `<p class="aviso" style="margin:2px 0 8px"><b>Perillas a mano.</b>
+          Ninguno de los cinco planteos describe cómo están; tocá uno para
+          volver a un armado.</p>`
         : elegido.id === "normal" ? ""
         : `<p class="aviso" style="margin:2px 0 8px">${esc(elegido.dice)}</p>`}
+      ${indTocadas ? `<p class="aviso" style="margin:2px 0 8px">Con
+        ${indTocadas === 1 ? "una indicación cambiada" : indTocadas + " indicaciones cambiadas"}.</p>` : ""}
       ${ofrecer}
-      ${KNOBS.map(k=>{const v=K[k.id];return `
-        <div class="perilla"><div class="ph"><b>${k.n}</b>
-          <span class="pv">${Math.abs(v)<15?"neutro":(v<0?k.izq:k.der)+" "+Math.abs(v)+"%"}</span></div>
-          <input type="range" min="-100" max="100" value="${v}" ${attr}="${k.id}">
-          <div class="ends"><span>${k.izq}</span><span>${k.der}</span></div></div>`;}).join("")}
-      ${indicacionesHTML(lado)}
+      <details class="finas" data-fino="${lado}"${J.fino[lado] ? " open" : ""}>
+        <summary>Ajuste fino<span>las cuatro perillas y las indicaciones</span></summary>
+        ${perillas}
+        ${indicacionesHTML(lado)}
+      </details>
     </div>`;
 }
 
@@ -4872,11 +4944,26 @@ function vistaJuego(){
   }
 
   if(J.paso==="fixture"){
-    /* EL ATAJO. La devolucion de los testers fue "tarda mucho prepararla".
-       Desde aca eran cuatro toques hasta un resultado: elegir el partido,
-       esperar los planteles, bajar hasta el boton, simular. Este boton hace
-       los cuatro. El que quiera mover el once y las perillas sigue tocando
-       la fila, como siempre. */
+    /* ── EL ATAJO QUE SE SACÓ, Y POR QUÉ ──────────────────────────────────
+       Acá vivía "Simular tal cual": un botón que elegía el partido, no
+       esperaba nada y simulaba de una. Nació de una devolución de los
+       testers —"tarda mucho prepararla"— y resolvía bien ese problema.
+
+       El problema es qué simulaba. Sin esperar a las formaciones, el once
+       lo armaba `autoXI` con el plantel crudo: jugadores puestos en
+       posiciones que no son las suyas. Y las cuatro perillas en cero, que
+       no es "el planteo de nadie" sino la ausencia de planteo. O sea que el
+       resultado más rápido de conseguir era también el menos preciso, y era
+       el que más gente veía.
+
+       Eso es peor que una molestia: es el modelo mostrándose en su peor
+       versión justo en la primera impresión. Y encima contradice lo que la
+       app promete en la portada —"tocás una perilla y se mueve el
+       resultado"—, porque el camino corto era el que no tocaba ninguna.
+
+       La velocidad se recupera del otro lado: los planteos armados. Elegir
+       "Espera y sale de contra" es un toque y escribe las cuatro perillas
+       de una. Eso es rápido Y es un planteo de verdad. */
     const fila=(f,i)=>{const loc=f.teams.home.id===J.id.A, ya=JUGADO(f);
       return `<div class="fx" data-fx="${i}">
         <span class="d">${f.fixture.date.slice(5,10)}</span>
@@ -4885,10 +4972,10 @@ function vistaJuego(){
             :`<span class="sello">próximo</span>`}
         <span class="lv">${loc?"local":"visita"}</span>
         <span class="chev" aria-hidden="true">›</span></div>`;};
-    /* El partido que viene es una tarjeta y no un renglon: hay que elegir
-       entre dos caminos, y dos caminos en un renglon de treinta caracteres no
-       se leen. Los ya jugados siguen siendo renglones, que ahi no hay
-       decision: se tocan y listo. */
+    /* El partido que viene sigue siendo una tarjeta y no un renglón, aunque
+       ahora haya un solo camino: lleva la fecha, si es de local o de
+       visitante y el aviso del once del DT, y todo eso no entra en un
+       renglón de treinta caracteres. Los ya jugados sí son renglones. */
     const proximoHTML=(f,i)=>{const loc=f.teams.home.id===J.id.A;
       return `<div class="fxp" data-fxp="${i}">
         <div class="fxp-meta"><span class="sello">próximo</span>
@@ -4896,8 +4983,7 @@ function vistaJuego(){
           <span>${loc?"de local":"de visitante"}</span></div>
         <div class="fxp-eq">${esc(f.teams.home.name)} <i>vs</i> ${esc(f.teams.away.name)}</div>
         <div class="fxp-acc">
-          <button class="gh" data-fx="${i}">Armar mi partido <span aria-hidden="true">›</span></button>
-          <button class="acc" data-ya="${i}">Simular tal cual</button>
+          <button class="acc" data-fx="${i}" style="width:100%">Armar este partido</button>
         </div>
         ${bloqueAviso(true)}</div>`;};
     const porVenir=J.fixtures.map((f,i)=>[f,i]).filter(([f])=>!JUGADO(f)).slice(0,4);
@@ -4911,8 +4997,9 @@ function vistaJuego(){
     return `
     ${porVenir.length?`<h3 class="sec">Lo que viene</h3>
       <div class="tarjeta">
-        <p class="bajada" style="margin-top:0"><b>Armalo vos</b> —el once, la formación y el
-        planteo cambian el resultado— o <b>simulá tal cual viene</b>, sin tocar nada.</p>
+        <p class="bajada" style="margin-top:0">Elegí el partido y armalo: el once, la
+        formación y el planteo <b>cambian el resultado</b>. El planteo es un toque
+        —"se para atrás", "espera y sale de contra"— y ya movés las cuatro perillas.</p>
         ${porVenir.map(([f,i])=>proximoHTML(f,i)).join("")}
       </div>`:""}
     ${otrasLigas()}
@@ -5267,14 +5354,6 @@ function enganchar(){
     if(!J.key){ J.err="Pegá la API key primero."; pintar(); return; } cargarTemporada(); };
   document.querySelectorAll(".fx, .fxp [data-fx]").forEach(el=>el.onclick=()=>{
     el.setAttribute("aria-selected","true"); elegirPartido(+el.dataset.fx); });
-  /* El boton vive DENTRO de la fila, asi que hay que frenar el click ahi
-     mismo: si no, la fila tambien lo escucha y se arma el partido dos veces,
-     la segunda pisando a la primera. */
-  document.querySelectorAll("[data-ya]").forEach(b=>b.onclick=async e=>{
-    e.stopPropagation();
-    await elegirPartido(+b.dataset.ya);
-    if(!J.err) simular11(true);
-  });
   const fa=$("fA"), fb=$("fB");
   if(fa) fa.onchange=e=>{ J.formA=e.target.value; J.xiA=autoXI(J.pool.A,J.formA); pintar(); };
   if(fb) fb.onchange=e=>{ J.formB=e.target.value; J.xiB=autoXI(J.pool.B,J.formB); pintar(); };
@@ -5298,6 +5377,14 @@ function enganchar(){
     });
   moverPerilla("data-k",  J.K,  true);
   moverPerilla("data-kb", J.KB, false);
+
+  /* Abrir o cerrar el ajuste fino se anota en `J`, no queda en el DOM.
+     Mover una perilla repinta la tarjeta medio segundo después, y un
+     `<details>` recién dibujado volvería a su estado por defecto: el
+     desplegable se cerraría solo, debajo del dedo, a media perilla. */
+  document.querySelectorAll("[data-fino]").forEach(d=>d.ontoggle=()=>{
+    J.fino[d.dataset.fino] = d.open;
+  });
 
   document.querySelectorAll("[data-pl]").forEach(b=>b.onclick=()=>{
     const K = planteo(b.dataset.plv); if(!K) return;

@@ -544,25 +544,33 @@ srv.listen(8099, async () => {
   await pg.click('#barra button[data-tab="juego"]');
   await pg.waitForTimeout(900);
   caso("NO pide la API key", await pg.locator('#k').count() === 0);
-  /* El que viene es una TARJETA con dos caminos; los jugados, renglones. */
+  /* El que viene es una TARJETA; los jugados, renglones. */
   caso("lista los partidos solo", await pg.locator('.fx, .fxp').count() > 0);
 
-  /* ── DOS CAMINOS, DICHOS CON TODAS LAS LETRAS ─────────────────────────
-     Fausto: "no se entiende que el flash es como una simulación estándar y
-     que con la tradicional hay perillas que modifican el resultado". Tenía
-     razón: "Simular ya" y "Simular y verlo jugar" se leían como dos
-     simulaciones distintas -una rápida y una lenta-, cuando la diferencia
-     era solo si se mira. Ahora el partido que viene ofrece los dos caminos
-     por lo que HACEN: armarlo vos, o simular tal cual viene. */
+  /* ── UN SOLO CAMINO, Y ES EL QUE MIDE BIEN (y77) ──────────────────────
+     Acá había un segundo botón, "Simular tal cual", que elegía el partido y
+     simulaba de una sin esperar nada. Era el camino más rápido y también el
+     menos preciso: el once lo armaba `autoXI` con el plantel crudo -gente
+     fuera de su puesto- y las cuatro perillas quedaban en cero, que no es
+     el planteo de nadie sino la ausencia de planteo.
+
+     O sea que la versión peor medida del modelo era la que más gente veía,
+     y encima contradecía la promesa de la portada: "tocás una perilla y se
+     mueve el resultado", por un camino que no tocaba ninguna.
+
+     Este caso existe para que no vuelva por descuido. Se mira el BOTÓN, no
+     el texto: la explicación de por qué se sacó vive en un comentario de
+     `app.tpl.html` y ese comentario viaja al HTML publicado. */
   {
     const t = pg.locator('.fxp').first();
-    caso("el partido que viene ofrece armarlo o simularlo tal cual",
-         await t.locator('[data-fx]').count() === 1 && await t.locator('[data-ya]').count() === 1);
-    caso("y los dos caminos se llaman por lo que hacen",
-         /armar/i.test(await t.locator('[data-fx]').innerText()) &&
-         /tal cual/i.test(await t.locator('[data-ya]').innerText()));
-    caso("los ya jugados no ofrecen el atajo: ahí se revela",
-         await pg.locator('.fx [data-ya]').count() === 0);
+    caso("el partido que viene ofrece un solo camino: armarlo",
+         await t.locator('[data-fx]').count() === 1);
+    caso("y no quedó ningún atajo que simule sin armar nada",
+         await pg.locator('[data-ya]').count() === 0 &&
+         await pg.locator('button:has-text("tal cual")').count() === 0);
+    caso("el botón dice lo que hace",
+         /armar/i.test(await t.locator('[data-fx]').innerText()),
+         await t.locator('[data-fx]').innerText());
   }
 
   const idx = await pg.evaluate(() => J.fixtures.findIndex(f => f.fixture.status.short === "NS"));
@@ -974,6 +982,103 @@ srv.listen(8099, async () => {
     });
   }
 
+  /* ══════════════════════════════════════════════════════════════════════
+     EL PLANTEO ADELANTE Y EL AJUSTE FINO PLEGADO (y77)
+
+     Fausto: "si vamos a priorizar el preseteo de las perillas —espera y sale
+     de contra, etc.— que ganen protagonismo, y que las perillas finas vayan
+     ocultas por defecto en un desplegable".
+
+     Los cinco planteos eran `.chip` adentro de un `.filtros`, que es una
+     tira que scrollea de costado: en un teléfono se ven dos y medio y los
+     otros dos y medio quedan detrás de un gesto que nadie hace. El atajo
+     más útil de la app estaba medio afuera de la pantalla.
+
+     Lo que estos casos fijan es lo que hace que el cambio no sea
+     decorativo, y sobre todo lo que lo hace honesto: que plegar el detalle
+     NO esconda ningún ajuste que esté tocado.
+     ══════════════════════════════════════════════════════════════════════ */
+  {
+    const vista = await pg.evaluate(() => {
+      J.K = { linea:0, presion:0, ancho:0, ritmo:0 };
+      J.KB = { linea:0, presion:0, ancho:0, ritmo:0 };
+      J.IND = { marca:"zona", ataque:"parejo", salida:"elaborada" };
+      J.INDB = { marca:"zona", ataque:"parejo", salida:"elaborada" };
+      J.fino = { A:false, B:false };
+      pintar();
+      const pl = [...document.querySelectorAll('[data-pl="A"]')];
+      return {
+        cuantos: pl.length,
+        nombres: pl.map(b => b.innerText.trim()),
+        /* En un contenedor que envuelve, todos los botones caben en la
+           pantalla; en una tira que scrollea, el ancho del contenido supera
+           al del contenedor. Se mide eso y no la clase CSS: la clase se
+           puede renombrar, la propiedad es la que el dedo siente. */
+        enUnaTira: (() => { const c = pl[0].parentElement;
+          return c.scrollWidth > c.clientWidth + 2; })(),
+        detalles: document.querySelectorAll('details.finas').length,
+        abiertos: document.querySelectorAll('details.finas[open]').length,
+        texto: document.body.innerText,
+      };
+    });
+    caso("los cinco planteos están, con su nombre", vista.cuantos === 5,
+         vista.nombres.join(" | "));
+    caso("y se ven los cinco sin scrollear de costado", !vista.enUnaTira);
+    caso("'Espera y sale de contra' es uno de ellos",
+         vista.nombres.some(n => /espera y sale de contra/i.test(n)));
+    caso("cada equipo tiene su desplegable de ajuste fino", vista.detalles === 2);
+    caso("y arrancan cerrados", vista.abiertos === 0);
+    /* `innerText` respeta lo que se ve: adentro de un `<details>` cerrado no
+       lo cuenta. Por eso sirve para medir qué llega de verdad a los ojos. */
+    caso("con el desplegable cerrado no se ven las perillas",
+         !/Ancho de juego|Línea defensiva/.test(vista.texto));
+
+    /* ── LO QUE NO SE PUEDE ESCONDER ──────────────────────────────────────
+       "No tocar ningún ajuste también es un ajuste tácito" fue la lección
+       del y74, y plegar el detalle la vuelve a poner en juego: si alguien
+       mueve una perilla, cierra el desplegable y simula, el resultado
+       saldría de ajustes invisibles. Así que lo TOCADO se dice afuera del
+       pliegue, siempre. */
+    const tocado = await pg.evaluate(() => {
+      J.K = { linea:70, presion:0, ancho:0, ritmo:0 };   /* no es ningún planteo */
+      J.fino = { A:false, B:false };
+      pintar();
+      const conPerilla = document.body.innerText;
+      J.K = { linea:0, presion:0, ancho:0, ritmo:0 };
+      J.IND = { marca:"personal", ataque:"parejo", salida:"elaborada" };
+      pintar();
+      const conIndicacion = document.body.innerText;
+      J.IND = { marca:"zona", ataque:"parejo", salida:"elaborada" };
+      pintar();
+      return { conPerilla, conIndicacion, normal: document.body.innerText };
+    });
+    caso("con una perilla movida a mano se avisa, aunque esté plegado",
+         /a mano/i.test(tocado.conPerilla));
+    caso("con una indicación cambiada también",
+         /indicaci[oó]n cambiada/i.test(tocado.conIndicacion));
+    caso("y cuando no hay nada tocado no se inventa ningún aviso",
+         !/a mano/i.test(tocado.normal) && !/indicaci[oó]n cambiada/i.test(tocado.normal));
+
+    /* ── LA TRAMPA DEL `<details>` QUE SE CIERRA SOLO ─────────────────────
+       Mover una perilla repinta la tarjeta 450 ms después. Si el abierto /
+       cerrado viviera en el DOM, el desplegable volvería a su estado por
+       defecto en ese repintado: se cerraría solo, debajo del dedo, a media
+       perilla. Por eso vive en `J.fino`. Esto lo comprueba. */
+    const sobrevive = await pg.evaluate(() => {
+      const d = document.querySelector('details.finas[data-fino="A"]');
+      d.open = true; d.dispatchEvent(new Event('toggle'));
+      pintar();
+      return { enJ: J.fino.A,
+               abierto: !!document.querySelector('details.finas[data-fino="A"]').open };
+    });
+    caso("abrir el ajuste fino se anota fuera del DOM", sobrevive.enJ === true);
+    caso("y sigue abierto después de un repintado", sobrevive.abierto === true);
+  }
+
+  /* De acá en adelante los dos desplegables van abiertos: lo que sigue mide
+     el contenido, no si está plegado. */
+  await pg.evaluate(() => { J.fino = { A:true, B:true }; pintar(); });
+
   /* ── LAS INDICACIONES DEL PLANTEO ──────────────────────────────────────
      Tres, del planteo y no por jugador: el motor compara líneas y no tiene
      aporte individual al que restarle una marca. */
@@ -1128,8 +1233,14 @@ srv.listen(8099, async () => {
   caso("y ahí el planteo deja de estar elegido: no hay botón que mienta",
        aMano.activo === null, "" + aMano.activo);
   await pg.waitForTimeout(600);
+  /* Antes esto era un sexto chip deshabilitado que decía "A mano". Con la
+     grilla de cinco, un sexto botón que no se puede apretar rompía las filas
+     y además era un botón que no hacía nada. Ahora lo dice el párrafo de
+     abajo, que es el mismo lugar donde cada planteo cuenta qué hace — y
+     sobre todo queda AFUERA del desplegable, que es lo que hace que plegar
+     el detalle no esconda un ajuste tocado. */
   caso("la pantalla lo dice: quedó a mano",
-       /A mano/.test(await pg.evaluate(() => document.body.innerText)));
+       /a mano/i.test(await pg.evaluate(() => document.body.innerText)));
 
   /* Y tiene que MOVER el resultado, que es la queja original: si el que se
      mete atrás con diez es el rival, eso tiene que poder decirse. */
