@@ -44,6 +44,22 @@ const pagina = (lado, seguro) => `
     ['sitio-icono-512.png', 512, false],
     ['sitio-icono-mask-512.png', 512, true],
     ['play-icono-512.png', 512, 'sangre'],
+    /* ── EL DE APPLE ─────────────────────────────────────────────────────
+       A sangre y de 1024, como el de Play y por el mismo motivo: el que
+       redondea las esquinas es la tienda, y un ícono ya redondeado le deja
+       cuatro cuñas blancas en las puntas.
+
+       DOS REGLAS DE APPLE QUE NO PERDONAN:
+       · 1024 × 1024 EXACTOS. No hay otra medida.
+       · SIN CANAL ALFA. Un PNG con transparencia lo rechaza la subida, no
+         la revisión: el .ipa no entra. Chromium acá escribe RGB porque el
+         fondo es opaco, pero si alguien toca esta página y deja algo
+         translúcido, hay que convertirlo a RGB antes de guardarlo.
+
+       Este archivo NO se sube a App Store Connect: va adentro del .ipa. Lo
+       copia `codemagic.yaml` al catálogo de recursos del proyecto de Xcode
+       después de generarlo, pisando el de Capacitor. */
+    ['apple-icono-1024.png', 1024, 'sangre'],
   ]) {
     const pg = await nav.newPage({ viewport: { width: lado, height: lado },
                                    deviceScaleFactor: 1 });

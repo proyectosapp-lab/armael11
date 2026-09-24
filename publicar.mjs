@@ -183,6 +183,7 @@ const IMPRESCINDIBLES = [
   "datos-ios.js", "probar-datos-ios.mjs", "empaquetar-ios.mjs",
   "tienda-ios.js", "probar-tienda-ios.mjs", "funcion-pago-apple.ts",
   "capacitor.config.json", "codemagic.yaml", "package.json",
+  "apple-icono-1024.png", "iconos.cjs",
   "probar-empaquetado-ios.mjs",
   "fecha-de-liga.mjs", "probar-fecha.mjs",
   "backtest.mjs", "probar-backtest.mjs", "backtest.tpl.html",

@@ -1,3 +1,64 @@
+Arma el 11 - version 2026-09-24 y80 (el icono de la app, que era el de Capacitor)
+
+  · SE SUBEN CUATRO ARCHIVOS: codemagic.yaml, iconos.cjs,
+    probar-empaquetado-ios.mjs y **apple-icono-1024.png** (una imagen).
+    Mas VERSION.txt y publicar.mjs.
+
+  · HAY QUE COMPILAR DE NUEVO, con etiqueta nueva. El icono va adentro del
+    .ipa. Se puede juntar con el y79 en la misma compilacion.
+
+  ── LO ENCONTRO FAUSTO PREGUNTANDO, NO UNA PRUEBA ────────────────────────
+
+    "No falta poner el icono de la app?". Si, faltaba. Y no lo habia
+    detectado nada.
+
+    `npx cap add ios` genera el proyecto con el icono de Capacitor. Nadie lo
+    eligio: es el default del framework, igual que lo del iPad del y79. La
+    app estuvo en TestFlight con el logo de Capacitor en la pantalla de
+    inicio y ninguna prueba dijo nada, porque no habia ninguna mirando eso.
+
+    Es la misma familia de problema que el y79 y aparecio el mismo dia:
+    **los valores por defecto de una herramienta no son decisiones, pero se
+    comportan como si lo fueran.**
+
+  ── POR QUE NO SE SUBE A APP STORE CONNECT ───────────────────────────────
+
+    Desde Xcode 14 el icono de 1024 va ADENTRO del .ipa, en el catalogo de
+    recursos. Ya no hay un formulario donde cargarlo. Por eso se copia en la
+    compilacion y por eso hace falta una etiqueta nueva: publicar el sitio
+    no lo cambia.
+
+  ── COMO SE PISA EL DE CAPACITOR ─────────────────────────────────────────
+
+    Se copia `apple-icono-1024.png` al catalogo y **se reescribe el
+    Contents.json entero**, en vez de confiar en el que genero Capacitor.
+    Asi no importa con que nombre ni con cuantas medidas venga la plantilla
+    de esta version de Capacitor, que cambia entre versiones. Una sola
+    entrada de 1024 es el formato que Xcode usa desde la 14; lo que sobre en
+    la carpeta queda sin referenciar y no se compila.
+
+  ── LAS DOS REGLAS DE APPLE QUE NO PERDONAN ──────────────────────────────
+
+    · 1024 x 1024 EXACTOS.
+    · SIN CANAL ALFA. Y esta es la traicionera: un PNG con transparencia no
+      lo rechaza la revision, lo rechaza LA SUBIDA. O sea que el error
+      aparece despues de compilar veinte minutos.
+
+    La compilacion comprueba las dos cosas y se planta si fallan. Y hay otra
+    prueba, en probar-empaquetado-ios.mjs, que las comprueba sobre el
+    archivo del repo antes de llegar a Codemagic.
+
+  ── EL DIBUJO ────────────────────────────────────────────────────────────
+
+    El mismo monograma de siempre: dos unos en blanco sobre el verde. A
+    sangre y sin esquinas redondeadas, por el mismo motivo que el de Play —
+    el que redondea es la tienda, y un icono ya redondeado le deja cuatro
+    cunas blancas en las puntas.
+
+  ── PRUEBAS ──────────────────────────────────────────────────────────────
+
+    probar-empaquetado-ios.mjs  17 -> 21
+
 Arma el 11 - version 2026-09-24 y79 (la app es solo de iPhone, y ahora lo dice)
 
   · SE SUBEN DOS ARCHIVOS: codemagic.yaml y probar-empaquetado-ios.mjs.

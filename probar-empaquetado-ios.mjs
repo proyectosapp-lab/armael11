@@ -240,7 +240,44 @@ await (async () => {
                 !/UIInterfaceOrientationLandscape/.test(CM),
                 "si se agrega horizontal hay que repensar lo de iPad");
     });
+
+    /* ── EL ÍCONO (y80) ─────────────────────────────────────────────────
+       `cap add ios` deja el ícono de Capacitor, y la app estuvo en
+       TestFlight con el logo del framework en la pantalla de inicio. Nadie
+       lo eligió: es el default, igual que lo del iPad, y se descubrió por
+       la misma vía —Fausto preguntando por algo que faltaba— y no por una
+       prueba.
+
+       Desde Xcode 14 el ícono de 1024 va ADENTRO del .ipa, no se sube por
+       ningún formulario de App Store Connect. Si alguien saca estas líneas
+       del codemagic.yaml, el ícono vuelve a ser el de Capacitor y no hay
+       ningún error: la compilación pasa, sube, y se ve mal. */
+    prueba("el ícono propio se copia al proyecto de Xcode", () => {
+      assert.ok(/cp apple-icono-1024\.png "\$ICO\/AppIcon-1024\.png"/.test(CM),
+                "no se pisa el ícono de Capacitor");
+      assert.ok(/AppIcon\.appiconset/.test(CM), "no se escribe en el catálogo");
+    });
+    prueba("y el Contents.json se reescribe entero, sin confiar en el de Capacitor", () => {
+      assert.ok(/<<'JSON'/.test(CM) && /"size" : "1024x1024"/.test(CM),
+                "depende del que genere la plantilla, que cambia entre versiones");
+    });
+    /* Un PNG con alfa no lo rechaza la revisión: lo rechaza la SUBIDA. O sea
+       que el error aparece después de compilar veinte minutos. */
+    prueba("y la compilación se planta si el ícono tiene alfa o mide mal", () => {
+      assert.ok(/no puede tener canal alfa/.test(CM) &&
+                /1024 × 1024/.test(CM), "no se comprueba el ícono");
+    });
   }
+
+  /* El archivo tiene que existir de verdad, con la medida y sin alfa. Se
+     genera a mano con `iconos.cjs` y vive en el repo como cualquier otro. */
+  prueba("el ícono de Apple está en el repo, 1024 y sin alfa", () => {
+    const png = readFileSync(new URL("./apple-icono-1024.png", import.meta.url));
+    assert.equal(png.readUInt32BE(16), 1024, "ancho");
+    assert.equal(png.readUInt32BE(20), 1024, "alto");
+    /* Tipo de color del PNG: 4 y 6 son los que llevan alfa. */
+    assert.ok([0, 2, 3].includes(png[25]), "tiene canal alfa, tipo " + png[25]);
+  });
 }
 
 console.log("empaquetado de iOS: " + hechos + " pruebas, todo bien");

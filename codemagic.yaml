@@ -165,6 +165,50 @@ workflows:
             ios/App/App.xcodeproj/project.pbxproj
           echo "── familia de dispositivos ──"
           grep -m2 TARGETED_DEVICE_FAMILY ios/App/App.xcodeproj/project.pbxproj
+
+          # ── EL ÍCONO DE LA APP ───────────────────────────────────────────
+          # `cap add ios` deja el ícono de Capacitor. Nadie lo eligió, igual
+          # que lo del iPad: es el default del framework. La app estuvo en
+          # TestFlight con el logo de Capacitor en la pantalla de inicio.
+          #
+          # No se sube por App Store Connect: desde Xcode 14 el ícono de 1024
+          # tiene que estar ADENTRO del .ipa, en el catálogo de recursos. Por
+          # eso se copia acá y no se carga a mano en ningún formulario.
+          #
+          # Se reescribe el Contents.json entero en vez de confiar en el que
+          # generó Capacitor: así no importa con qué nombre ni con cuántas
+          # medidas venga la plantilla de esta versión. Una sola entrada de
+          # 1024 es el formato que Xcode usa desde la 14, y lo que sobre en
+          # la carpeta queda sin referenciar y no se compila.
+          ICO=ios/App/App/Assets.xcassets/AppIcon.appiconset
+          cp apple-icono-1024.png "$ICO/AppIcon-1024.png"
+          cat > "$ICO/Contents.json" <<'JSON'
+          {
+            "images" : [
+              {
+                "filename" : "AppIcon-1024.png",
+                "idiom" : "universal",
+                "platform" : "ios",
+                "size" : "1024x1024"
+              }
+            ],
+            "info" : { "author" : "xcode", "version" : 1 }
+          }
+          JSON
+          echo "── ícono ──"
+          ls -la "$ICO"
+          # Sin alfa, o la subida a App Store Connect rebota. Se comprueba acá
+          # y no se confía: el archivo lo genera `iconos.cjs` a mano, y una
+          # regeneración distraída con transparencia costaría una compilación
+          # entera para enterarse.
+          python3 - <<'PY'
+          from struct import unpack
+          d = open("apple-icono-1024.png","rb").read()
+          w,h = unpack(">II", d[16:24]); color = d[25]
+          print("   %d × %d, tipo de color %d" % (w,h,color))
+          assert (w,h) == (1024,1024), "el ícono de Apple tiene que ser 1024 × 1024"
+          assert color in (0,2,3), "el ícono de Apple no puede tener canal alfa"
+          PY
           sed -i '' "s/platform :ios, '1[0-9]\.[0-9]*'/platform :ios, '15.0'/" ios/App/Podfile
           echo "── mínimo de iOS ──"
           grep -m2 IPHONEOS_DEPLOYMENT_TARGET ios/App/App.xcodeproj/project.pbxproj
