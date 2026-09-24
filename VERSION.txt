@@ -1,3 +1,58 @@
+Arma el 11 - version 2026-09-24 y79 (la app es solo de iPhone, y ahora lo dice)
+
+  · SE SUBEN DOS ARCHIVOS: codemagic.yaml y probar-empaquetado-ios.mjs.
+    Mas VERSION.txt.
+
+  · HAY QUE COMPILAR DE NUEVO, con etiqueta nueva. Esto cambia el proyecto
+    de Xcode, no el contenido: no llega publicando el sitio.
+
+  ── EL SINTOMA BARATO DE UN PROBLEMA CARO ────────────────────────────────
+
+    App Store Connect no dejaba enviar sin subir capturas de iPad. La
+    tentacion era fabricar esas capturas. Habria sido un error.
+
+    Capacitor genera el proyecto con `TARGETED_DEVICE_FAMILY = "1,2"`, o sea
+    iPhone Y iPad. Nadie lo eligio: es el default, y estuvo mal desde la
+    primera compilacion. El cartel de las capturas era la unica senal de
+    que la app le estaba prometiendo a Apple algo que no cumple.
+
+    Porque si la app se declara compatible con iPad, el revisor LA PRUEBA
+    en un iPad. Y ahi hay dos cosas que no aguantan:
+
+      · Esta clavada en vertical, desde el y53. Apple espera que una app de
+        iPad ande en las dos orientaciones, y una clavada en una sola es
+        motivo de rechazo.
+      · El diseno es una cancha en un telefono. En trece pulgadas es un
+        telefono estirado.
+
+    O sea que subir capturas de iPad habria destrabado el boton de enviar y
+    cambiado un cartel por un rechazo.
+
+  ── LA DECISION ──────────────────────────────────────────────────────────
+
+    La app se declara **solo para iPhone**. No es achicar el producto: es
+    decir la verdad sobre lo que hay. El dia que exista una version pensada
+    para iPad se cambia una linea, se prueba de verdad, y se suben sus
+    capturas.
+
+    Y desaparece el pedido de capturas de iPad, que era lo que trababa.
+
+  ── LAS DOS LINEAS VAN JUNTAS ────────────────────────────────────────────
+
+    "Solo iPhone" y "solo vertical" son coherentes entre si; cualquiera de
+    las dos sola es un rechazo:
+
+      · Solo vertical + compatible con iPad = rechazo por orientacion.
+      · Solo iPhone + horizontal permitido = no rompe nada, pero no tiene
+        sentido: el diseno no se penso para eso.
+
+    Por eso la prueba nueva mira las DOS en el mismo caso. Si alguien saca
+    la de iPhone y deja la de vertical, la compilacion se planta.
+
+  ── PRUEBAS ──────────────────────────────────────────────────────────────
+
+    probar-empaquetado-ios.mjs  15 -> 17
+
 Arma el 11 - version 2026-09-24 y78 (la pagina de privacidad, al dia)
 
   · SE SUBE UN ARCHIVO: construir-sitio.mjs. Mas VERSION.txt.

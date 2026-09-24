@@ -214,6 +214,33 @@ await (async () => {
     assert.ok(/apple: CFG\.apple\?\.revenuecat/.test(CONS),
               "la clave no entra en window.SITIO");
   });
+
+  /* ── SOLO IPHONE, Y LAS DOS COSAS TIENEN QUE IR JUNTAS (y79) ──────────
+     Capacitor genera el proyecto con `TARGETED_DEVICE_FAMILY = "1,2"` —
+     iPhone y iPad— por defecto, y nadie lo eligió. Se descubrió porque App
+     Store Connect no dejaba enviar sin capturas de iPad, que era el síntoma
+     barato de un problema caro: declararse compatible con iPad hace que el
+     revisor pruebe la app EN UN IPAD.
+
+     Y ahí choca de frente con la otra línea que se prueba acá: la app está
+     clavada en vertical. Apple espera que una app de iPad ande en las dos
+     orientaciones. Las dos decisiones juntas —solo iPhone, solo vertical—
+     son coherentes; cualquiera de las dos sola es un rechazo.
+
+     Por eso este caso mira las DOS en el mismo lugar: si alguien saca la de
+     iPhone y deja la de vertical, esto corta la compilación. */
+  {
+    const CM = lee("codemagic.yaml");
+    prueba("la app se declara solo para iPhone", () => {
+      assert.ok(/TARGETED_DEVICE_FAMILY = "1,2";\/TARGETED_DEVICE_FAMILY = 1;/.test(CM),
+                "el proyecto queda con el default de Capacitor, que incluye iPad");
+    });
+    prueba("y sigue clavada en vertical, que es lo que la hace solo de iPhone", () => {
+      assert.ok(/UIInterfaceOrientationPortrait/.test(CM) &&
+                !/UIInterfaceOrientationLandscape/.test(CM),
+                "si se agrega horizontal hay que repensar lo de iPad");
+    });
+  }
 }
 
 console.log("empaquetado de iOS: " + hechos + " pruebas, todo bien");

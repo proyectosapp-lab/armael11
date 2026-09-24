@@ -139,6 +139,32 @@ workflows:
           # para una versión y la app para otra.
           sed -i '' "s/IPHONEOS_DEPLOYMENT_TARGET = 1[0-9]\.[0-9]*;/IPHONEOS_DEPLOYMENT_TARGET = 15.0;/g" \
             ios/App/App.xcodeproj/project.pbxproj
+
+          # ── SOLO IPHONE ─────────────────────────────────────────────────
+          # Capacitor genera el proyecto con TARGETED_DEVICE_FAMILY = "1,2",
+          # o sea iPhone Y iPad. Nadie lo eligio: es el default, y estuvo mal
+          # desde la primera compilacion.
+          #
+          # Se descubrio porque App Store Connect no dejaba enviar sin subir
+          # capturas de iPad. Y ese cartel era el sintoma barato de un
+          # problema caro: si la app se declara compatible con iPad, el
+          # revisor LA PRUEBA en un iPad.
+          #
+          # Ahi hay dos cosas que no aguantan esa prueba:
+          #   · La app esta clavada en vertical (mas abajo, en el Info.plist).
+          #     Apple espera que una app de iPad ande en las dos
+          #     orientaciones, y una clavada en una sola es motivo de rechazo.
+          #   · El diseno es una cancha en un telefono. En una pantalla de
+          #     trece pulgadas es un telefono estirado.
+          #
+          # Declararlo solo para iPhone no es achicar el producto: es decir
+          # la verdad sobre lo que hay. El dia que exista una version pensada
+          # para iPad se cambia esta linea, se prueba, y se suben sus
+          # capturas.
+          sed -i '' 's/TARGETED_DEVICE_FAMILY = "1,2";/TARGETED_DEVICE_FAMILY = 1;/g' \
+            ios/App/App.xcodeproj/project.pbxproj
+          echo "── familia de dispositivos ──"
+          grep -m2 TARGETED_DEVICE_FAMILY ios/App/App.xcodeproj/project.pbxproj
           sed -i '' "s/platform :ios, '1[0-9]\.[0-9]*'/platform :ios, '15.0'/" ios/App/Podfile
           echo "── mínimo de iOS ──"
           grep -m2 IPHONEOS_DEPLOYMENT_TARGET ios/App/App.xcodeproj/project.pbxproj
