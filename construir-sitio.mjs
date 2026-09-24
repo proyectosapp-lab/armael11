@@ -587,22 +587,31 @@ writeFileSync(new URL("privacidad.html", SITIO), pagina("Privacidad", `
 
 <h2>Lo que se guarda si creás una cuenta</h2>
 <ul>
-  <li><b>Tu correo electrónico.</b> Es la única forma de entrar: te mandamos
-      un link y no hay contraseña. Se usa para eso y nada más.</li>
+  <li><b>Tu correo electrónico.</b> Es con lo que entrás, junto con una
+      contraseña que elegís vos. Si preferís no tener una, te mandamos un
+      link por mail. Se usa para eso y nada más.</li>
   <li><b>Un nombre de usuario</b> que elegís vos. Es lo único que ven los
       demás en las tablas: no pedimos tu nombre real.</li>
   <li><b>Los equipos que armás</b> en cada fecha y los puntajes que sacan.</li>
   <li><b>En qué torneos de amigos estás.</b></li>
+  <li><b>Qué plan compraste y hasta cuándo te dura</b>, si comprás uno. Queda
+      anotada la fecha, el importe y por dónde entró el pago.</li>
 </ul>
-<p>No pedimos ni guardamos nombre real, teléfono, ubicación, contactos ni
-   datos de pago.</p>
+<p><b>La tarjeta no pasa por acá.</b> El cobro lo hace la tienda —Apple en el
+   iPhone, Google Play en Android— o Mercado Pago en la web, y ninguno de los
+   tres nos manda el número. Nosotros solo nos enteramos de que el pago
+   entró.</p>
+<p>No pedimos ni guardamos nombre real, teléfono, ubicación ni contactos.</p>
 
 <h2>Con quién se comparte</h2>
 <p>Con nadie. No vendemos ni cedemos datos, y no hay rastreadores de terceros
    en el sitio. Tu correo no se muestra a otros usuarios en ningún lado.</p>
-<p>Para funcionar usamos dos servicios que ven parte de esto: <b>Supabase</b>,
-   donde vive la base de datos, y <b>Brevo</b>, que despacha el correo con el
-   link para entrar.</p>
+<p>Para funcionar usamos algunos servicios que ven parte de esto:
+   <b>Supabase</b>, donde vive la base de datos, y <b>Brevo</b>, que despacha
+   el correo con el link para entrar. Si comprás un plan se suma la tienda por
+   la que compraste —<b>Apple</b>, <b>Google Play</b> o <b>Mercado Pago</b>—
+   y, en el caso del iPhone, <b>RevenueCat</b>, que es quien nos avisa cuando
+   una suscripción se renueva o se cancela.</p>
 
 <h2>Los datos del fútbol</h2>
 <p>Los resultados, planteles y estadísticas vienen de API-Football. Las

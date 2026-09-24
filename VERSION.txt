@@ -1,3 +1,57 @@
+Arma el 11 - version 2026-09-24 y78 (la pagina de privacidad, al dia)
+
+  · SE SUBE UN ARCHIVO: construir-sitio.mjs. Mas VERSION.txt.
+
+  · NO HACE FALTA RECOMPILAR. `privacidad.html` es una pagina del SITIO, y la
+    app del iPhone la abre por direccion absoluta -armael11.com/privacidad-
+    con la hoja del sistema. O sea que publicar el sitio la actualiza tambien
+    adentro de la app, sin etiqueta y sin Codemagic.
+
+  ── POR QUE ────────────────────────────────────────────────────────────
+
+    Se encontro llenando la declaracion de privacidad de App Store Connect.
+    La pagina decia dos cosas que ya no son ciertas, y las dos iban a
+    contradecir lo que se declara:
+
+      1. "Es la unica forma de entrar: te mandamos un link y no hay
+         contrasena". Falso desde hace rato: la contrasena es el camino
+         principal y el link es la alternativa. Es el mismo error que yo
+         habia cometido al leer el codigo.
+
+      2. "No pedimos ni guardamos... datos de pago", sin mencionar las
+         compras. Ahora hay suscripciones y la tabla `pago` guarda que plan,
+         cuando, cuanto y por que medio. En App Store Connect eso se declara
+         como "Compras - Historial de compras", asi que la pagina tenia que
+         decirlo.
+
+    Una declaracion que no coincide con la politica es de las cosas que un
+    revisor mira, y ademas es una promesa que dejamos de cumplir sin querer.
+
+  ── QUE DICE AHORA ─────────────────────────────────────────────────────
+
+    · Se entra con mail y contrasena, y el link queda como alternativa.
+    · Se guarda que plan compraste, cuando, el importe y por donde entro.
+    · **La tarjeta no pasa por aca.** Cobra la tienda -Apple, Google Play- o
+      Mercado Pago, y ninguno nos manda el numero.
+    · A los servicios que ven algo se suman Apple, Google Play, Mercado Pago
+      y RevenueCat, segun donde se compre.
+
+    Lo que NO cambio: sin cuenta no se guarda nada, no se vende ni se cede
+    nada, no hay rastreadores de terceros, y la cuenta se borra entera desde
+    la propia app.
+
+  ── LA DECLARACION QUE TIENE QUE COINCIDIR ─────────────────────────────
+
+    App Store Connect -> Privacidad de la app -> Tipos de datos. Tres, y los
+    tres con las mismas respuestas:
+
+      Direccion de correo electronico | vinculada | sin seguimiento
+      ID de usuario                   | vinculado | sin seguimiento
+      Historial de compras            | vinculado | sin seguimiento
+
+    Finalidad: funcionalidad de la app. Nada de publicidad, analiticas ni
+    personalizacion.
+
 Arma el 11 - version 2026-09-23 y77 (el planteo adelante, las perillas plegadas)
 
   · SE SUBEN DOS ARCHIVOS: app.tpl.html y probar-sitio.cjs. Mas VERSION.txt.
