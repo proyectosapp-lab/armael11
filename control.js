@@ -72,6 +72,7 @@ export function serieDeDias(filas, desde, hasta) {
       dia: d,
       app_abrio:  num(f.app_abrio),  app_simulo:  num(f.app_simulo),
       web_abrio:  num(f.web_abrio),  web_simulo:  num(f.web_simulo),
+      app_instalo: num(f.app_instalo), web_instalo: num(f.web_instalo),
       vacio: !porDia.has(d),
     });
     d = diaSiguiente(d);
@@ -98,6 +99,8 @@ export function resumenDeUso(serie, meta = CTL_META_TESTERS) {
     web_abrio_total: s.reduce((a, d) => a + d.web_abrio, 0),
     app_simulo_total: s.reduce((a, d) => a + d.app_simulo, 0),
     web_simulo_total: s.reduce((a, d) => a + d.web_simulo, 0),
+    app_instalo_total: s.reduce((a, d) => a + d.app_instalo, 0),
+    web_instalo_total: s.reduce((a, d) => a + d.web_instalo, 0),
     mejor_dia: s.reduce((m, d) => d.app_abrio > (m ? m.app_abrio : -1) ? d : m, null),
     dias_con_meta: s.filter(d => d.app_abrio >= meta).length,
     meta,

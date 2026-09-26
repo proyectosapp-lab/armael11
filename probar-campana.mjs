@@ -284,4 +284,35 @@ prueba("sin backend configurado no hace absolutamente nada", () => {
   globalThis.window = antes;
 });
 
+/* Las instalaciones: una vez por teléfono, para siempre, y separadas app / web. */
+prueba("instalación en la app: una sola vez, para siempre", () => {
+  ponerAlmacen();
+  enviados.length = 0;
+  assert.equal(M.estrenoInstalacion(true), true);
+  for (let i = 0; i < 10; i++) M.estrenoInstalacion(true);
+  assert.equal(enviados.length, 1);
+  assert.equal(enviados[0].cuerpo.p_codigo, "uso-app");
+  assert.equal(enviados[0].cuerpo.p_hito, "instalo");
+});
+prueba("agregada al inicio desde la web se cuenta aparte, también una vez", () => {
+  ponerAlmacen();
+  enviados.length = 0;
+  M.estrenoInstalacion(false); M.estrenoInstalacion(false); M.estrenoInstalacion(true);
+  assert.equal(enviados.length, 2);
+  assert.equal(enviados[0].cuerpo.p_codigo, "uso-web");
+  assert.equal(enviados[1].cuerpo.p_codigo, "uso-app");
+});
+prueba("sin backend no manda instalación", () => {
+  const antes = globalThis.window; globalThis.window = { SITIO: {} };
+  ponerAlmacen(); enviados.length = 0;
+  assert.equal(M.estrenoInstalacion(true), false);
+  assert.equal(enviados.length, 0);
+  globalThis.window = antes;
+});
+prueba("abierta desde el ícono: display-mode standalone o navigator.standalone", () => {
+  assert.equal(M.abiertaDesdeElIcono({ matchMedia: () => ({ matches: true }) }), true);
+  assert.equal(M.abiertaDesdeElIcono({ matchMedia: () => ({ matches: false }), navigator: { standalone: true } }), true);
+  assert.equal(M.abiertaDesdeElIcono({ matchMedia: () => ({ matches: false }), navigator: {} }), false);
+});
+
 console.log("campaña: " + hechos + " pruebas, todo bien");

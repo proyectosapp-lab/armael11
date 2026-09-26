@@ -220,6 +220,22 @@
       (a.length ? esc(diaCorto(a[a.length-1].dia)) : "") + '</span></div>';
   }
 
+  /* Las instalaciones: la primera vez que un teléfono abre la app instalada, y
+     la web agregada al inicio. Una vez por teléfono. Las descargas exactas de
+     las tiendas están en sus consolas; esto es lo que nuestra base ve. */
+  function bloqueInstalaciones(r, tot, dondeApp){
+    tot = tot || {};
+    return '<div class="nums" style="margin:12px 0">' +
+      '<div class="num"><b>' + (r.app_instalo_total || 0) + '</b><span>instalaciones nuevas ' + esc(dondeApp) + ' en el período</span></div>' +
+      '<div class="num"><b>' + (tot.app == null ? "—" : tot.app) + '</b><span>instalaciones ' + esc(dondeApp) + ' desde que se cuentan</span></div>' +
+      '<div class="num"><b>' + (r.web_instalo_total || 0) + '</b><span>agregada al inicio desde la web, en el período</span></div>' +
+      '<div class="num"><b>' + (tot.web == null ? "—" : tot.web) + '</b><span>agregada al inicio, desde que se cuenta</span></div>' +
+    '</div>' +
+    '<p class="nota">Instalación = la primera vez que ese teléfono abre la app instalada (una vez por teléfono). ' +
+      'Se cuenta desde el 27/9: los que ya la tenían se suman la próxima vez que la abran. ' +
+      'Las descargas exactas de Play y la App Store están en sus consolas.</p>';
+  }
+
   function bloqueUso(){
     var serie = serieDeDias(datos.uso, datos.desde, datos.hoy);
     var r = resumenDeUso(serie);
@@ -237,9 +253,11 @@
         '<div class="gr"><b>' + r.web_abrio_total + '</b><span>aperturas en la web</span></div>' +
       '</div>' +
       filaBarras(serie, "app_abrio") +
-      '<table><thead><tr><th>Día</th><th>App abrió</th><th>App simuló</th><th>Web abrió</th><th>Web simuló</th></tr></thead><tbody>' +
+      bloqueInstalaciones(r, datos.instalaciones, "en la app (Play o iPhone)") +
+      '<table><thead><tr><th>Día</th><th>App instaló</th><th>App abrió</th><th>App simuló</th><th>Web abrió</th><th>Web simuló</th></tr></thead><tbody>' +
       serie.slice().reverse().map(function(d){
         return '<tr' + (d.dia === datos.hoy ? ' class="hoy"' : '') + '><td>' + esc(diaCorto(d.dia)) + '</td>' +
+          '<td>' + (d.vacio ? "—" : d.app_instalo) + '</td>' +
           '<td' + (d.app_abrio >= r.meta ? ' class="meta"' : '') + '>' + (d.vacio ? "—" : d.app_abrio) + '</td>' +
           '<td>' + (d.vacio ? "—" : d.app_simulo) + '</td>' +
           '<td>' + (d.vacio ? "—" : d.web_abrio) + '</td>' +
@@ -309,7 +327,7 @@
     if (!sv) return '<h3 class="sec">Sacá vos</h3><div class="tarjeta"><div class="vacio">' +
       'Falta pegar el panel-de-control.sql nuevo (el que trae el bloque de Sacá vos).</div></div>';
     var serie = serieDeDias(sv.uso, datos.desde, datos.hoy);
-    var r = resumenDeUso(serie) || { app_abrio_total: 0, web_abrio_total: 0, app_simulo_total: 0, web_simulo_total: 0 };
+    var r = resumenDeUso(serie) || { app_abrio_total: 0, web_abrio_total: 0, app_simulo_total: 0, web_simulo_total: 0, app_instalo_total: 0, web_instalo_total: 0 };
     var p = sv.pagos || {};
     var medios = plataPorMedio(p.por_medio);
     var cobra = sv.cobra === "si";
@@ -324,10 +342,13 @@
         '<div class="gr ' + ((sv.pases_activos || 0) > 0 ? "ok" : "") + '"><b>' + (sv.pases_activos || 0) + '</b><span>pases activos</span></div>' +
       '</div>' +
       filaBarras(serie, "web_abrio") +
-      '<table><thead><tr><th>Día</th><th>Web abrió</th><th>Web simuló</th><th>iPhone abrió</th><th>iPhone simuló</th></tr></thead><tbody>' +
+      bloqueInstalaciones(r, sv.instalaciones, "en el iPhone") +
+      '<table><thead><tr><th>Día</th><th>Web abrió</th><th>Web simuló</th><th>Al inicio</th><th>iPhone instaló</th><th>iPhone abrió</th><th>iPhone simuló</th></tr></thead><tbody>' +
       serie.slice().reverse().map(function(d){
         return '<tr' + (d.dia === datos.hoy ? ' class="hoy"' : '') + '><td>' + esc(diaCorto(d.dia)) + '</td>' +
           '<td>' + (d.vacio ? "—" : d.web_abrio) + '</td><td>' + (d.vacio ? "—" : d.web_simulo) + '</td>' +
+          '<td>' + (d.vacio ? "—" : d.web_instalo) + '</td>' +
+          '<td>' + (d.vacio ? "—" : d.app_instalo) + '</td>' +
           '<td>' + (d.vacio ? "—" : d.app_abrio) + '</td><td>' + (d.vacio ? "—" : d.app_simulo) + '</td></tr>';
       }).join("") + '</tbody></table>' +
       '<div class="nums" style="margin-top:12px">' +
@@ -378,8 +399,8 @@
       i.onchange = function(){ guardarLocal("control.gasto.sv." + i.dataset.gastoSv, i.value.trim()); pintar(); };
     });
     $("pie").textContent = "Período: " + datos.desde + " a " + datos.hoy + ". " +
-      "Las instalaciones de Google Play y de la App Store no están acá: viven en las consolas de las tiendas. " +
-      "Lo que esta base sabe es cuántos teléfonos abrieron la app instalada, que para la prueba cerrada es el número que importa.";
+      "Instalaciones = primera apertura de la app instalada en cada teléfono (desde el 27/9). " +
+      "Las descargas exactas (incluidas las que nunca se abrieron) están en Play Console y App Store Connect.";
     document.querySelectorAll("[data-gasto]").forEach(function(i){
       i.onchange = function(){
         guardarLocal("control.gasto." + i.dataset.gasto, i.value.trim());

@@ -147,4 +147,12 @@ ok("un infinito tampoco se muestra", texto(Infinity) === "—" && texto(NaN) ===
   ok("sacá vos: Apple sin monto es raya, no cero, y sin moneda", pl[1].monto === null && pl[1].moneda === null && pl[1].cuantos === 2);
 }
 
+/* ─── las instalaciones (27/9) ─────────────────────────────────────────── */
+{
+  const s = serieDeDias([{ dia: "2026-09-26", app_instalo: 3, web_instalo: 1, app_abrio: 5 }, { dia: "2026-09-27", app_instalo: "2" }], "2026-09-25", "2026-09-27");
+  ok("la serie trae las instalaciones de cada día", s[1].app_instalo === 3 && s[1].web_instalo === 1 && s[2].app_instalo === 2);
+  ok("un día sin fila es raya, no cero, también para instalaciones", s[0].vacio === true);
+  const r = resumenDeUso(s);
+  ok("el resumen suma las instalaciones del período", r.app_instalo_total === 5 && r.web_instalo_total === 1);
+}
 console.log("control: " + n + " pruebas, todo bien");

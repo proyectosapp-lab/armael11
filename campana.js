@@ -240,6 +240,41 @@ export function usoDiario(hito, enLaApp) {
   } catch (e) { return false; }
 }
 
+/* ── LAS INSTALACIONES (27/9) ────────────────────────────────────────────
+   Las descargas de Play y de la App Store viven en las consolas de cada
+   tienda. Lo que esta base SÍ puede saber, y es lo que importa, es cuántos
+   teléfonos ABRIERON la app instalada por primera vez: una vez por teléfono,
+   para siempre (no por día). Hito `instalo` bajo `uso-app`.
+
+   Y en la web, cuántos la agregaron a la pantalla de inicio: `instalo` bajo
+   `uso-web`, cuando el navegador avisa `appinstalled` o cuando se abre por
+   primera vez desde el ícono (en el iPhone Safari no avisa nada).
+
+   Ojo con los primeros días: el que ya tenía la app instalada de antes se
+   cuenta la próxima vez que la abra. Es una sola vez por teléfono.       */
+const CAMP_ESTRENO = "armaEl11.estreno";   /* {app:1, web:1}: qué instalación ya contamos */
+export function tocaEstreno(ya, donde) { return !!donde && !((ya || {})[donde]); }
+export function estrenoInstalacion(enLaApp) {
+  try {
+    const { url, anon } = campCfg();
+    if (!url || !anon) return false;
+    const donde = enLaApp ? "app" : "web";
+    let ya = {};
+    try { ya = JSON.parse(campLeer(CAMP_ESTRENO) || "{}") || {}; } catch (e) { ya = {}; }
+    if (!tocaEstreno(ya, donde)) return false;
+    ya[donde] = 1;
+    campPoner(CAMP_ESTRENO, JSON.stringify(ya));
+    return campMandar(codigoDeUso(enLaApp), "instalo");
+  } catch (e) { return false; }
+}
+/* ¿Se abrió desde el ícono de la pantalla de inicio (PWA)? */
+export function abiertaDesdeElIcono(w) {
+  try {
+    const v = w || window;
+    return !!((v.matchMedia && v.matchMedia("(display-mode: standalone)").matches) || (v.navigator && v.navigator.standalone));
+  } catch (e) { return false; }
+}
+
 /* Lo que llama el resto de la app. Si esta persona no vino de una campaña
    —que es la enorme mayoría— no hace nada y no cuesta nada. */
 export function hitoCampana(hito) {
