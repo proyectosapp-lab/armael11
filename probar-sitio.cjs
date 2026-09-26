@@ -2073,6 +2073,12 @@ srv.listen(8099, async () => {
       tresLibre:    e("tres", 900, true, ["argentina","espana"], "italia"),
       tresLlena:    e("tres", 900, true, ["argentina","espana","italia"], "francia"),
       sinFrenoOtra: e("gratis", 1, false, ["argentina"], "espana"),
+      /* 26/9/2026 · lo que ve el que se quedó sin cupo. Ver `frenoDeCupo`. */
+      frenoAgotado: frenoDeCupo(e("gratis", 10, true)),
+      frenoLiga:    frenoDeCupo(e("gratis", 1, true, ["argentina"], "espana")),
+      frenoNinguno: frenoDeCupo(e("gratis", 3, true)),
+      frenoApagado: frenoDeCupo(e("gratis", 99, false)),
+      frenoPago:    frenoDeCupo(e("todas", 9000, true)),
       textoOtra:    textoCupo(e("liga", 9, true, ["argentina"], "espana"), null, "espana"),
       textoTres:    textoCupo(e("tres", 9, true, ["argentina","espana","italia"], "francia"), null, "francia"),
       /* El ciclo del 31 de enero: un mes después cae 28 de febrero (el 31 no
@@ -2193,6 +2199,49 @@ srv.listen(8099, async () => {
        cupos.todas.entraLiga === true && cupos.todas.puedeSimular === true);
   caso("CON EL FRENO APAGADO TAMPOCO FRENA LA LIGA",
        cupos.sinFrenoOtra.puedeSimular === true && cupos.sinFrenoOtra.entraLiga === false);
+
+  /* ── EL FRENO TIENE QUE VERSE ANTES DE TOCAR, NO DESPUÉS ──────────────
+     26/9/2026. El freno se prendió el 25 y Fausto reportó "no funcionan las
+     simulaciones". No estaban rotas: estaban agotadas, y el botón seguía
+     diciendo "Simular · te quedan 0". Un botón que invita y después se
+     niega es indistinguible de uno descompuesto.
+
+     Lo que se prueba acá es que el estado frenado TRAE SU CARTEL, que el
+     cartel dice cuál de los dos frenos saltó, y —lo más importante— que
+     cuando NO hay freno no hay cartel: un aviso de agotado en una cuenta
+     que tiene cupo es peor que no avisar nada. */
+  caso("sin cupo, el botón deja de decir Simular",
+       !!cupos.frenoAgotado && /agotad/i.test(cupos.frenoAgotado.titulo) &&
+       /plan/i.test(cupos.frenoAgotado.boton),
+       JSON.stringify(cupos.frenoAgotado));
+  caso("y el cartel del cupo no se confunde con el de la liga",
+       !!cupos.frenoLiga && /liga/i.test(cupos.frenoLiga.titulo) &&
+       cupos.frenoLiga.titulo !== cupos.frenoAgotado.titulo,
+       JSON.stringify(cupos.frenoLiga));
+  caso("con cupo de sobra NO hay cartel de frenado",
+       cupos.frenoNinguno === null, JSON.stringify(cupos.frenoNinguno));
+  caso("CON EL FRENO APAGADO TAMPOCO HAY CARTEL",
+       cupos.frenoApagado === null, JSON.stringify(cupos.frenoApagado));
+  caso("y el que paga no ve nunca un cartel de agotado",
+       cupos.frenoPago === null, JSON.stringify(cupos.frenoPago));
+
+  /* Y la puerta cerrada tiene que tener la llave a la vista. Sin servidor
+     `tarjetasDePlan()` devuelve "", y antes eso era inofensivo porque el
+     botón seguía diciendo "Simular". Ahora no: sin salida, el frenado
+     queda encerrado. Es la misma forma del y76b. */
+  {
+    const sinPlanes = await pg.evaluate(() => {
+      const antes = CUPO;
+      CUPO = { plan:"gratis", usadas:10, hasta:"2026-10-19", ligas:["argentina"], cobra:true };
+      const html = bloqueCupo();
+      CUPO = antes; pintar();
+      return html;
+    });
+    caso("frenado y sin planes del servidor, igual dice a dónde ir",
+         /agotadas/i.test(sinPlanes) && /cuenta|planes/i.test(sinPlanes) &&
+         sinPlanes.replace(/<[^>]*>/g,"").trim().length > 80,
+         sinPlanes.replace(/<[^>]*>/g," ").replace(/\s+/g," ").slice(0,140));
+  }
   /* El texto tiene que mandar al plan que corresponde, no a "comprá algo". */
   caso("y el cartel dice a qué plan hay que ir para esa liga",
        /plan de tres ligas o el de todas/.test(cupos.textoOtra) &&

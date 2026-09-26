@@ -1,3 +1,69 @@
+Arma el 11 - version 2026-09-26 y81 (el cupo agotado se ve como una puerta, no como una falla)
+
+  · SE SUBEN DOS ARCHIVOS: app.tpl.html y probar-sitio.cjs.
+  · NO hace falta compilar de nuevo para la web ni para Play. Para el
+    iPhone SI: `app.tpl.html` viaja adentro del .ipa, asi que el cambio
+    llega con una etiqueta nueva y una compilacion en Codemagic.
+
+  ── LO ENCONTRO FAUSTO USANDO LA APP, NO UNA PRUEBA ──────────────────────
+
+    Reporto "no funcionan las simulaciones en la app de la tienda". No
+    estaban rotas: estaban AGOTADAS. El freno (`ajuste.cobra`) se prendio
+    el 25/9 a las 14:03, y desde entonces toda cuenta gratis pasada de diez
+    simulaciones se corta.
+
+    El problema no era el corte, era como se veia: **el boton seguia
+    diciendo "Simular - te quedan 0"**. Un boton que invita y despues se
+    niega es indistinguible de un boton descompuesto. El motivo aparecia
+    recien DESPUES de tocarlo, en un cartel de error, y encima la pantalla
+    saltaba al panel de cuenta, que esta en otra seccion.
+
+    Fausto lo dijo derecho: *"si se acabo el plan gratuito deberia decirlo
+    claramente... si no, parece que esta roto"*.
+
+    LA REGLA QUE QUEDA: **un limite tiene que verse ANTES de tocar, no
+    despues.** Lo que frena se anuncia en el mismo boton que ya no sirve, y
+    lo que destraba -los planes- va inmediatamente abajo.
+
+  ── QUE CAMBIA EN PANTALLA ───────────────────────────────────────────────
+
+    Sin cupo:
+      boton  ->  "Reactivalas con un plan" | 0 de 10   (en negro, no verde)
+      cartel ->  "Simulaciones gratis agotadas." + cuando se renueva
+      debajo ->  los planes, ahi mismo
+
+    Liga que no entra en el plan:
+      boton  ->  "Ver los planes" | otra liga
+      cartel ->  "Esta liga no entra en tu plan." + a que plan hay que ir
+
+    Con cupo: no cambia nada. El boton sigue diciendo "Simular - te quedan N".
+
+    Los dos frenos se dicen distinto A PROPOSITO. Si la liga no entra,
+    sumar simulaciones no destraba nada y decir "agotadas" seria mentir.
+
+  ── LA TRAMPA DEL y76b, QUE CASI SE REPITE ───────────────────────────────
+
+    `tarjetasDePlan()` devuelve "" cuando el servidor no contesto todavia o
+    no hay planes cargados. Antes eso era inofensivo: el boton decia
+    "Simular" y la persona podia seguir intentando. Con el boton nuevo, un
+    panel vacio dejaria a alguien frenado Y SIN SALIDA.
+
+    Es la misma forma exacta del y76b: *un cuidado puesto adentro no sirve
+    si algo mas arriba corta antes*. Ahora, si no hay planes, el bloque dice
+    que paso y a donde ir. Con prueba propia.
+
+  ── PRUEBAS ─────────────────────────────────────────────────────────────
+
+    422 -> 428. Las seis nuevas cubren: que el estado frenado trae su
+    cartel, que el cartel del cupo no se confunde con el de la liga, que
+    con cupo de sobra NO hay cartel (un aviso de agotado en una cuenta que
+    tiene cupo es peor que no avisar), que con el freno apagado tampoco, que
+    el que paga no lo ve nunca, y que sin planes del servidor igual se dice
+    a donde ir.
+
+    Y se miro la pantalla, no solo el archivo: tres capturas renderizadas
+    -agotado, otra liga, con cupo- antes de dar esto por hecho.
+
 Arma el 11 - version 2026-09-24 y80 (el icono de la app, que era el de Capacitor)
 
   · SE SUBEN CUATRO ARCHIVOS: codemagic.yaml, iconos.cjs,

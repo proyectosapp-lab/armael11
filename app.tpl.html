@@ -279,6 +279,14 @@ button.gh{background:transparent;color:var(--tinta-2);border:1px solid var(--bor
 
 /* ── juego ── */
 .acc .cuantas{font-weight:600;opacity:.85}
+/* El botón frenado se ve distinto del que simula: si se viera igual,
+   volveríamos a tener un botón que promete algo que no va a hacer. */
+button.acc.frenado{background:var(--tinta);color:var(--papel)}
+.frenada{margin-top:12px;padding:13px 15px;border-radius:12px;
+  background:color-mix(in srgb, var(--acento) 10%, transparent);
+  border:1px solid color-mix(in srgb, var(--acento) 32%, transparent)}
+.frenada-tit{margin:0;font-weight:800;font-size:15px;line-height:1.3}
+.frenada .aviso{margin-top:5px}
 .fx .ya{background:var(--acento);color:var(--sobre-acento);border:0;border-radius:9px;
   padding:6px 10px;font:inherit;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap}
 .fx{display:flex;gap:10px;align-items:center;padding:10px 12px;border-radius:12px;cursor:pointer;
@@ -3313,9 +3321,9 @@ async function simular11(flash){
 
   const antes = estadoCupo({ ...CUPO, bloquea: frenaElCupo(), liga: ligaAhora() });
   if(!antes.puedeSimular){
-    J.err = textoCupo(antes, CUPO.hasta, ligaAhora()) + " Mirá los planes acá abajo para seguir.";
+    J.err = "";  /* el titular y los planes ya están en pantalla: ver `bloqueCupo` */
     pintar();
-    document.getElementById("cuenta")?.scrollIntoView({behavior:"smooth",block:"start"});
+    document.getElementById("cupo")?.scrollIntoView({behavior:"smooth",block:"center"});
     return;
   }
 
@@ -3324,9 +3332,12 @@ async function simular11(flash){
      caso en el que el cliente no puede ser el que decide. */
   if(!await gastarSimulacion()){
     const ahora = estadoCupo({ ...CUPO, bloquea: true, liga: ligaAhora() });
-    J.err = textoCupo(ahora, CUPO.hasta, ligaAhora()) + " Mirá los planes acá abajo para seguir.";
+    /* El servidor dijo que no y la pantalla tenía una foto vieja. Acá sí se
+       escribe el motivo: hasta recién el botón decía "Simular", así que sin
+       una línea el corte no tendría explicación. */
+    J.err = textoCupo(ahora, CUPO.hasta, ligaAhora()) + " Los planes están acá abajo.";
     pintar();
-    document.getElementById("cuenta")?.scrollIntoView({behavior:"smooth",block:"start"});
+    document.getElementById("cupo")?.scrollIntoView({behavior:"smooth",block:"center"});
     return;
   }
   await momentoDeAviso();
@@ -3772,6 +3783,39 @@ function estadoCupo({ plan, usadas, bloquea, ligas, liga }){
   };
 }
 
+/* ── CUANDO EL CUPO FRENA, ESO ES UNA PUERTA, NO UNA FALLA ───────────────
+   26/9/2026. El freno se prendió el 25 y apareció el problema que Fausto
+   describió exacto: *"si se acabó el plan gratuito debería decirlo
+   claramente; si no, parece que está roto"*.
+
+   Y tenía razón: el botón seguía diciendo **"Simular · te quedan 0"**. Un
+   botón que invita y después se niega es indistinguible de un botón
+   descompuesto. El motivo aparecía recién DESPUÉS de tocarlo, en un cartel
+   de error, y encima la pantalla saltaba al panel de cuenta, que está en
+   otro lado.
+
+   La regla que queda: **un límite tiene que verse antes de tocar, no
+   después.** Lo que frena se anuncia en el mismo botón que ya no sirve, y
+   lo que destraba —los planes— va inmediatamente abajo, no en otra
+   sección.
+
+   Pura y sin efectos, para poder probarla con casos concretos.          */
+function frenoDeCupo(e){
+  if(!e || e.puedeSimular) return null;
+  /* Primero el que frena de verdad. Si la liga no entra, sumar
+     simulaciones no destraba nada y decir "agotadas" sería mentir. */
+  if(!e.entraLiga) return {
+    titulo: "Esta liga no entra en tu plan.",
+    boton:  "Ver los planes",
+    chico:  "otra liga",
+  };
+  return {
+    titulo: "Simulaciones gratis agotadas.",
+    boton:  "Reactivalas con un plan",
+    chico:  "0 de " + e.tope,
+  };
+}
+
 /* ── EL CICLO NO ES EL MES DEL CALENDARIO ────────────────────────────────
    Primero esto se contaba por mes calendario y estaba mal de una forma que
    se ve sola con un ejemplo: el que compraba el 30 se llevaba cuarenta
@@ -3917,7 +3961,30 @@ function bloqueCupo(){
   const e = estadoCupo({ ...CUPO, bloquea: frenaElCupo(), liga });
   /* Sin límite Y con la liga adentro del plan no hay nada que ofrecer. */
   if(e.ilimitado && e.entraLiga)
-    return `<p class="aviso" style="margin-top:10px">${esc(textoCupo(e, CUPO.hasta, liga))}</p>`;
+    return `<p class="aviso" id="cupo" style="margin-top:10px">${esc(textoCupo(e, CUPO.hasta, liga))}</p>`;
+
+  /* ── FRENADO: el titular primero, el detalle después, los planes pegados.
+     El `id="cupo"` es a donde salta la pantalla cuando alguien toca el
+     botón frenado: antes saltaba a `#cuenta`, que está en otra sección y
+     dejaba la explicación arriba, fuera de la vista. */
+  const fr = frenoDeCupo(e);
+  if(fr){
+    /* ── UNA PUERTA CERRADA TIENE QUE TENER LLAVE A LA VISTA ────────────
+       `tarjetasDePlan()` devuelve "" cuando el servidor no contestó
+       todavía o no hay planes cargados. Antes eso era inofensivo: el botón
+       decía "Simular" y la persona podía seguir intentando. Ahora el botón
+       ya no simula, así que un panel vacío dejaría a alguien frenado y sin
+       salida — la misma trampa del y76b, que un cuidado de acá abajo no
+       sirve si lo de arriba ya cortó. Si no hay planes, se dice qué pasó y
+       a dónde ir. */
+    const planes = tarjetasDePlan();
+    return `<div class="frenada" id="cupo">
+      <p class="frenada-tit">${esc(fr.titulo)}</p>
+      <p class="aviso">${esc(textoCupo(e, CUPO.hasta, liga))}</p>
+    </div>${planes || `<p class="aviso" style="margin-top:10px">
+      No pude traer los planes en este momento. Probá de nuevo en un rato, o
+      abrilos desde el ícono de cuenta, arriba a la derecha.</p>`}`;
+  }
 
   /* ── ACÁ SE COMPRA, Y NO EN OTRO LADO ──────────────────────────────────
      Esto eran tres `<span>` con los precios, de adorno: los botones que de
@@ -3933,7 +4000,7 @@ function bloqueCupo(){
      Al que no tiene cuenta no se le esconde el botón: se le abre la cuenta.
      El plan tiene que quedar atado a alguien, y eso se explica en el momento
      en que hace falta, no antes. */
-  return `<p class="aviso" style="margin-top:10px">
+  return `<p class="aviso" id="cupo" style="margin-top:10px">
       <b>${esc(textoCupo(e, CUPO.hasta, liga))}</b>
       ${CUPO_CFG.cobrando
         ? "Con un plan simulás sin límite y sin avisos."
@@ -5069,9 +5136,15 @@ function vistaJuego(){
            llega a su lugar natural -el final de los ajustes- se queda ahí
            y deja ver el resultado que sale debajo. -->
       <div class="simbox">
-        <button class="acc" id="bsim">${
-          J.desde.minuto>0?"Simular desde el "+J.desde.minuto+"'":"Simular"}<span
-            class="cuantas">${esc(restanEnBoton())}</span></button>
+        ${(() => {
+          /* El botón frenado NO dice "Simular". Ver `frenoDeCupo`. */
+          const fr = frenoDeCupo(estadoCupo({ ...CUPO, bloquea: frenaElCupo(), liga: ligaAhora() }));
+          if(fr) return `<button class="acc frenado" id="bsim">${esc(fr.boton)}<span
+            class="cuantas">${esc(fr.chico)}</span></button>`;
+          return `<button class="acc" id="bsim">${
+            J.desde.minuto>0?"Simular desde el "+J.desde.minuto+"'":"Simular"}<span
+              class="cuantas">${esc(restanEnBoton())}</span></button>`;
+        })()}
         <p class="conque" id="conque">${esc(conQue(ajustes()))}</p>
       </div>
       ${bloqueCupo()}`;
