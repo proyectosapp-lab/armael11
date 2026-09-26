@@ -129,6 +129,41 @@ export function embudo(c, gasto) {
   };
 }
 
+/* ── SACÁ VOS: EL EMBUDO DE UNA CAMPAÑA ─────────────────────────────────
+   Como el de Armá el 11, con otro final: en tenis no hay "instalar" que
+   contar, y lo que decide si la campaña sirvió es el PASE. Por eso el costo
+   que se calcula además del de la visita y la simulación es el costo por
+   pase. Mismo criterio: si el dato no alcanza, null, y la pantalla pone una
+   raya. */
+export function embudoSacavos(c, gasto) {
+  const llegaron = num(c && c.llegaron), simularon = num(c && c.simularon);
+  const cuentas = num(c && c.cuentas), pases = num(c && c.pases);
+  const g = gasto == null || gasto === "" ? null : num(gasto);
+  return {
+    codigo: (c && c.codigo) || "?",
+    llegaron, simularon, cuentas, pases,
+    simulo_pct: porcentaje(simularon, llegaron, 1),
+    pase_pct:   porcentaje(pases, llegaron, 1),
+    costo_visita:     g && llegaron  ? Math.round(g / llegaron * 100) / 100 : null,
+    costo_simulacion: g && simularon ? Math.round(g / simularon * 100) / 100 : null,
+    costo_pase:       g && pases     ? Math.round(g / pases * 100) / 100 : null,
+    gasto: g,
+  };
+}
+
+/* La plata de Sacá vos por medio de pago. Mercado Pago trae el monto en
+   pesos; Apple y Play no (lo que cobra la tienda lo informa la tienda, y
+   en otra moneda). Se suman SOLO los montos que existen y en su moneda:
+   sumar pesos con dólares, o un null como cero, es inventar un número. */
+export function plataPorMedio(filas) {
+  const out = [];
+  for (const f of (filas || [])) {
+    const monto = f && f.monto != null && Number.isFinite(Number(f.monto)) ? Number(f.monto) : null;
+    out.push({ medio: (f && f.medio) || "?", cuantos: num(f && f.cuantos), monto, moneda: monto == null ? null : (f.moneda || null) });
+  }
+  return out;
+}
+
 /* ── LA ALTURA DE CADA BARRA ─────────────────────────────────────────────
    Contra el máximo de la serie y no contra un número fijo: con quince
    usuarios por día, una escala de cien deja todas las barras aplastadas

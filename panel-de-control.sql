@@ -1,61 +1,21 @@
 -- ══════════════════════════════════════════════════════════════════════════
--- PANEL DE CONTROL  —  pegar entero en Supabase → SQL Editor → Run.
+-- PANEL DE CONTROL — con Sacá vos adentro (26/9/2026)
 --
--- ANTES DE APRETAR RUN: cambiá la clave de la línea que dice CAMBIAR ACÁ.
--- Poné una larga, de las que no se adivinan. Puede ser la misma que usás
--- para el backtest o una distinta, como prefieras.
+-- Se pega ENTERO en Supabase → SQL Editor → Run, DESPUÉS de haber pegado
+-- esquema-sacavos.sql (usa la tabla `pase` y el ajuste `cobra_sacavos`).
 --
--- LA CLAVE NO SE GUARDA EN NINGÚN ARCHIVO DEL PROYECTO NI EN EL SITIO. Lo
--- único que queda en la base es su huella bcrypt, que no se puede dar vuelta.
--- Se puede correr las veces que haga falta: correrlo de nuevo con otra clave
--- la cambia, y no toca ningún dato.
+-- NO toca la clave del panel: solo reemplaza la función. La clave sigue
+-- siendo la que pusiste en panel-de-control.sql.
 --
--- ─── QUÉ CONTESTA ─────────────────────────────────────────────────────────
--- Un solo JSON con todo lo que mira la pantalla de control:
---   uso        uso diario, separando la app instalada del navegador
---   campanas   el embudo de cada código de campaña
---   cuentas    cuántas hay, cuántas nuevas, y cómo se reparten por plan
---   pagos      lo cobrado en el período, por día
---   avisos     cuántos teléfonos están suscriptos al once del DT
---
--- ─── LO QUE NO PUEDE CONTESTAR, Y NO ES UN OLVIDO ─────────────────────────
--- Las instalaciones de Google Play y de la App Store NO están acá. Esas
--- viven en las consolas de las tiendas y no hay forma de leerlas sin la API
--- de cada una. Lo que esta base sabe es cuántos teléfonos ABRIERON la app
--- instalada, que para la discusión con Google es el número que importa:
--- instalar y no volver a entrar no cuenta como prueba.
+-- Qué cambia:
+--   · Un bloque nuevo, 'sacavos': uso de todos los días (web / app de
+--     iPhone), campañas (sacavos.com/?c=ig1), cuentas creadas desde Sacá
+--     vos, pases activos y pagos por medio (Mercado Pago, App Store, Play).
+--   · Armá el 11 deja de contar lo de Sacá vos: sus campañas excluyen los
+--     códigos "sv-…" y sus pagos excluyen los del pase de tenis. Antes de
+--     esto, un pago de Sacá vos habría aparecido como plata de fútbol.
 -- ══════════════════════════════════════════════════════════════════════════
 
--- bcrypt. Supabase ya lo tiene; el `if not exists` es para que correr esto
--- dos veces no falle. Según la instalación queda en `public` o en
--- `extensions`, y por eso las funciones de abajo miran en los dos lados.
-create extension if not exists pgcrypto;
-
-create table if not exists panel_clave (
-  id     int primary key default 1 check (id = 1),
-  huella text not null,
-  puesta timestamptz not null default now()
-);
-alter table panel_clave enable row level security;
--- Sin una sola política: ni para leer. La clave `anon` no la ve ni de
--- casualidad, y las funciones de abajo son `security definer`.
-
--- ─── ACÁ. CAMBIAR ESTO Y NADA MÁS ─────────────────────────────────────────
-insert into panel_clave (id, huella)
-values (1, crypt('@Totito22', gen_salt('bf')))
-on conflict (id) do update
-  set huella = excluded.huella, puesta = now();
-
--- ══════════════════════════════════════════════════════════════════════════
--- LA FUNCIÓN
---
--- `security definer` porque lee tablas que el navegador no puede tocar.
--- Devuelve JSON y no filas: son cinco cosas de forma distinta y hacer cinco
--- pedidos desde la pantalla sería cinco veces la misma verificación de clave.
---
--- bcrypt tarda a propósito —unos 100 ms— así que probar claves a mano es
--- lentísimo. Aun así hay un freno de forma: una clave corta ni se compara.
--- ══════════════════════════════════════════════════════════════════════════
 create or replace function panel_de_control(p_clave text, p_dias int default 14)
   returns jsonb
   language plpgsql security definer set search_path = public, extensions as $$
@@ -114,7 +74,7 @@ begin
                  sum(cuenta) filter (where hito = 'cuenta')  as cuentas,
                  min(dia) as primer_dia, max(dia) as ultimo_dia
             from campana_hito
-           where codigo not in ('uso-app', 'uso-web') and dia >= desde
+           where codigo not in ('uso-app', 'uso-web') and codigo not like 'sv-%' and dia >= desde
            group by codigo
         ) f), '[]'::jsonb),
 
@@ -138,17 +98,82 @@ begin
        es plata, y mostrarlo como si lo fuera es la clase de número que se
        mira una vez y no se vuelve a creer. */
     'pagos', jsonb_build_object(
-      'total',   (select count(*) from pago where acreditado),
-      'en_rango',(select count(*) from pago where acreditado
+      'total',   (select count(*) from pago p where acreditado and not (p.id like 'apple:com.sacavos.%' or p.id like 'play:com.sacavos.%' or coalesce(p.crudo->>'referencia','') like '%:sacavos')),
+      'en_rango',(select count(*) from pago p where acreditado and not (p.id like 'apple:com.sacavos.%' or p.id like 'play:com.sacavos.%' or coalesce(p.crudo->>'referencia','') like '%:sacavos')
                     and (recibido at time zone 'America/Argentina/Buenos_Aires')::date >= desde),
       'por_dia', coalesce((
         select jsonb_agg(f order by f.dia)
           from (select (recibido at time zone 'America/Argentina/Buenos_Aires')::date as dia,
                        count(*) as cuantos, sum(monto) as monto, max(moneda) as moneda
-                  from pago
-                 where acreditado
+                  from pago p
+                 where acreditado and not (p.id like 'apple:com.sacavos.%' or p.id like 'play:com.sacavos.%' or coalesce(p.crudo->>'referencia','') like '%:sacavos')
                    and (recibido at time zone 'America/Argentina/Buenos_Aires')::date >= desde
                  group by 1) f), '[]'::jsonb)
+    ),
+
+    /* ── SACÁ VOS ────────────────────────────────────────────────────────
+       La app de tenis cuenta en la misma tabla con códigos que empiezan con
+       "sv-" (sacavos-campana.js): `sv-uso-web` / `sv-uso-app` para el uso de
+       todos los días y `sv-<código>` para sus campañas (llego, simulo,
+       cuenta, pase). La cuenta es la misma que Armá el 11, así que no hay
+       "cuentas de Sacá vos": están las creadas DESDE Sacá vos (usuario
+       sv_…) y los pases. Los pagos se reconocen por el id (Apple/Play) o
+       por la referencia de Mercado Pago, que termina en ":sacavos". */
+    'sacavos', jsonb_build_object(
+      'uso', coalesce((
+        select jsonb_agg(f order by f.dia)
+          from (
+            select dia,
+                   sum(cuenta) filter (where codigo = 'sv-uso-app' and hito = 'abrio')  as app_abrio,
+                   sum(cuenta) filter (where codigo = 'sv-uso-app' and hito = 'simulo') as app_simulo,
+                   sum(cuenta) filter (where codigo = 'sv-uso-web' and hito = 'abrio')  as web_abrio,
+                   sum(cuenta) filter (where codigo = 'sv-uso-web' and hito = 'simulo') as web_simulo
+              from campana_hito
+             where codigo in ('sv-uso-app', 'sv-uso-web') and dia >= desde
+             group by dia
+          ) f), '[]'::jsonb),
+      'campanas', coalesce((
+        select jsonb_agg(f order by f.llegaron desc nulls last)
+          from (
+            select substr(codigo, 4) as codigo,
+                   sum(cuenta) filter (where hito = 'llego')  as llegaron,
+                   sum(cuenta) filter (where hito = 'simulo') as simularon,
+                   sum(cuenta) filter (where hito = 'cuenta') as cuentas,
+                   sum(cuenta) filter (where hito = 'pase')   as pases,
+                   min(dia) as primer_dia, max(dia) as ultimo_dia
+              from campana_hito
+             where codigo like 'sv-%' and codigo not in ('sv-uso-app', 'sv-uso-web') and dia >= desde
+             group by codigo
+          ) f), '[]'::jsonb),
+      'cuentas_desde_sv', (select count(*) from perfil where usuario like 'sv\_%'),
+      'cuentas_nuevas',   (select count(*) from perfil where usuario like 'sv\_%'
+                             and (creado at time zone 'America/Argentina/Buenos_Aires')::date >= desde),
+      'pases_activos',    (select count(*) from pase where producto = 'sacavos' and hasta > now()),
+      'pases_total',      (select count(*) from pase where producto = 'sacavos'),
+      'cobra',            (select valor from ajuste where clave = 'cobra_sacavos'),
+      'pagos', jsonb_build_object(
+        'total',    (select count(*) from pago p where acreditado and (p.id like 'apple:com.sacavos.%' or p.id like 'play:com.sacavos.%' or coalesce(p.crudo->>'referencia','') like '%:sacavos')),
+        'en_rango', (select count(*) from pago p where acreditado and (p.id like 'apple:com.sacavos.%' or p.id like 'play:com.sacavos.%' or coalesce(p.crudo->>'referencia','') like '%:sacavos')
+                       and (recibido at time zone 'America/Argentina/Buenos_Aires')::date >= desde),
+        'por_medio', coalesce((
+          select jsonb_agg(f order by f.cuantos desc)
+            from (select case when p.id like 'apple:%' then 'App Store'
+                              when p.id like 'play:%'  then 'Google Play'
+                              else 'Mercado Pago' end as medio,
+                         count(*) as cuantos, sum(monto) as monto, max(moneda) as moneda
+                    from pago p
+                   where acreditado and (p.id like 'apple:com.sacavos.%' or p.id like 'play:com.sacavos.%' or coalesce(p.crudo->>'referencia','') like '%:sacavos')
+                     and (recibido at time zone 'America/Argentina/Buenos_Aires')::date >= desde
+                   group by 1) f), '[]'::jsonb),
+        'por_dia', coalesce((
+          select jsonb_agg(f order by f.dia)
+            from (select (recibido at time zone 'America/Argentina/Buenos_Aires')::date as dia,
+                         count(*) as cuantos, sum(monto) as monto, max(moneda) as moneda
+                    from pago p
+                   where acreditado and (p.id like 'apple:com.sacavos.%' or p.id like 'play:com.sacavos.%' or coalesce(p.crudo->>'referencia','') like '%:sacavos')
+                     and (recibido at time zone 'America/Argentina/Buenos_Aires')::date >= desde
+                   group by 1) f), '[]'::jsonb)
+      )
     ),
 
     'avisos', jsonb_build_object(
@@ -167,10 +192,4 @@ end; $$;
 revoke all on function panel_de_control(text, int) from public;
 grant execute on function panel_de_control(text, int) to anon, authenticated;
 
--- ══════════════════════════════════════════════════════════════════════════
--- PARA PROBAR DESDE ACÁ MISMO, sin abrir la pantalla:
---
---   select panel_de_control('la-clave-que-pusiste-arriba', 14);
---
--- Si contesta `clave invalida`, la de arriba y la de acá no son la misma.
--- ══════════════════════════════════════════════════════════════════════════
+-- Para probar: select panel_de_control('tu-clave', 14) -> 'sacavos';

@@ -300,8 +300,83 @@
       '</div>';
   }
 
+  /* ── SACÁ VOS ─────────────────────────────────────────────────────────
+     La app de tenis cuenta en la misma base (códigos "sv-…"). Va en un
+     bloque aparte y con su propio título para que nunca se sumen números de
+     una app con los de la otra: la cuenta es compartida, la plata no. */
+  function bloqueSacavos(){
+    var sv = datos.sacavos;
+    if (!sv) return '<h3 class="sec">Sacá vos</h3><div class="tarjeta"><div class="vacio">' +
+      'Falta pegar el panel-de-control.sql nuevo (el que trae el bloque de Sacá vos).</div></div>';
+    var serie = serieDeDias(sv.uso, datos.desde, datos.hoy);
+    var r = resumenDeUso(serie) || { app_abrio_total: 0, web_abrio_total: 0, app_simulo_total: 0, web_simulo_total: 0 };
+    var p = sv.pagos || {};
+    var medios = plataPorMedio(p.por_medio);
+    var cobra = sv.cobra === "si";
+    var html = '<h3 class="sec">Sacá vos</h3><div class="tarjeta">' +
+      '<p class="bajada">La app de tenis. Misma cuenta que Armá el 11, pase aparte. ' +
+      'Cobro <b>' + (cobra ? "prendido" : "apagado") + '</b>' +
+      (cobra ? '' : ' (el pronóstico se ve gratis; se prende con cobra_sacavos)') + '.</p>' +
+      '<div class="grandes">' +
+        '<div class="gr"><b>' + r.web_abrio_total + '</b><span>aperturas en la web</span></div>' +
+        '<div class="gr"><b>' + r.app_abrio_total + '</b><span>aperturas en el iPhone</span></div>' +
+        '<div class="gr"><b>' + (r.web_simulo_total + r.app_simulo_total) + '</b><span>días-teléfono que simularon</span></div>' +
+        '<div class="gr ' + ((sv.pases_activos || 0) > 0 ? "ok" : "") + '"><b>' + (sv.pases_activos || 0) + '</b><span>pases activos</span></div>' +
+      '</div>' +
+      filaBarras(serie, "web_abrio") +
+      '<table><thead><tr><th>Día</th><th>Web abrió</th><th>Web simuló</th><th>iPhone abrió</th><th>iPhone simuló</th></tr></thead><tbody>' +
+      serie.slice().reverse().map(function(d){
+        return '<tr' + (d.dia === datos.hoy ? ' class="hoy"' : '') + '><td>' + esc(diaCorto(d.dia)) + '</td>' +
+          '<td>' + (d.vacio ? "—" : d.web_abrio) + '</td><td>' + (d.vacio ? "—" : d.web_simulo) + '</td>' +
+          '<td>' + (d.vacio ? "—" : d.app_abrio) + '</td><td>' + (d.vacio ? "—" : d.app_simulo) + '</td></tr>';
+      }).join("") + '</tbody></table>' +
+      '<div class="nums" style="margin-top:12px">' +
+        '<div class="num"><b>' + (sv.cuentas_desde_sv || 0) + '</b><span>cuentas creadas desde Sacá vos</span></div>' +
+        '<div class="num"><b>' + (sv.cuentas_nuevas || 0) + '</b><span>nuevas en el período</span></div>' +
+        '<div class="num"><b>' + (p.en_rango || 0) + '</b><span>pagos acreditados en el período</span></div>' +
+        '<div class="num"><b>' + (p.total || 0) + '</b><span>pagos acreditados en total</span></div>' +
+      '</div>' +
+      (medios.length
+        ? '<table><thead><tr><th>Medio</th><th>Pagos</th><th>Plata</th></tr></thead><tbody>' +
+          medios.map(function(m){ return '<tr><td>' + esc(m.medio) + '</td><td>' + m.cuantos + '</td><td>' +
+            (m.monto == null ? "—" : "$" + Math.round(m.monto).toLocaleString("es-AR") + " " + esc(m.moneda || "")) + '</td></tr>'; }).join("") +
+          '</tbody></table>'
+        : '<p class="nota">Todavía no hay pagos del pase en el período.</p>') +
+      '<p class="nota">Las cuentas son compartidas con Armá el 11: acá se cuentan las que se CREARON desde Sacá vos. ' +
+      'La plata de Apple y Play la informa cada tienda en su consola: acá hay cuántos pagos, no cuánto.</p>' +
+      '</div>';
+
+    var cs = sv.campanas || [];
+    html += '<h3 class="sec">Sacá vos · campañas</h3>';
+    if (!cs.length) return html + '<div class="tarjeta"><div class="vacio">Todavía no llegó nadie a sacavos.com con un código ' +
+      '(sacavos.com/?c=ig1).</div></div>';
+    return html + '<div class="res">' + cs.map(function(c){
+      var g = leerLocal("control.gasto.sv." + c.codigo, "");
+      var e = embudoSacavos(c, g === "" ? null : g);
+      return '<div class="lig"><div class="arriba"><div class="nom">' + esc(e.codigo) +
+        '<small>' + esc(c.primer_dia || "") + ' → ' + esc(c.ultimo_dia || "") + '</small></div>' +
+        '<span class="pill ' + (e.simulo_pct == null ? "neutro" : e.simulo_pct >= 25 ? "bien" : e.simulo_pct >= 12 ? "meh" : "mal") +
+        '">' + texto(e.simulo_pct, "% simuló") + '</span></div>' +
+        '<div class="nums">' +
+          '<div class="num"><b>' + e.llegaron + '</b><span>llegaron</span></div>' +
+          '<div class="num"><b>' + e.simularon + '</b><span>simularon</span></div>' +
+          '<div class="num"><b>' + e.cuentas + '</b><span>cuentas</span></div>' +
+          '<div class="num"><b>' + e.pases + '</b><span>pases</span></div>' +
+          '<div class="num"><b>' + texto(e.costo_simulacion) + '</b><span>por simulación</span></div>' +
+          '<div class="num"><b>' + texto(e.costo_pase) + '</b><span>por pase</span></div>' +
+        '</div>' +
+        '<div class="gasto"><label for="gsv-' + esc(e.codigo) + '">Lo que gastaste</label>' +
+          '<input type="text" inputmode="decimal" id="gsv-' + esc(e.codigo) + '" data-gasto-sv="' + esc(e.codigo) +
+          '" value="' + esc(g) + '" placeholder="$"></div>' +
+        '</div>';
+    }).join("") + '</div>';
+  }
+
   function pintar(){
-    $("panel").innerHTML = bloqueUso() + bloqueCampanas() + bloqueCuentas();
+    $("panel").innerHTML = bloqueUso() + bloqueCampanas() + bloqueCuentas() + bloqueSacavos();
+    document.querySelectorAll("[data-gasto-sv]").forEach(function(i){
+      i.onchange = function(){ guardarLocal("control.gasto.sv." + i.dataset.gastoSv, i.value.trim()); pintar(); };
+    });
     $("pie").textContent = "Período: " + datos.desde + " a " + datos.hoy + ". " +
       "Las instalaciones de Google Play y de la App Store no están acá: viven en las consolas de las tiendas. " +
       "Lo que esta base sabe es cuántos teléfonos abrieron la app instalada, que para la prueba cerrada es el número que importa.";

@@ -16,7 +16,7 @@
    ══════════════════════════════════════════════════════════════════════════ */
 import { strict as assert } from "node:assert";
 import { porcentaje, serieDeDias, diaSiguiente, resumenDeUso, embudo,
-         alturas, texto, diaCorto, CTL_META_TESTERS } from "./control.js";
+         alturas, texto, diaCorto, CTL_META_TESTERS, embudoSacavos, plataPorMedio } from "./control.js";
 
 let n = 0;
 const ok = (t, c, d = "") => { assert.ok(c, t + (d ? " — " + d : "")); n++; };
@@ -133,5 +133,18 @@ ok("un null se escribe como una raya", texto(null) === "—" && texto(undefined)
 ok("y un número como el número", texto(26) === "26" && texto(26, "%") === "26%");
 ok("un cero NO es una raya: el cero es un dato", texto(0) === "0");
 ok("un infinito tampoco se muestra", texto(Infinity) === "—" && texto(NaN) === "—");
+
+/* ── Sacá vos ── */
+{
+  const e = embudoSacavos({ codigo: "ig1", llegaron: 200, simularon: 50, cuentas: 10, pases: 4 }, "8000");
+  ok("sacá vos: % que simuló y % que sacó el pase", e.simulo_pct === 25 && e.pase_pct === 2);
+  ok("sacá vos: costo por pase = gasto / pases", e.costo_pase === 2000 && e.costo_simulacion === 160 && e.costo_visita === 40);
+  const sin = embudoSacavos({ codigo: "ig2", llegaron: 30, simularon: 3 }, "");
+  ok("sacá vos: sin gasto cargado, los costos son raya y no cero", sin.costo_pase === null && sin.costo_visita === null);
+  ok("sacá vos: sin pases, el costo por pase es raya aunque haya gasto", embudoSacavos({ llegaron: 10 }, "500").costo_pase === null);
+  const pl = plataPorMedio([{ medio: "Mercado Pago", cuantos: 3, monto: "8970.00", moneda: "ARS" }, { medio: "App Store", cuantos: 2, monto: null, moneda: null }]);
+  ok("sacá vos: Mercado Pago con su monto en pesos", pl[0].monto === 8970 && pl[0].moneda === "ARS");
+  ok("sacá vos: Apple sin monto es raya, no cero, y sin moneda", pl[1].monto === null && pl[1].moneda === null && pl[1].cuantos === 2);
+}
 
 console.log("control: " + n + " pruebas, todo bien");
