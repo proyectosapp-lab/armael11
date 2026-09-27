@@ -1,0 +1,75 @@
+# ══════════════════════════════════════════════════════════════════════════
+#  Armá el 11 — ESTADÍSTICAS DE CONSULTA (cada martes)
+#
+#  ESTE ARCHIVO SE CREA EN GITHUB, NO SE ARRASTRA: la carpeta .github no sube
+#  con arrastrar-y-soltar. Una sola vez:
+#    1. En el repo, "Add file" → "Create new file".
+#    2. Como nombre escribí exactamente:  .github/workflows/estadisticas.yml
+#    3. Pegá el contenido de este archivo y "Commit changes".
+#  No hace falta ningún secreto nuevo: usa API_FOOTBALL_KEY, que ya está.
+#
+#  QUÉ HACE. Baja la temporada de las once ligas, calcula lo que daba el
+#  modelo antes de cada partido, y pide las estadísticas de los partidos
+#  terminados que todavía no las tienen — una sola vez por partido. Guarda
+#  todo en la carpeta estadisticas/ y lo commitea, porque es la memoria de
+#  la capa de consulta y no puede depender de un cache que GitHub borra.
+#
+#  LA PRIMERA VEZ: la temporada hasta hoy son unos 1.400 pedidos y el tope
+#  por corrida es 700. Apretá "Run workflow" hoy y otra vez mañana (dos el
+#  mismo día le comen cuota a la publicación). Después se arregla sola cada
+#  martes (~110 pedidos).
+#
+#  No dispara la publicación: la próxima ronda completa (cada ~3 horas) ya
+#  arma las páginas con lo nuevo. Así no se repite el 16/9.
+# ══════════════════════════════════════════════════════════════════════════
+name: Estadísticas de consulta
+
+on:
+  schedule:
+    - cron: "17 9 * * 2"      # martes 9:17 UTC (6:17 en Argentina)
+  workflow_dispatch:
+    inputs:
+      tope:
+        description: "Máximo de pedidos de estadísticas en esta corrida"
+        required: false
+        default: "700"
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: estadisticas
+  cancel-in-progress: false
+
+jobs:
+  estadisticas:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Probar la consulta (sin red)
+        run: node probar-consulta.mjs
+
+      - name: Bajar la temporada y las estadísticas que faltan
+        env:
+          API_FOOTBALL_KEY: ${{ secrets.API_FOOTBALL_KEY }}
+          TOPE: ${{ inputs.tope || '700' }}
+        run: node estadisticas-api.mjs
+
+      - name: Guardar en el repo
+        run: |
+          git config user.name "estadisticas"
+          git config user.email "estadisticas@armael11.com"
+          git add estadisticas
+          if git diff --cached --quiet; then
+            echo "Nada nuevo para guardar."
+          else
+            git commit -m "Estadísticas de consulta"
+            git pull --rebase --autostash
+            git push
+          fi
