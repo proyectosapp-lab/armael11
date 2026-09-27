@@ -1,3 +1,45 @@
+Arma el 11 - version 2026-09-27 y84 (la capa de consulta: partidos y equipos de las once ligas)
+
+  · Reemplaza al y83 (si no lo subiste, no hace falta: este lo trae).
+    SE SUBEN CATORCE ARCHIVOS SUELTOS, mas uno que se crea en GitHub:
+      consulta-datos.mjs, consulta.mjs, estadisticas-api.mjs,
+      probar-consulta.mjs, paginas-medido.mjs, probar-paginas-medido.mjs,
+      construir-sitio.mjs, app.tpl.html, publicar.mjs, probar-sitio.cjs,
+      empaquetar-ios.mjs, stats-api.mjs, VERSION.txt, estadisticas.yml
+    estadisticas.yml ademas se crea a mano en .github/workflows/ (ver abajo).
+  · Web y Play: publicar. iPhone: en la 1.0.1, despues de la aprobacion.
+
+  ── QUE TRAE ─────────────────────────────────────────────────────────────
+
+    armael11.com/consulta/ : una pagina por partido jugado (resultado,
+    tiros, xG, "lo que daba el modelo" con lo que se sabia ANTES, y la
+    aguja: que estadistica movio el partido), una por equipo, una por liga
+    y un indice. Los partidos por jugar NO muestran numero: su boton abre
+    el simulador con ese partido cargado (/#simular=<liga>:<id>).
+
+  ── COMO SE LLENA ─────────────────────────────────────────────────────────
+
+    estadisticas.yml corre los martes: baja la temporada de las once ligas
+    y pide las estadisticas de cada partido UNA SOLA VEZ (quedan guardadas
+    en la carpeta estadisticas/ del repo). ~110 pedidos por semana.
+    La primera vez son ~1.400: apretar "Run workflow" hoy y otra vez manana.
+
+    Y de paso: la tabla de la liga argentina (stats-api.mjs) pedia los
+    mismos 150 partidos cada seis horas. Ahora usa lo guardado: ~600
+    pedidos por dia menos.
+
+  ── LO QUE NO SE HACE ────────────────────────────────────────────────────
+
+    Nada de numeros para partidos por jugar fuera del simulador. Nada de
+    palabras prohibidas (probado). Las paginas de consulta no van dentro de
+    la app de iPhone (serian cientos de archivos): se abren en la web.
+
+  ── PRUEBAS ──────────────────────────────────────────────────────────────
+
+    probar-consulta 54/54 · probar-paginas-medido 51/51 · probar-sitio
+    431/431 (3 nuevas: el link de la consulta abre el partido) ·
+    empaquetado iOS 21/21 · probar-stats 30/30.
+
 Arma el 11 - version 2026-09-27 y83 (las paginas de "esta medido", reescritas para vender)
 
   · Reemplaza al y82 (que no hace falta subir). SE SUBEN SIETE ARCHIVOS:

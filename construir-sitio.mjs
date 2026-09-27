@@ -21,6 +21,7 @@
    ══════════════════════════════════════════════════════════════════════════ */
 import { readFileSync, writeFileSync, mkdirSync, copyFileSync, existsSync, rmSync } from "node:fs";
 import { paginasMedido, mapaDelSitio, robots } from "./paginas-medido.mjs";
+import { paginasConsulta, leerLigaJs } from "./consulta.mjs";
 
 const aca = p => new URL(p, import.meta.url);
 const CLUBES = JSON.parse(readFileSync(aca("./clubes.json")));
@@ -328,6 +329,7 @@ function armarPagina(club, op) {
     process.exit(1);
   }
   html = html.replaceAll("{{VERSION}}", esc(VERSION));
+  html = html.replaceAll("{{RAIZ}}", esc(RAIZ));
 
   /* El descargo de independencia tiene que decir el nombre del club de ESTA
      página. Se aborta igual que con la versión: una página sin el marcador
@@ -676,7 +678,29 @@ ${CONTACTO ? `<p>Si no podés entrar a tu cuenta, escribinos a <a href="mailto:$
   const stats = leer("./stats-liga.json");
   for (const p of paginasMedido({ RAIZ, ligas: ligasCfg ? ligasCfg.ligas : [], stats }))
     writeFileSync(new URL(p.archivo, SITIO), p.html);
-  const mapa = mapaDelSitio(RAIZ);
+
+  /* ── LA CONSULTA: partidos, equipos y ligas (fase 2, 27/9) ──────────────
+     De `estadisticas/<liga>.json` (la corrida semanal, commiteada) y de la
+     próxima fecha que se baja todos los días. Si todavía no corrió la
+     semanal, sale con lo que haya; si no hay nada, no sale ninguna. La
+     carpeta se borra antes: una página de un partido que ya no existe no
+     tiene que quedar dando vueltas. */
+  rmSync(new URL("consulta/", SITIO), { recursive: true, force: true });
+  const fuentes = (ligasCfg ? ligasCfg.ligas : []).map(info => {
+    const datos = leer("./estadisticas/" + info.slug + ".json");
+    let ligaJs = null;
+    try { ligaJs = leerLigaJs(readFileSync(new URL("liga-" + info.slug + ".js", DATOS), "utf8")); } catch (e) {}
+    return { info, datos, ligaJs };
+  });
+  const consulta = paginasConsulta({ RAIZ, fuentes, ligas: ligasCfg ? ligasCfg.ligas : [] });
+  for (const p of consulta) {
+    const destino = new URL(p.ruta, SITIO);
+    mkdirSync(new URL("./", destino), { recursive: true });
+    writeFileSync(destino, p.html);
+  }
+  if (consulta.length) console.log("  consulta: " + consulta.length + " páginas");
+
+  const mapa = mapaDelSitio(RAIZ, undefined, consulta.map(p => p.ruta));
   if (mapa) writeFileSync(new URL("sitemap.xml", SITIO), mapa);
   writeFileSync(new URL("robots.txt", SITIO), robots(RAIZ));
 }

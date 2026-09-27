@@ -17,7 +17,7 @@
      node stats-api.mjs           usa API_FOOTBALL_KEY del entorno
      node stats-api.mjs TU_KEY
    ══════════════════════════════════════════════════════════════════════════ */
-import { writeFileSync } from "node:fs";
+import { writeFileSync, readFileSync } from "node:fs";
 import { calcular, esFaseRegular } from "./stats-calc.mjs";
 
 const aca  = p => new URL(p, import.meta.url);
@@ -82,9 +82,27 @@ if (!P.length) { console.log("\n  No entró ningún partido. No toco nada.\n"); 
 
 /* ─── 2. tiros y xG de los más recientes ─────────────────────────────────── */
 const recientes = P.slice(-CON_DETALLE);
-console.log("\n  Trayendo tiros y xG de los últimos " + recientes.length + " partidos…");
+/* Lo que ya bajó la corrida semanal (`estadisticas/argentina.json`, y84) no
+   se vuelve a pedir: antes esta vuelta pedía los mismos 150 partidos cada
+   seis horas, ~600 pedidos por día para números que no cambian. Si el
+   archivo no está o no se puede leer, se pide como antes. */
+const guardadas = new Map();
+try {
+  const g = JSON.parse(readFileSync(aca("./estadisticas/argentina.json"), "utf8"));
+  for (const p of g.partidos || []) if (p.st || (p.sti || 0) >= 3) guardadas.set(p.id, p.st || null);
+} catch (e) { /* sin archivo semanal: se pide todo */ }
+const aPedir = recientes.filter(m => !guardadas.has(m.id)).length;
+console.log("\n  Tiros y xG de los últimos " + recientes.length + " partidos: " +
+            (recientes.length - aPedir) + " ya guardados, " + aPedir + " a pedir…");
 let conXG = 0;
 for (const m of recientes) {
+  if (guardadas.has(m.id)) {
+    const g = guardadas.get(m.id);
+    if (g) { m.th = g.tl; m.ta = g.tv; m.xh = g.xl; m.xa = g.xv; }
+    if (m.xh != null && m.xa == null) m.xh = null;
+    if (m.xh != null) conXG++;
+    continue;
+  }
   const st = await api("/fixtures/statistics", { fixture: m.id });
   const de = id => (st.find(x => x.team?.id === id)?.statistics || []);
   const val = (arr, tipo) => {

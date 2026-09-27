@@ -136,6 +136,15 @@ export function iconosDeManifiesto(texto) {
   } catch (e) { return []; }
 }
 
+/* ── LO QUE NO VIAJA ADENTRO DE LA APP ──────────────────────────────────
+   27/9/2026. Las páginas de consulta son miles —una por partido y por
+   equipo de once ligas— y cambian todos los días. Adentro del .ipa serían
+   megas de páginas viejas. Los links a /consulta/ son absolutos
+   (https://armael11.com/consulta/...), así que desde la app abren en el
+   navegador interno, con la versión del día. Acá solo se evita que el
+   empaquetador las siga. */
+export const noSeLleva = ruta => /^consulta(\/|$)/.test(String(ruta || ""));
+
 export async function bajarSitio({ origen, semillas, traer, log = () => {} }) {
   const archivos = new Map();
   const vistos = new Set();
@@ -144,7 +153,7 @@ export async function bajarSitio({ origen, semillas, traer, log = () => {} }) {
 
   while (cola.length) {
     const ruta = cola.shift();
-    if (!ruta || vistos.has(ruta)) continue;
+    if (!ruta || vistos.has(ruta) || noSeLleva(ruta)) continue;
     vistos.add(ruta);
 
     let dato = null;

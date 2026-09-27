@@ -871,7 +871,11 @@ th{font-family:var(--display);font-weight:500;letter-spacing:.8px}
     <a href="/el-techo-del-futbol.html">El techo del fútbol</a> ·
     <a href="/es-suerte.html">¿Es suerte?</a> ·
     <a href="/ligas.html">Cada liga</a> ·
-    <a href="/liga-argentina.html">La liga argentina</a></p>
+    <a href="/liga-argentina.html">La liga argentina</a><br>
+    <!-- Absoluto a propósito: en la web es el mismo sitio, y adentro del
+         iPhone abre en el navegador interno con la versión del día (la
+         consulta no viaja en el .ipa: ver `noSeLleva` en empaquetar-ios). -->
+    <a href="{{RAIZ}}/consulta/">Partidos y equipos de las once ligas</a></p>
 </div>
 <!-- EL ORDEN NO ES DECORATIVO. Primero lo que hicimos nosotros: el
      simulador, el fantasy y los números salen de nuestro código. El feed
@@ -5592,6 +5596,24 @@ $("barra").addEventListener("click",e=>{
 $("btema").onclick=()=>{ tema=temaReal()==="oscuro"?"claro":"oscuro"; pintar(); };
 prefiere.addEventListener("change",()=>{ if(tema==="auto") pintar(); });
 pintar();
+
+/* ── ENTRAR DIRECTO A UN PARTIDO DESDE LA CONSULTA (27/9/2026) ───────────
+   Las páginas de /consulta/ mandan a `/#simular=<liga>:<id>`: el que leyó
+   cómo llegan los dos equipos toca "Simulá este partido" y cae con ese
+   partido armado, no en la portada buscándolo. Si el partido no está en la
+   fecha que tiene la app —ya se jugó, se reprogramó—, la app arranca como
+   siempre. Se saca de la dirección para que recargar no lo repita. */
+function abrirDesdeEnlace(){
+  const m = (location.hash||"").match(/simular=([a-z0-9-]+):(\d+)/i);
+  if(!m) return false;
+  try{ history.replaceState(null,"",location.pathname+location.search); }catch(e){}
+  const L = (window.LIGAS||{})[m[1]];
+  if(!PORTADA || !L || !(L.partidos||[]).some(p => String(p.id) === m[2])) return false;
+  tab = "juego";
+  simularDeLiga(m[1], m[2]);
+  return true;
+}
+abrirDesdeEnlace();
 
 /* El borrador de este teléfono, antes de dibujar nada. No necesita cuenta
    ni conexión: es lo que estabas armando la última vez. */

@@ -99,25 +99,9 @@ export const PAGINAS = [
   { archivo: "liga-argentina.html",      corto: "La liga argentina" },
 ];
 
-function armazon({ RAIZ, archivo, titulo, descripcion, cuerpo }) {
-  const canon = RAIZ ? RAIZ + "/" + archivo : "";
-  const nav = PAGINAS.map(p => p.archivo === archivo
-    ? `<b>${esc(p.corto)}</b>`
-    : `<a href="/${p.archivo}">${esc(p.corto)}</a>`).join(" · ");
-  return `<!doctype html>
-<html lang="es"><head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<title>${esc(titulo)} · Armá el 11</title>
-<meta name="description" content="${esc(descripcion)}">
-<meta name="robots" content="index,follow">
-${canon ? `<link rel="canonical" href="${esc(canon)}">` : ""}
-<meta property="og:type" content="article">
-<meta property="og:title" content="${esc(titulo)}">
-<meta property="og:description" content="${esc(descripcion)}">
-${canon ? `<meta property="og:url" content="${esc(canon)}">` : ""}
-<style>
-  :root{ --fondo:#F7F8FA; --papel:#FFFFFF; --texto:#101418; --suave:#57606E;
+/* El estilo de estas páginas, compartido con las de consulta
+   (`consulta.mjs`) para que todo el sitio de texto se vea igual. */
+export const CSS = `  :root{ --fondo:#F7F8FA; --papel:#FFFFFF; --texto:#101418; --suave:#57606E;
          --borde:#E3E6EC; --verde:#1E8A4A; }
   @media (prefers-color-scheme: dark){
     :root{ --fondo:#0D1013; --papel:#161A1F; --texto:#F2F4F7; --suave:#98A2B3;
@@ -150,9 +134,29 @@ ${canon ? `<meta property="og:url" content="${esc(canon)}">` : ""}
   .fuentes{font-size:14px;color:var(--suave)}
   footer{margin-top:44px;padding-top:16px;border-top:1px solid var(--borde);
     color:var(--suave);font-size:14px;line-height:1.8}
-</style></head><body><div class="caja">
+`;
+
+function armazon({ RAIZ, archivo, titulo, descripcion, cuerpo }) {
+  const canon = RAIZ ? RAIZ + "/" + archivo : "";
+  const nav = PAGINAS.map(p => p.archivo === archivo
+    ? `<b>${esc(p.corto)}</b>`
+    : `<a href="/${p.archivo}">${esc(p.corto)}</a>`).join(" · ");
+  return `<!doctype html>
+<html lang="es"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>${esc(titulo)} · Armá el 11</title>
+<meta name="description" content="${esc(descripcion)}">
+<meta name="robots" content="index,follow">
+${canon ? `<link rel="canonical" href="${esc(canon)}">` : ""}
+<meta property="og:type" content="article">
+<meta property="og:title" content="${esc(titulo)}">
+<meta property="og:description" content="${esc(descripcion)}">
+${canon ? `<meta property="og:url" content="${esc(canon)}">` : ""}
+<style>
+${CSS}</style></head><body><div class="caja">
 <a class="marca" href="/">Armá el 11</a>
-<nav>Está medido: ${nav}</nav>
+<nav>Está medido: ${nav}<br><a href="${esc(RAIZ)}/consulta/">Partidos y equipos de las once ligas</a></nav>
 ${cuerpo}
 <footer>
   Armá el 11 es una app independiente, sin relación con ningún club ni con
@@ -421,9 +425,10 @@ export function paginasMedido({ RAIZ = "", ligas = [], stats = null } = {}) {
    son justamente lo que un revisor lee como contenido ajeno. Siguen
    existiendo y se pueden encontrar; lo que no hacemos es ofrecérselas al
    buscador como si fueran lo mejor del sitio. */
-export function mapaDelSitio(RAIZ, hoy = new Date().toISOString().slice(0, 10)) {
+export function mapaDelSitio(RAIZ, hoy = new Date().toISOString().slice(0, 10), extra = []) {
   if (!RAIZ) return "";
-  const urls = ["", ...PAGINAS.map(p => p.archivo), "privacidad.html", "borrar-cuenta.html"];
+  const urls = ["", ...PAGINAS.map(p => p.archivo), "privacidad.html", "borrar-cuenta.html",
+                ...extra.map(r => r.replace(/index\.html$/, ""))];
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
 ${urls.map(u => `  <url><loc>${esc(RAIZ + "/" + u)}</loc><lastmod>${hoy}</lastmod></url>`).join("\n")}

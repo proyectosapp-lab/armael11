@@ -1977,6 +1977,40 @@ srv.listen(8099, async () => {
     await pg2.close();
   }
 
+  /* ── EL LINK QUE VIENE DE LA CONSULTA (y84) ────────────────────────────
+     Las páginas de partidos próximos NO muestran números: mandan al
+     simulador con `/#simular=<liga>:<partido>`. Si ese link no abre el
+     partido, el botón de las páginas de consulta lleva a una portada
+     cualquiera. Y un link viejo (partido que ya no está) no puede romper
+     ni mostrar un error: se queda en la portada. */
+  {
+    const fake = () => {
+      window.LIGAS = window.LIGAS || {};
+      window.LIGAS.prueba = { id: 99, slug: "prueba", nombre: "Prueba", pais: "Prueba",
+        media: 2.5, local: 1.4, visita: 1.1, calibrada: { partidos: 100, temporada: 2025 },
+        equipos: { 1: { n: "Local Prueba", j: [] }, 2: { n: "Visita Prueba", j: [] } },
+        partidos: [{ id: 777, fecha: "2099-01-01T20:00:00+00:00", local: 1, visita: 2, estado: "NS" }] };
+    };
+    const abrir = async hash => {
+      const p3 = await b.newPage({ viewport: { width: 430, height: 920 } });
+      await p3.route('**/v3.football.api-sports.io/**', r => r.abort());
+      await p3.addInitScript(fake);
+      await p3.goto('http://localhost:8099/index.html' + hash, { waitUntil: 'load' });
+      await p3.waitForTimeout(300);
+      const r = await p3.evaluate(() => ({ liga: J.liga, fx: J.fx && J.fx.fixture && J.fx.fixture.id,
+        tab, hash: location.hash, err: J.err || "" }));
+      await p3.close();
+      return r;
+    };
+    const bien = await abrir('#simular=prueba:777');
+    caso("el link de la consulta abre el partido en el simulador",
+         bien.liga === "prueba" && bien.fx === 777 && bien.tab === "juego", JSON.stringify(bien));
+    caso("y se borra de la barra (volver atrás no lo reabre)", bien.hash === "", bien.hash);
+    const viejo = await abrir('#simular=prueba:999');
+    caso("un link a un partido que ya no está deja la portada tranquila",
+         viejo.liga !== "prueba" && !viejo.err, JSON.stringify(viejo));
+  }
+
   /* ── EL LUGAR DEL AVISO ────────────────────────────────────────────────
      No hay publicidad en la app. Hay un lugar donde algún día va a haber
      una, y estas son las reglas de cuándo corresponde. Se prueban ahora,
