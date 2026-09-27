@@ -1,3 +1,120 @@
+Arma el 11 - version 2026-09-27 y83 (las paginas de "esta medido", reescritas para vender)
+
+  · Reemplaza al y82 (que no hace falta subir). SE SUBEN SIETE ARCHIVOS:
+    paginas-medido.mjs, probar-paginas-medido.mjs, construir-sitio.mjs,
+    app.tpl.html, publicar.mjs, probar-sitio.cjs y VERSION.txt.
+  · Trae adentro el y81 (el cupo agotado).
+  · Web y Play: publicar. iPhone: en la 1.0.1, despues de la aprobacion.
+
+  ── POR QUE SE REESCRIBIERON ─────────────────────────────────────────────
+
+    Fausto, sobre el y82: *"parece el prospecto de un medicamento: si lo
+    lees completo, no lo tomas"*. Estaban escritas para defenderse, no para
+    vender: tablas de Brier, "todavia no tenemos una explicacion medida",
+    "por que no te damos la probabilidad de que sea suerte".
+
+    Ahora cada una abre con el numero, dice lo justo y tiene su boton al
+    simulador. El que la lee tiene que salir con ganas de simular.
+
+      /como-funciona.html        "Tu once, jugado 6.000 veces."
+      /el-techo-del-futbol.html  "Nadie predice futbol al 70%. Ni cerca."
+      /es-suerte.html            "90 caras de 100."
+      /ligas.html                "Once ligas. Ninguna se juega igual."
+      /liga-argentina.html       "La liga argentina es la mas impredecible
+                                  de las once." (con el factor arbitros)
+
+  ── LO QUE NO CAMBIO, PORQUE NO ES TONO ──────────────────────────────────
+
+    Ningun numero inventado, ningun pronostico de un partido por jugar,
+    ninguna palabra prohibida, y ningun "le ganamos a" contra estudios que
+    no son la misma prueba. Marketing es elegir que se dice primero y como;
+    no es decir lo que no paso. Las pruebas que miran eso siguen (51).
+
+Arma el 11 - version 2026-09-27 y82 (las paginas de "esta medido": texto que un buscador puede leer)
+
+  · SE SUBEN SIETE ARCHIVOS: paginas-medido.mjs y probar-paginas-medido.mjs
+    (nuevos), construir-sitio.mjs, app.tpl.html, publicar.mjs,
+    probar-sitio.cjs y VERSION.txt.
+  · TRAE ADENTRO EL y81 (el cupo agotado). Si no lo subiste, no hace falta
+    subirlo aparte: con este alcanza.
+  · Web y Play: con publicar alcanza. iPhone: NO compilar mientras la 1.0
+    este en revision; va en la 1.0.1.
+
+  ── POR QUE ─────────────────────────────────────────────────────────────
+
+    AdSense rechazo armael11.com por "contenido de bajo valor". Tenia razon,
+    y el diagnostico fue un numero: la portada tenia **65 palabras visibles
+    sin JavaScript**. Todo lo demas lo dibuja el codigo despues de cargar, y
+    de esas 65 la unica frase con contenido era "los titulos y enlaces
+    pertenecen a cada medio". Google miro el sitio y encontro un cascaron
+    que decia que el contenido era de otros.
+
+    Mientras tanto, el mejor material del proyecto -el empate y el techo, la
+    moneda, la liga argentina medida- vivia en documentos internos.
+
+  ── LAS CINCO ────────────────────────────────────────────────────────────
+
+    /como-funciona.html          657 palabras
+    /el-techo-del-futbol.html    606
+    /es-suerte.html              507
+    /ligas.html                  455
+    /liga-argentina.html         524
+
+    HTML comun, sin JavaScript, con descripcion y direccion canonica. Se
+    enlazan desde el pie de la app, que es por donde las encuentran el
+    buscador Y el empaquetador del iPhone (arma el .ipa siguiendo links).
+
+    Mas `sitemap.xml` y `robots.txt`. El mapa NO lleva las paginas de club:
+    son el feed, titulares de otros medios, justo lo que un revisor lee como
+    contenido ajeno. Siguen existiendo; lo que no se hace es ofrecerlas como
+    lo mejor del sitio. Y `gracias.html` (la vuelta de Mercado Pago) pasa a
+    no indexarse: es un cartel, no una pagina.
+
+  ── LAS REGLAS DE ESTAS PAGINAS ──────────────────────────────────────────
+
+    1. Ningun numero inventado. Lo que se puede leer de un archivo se lee:
+       los grupos de ligas salen de ligas.json y los numeros de la liga
+       argentina de stats-liga.json, asi la pagina no envejece mintiendo.
+    2. Ningun pronostico de un partido por jugar. Decision de Fausto (27/9):
+       ese numero vive adentro del simulador. Hay prueba.
+    3. Ni las palabras prohibidas ni las casas de apuestas. Se saco una
+       fuente cuyo titulo en ingles decia "Betting Odds": el clasificador de
+       Meta no distingue una cita de un aviso.
+    4. Sin ordenar ligas por medio punto. Peru (0,0538) y Alemania (0,0531)
+       estan a menos distancia que el margen de la medicion, asi que van en
+       el mismo grupo. **Ojo: el carrete de Instagram decia "Peru, tercera".
+       La pagina, que es la referencia permanente, no lo dice.**
+
+  ── UN NUMERO QUE ESTUVO A PUNTO DE DECIR DOS COSAS ──────────────────────
+
+    La primera version de "es suerte" mostraba **91 caras de 100** para
+    Portugal. La cuenta exacta da 91,5; el carrete y empate-y-techo.md
+    publican **90**, redondeado para abajo. Dos numeros para lo mismo es lo
+    que no puede pasar. Ahora las cifras publicadas viven en una sola tabla
+    (MEDIDO.monedas) y una prueba mira que ninguna pase la cuenta exacta.
+
+  ── PRUEBAS ─────────────────────────────────────────────────────────────
+
+    probar-paginas-medido.mjs: 46, nueva, y OBLIGATORIA en publicar.mjs.
+    Corre antes que la corrida baje datos, asi que si falta stats-liga.json
+    usa una foto de prueba en vez de reventar la publicacion entera.
+    probar-sitio.cjs 428 · probar-empaquetado-ios.mjs 21.
+
+  ── LO QUE SIGUE: LA CAPA DE CONSULTA ────────────────────────────────────
+
+    Jugados (resultado + lo que daba el modelo + la estadistica que movio la
+    aguja), Proximos (estadisticas, sin el numero) y Equipos. Antes hace
+    falta una cosa: los tiros y el xG hoy existen SOLO para Argentina
+    (stats-api.mjs esta atado a la liga 128). Para las once, cada partido
+    terminado se pide una sola vez y se guarda para siempre: ~16 pedidos por
+    dia. Pedirlos como hoy se come la cuota, como el 16/9.
+
+  ── CUANDO PEDIR LA REVISION DE ADSENSE ──────────────────────────────────
+
+    No enseguida. Google pide "presencia constante y mantenimiento": un sitio
+    que ayer tenia 65 palabras y hoy tiene seis paginas no muestra
+    constancia. Publicar, dejarlas un par de semanas, y recien ahi pedirla.
+
 Arma el 11 - version 2026-09-26 y81 (el cupo agotado se ve como una puerta, no como una falla)
 
   · SE SUBEN DOS ARCHIVOS: app.tpl.html y probar-sitio.cjs.

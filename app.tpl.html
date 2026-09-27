@@ -863,7 +863,15 @@ th{font-family:var(--display);font-weight:500;letter-spacing:.8px}
 
          Ahora se mira el pie y se sabe. Cuesta una línea. -->
     <span class="ver">{{VERSION}}</span> · <a href="index.html?elegir" id="bcambiar">Cambiar de club</a><br>
-    <a href="/privacidad.html">Privacidad</a> · <a href="/borrar-cuenta.html">Borrar mi cuenta</a></p>
+    <a href="/privacidad.html">Privacidad</a> · <a href="/borrar-cuenta.html">Borrar mi cuenta</a><br>
+    <!-- ESTÁ MEDIDO. Texto de verdad, en HTML común: es lo único de todo el
+         sitio que un buscador puede leer sin ejecutar JavaScript. Ver
+         `paginas-medido.mjs`. -->
+    Está medido: <a href="/como-funciona.html">Cómo funciona</a> ·
+    <a href="/el-techo-del-futbol.html">El techo del fútbol</a> ·
+    <a href="/es-suerte.html">¿Es suerte?</a> ·
+    <a href="/ligas.html">Cada liga</a> ·
+    <a href="/liga-argentina.html">La liga argentina</a></p>
 </div>
 <!-- EL ORDEN NO ES DECORATIVO. Primero lo que hicimos nosotros: el
      simulador, el fantasy y los números salen de nuestro código. El feed
@@ -4041,19 +4049,7 @@ const contar = h => { try{ if(typeof hitoCampana === "function") hitoCampana(h);
    que Play Console con doce testers no contesta: cuántos volvieron hoy, y
    cuántos de esos entraron por el ícono de la app y no por el navegador.
    `esDeLaTienda()` se le pasa hecho porque la regla del referrer vive acá. */
-/* "La app" es la de Play (TWA) Y la de iPhone (Capacitor). Hasta el 27/9 la
-   de iPhone contaba como web. */
-const enLaAppInstalada = () => { try{ return esDeLaTienda() || (typeof hayNativo === "function" && hayNativo()); }catch(e){ return false; } };
-const usar = h => { try{ if(typeof usoDiario === "function") usoDiario(h, enLaAppInstalada()); }catch(e){} };
-/* La primera vez que ESTE teléfono abre la app instalada (o la web desde el
-   ícono de inicio). Una sola vez, para siempre: es el "se instaló" que la
-   base sí puede ver. */
-const estrenar = () => { try{
-  if(typeof estrenoInstalacion !== "function") return;
-  const app = enLaAppInstalada();
-  if(app) estrenoInstalacion(true);
-  else if(typeof abiertaDesdeElIcono === "function" && abiertaDesdeElIcono()) estrenoInstalacion(false);
-}catch(e){} };
+const usar = h => { try{ if(typeof usoDiario === "function") usoDiario(h, esDeLaTienda()); }catch(e){} };
 
 let PROMPT_INSTALAR = null;
 if(typeof window !== "undefined"){
@@ -4067,7 +4063,6 @@ if(typeof window !== "undefined"){
     /* Vale más que una simulación: el instalado es el que puede volver
        solo y el único que puede recibir el aviso del once del DT. */
     contar("instalo");
-    try{ if(typeof estrenoInstalacion === "function") estrenoInstalacion(false); }catch(e){}
     try{ pintar(); }catch(e){}
   });
 }
@@ -5407,7 +5402,6 @@ function enganchar(){
      El propio contador se encarga de que sea una sola vez por día, así que
      llamarlo en cada `enganchar()` no cuesta nada. */
   usar("abrio");
-  estrenar();
   /* El refresco de datos de la app de iPhone. Solo existe adentro del
      .ipa —el archivo lo agrega `empaquetar-ios.mjs`, no viaja en la web— y
      él solo se encarga de arrancar una sola vez. Arranca acá, con la

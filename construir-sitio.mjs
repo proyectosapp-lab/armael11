@@ -20,6 +20,7 @@
          cache-<club>.js     lo escribe datos-juego.mjs (puede no estar)
    ══════════════════════════════════════════════════════════════════════════ */
 import { readFileSync, writeFileSync, mkdirSync, copyFileSync, existsSync, rmSync } from "node:fs";
+import { paginasMedido, mapaDelSitio, robots } from "./paginas-medido.mjs";
 
 const aca = p => new URL(p, import.meta.url);
 const CLUBES = JSON.parse(readFileSync(aca("./clubes.json")));
@@ -543,12 +544,12 @@ writeFileSync(new URL(".nojekyll", SITIO), "");
    dicen tiene que seguir siendo verdad. Si mañana se guarda un dato más, el
    que lo agrega pasa por este archivo. Una política que vive en un HTML que
    nadie vuelve a abrir envejece mintiendo.                              */
-const pagina = (titulo, cuerpo) => `<!doctype html>
+const pagina = (titulo, cuerpo, { indexar = true } = {}) => `<!doctype html>
 <html lang="es"><head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>${esc(titulo)} · Armá el 11</title>
-<meta name="robots" content="index,follow">
+<meta name="robots" content="${indexar ? "index,follow" : "noindex"}">
 <link rel="icon" href="${icono({color:"#0B4F3A", ini:"11"})}">
 <style>
   :root{ --fondo:#F7F8FA; --papel:#FFFFFF; --texto:#101418; --suave:#57606E; --borde:#E3E6EC; }
@@ -659,6 +660,27 @@ writeFileSync(new URL("borrar-cuenta.html", SITIO), pagina("Borrar mi cuenta", `
 ${CONTACTO ? `<p>Si no podés entrar a tu cuenta, escribinos a <a href="mailto:${esc(CONTACTO)}">${esc(CONTACTO)}</a> desde el mismo correo y la borramos nosotros.</p>` : ""}
 `));
 
+/* ══════════════════ LAS PÁGINAS DE "ESTÁ MEDIDO" ══════════════════
+   27/9/2026. AdSense rechazó el sitio por "contenido de bajo valor", y
+   tenía razón: la portada tenía 65 palabras visibles sin JavaScript. Estas
+   cinco páginas son texto de verdad, servido como HTML común, con el
+   material que antes vivía solo en documentos internos. Ver
+   `paginas-medido.mjs`, que tiene sus propias reglas.
+
+   Lo que se puede leer de un archivo se lee del archivo: el orden de las
+   ligas sale de `ligas.json` y los números de la liga argentina de
+   `stats-liga.json`. Si alguno falta, la página sale igual, sin ese bloque. */
+{
+  const leer = f => { try { return JSON.parse(readFileSync(aca(f), "utf8")); } catch (e) { return null; } };
+  const ligasCfg = leer("./ligas.json");
+  const stats = leer("./stats-liga.json");
+  for (const p of paginasMedido({ RAIZ, ligas: ligasCfg ? ligasCfg.ligas : [], stats }))
+    writeFileSync(new URL(p.archivo, SITIO), p.html);
+  const mapa = mapaDelSitio(RAIZ);
+  if (mapa) writeFileSync(new URL("sitemap.xml", SITIO), mapa);
+  writeFileSync(new URL("robots.txt", SITIO), robots(RAIZ));
+}
+
 /* ══════════════════ LA VUELTA DE MERCADO PAGO ══════════════════
    Mercado Pago manda a la persona acá cuando termina. Esta página tiene UNA
    regla y es la que le da toda su forma:
@@ -713,7 +735,7 @@ try {
   if (v && v.charAt(0) === "/") document.getElementById("volver").setAttribute("href", v);
 } catch (err) {}
 </script>
-`));
+`, { indexar: false }));
 
 /* ══════════════════ LO QUE HACE FALTA PARA EMPAQUETARLA ══════════════════
    Play acepta un sitio envuelto —se llama Trusted Web Activity— pero le pide
