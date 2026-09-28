@@ -2011,6 +2011,92 @@ srv.listen(8099, async () => {
          viejo.liga !== "prueba" && !viejo.err, JSON.stringify(viejo));
   }
 
+  /* ── EL ZOOM DEL iPHONE (rechazo de Apple, 28/9, 4.0 Design) ──────────
+     iOS agranda la página cuando se toca un campo con letra de menos de 16
+     px, y no la achica. El revisor escribió el mail y la pantalla quedó
+     cortada a la derecha. El campo del mail, encima, no tenía estilo. En
+     un teléfono simulado (táctil, 375 de ancho, como el iPad corre una app
+     de iPhone), todos los campos de la cuenta tienen que tener 16 px, y la
+     página no puede ser más ancha que la pantalla. */
+  {
+    const p4 = await b.newPage({ viewport: { width: 375, height: 667 }, isMobile: true, hasTouch: true });
+    await p4.route('**/v3.football.api-sports.io/**', r => r.abort());
+    await p4.goto('http://localhost:8099/index.html', { waitUntil: 'load' });
+    await p4.waitForTimeout(300);
+    const r = await p4.evaluate(() => {
+      const bc = document.getElementById('bcuenta'); bc.hidden = false; bc.click();
+      const campos = [...document.querySelectorAll('input:not([type=range]):not([type=checkbox]):not([type=radio])')]
+        .filter(i => i.offsetParent);
+      return { n: campos.length,
+               chicos: campos.filter(i => parseFloat(getComputedStyle(i).fontSize) < 16)
+                             .map(i => i.type + ':' + getComputedStyle(i).fontSize),
+               mail: (() => { const m = campos.find(i => i.type === 'email');
+                              return m ? getComputedStyle(m).borderTopLeftRadius : null; })(),
+               ancho: document.documentElement.scrollWidth, pantalla: innerWidth };
+    });
+    await p4.close();
+    caso("en el teléfono, los campos de la cuenta tienen 16 px (iOS no agranda la pantalla)",
+         r.n >= 2 && !r.chicos.length, JSON.stringify(r));
+    caso("y el campo del mail tiene el mismo estilo que los demás (bordes redondeados)",
+         !!r.mail && r.mail !== '0px', "" + r.mail);
+    caso("y la página no es más ancha que la pantalla", r.ancho <= r.pantalla, r.ancho + " > " + r.pantalla);
+  }
+  /* ── SALIR DE LA CUENTA, A LA VISTA (28/9) ─────────────────────────────
+     Fausto no encontró cómo salir: estaba solo adentro del panel que abre
+     el círculo de arriba. Con una sesión guardada (falsa: Supabase no
+     contesta nada), el pie tiene que ofrecer "Salir de la cuenta", y al
+     tocarlo la sesión se borra, el panel lo dice y el link se va. */
+  {
+    const p5 = await b.newPage({ viewport: { width: 375, height: 667 }, isMobile: true, hasTouch: true });
+    await p5.route('**/v3.football.api-sports.io/**', r => r.abort());
+    await p5.route(/supabase\.co/, r => r.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+    await p5.addInitScript(() => {
+      const b64 = o => btoa(JSON.stringify(o)).replace(/=+$/, '');
+      const token = 'x.' + b64({ sub: 'uuid-de-prueba', exp: Math.floor(Date.now() / 1000) + 3600 }) + '.y';
+      if (!sessionStorage.getItem('ya')) {
+        localStorage.setItem('tste.sesion', JSON.stringify({ token, refresh: 'r', uid: 'uuid-de-prueba' }));
+        sessionStorage.setItem('ya', '1');
+      }
+    });
+    await p5.goto('http://localhost:8099/index.html', { waitUntil: 'load' });
+    await p5.waitForTimeout(600);
+    const hayBack = await p5.evaluate(() => typeof conBackend !== 'undefined' && conBackend);
+    if (hayBack) {
+      const antes = await p5.evaluate(() => ({ pie: !document.getElementById('pie-cuenta').hidden,
+        texto: (document.getElementById('pie-salir') || {}).textContent }));
+      caso("con la sesión abierta, el pie ofrece 'Salir de la cuenta'",
+           antes.pie && antes.texto === 'Salir de la cuenta', JSON.stringify(antes));
+      await p5.click('#pie-salir');
+      await p5.waitForTimeout(200);
+      const despues = await p5.evaluate(() => ({
+        sesion: localStorage.getItem('tste.sesion'),
+        pie: !document.getElementById('pie-cuenta').hidden,
+        panel: document.getElementById('cuenta').innerText }));
+      caso("y al tocarlo la sesión se borra y el panel dice que saliste",
+           despues.sesion === null && /Saliste de tu cuenta/.test(despues.panel) &&
+           /Entrá a tu cuenta/.test(despues.panel), JSON.stringify(despues).slice(0, 200));
+      caso("y el link del pie se va", !despues.pie);
+    } else {
+      caso("(el sitio de prueba tiene backend, para probar la salida)", false, "sin backend");
+    }
+    await p5.close();
+    const tplS = require('fs').readFileSync(require('path').join(__dirname, 'app.tpl.html'), 'utf8');
+    caso("en el panel, el botón se llama por lo que hace, también sin nombre de usuario elegido",
+         (tplS.match(/id="csalir"[^>]*>Salir de la cuenta</g) || []).length === 2);
+  }
+  {
+    const tpl = require('fs').readFileSync(require('path').join(__dirname, 'app.tpl.html'), 'utf8');
+    caso("la página baja debajo de la hora y la batería en la app (área segura de arriba)",
+         /\.envase\{padding-top:env\(safe-area-inset-top/.test(tpl));
+    /* 28/9, 2.3.6: Apple leyó la app como relacionada con apuestas. La
+       portada decía "sin publicidad de apuestas": negado, pero pone la
+       palabra en la pantalla que el revisor mira primero. */
+    caso("la app no dice 'apuestas' en ningún lado, ni negado",
+         !/apuesta|apostar|juegos? de azar/i.test(tpl));
+    caso("y detrás de la hora blanca hay una franja oscura (en la web mide 0)",
+         /body::before\{[^}]*height:env\(safe-area-inset-top,0px\);[^}]*background:#0B0F0D/.test(tpl));
+  }
+
   /* ── EL LUGAR DEL AVISO ────────────────────────────────────────────────
      No hay publicidad en la app. Hay un lugar donde algún día va a haber
      una, y estas son las reglas de cuándo corresponde. Se prueban ahora,

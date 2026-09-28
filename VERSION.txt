@@ -1,3 +1,66 @@
+Arma el 11 - version 2026-09-28 y87 (salir de la cuenta, a la vista)
+
+  · Reemplaza al y86 (si ya lo subiste, subi este igual). LOS MISMOS
+    QUINCE ARCHIVOS. Va en la build 19 del iPhone.
+  · Fausto no encontraba como salir de la cuenta. Estaba, pero solo adentro
+    del panel que abre el circulo de arriba (el de la inicial), y se
+    llamaba "Salir" a secas. Ahora:
+      - En el pie, al lado de "Borrar mi cuenta": "Salir de la cuenta",
+        solo cuando hay sesion.
+      - En el panel el boton se llama "Salir de la cuenta", y aparece
+        tambien en la pantalla de elegir nombre de usuario (antes, el que
+        entraba y no elegia nombre no tenia como salir).
+      - Al salir, la app queda como la de alguien sin cuenta (cupo del
+        telefono, sin plan) y el panel dice "Saliste de tu cuenta."
+  · probar-sitio: 4 pruebas nuevas.
+
+Arma el 11 - version 2026-09-28 y86 (Apple: "Gambling: Yes" - se discute)
+
+  · Reemplaza al y85 (si ya lo subiste, subi este igual). SE SUBEN LOS
+    MISMOS QUINCE ARCHIVOS.
+  · Apple pidio (2.3.6) marcar "Juegos de azar: Si" porque la app muestra
+    probabilidades de partidos reales. Eso la pasaba a 18+. Decision de
+    Fausto (28/9): discutirlo primero, con la build 19.
+  · En la app y en las paginas que viajan adentro del .ipa ya no aparece la
+    palabra "apuestas", ni negada. La portada decia "sin publicidad de
+    apuestas" y el pie de las paginas "No tiene apuestas ni contenido de
+    juego con dinero". Es la leccion de Meta con "sin cuotas": negada,
+    igual pone el tema en la pantalla. Pruebas nuevas lo miran.
+
+Arma el 11 - version 2026-09-28 y85 (el rechazo de Apple por la pantalla agrandada en el iPad)
+
+  · Trae adentro el y84 entero. SE SUBEN QUINCE ARCHIVOS SUELTOS (los del
+    y84 y probar-empaquetado-ios.mjs). estadisticas.yml sigue siendo el que
+    se crea a mano en .github/workflows/ si todavia no esta.
+  · Web y Play: publicar. iPhone: NUEVA COMPILACION (1.0, build 19), porque
+    el arreglo viaja adentro del .ipa.
+
+  ── QUE PASO ─────────────────────────────────────────────────────────────
+
+    Apple rechazo la 1.0 (18) el 28/9: 4.0 Design y 2.3.6. Lo reviso en un
+    iPad Air 11 (la app es solo de iPhone: el iPad la corre en modo
+    iPhone). La captura muestra la cuenta con verificador@armael11.com
+    escrito y la pantalla AGRANDADA, cortada a la derecha.
+
+    Causa: iOS agranda la pagina cuando se toca un campo con letra de menos
+    de 16 px, y no la vuelve a achicar. El campo del mail tenia 13 px: no
+    estaba en ninguna regla de estilo (input[type=email] faltaba), por eso
+    ademas se veia distinto del de la contrasena.
+
+    Y en la misma captura la hora se dibujaba encima de la cabeza, en
+    blanco sobre fondo claro: la pagina no bajaba del area de la barra de
+    estado.
+
+  ── EL ARREGLO ───────────────────────────────────────────────────────────
+
+    · app.tpl.html: el mail con el mismo estilo que los demas campos; en
+      pantallas tactiles todos los campos a 16 px; la pagina baja debajo de
+      la hora (safe-area-inset-top) y detras de la hora va una franja
+      oscura. En la web todo esto mide 0 o no cambia nada visible.
+    · empaquetar-ios.mjs: adentro de la app la pantalla no se amplia
+      (maximum-scale=1, user-scalable=no). En la web el zoom sigue.
+    · Pruebas: probar-sitio 436 (5 nuevas), empaquetado iOS 24 (3 nuevas).
+
 Arma el 11 - version 2026-09-27 y84 (la capa de consulta: partidos y equipos de las once ligas)
 
   · Reemplaza al y83 (si no lo subiste, no hace falta: este lo trae).

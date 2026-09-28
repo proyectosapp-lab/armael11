@@ -143,6 +143,21 @@ export function iconosDeManifiesto(texto) {
    (https://armael11.com/consulta/...), así que desde la app abren en el
    navegador interno, con la versión del día. Acá solo se evita que el
    empaquetador las siga. */
+/* LA PANTALLA NO SE AGRANDA ADENTRO DE LA APP (28/9/2026).
+   Apple rechazó la 1.0 por 4.0 (Design) con una captura: el revisor tocó el
+   campo del mail, iOS agrandó la página y quedó cortada a la derecha. El
+   arreglo de fondo está en la página (campos de 16 px en pantallas
+   táctiles). Esto es el cinturón: en la app, como en cualquier app nativa,
+   la pantalla no se amplía ni con el dedo ni sola. En la web NO se toca:
+   ahí el zoom es de quien lee. */
+export const VIEWPORT_APP = "width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover";
+export function viewportDeApp(html) {
+  const t = String(html);
+  const re = /<meta\s+name=["']viewport["'][^>]*>/i;
+  if (!re.test(t)) return { html: t, cambiado: false };
+  return { html: t.replace(re, '<meta name="viewport" content="' + VIEWPORT_APP + '">'), cambiado: true };
+}
+
 export const noSeLleva = ruta => /^consulta(\/|$)/.test(String(ruta || ""));
 
 export async function bajarSitio({ origen, semillas, traer, log = () => {} }) {
@@ -214,12 +229,15 @@ for (const [ruta, dato] of archivos) {
 
 /* ─── 3. sacar la publicidad, esté o no ─────────────────────────────── */
 {
-  let paginas = 0, bloques = 0;
+  let paginas = 0, bloques = 0, sinZoom = 0;
   for (const f of todosLosArchivos(WWW)) {
     if (!f.rel.endsWith(".html")) continue;
     const r = sacarPublicidad(readFileSync(f.url, "utf8"));
+    const v = viewportDeApp(r.html);
+    if (v.cambiado) sinZoom++;
+    if (!r.sacados && !v.cambiado) continue;
+    writeFileSync(f.url, v.html);
     if (!r.sacados) continue;
-    writeFileSync(f.url, r.html);
     paginas++; bloques += r.sacados;
   }
   const ads = new URL("ads.txt", WWW);
@@ -227,6 +245,7 @@ for (const [ruta, dato] of archivos) {
   if (habiaAds) rmSync(ads, { force: true });
   console.log("  ✓ publicidad afuera: " + bloques + " script(s) de " + paginas +
               " página(s)" + (habiaAds ? " y el ads.txt" : ""));
+  console.log("  ✓ sin zoom: " + sinZoom + " página(s) con la pantalla fija");
   /* Que el sitio publicado TENGA publicidad es lo normal y lo correcto: es
      un sitio web. Lo que no puede tenerla es el .ipa. Por eso esto no es un
      aviso raro, es el trabajo de este paso. */

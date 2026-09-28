@@ -28,6 +28,10 @@
       ganale a la casa, eficacia, el único. Y no se nombra a las casas de
       apuestas. Hay una prueba que lo mira.
 
+      Y desde el 28/9, ni "apuestas" negado: estas páginas viajan adentro de
+      la app del iPhone, y Apple la clasificó como relacionada con apuestas
+      (2.3.6). "No tiene apuestas" también pone el tema sobre la mesa.
+
    4. **Sin ordenar ligas por medio punto.** La diferencia entre Perú y
       Alemania es más chica que el margen de la medición, así que la página
       las pone en el mismo grupo en vez de inventar un tercer puesto.
@@ -160,7 +164,7 @@ ${CSS}</style></head><body><div class="caja">
 ${cuerpo}
 <footer>
   Armá el 11 es una app independiente, sin relación con ningún club ni con
-  ninguna liga. No tiene apuestas ni contenido de juego con dinero.<br>
+  ninguna liga. Es un simulador: lo único que se compra son más simulaciones.<br>
   <a href="/">Inicio</a> · <a href="/privacidad.html">Privacidad</a>
 </footer>
 </div></body></html>

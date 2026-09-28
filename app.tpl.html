@@ -20,6 +20,16 @@ body{margin:0;background:transparent;color:var(--tinta);
 #estrellas{position:fixed;inset:0;z-index:0;pointer-events:none;
   background:var(--estrellas) center top / cover no-repeat;opacity:var(--estrellas-op);filter:blur(2.5px)}
 .envase{position:relative;z-index:1;max-width:680px;margin:0 auto;padding:0 14px}
+/* La barra de estado. En la app del iPhone la página va debajo de la hora
+   y la batería (contentInset "never"): sin esto, la hora se dibujaba
+   encima de la cabeza. En la web vale 0 y no cambia nada. */
+.envase{padding-top:env(safe-area-inset-top,0px)}
+/* Y detrás de la hora, una franja oscura. La app pide la hora en blanco
+   (UIStatusBarStyleLightContent, en codemagic.yaml): sobre el fondo claro
+   era blanco sobre blanco, y en la captura de Apple no se leía. En la web
+   la franja mide 0. */
+body::before{content:"";position:fixed;left:0;right:0;top:0;height:env(safe-area-inset-top,0px);
+  background:#0B0F0D;z-index:100;pointer-events:none}
 
 .cabeza{display:flex;align-items:center;gap:13px;padding:16px;margin:14px 0 12px;
   background:var(--hoja);border-radius:20px}
@@ -265,7 +275,7 @@ body{margin:0;background:transparent;color:var(--tinta);
 h3.sec{margin:22px 2px 9px;font-size:12px;letter-spacing:1.1px;text-transform:uppercase;
   color:var(--tinta-3);font-weight:800}
 label{display:block;font-size:12px;font-weight:700;color:var(--tinta-2);margin-bottom:5px}
-select,input[type=text],input[type=password]{width:100%;padding:9px 11px;border-radius:11px;
+select,input[type=text],input[type=email],input[type=password]{width:100%;padding:9px 11px;border-radius:11px;
   border:1px solid var(--borde);background:var(--papel);color:var(--tinta);font:inherit;font-size:14px}
 button.acc{background:var(--acento);color:var(--sobre-acento);border:0;border-radius:12px;
   padding:11px 18px;font:inherit;font-weight:700;font-size:14px;cursor:pointer}
@@ -629,10 +639,20 @@ button.gh:active{transform:scale(.985)}
 .acc .cuantas{font-weight:500;font-size:12px;margin-left:10px;padding:3px 9px;border-radius:999px;
   background:rgba(255,255,255,.18);box-shadow:inset 0 0 0 1px rgba(255,255,255,.22);vertical-align:1px}
 .acc .cuantas:empty{display:none}
-select,input[type=text],input[type=password],input[type=number]{border-radius:var(--r-m);padding:11px 12px;
+select,input[type=text],input[type=email],input[type=password],input[type=number]{border-radius:var(--r-m);padding:11px 12px;
   border:1px solid var(--borde);background:var(--papel);color:var(--tinta);font:inherit;font-size:14px}
 input[type=number]{width:100%;font-family:var(--display);font-weight:500;font-variant-numeric:tabular-nums}
 select:focus,input:focus{outline:2px solid color-mix(in srgb, var(--acento) 55%, transparent);outline-offset:1px}
+/* EL ZOOM DEL iPHONE AL TOCAR UN CAMPO (28/9). iOS agranda la pantalla
+   cuando un campo tiene letra de menos de 16 px, y no la vuelve a achicar.
+   Apple rechazó la 1.0 (4.0, Design) con una captura del iPad: el revisor
+   escribió el mail, la pantalla quedó ampliada y cortada a la derecha. El
+   campo del mail, además, no tenía estilo: `input[type=email]` no estaba en
+   ninguna regla y salía con la letra del sistema, 13 px.
+   En pantallas táctiles todo campo de texto va a 16 px. */
+@media (pointer:coarse){
+  input:not([type=range]):not([type=checkbox]):not([type=radio]),select,textarea{font-size:16px}
+}
 
 /* ── la barra ─────────────────────────────────────────────────────────── */
 .barra{padding:6px 6px max(8px,env(safe-area-inset-bottom));border-top-color:transparent;
@@ -863,7 +883,7 @@ th{font-family:var(--display);font-weight:500;letter-spacing:.8px}
 
          Ahora se mira el pie y se sabe. Cuesta una línea. -->
     <span class="ver">{{VERSION}}</span> · <a href="index.html?elegir" id="bcambiar">Cambiar de club</a><br>
-    <a href="/privacidad.html">Privacidad</a> · <a href="/borrar-cuenta.html">Borrar mi cuenta</a><br>
+    <a href="/privacidad.html">Privacidad</a> · <a href="/borrar-cuenta.html">Borrar mi cuenta</a><span id="pie-cuenta" hidden> · <a href="#cuenta" id="pie-salir">Salir de la cuenta</a></span><br>
     <!-- ESTÁ MEDIDO. Texto de verdad, en HTML común: es lo único de todo el
          sitio que un buscador puede leer sin ejecutar JavaScript. Ver
          `paginas-medido.mjs`. -->
@@ -1167,7 +1187,7 @@ function heroPortada(){
       <p>Cada partido se juega <b>6.000 veces</b> con los goles reales de su liga.
         No tira un dado: está medido en <b>${esc(R.partidos||"13.345")} partidos</b> de ${esc(R.ligas||"trece")} ligas,
         y en ${esc(R.limpias||"1.783")} partidos de tres ligas que el modelo nunca había visto.</p>
-      <p class="chica">${PORTADA.gratis} simulaciones gratis por mes · sin publicidad de apuestas · app independiente</p>
+      <p class="chica">${PORTADA.gratis} simulaciones gratis por mes · app independiente</p>
     </section>
     ${c ? `<a class="tuclub" href="${esc(c.id)}.html" style="--c:${esc(c.color)};--t:${esc(c.tinta)}">
       <span class="mono-c">${esc(c.ini)}</span>
@@ -5746,6 +5766,20 @@ async function arrancarCuenta(){
    una sola cosa: avisarle a la tienda de Apple cuando cambia. */
 let IOS_QUIEN = null;
 
+/* Salir: lo mismo desde el panel, desde el pie o desde la pantalla del
+   nombre de usuario. Deja la app como la ve alguien sin cuenta —el cupo
+   vuelve al del teléfono, sin plan— y lo dice, para que no quede la duda
+   de si pasó algo. */
+function salirDeLaCuenta(){
+  salir(); miNombre=null; borrando=false;
+  PREMIUM={activo:false,hasta:null};
+  LIGAS=[]; ligaTabla={}; ZONAS=[]; zonaTabla={}; MIS_PUNTOS=[];
+  CUPO={ plan:"gratis", usadas: usoLocal(), hasta: hastaLocal(), ligas: ligasLocales() };
+  cuentaAbierta=true; creandoCuenta=false;
+  pintarCuenta("Saliste de tu cuenta.");
+  pintar();
+}
+
 function pintarCuenta(aviso="", mal=false){
   const c=$("cuenta");
 
@@ -5771,6 +5805,15 @@ function pintarCuenta(aviso="", mal=false){
   }
 
   $("bcuenta").textContent = miNombre ? miNombre[0].toUpperCase() : "◍";
+  /* SALIR, DONDE SE LO BUSCA (28/9). Fausto no lo encontró: vivía solo
+     adentro del panel que abre el círculo de arriba, y ese círculo con una
+     inicial no dice "tu cuenta". Ahora también está en el pie, que es donde
+     se busca "salir" en cualquier sitio, y en el panel se llama por lo que
+     hace. */
+  const pc=$("pie-cuenta");
+  if(pc){ pc.hidden=!quienSoy();
+          $("pie-salir").onclick=e=>{ e.preventDefault(); salirDeLaCuenta();
+            try{ $("cuenta").scrollIntoView({block:"start"}); }catch(x){} }; }
   if(!cuentaAbierta){ c.hidden=true; return; }
   c.hidden=false;
   const av = aviso?`<p class="aviso${mal?" mal":""}">${esc(aviso)}</p>`:"";
@@ -5870,7 +5913,9 @@ function pintarCuenta(aviso="", mal=false){
       <p>Es el único nombre que van a ver los demás en las tablas. Nada de nombre
          real ni de club: solo usuarios y puntajes.</p>
       <div class="par"><input type="text" id="cuser" placeholder="tuusuario" maxlength="16">
-        <button class="boton" id="cguardar">Guardar</button></div>${av}`;
+        <button class="boton" id="cguardar">Guardar</button></div>${av}
+      <button class="boton flaco" id="csalir" style="margin-top:12px">Salir de la cuenta</button>`;
+    $("csalir").onclick=salirDeLaCuenta;
     $("cguardar").onclick=async()=>{
       try{ miNombre=await elegirUsuario($("cuser").value); cuentaAbierta=false; pintarCuenta(); }
       catch(e){ pintarCuenta(e.message, true); }
@@ -5885,7 +5930,7 @@ function pintarCuenta(aviso="", mal=false){
   c.innerHTML=`<h4>Hola, ${esc(miNombre)}</h4>
     <p>Tu cuenta está lista. Las ligas de amigos y el fantasy llegan en la próxima.</p>
     ${bloquePremium()}
-    <button class="boton flaco" id="csalir">Salir</button>
+    <button class="boton flaco" id="csalir">Salir de la cuenta</button>
     ${borrando
       ? `<div class="pendiente" style="margin-top:14px">
            <b>¿Seguro que querés borrar tu cuenta?</b><br>
@@ -5899,9 +5944,7 @@ function pintarCuenta(aviso="", mal=false){
       : `<button class="boton flaco" id="cborrar" style="margin-top:10px">Borrar mi cuenta</button>`}
     ${av}`;
   engancharPremium();
-  $("csalir").onclick=()=>{ salir(); miNombre=null; borrando=false;
-                            PREMIUM={activo:false,hasta:null};
-                            ZONAS=[]; zonaTabla={}; MIS_PUNTOS=[]; pintarCuenta(); };
+  $("csalir").onclick=salirDeLaCuenta;
   const bb=$("cborrar");   if(bb) bb.onclick=()=>{ borrando=true;  pintarCuenta(); };
   const bn=$("cnoborrar"); if(bn) bn.onclick=()=>{ borrando=false; pintarCuenta(); };
   const bs=$("csiborrar"); if(bs) bs.onclick=async()=>{

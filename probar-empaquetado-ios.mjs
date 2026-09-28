@@ -14,7 +14,8 @@
    hay AdSense". Sería la peor manera posible de aprobar esta prueba. */
 
 import { strict as assert } from "node:assert";
-import { sacarPublicidad, enlacesDe, iconosDeManifiesto, bajarSitio } from "./empaquetar-ios.mjs";
+import { readFileSync as leerArchivo } from "node:fs";
+import { sacarPublicidad, enlacesDe, iconosDeManifiesto, bajarSitio, viewportDeApp, VIEWPORT_APP } from "./empaquetar-ios.mjs";
 
 let hechos = 0;
 const prueba = (n, fn) => { fn(); hechos++; };
@@ -279,5 +280,26 @@ await (async () => {
     assert.ok([0, 2, 3].includes(png[25]), "tiene canal alfa, tipo " + png[25]);
   });
 }
+
+/* El rechazo del 28/9 (4.0, Design): la pantalla agrandada y cortada. En la
+   app la pantalla no se amplía; en la web, sí (esto solo corre al empaquetar). */
+prueba("en la app la pantalla no se agranda: viewport fijo", () => {
+  const html = '<head><meta charset="utf-8">\n<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">\n</head>';
+  const r = viewportDeApp(html);
+  assert.ok(r.cambiado);
+  assert.ok(r.html.includes('content="' + VIEWPORT_APP + '"'));
+  assert.ok(/maximum-scale=1/.test(VIEWPORT_APP) && /user-scalable=no/.test(VIEWPORT_APP));
+  assert.ok(/viewport-fit=cover/.test(VIEWPORT_APP), "sin cover se rompen las áreas seguras");
+  assert.equal((r.html.match(/name="viewport"/g) || []).length, 1);
+});
+prueba("y una página sin viewport queda igual", () => {
+  const r = viewportDeApp("<p>hola</p>");
+  assert.equal(r.cambiado, false);
+  assert.equal(r.html, "<p>hola</p>");
+});
+prueba("la plantilla trae el viewport que el empaquetador sabe cambiar", () => {
+  const t = leerArchivo(new URL("./app.tpl.html", import.meta.url), "utf8");
+  assert.ok(viewportDeApp(t).cambiado);
+});
 
 console.log("empaquetado de iOS: " + hechos + " pruebas, todo bien");

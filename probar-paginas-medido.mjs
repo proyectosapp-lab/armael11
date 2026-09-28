@@ -71,7 +71,11 @@ console.log("\n── lo que no se dice ──");
    ventana. "Odds" y "betting" entran porque un título de un paper en inglés
    las mete sin que nadie lo note, y el clasificador de Meta no distingue. */
 const PROHIBIDAS = ["cuota", "cuotas", "pick", "fija", "value", "acertá", "ganale a la casa",
-  "eficacia", "el único", "casa de apuestas", "casas de apuestas", "betting", "odds", "apostá"];
+  "eficacia", "el único", "casa de apuestas", "casas de apuestas", "betting", "odds", "apostá",
+  /* 28/9: Apple leyó la app como relacionada con apuestas (2.3.6). Estas
+     páginas viajan adentro del .ipa. Ni negada: "no tiene apuestas" también
+     pone el tema sobre la mesa, como "sin cuotas" con Meta. */
+  "apuesta", "apuestas", "apostar", "juego de azar", "juegos de azar"];
 for (const p of P) {
   const t = texto(p.html).toLowerCase();
   const hay = PROHIBIDAS.filter(w => new RegExp("\\b" + w + "\\b", "i").test(t));
