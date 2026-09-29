@@ -2041,6 +2041,68 @@ srv.listen(8099, async () => {
          !!r.mail && r.mail !== '0px', "" + r.mail);
     caso("y la página no es más ancha que la pantalla", r.ancho <= r.pantalla, r.ancho + " > " + r.pantalla);
   }
+  /* ── EL LINK DEL REEL DE TORNEOS (29/9) ────────────────────────────────
+     `/#torneos` abre la pestaña del fantasy (con fecha publicada) y se borra
+     de la barra. Sin fecha, la portada queda como siempre. */
+  {
+    const abrirF = async (hash, conFecha) => {
+      const p7 = await b.newPage({ viewport: { width: 375, height: 667 } });
+      await p7.route('**/v3.football.api-sports.io/**', r => r.abort());
+      if (conFecha) {
+        /* El sitio de prueba se arma sin fecha: se le agrega lo que el
+           sitio publicado trae cuando hay una (la fecha y el reglamento). */
+        await p7.addInitScript(() => {
+          window.FECHA = { numero: 11, torneo: 'Clausura', cierra: '2099-01-01T00:00:00Z', presupuesto: 75, jugadores: [] };
+        });
+        await p7.route('**/datos/fantasy.js', r => r.fulfill({ contentType: 'text/javascript',
+          body: fs.readFileSync(path.join(__dirname, 'fantasy.mjs'), 'utf8').replace(/^export\s+/gm, '') }));
+        await p7.route('**/index.html', async r => {
+          const resp = await r.fetch();
+          const body = (await resp.text()).replace('<script src="datos/cuentas.js">',
+            '<script src="datos/fantasy.js"></script><script src="datos/cuentas.js">');
+          await r.fulfill({ response: resp, body });
+        });
+      }
+      await p7.goto('http://localhost:8099/index.html' + hash, { waitUntil: 'load' });
+      await p7.waitForTimeout(300);
+      const r = await p7.evaluate(() => ({ tab, hash: location.hash }));
+      await p7.close();
+      return r;
+    };
+    const conF = await abrirF('#torneos', true);
+    caso("el link del reel (#torneos) abre el fantasy", conF.tab === 'fantasy' && conF.hash === '',
+         JSON.stringify(conF));
+    const sinF = await abrirF('#torneos', false);
+    caso("y sin fecha publicada no fuerza nada", sinF.tab !== 'fantasy' && sinF.hash === '',
+         JSON.stringify(sinF));
+  }
+  /* ── SOLO LOS PLANES DE ESTA APP (29/9) ────────────────────────────────
+     El servidor de cobro es compartido con Sacá vos y devuelve también su
+     pase. En la portada de Armá el 11 aparecía "Sacá vos $2.990 · Comprar". */
+  {
+    const p6 = await b.newPage({ viewport: { width: 375, height: 667 } });
+    await p6.route('**/v3.football.api-sports.io/**', r => r.abort());
+    await p6.route(/supabase\.co/, r => /crear-pago/.test(r.request().url())
+      ? r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ planes: [
+          { id: 'sacavos', titulo: 'Sacá vos', precio: 2990, detalle: 'tenis' },
+          { id: 'liga', titulo: 'Tu liga', precio: 3000, detalle: 'una liga' },
+          { id: 'tres', titulo: '3 ligas', precio: 7500, detalle: 'tres ligas' },
+          { id: 'todas', titulo: 'Todas', precio: 12000, detalle: 'once ligas' },
+          { id: 'otro-producto', titulo: 'Otro', precio: 1, detalle: 'x' } ] }) })
+      : r.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
+    await p6.goto('http://localhost:8099/index.html', { waitUntil: 'load' });
+    await p6.waitForTimeout(600);
+    const r = await p6.evaluate(() => ({
+      ids: (typeof PLANES !== 'undefined' ? PLANES : []).map(p => p.id).join(','),
+      texto: document.body.innerText }));
+    await p6.close();
+    caso("la pantalla de compra muestra solo los planes de Armá el 11",
+         r.ids === 'liga,tres,todas', r.ids);
+    caso("y no ofrece el pase de Sacá vos", !/Sacá vos/.test(r.texto));
+    const tplF = require('fs').readFileSync(require('path').join(__dirname, 'app.tpl.html'), 'utf8');
+    caso("la cuenta ya no dice que el fantasy 'llega en la próxima'",
+         !/llegan? en la próxima/.test(tplF) && /pestaña <b>Fantasy<\/b>/.test(tplF));
+  }
   /* ── SALIR DE LA CUENTA, A LA VISTA (28/9) ─────────────────────────────
      Fausto no encontró cómo salir: estaba solo adentro del panel que abre
      el círculo de arriba. Con una sesión guardada (falsa: Supabase no

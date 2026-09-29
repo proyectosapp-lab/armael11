@@ -1,3 +1,18 @@
+Arma el 11 - version 2026-09-29 y88 (el fantasy, listo para salir a buscar gente)
+
+  · Reemplaza al y87 (si ya lo subiste, subi este igual). LOS MISMOS
+    QUINCE ARCHIVOS. Tambien va en la build del iPhone que se manda a Apple.
+  · Tres arreglos que aparecieron al revisar el fantasy en vivo:
+      - La pantalla de compra mostraba "Sacá vos $2.990 · Comprar". El
+        servidor de cobro es el mismo para las dos apps y ahora devuelve
+        tambien el pase de tenis. Se filtra por lista blanca: solo liga,
+        tres y todas.
+      - La cuenta decia "Las ligas de amigos y el fantasy llegan en la
+        proxima". Hace un mes que estan. Ahora manda a la pestaña Fantasy.
+      - Nuevo link directo: armael11.com/#torneos (o #fantasy) abre la
+        pestaña Fantasy, a la altura de los torneos. Es el destino del reel.
+  · probar-sitio: 446 (5 nuevas).
+
 Arma el 11 - version 2026-09-28 y87 (salir de la cuenta, a la vista)
 
   · Reemplaza al y86 (si ya lo subiste, subi este igual). LOS MISMOS

@@ -5635,6 +5635,27 @@ function abrirDesdeEnlace(){
 }
 abrirDesdeEnlace();
 
+/* ── ENTRAR DIRECTO AL FANTASY (29/9/2026) ───────────────────────────────
+   El reel de los torneos de amigos manda a `/#torneos` (o `/#fantasy`): el
+   que viene de ahí quiere armar un torneo, no ver el simulador. Sin fecha
+   publicada no se fuerza nada. Se saca de la dirección, como el otro. */
+function abrirFantasyDesdeEnlace(){
+  const m = (location.hash||"").match(/^#(fantasy|torneos)\b/i);
+  if(!m) return false;
+  try{ history.replaceState(null,"",location.pathname+location.search); }catch(e){}
+  /* Sin fecha, o sin el reglamento (`fantasy.js` viaja con la fecha), la
+     pestaña no se puede dibujar: se queda en la portada. */
+  if(!window.FECHA || typeof FORMACIONES === "undefined") return false;
+  tab = "fantasy";
+  pintar();
+  if(m[1].toLowerCase() === "torneos"){
+    const t = document.getElementById("torneos");
+    if(t) try{ t.scrollIntoView({block:"start"}); }catch(e){}
+  }
+  return true;
+}
+abrirFantasyDesdeEnlace();
+
 /* El borrador de este teléfono, antes de dibujar nada. No necesita cuenta
    ni conexión: es lo que estabas armando la última vez. */
 {
@@ -5709,7 +5730,13 @@ async function arrancarCuenta(){
      algún día se paga— no le aparecía nada. El endpoint es público a
      propósito: los precios no son un secreto, lo que no se puede es
      elegirlos. */
-  try{ PLANES = await planesPremium(); }catch(e){}
+  /* SOLO LOS PLANES DE ESTA APP (29/9). El servidor de cobro es el mismo
+     para Sacá vos, y desde que le sumaron su pase la lista trae también
+     "Sacá vos, $2.990, el pronóstico de todos los partidos de la semana":
+     un plan de tenis en la pantalla de compra de un simulador de fútbol.
+     Se filtra por lista blanca y no por "todo menos sacavos": el próximo
+     producto que se sume al servidor tampoco tiene que aparecer acá. */
+  try{ PLANES = soloPlanesDeLaApp(await planesPremium()); }catch(e){}
 
   /* ── LA TIENDA DE APPLE, SI ESTAMOS ADENTRO DEL IPHONE ─────────────────
      Configurar es lo primero que hay que hacer y lo más fácil de poner en
@@ -5928,7 +5955,7 @@ function pintarCuenta(aviso="", mal=false){
      no hay deshacer. Dos toques con el aviso en el medio no es fricción por
      fricción — es la única barrera que hay antes de algo irreversible. */
   c.innerHTML=`<h4>Hola, ${esc(miNombre)}</h4>
-    <p>Tu cuenta está lista. Las ligas de amigos y el fantasy llegan en la próxima.</p>
+    <p>Tu cuenta está lista. En la pestaña <b>Fantasy</b> armás tu equipo de cada fecha y jugás torneos con tus amigos.</p>
     ${bloquePremium()}
     <button class="boton flaco" id="csalir">Salir de la cuenta</button>
     ${borrando
@@ -5968,6 +5995,13 @@ function pintarCuenta(aviso="", mal=false){
    dos lados, el día que cambie uno la app mostraría un número y el checkout
    otro — y esa persona no vuelve a intentar nunca más.                   */
 let PLANES=[], comprando=false;
+/* Declaración de función y la lista adentro: se llama desde
+   `arrancarCuenta`, y un `const` de acá abajo todavía "no nació" si eso
+   corre antes (ver el OJO de `tarjetasDePlan`). */
+function soloPlanesDeLaApp(lista){
+  const deLaApp = ["liga", "tres", "todas"];
+  return (Array.isArray(lista) ? lista : []).filter(p => p && deLaApp.includes(p.id));
+}
 
 const cuantoFalta = hasta => {
   const d = Math.ceil((new Date(hasta) - Date.now()) / 864e5);
