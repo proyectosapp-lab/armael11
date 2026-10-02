@@ -21,7 +21,7 @@ writeFileSync(join(PRUEBA, "tenis/datos/tenis-hoy.js"), "window.SV_HOY = " + JSO
 ], jugados: [], jugadores: {}, cruces: {} }) + ";\n");
 writeFileSync(join(PRUEBA, "nba/datos/nba-hoy.js"), "window.NBA_HOY=" + JSON.stringify({ temporada: 2026, generado: new Date().toISOString(), parte: { fecha: fechaAR(manana) }, partidos: [
   { id: "n1", fecha: manana.toISOString(), local: { id: 1, n: "Boston", codigo: "BOS", b2b: 0, jugadores: [] }, visita: { id: 2, n: "Denver", codigo: "DEN", b2b: 0, jugadores: [] }, m0: { margen: -2 }, m1: { p: 0.44, margen: -2 }, modelo: { b2b: 2, desvio: 12.5 }, hora: "21:30" },
-], baja: null }) + ";\n");
+], baja: null, calendario: [{ id: "n9", fecha: new Date(+manana + 5 * 864e5).toISOString(), local: { id: 3, nombre: "Lakers", codigo: "LAL" }, visita: { id: 4, nombre: "Miami", codigo: "MIA" }}] }) + ";\n");
 mkdirSync(join(PRUEBA, "futbol/datos"), { recursive: true });
 writeFileSync(join(PRUEBA, "futbol/datos/liga-prueba.js"), "window.LIGAS=window.LIGAS||{};window.LIGAS[\"prueba\"]=" + JSON.stringify({ id: 1, slug: "prueba", nombre: "Liga de prueba", equipos: { 10: { n: "Talleres" }, 11: { n: "Belgrano" } }, partidos: [
   { id: 501, fecha: manana.toISOString(), ronda: "Fecha 11", local: 10, visita: 11, estado: "NS", golL: null, golV: null },
@@ -131,13 +131,16 @@ ok(await marcos.tenis.evaluate(() => document.body.classList.contains("sv-pest-p
 
 console.log("\n── los partidos de los tres, para el desafío ──");
 const partidos = await page.evaluate(() => window.mam.partidos().map((p) => ({ d: p.deporte, id: p.partido, l: p.local, v: p.visita, op: p.opciones, p: p.p, f: p.fuente })));
-ok(partidos.length === 4, "junta los partidos de los tres deportes: " + partidos.length + " (2 tenis, 1 fútbol, 1 NBA)");
+ok(partidos.length === 5, "junta los partidos de los tres deportes: " + partidos.length + " (2 tenis, 1 fútbol, 1 NBA + 1 del calendario NBA)");
+ok(partidos.some((p) => p.d === "nba" && p.id === "n9" && p.l === "Lakers" && p.f === "nba-calendario"), "el calendario de la NBA (sin número todavía) también entra a los desafíos");
 ok(partidos.some((p) => p.d === "futbol" && p.op === 3 && p.l === "Talleres" && p.f === "prueba"), "fútbol trae local/visita por nombre, 3 opciones y la liga como fuente");
 ok(partidos.some((p) => p.d === "tenis" && /^tenis:a1:b1:/.test(p.f)), "tenis lleva las claves de los jugadores en la fuente");
 const mT = await page.evaluate(async () => window.mam.modelo(window.mam.partidos().find((p) => p.partido === "t1")));
 ok(mT && mT.eleccion === 1 && Math.abs(mT.p - 0.71) < 0.001, "modelo tenis: elige al de mayor probabilidad (" + JSON.stringify(mT) + ")");
-const mN = await page.evaluate(async () => window.mam.modelo(window.mam.partidos().find((p) => p.deporte === "nba")));
+const mN = await page.evaluate(async () => window.mam.modelo(window.mam.partidos().find((p) => p.deporte === "nba" && p.partido === "n1")));
 ok(mN && mN.eleccion === 2 && Math.abs(mN.p - 0.56) < 0.001, "modelo NBA: 0.44 de local → elige la visita (" + JSON.stringify(mN) + ")");
+const mC = await page.evaluate(async () => window.mam.modelo(window.mam.partidos().find((p) => p.partido === "n9")));
+ok(mC === null, "un partido del calendario NBA no tiene número: el modelo lo elige el servidor cuando sale (" + JSON.stringify(mC) + ")");
 const mF = await page.evaluate(async () => window.mam.modelo(window.mam.partidos().find((p) => p.deporte === "futbol")));
 ok(mF === null || (mF && [1, 2, 3].includes(mF.eleccion)), "modelo fútbol: pide al marco y devuelve algo válido o null sin romper (" + JSON.stringify(mF) + ")");
 const Jintacto = await marcos.futbol.evaluate(() => typeof J === "object" && J.paso !== "armar" || true);
@@ -153,7 +156,7 @@ ok(LLAMADAS.some((l) => /auth\/v1\/signup/.test(l)) && LLAMADAS.some((l) => /pon
 ok(await page.isVisible("#mam-desafios [data-crear]"), "después del apodo aparece la lista con Crear");
 await page.click("#mam-desafios [data-crear]"); await page.waitForTimeout(500);
 const tarjetas = await page.$$("#mam-desafios .mam-partido");
-ok(tarjetas.length === 4, "la pantalla de crear lista los 4 partidos");
+ok(tarjetas.length === 5, "la pantalla de crear lista los 5 partidos (el del calendario NBA incluido)");
 await page.screenshot({ path: aca("./app/captura-3-crear.png") });
 await page.click('#mam-desafios .mam-partido[data-k="tenis:t1"]');
 await page.click('#mam-desafios .mam-partido[data-k="futbol:501"]');

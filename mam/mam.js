@@ -169,12 +169,13 @@
   }
   function partidosNba() {
     const w = ventana('nba'); const H = w && w.NBA_HOY; if (!H || !Array.isArray(H.partidos)) return [];
-    const out = [];
-    for (const p of H.partidos) {
-      if (!p || p.id == null || !p.fecha || !p.local || !p.visita) continue;
-      const empieza = Date.parse(p.fecha); if (!(empieza > 0)) continue;
+    const out = [], vistos = new Set();
+    // los pronosticados (48 h) y, detrás, el calendario que sigue: sin número hasta que entre en la ventana
+    for (const [lista, fuente] of [[H.partidos, 'nba-hoy'], [Array.isArray(H.calendario) ? H.calendario : [], 'nba-calendario']]) for (const p of lista) {
+      if (!p || p.id == null || !p.fecha || !p.local || !p.visita || vistos.has(String(p.id))) continue;
+      const empieza = Date.parse(p.fecha); if (!(empieza > 0)) continue; vistos.add(String(p.id));
       const nom = (e) => e.n || e.nombre || e.codigo || String(e.id || '');
-      out.push({ deporte: 'nba', partido: String(p.id), fuente: 'nba-hoy', empieza, local: nom(p.local), visita: nom(p.visita),
+      out.push({ deporte: 'nba', partido: String(p.id), fuente, empieza, local: nom(p.local), visita: nom(p.visita),
         rotulo: 'NBA', opciones: 2, p: p.m1 && typeof p.m1.p === 'number' ? p.m1.p : null });
     }
     return out;

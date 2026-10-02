@@ -157,6 +157,7 @@
     ctx.restore();
   }
   // un jugador estilizado: cuerpo, cabeza, brazos. `pose`: {x, y (altura del centro del cuerpo), z, brazos: [ang izq, ang der], inclinacion}
+  // inclinacion > 0 = la cabeza se va hacia la derecha de la pantalla (x+). Un arquero que vuela a x+ se inclina positivo: cabeza adelante, pies atrás.
   function figura(cam, pose, colores, escala) {
     const ctx = CTX; const p = cam.p(pose.x, pose.y, pose.z); const k = p.k * (escala || 1);
     const alto = 1.75 * k, ancho = 0.5 * k;
@@ -250,7 +251,7 @@
       const a = S.arquero, v = a.vuelo; if (!v || S.t < v.t0) return { x: a.x, y: 0.9, brazos: [Math.PI * 0.75, Math.PI * 0.25], inclinacion: 0 };
       const k = easeOut((S.t - v.t0) / v.dur);
       const x = a.x + v.dir * k * (v.dist || 2.9), y = 0.9 + (v.alto ? k * 0.9 : -k * 0.35);
-      return { x, y, brazos: v.dir < 0 ? [Math.PI * 1.1, Math.PI * 0.9] : v.dir > 0 ? [Math.PI * 0.1, -Math.PI * 0.1] : [Math.PI * 1.35, -Math.PI * 0.35], inclinacion: -v.dir * k * 1.1, alcance: 1.05, mio: S.tanda === 'el' };
+      return { x, y, brazos: v.dir < 0 ? [Math.PI * 1.1, Math.PI * 0.9] : v.dir > 0 ? [Math.PI * 0.1, -Math.PI * 0.1] : [Math.PI * 1.35, -Math.PI * 0.35], inclinacion: v.dir * k * 1.1, alcance: 1.05, mio: S.tanda === 'el' };
     }
     function cruzoLaLinea() {
       const p = S.pelota, A = posArquero();
@@ -366,7 +367,7 @@
       const lee = azar() < pLee;
       S.arquero.vuelo = { dir: lee ? dirReal : -dirReal, hasta: lee ? xFinal : -dirReal * 2.2, alto: altura > ARCO.alto * 0.5 ? 1 : 0, t0: S.t + lerp(0.5, 0.25, pot), dur: 0.6 };
     }
-    function posArquero() { const a = S.arquero, v = a.vuelo; if (!v || S.t < v.t0) return { x: a.x, y: 0.9, brazos: [Math.PI * 0.75, Math.PI * 0.25], inclinacion: 0 }; const k = easeOut((S.t - v.t0) / v.dur); const destino = v.hasta != null ? v.hasta : a.x + v.dir * 2.6; return { x: lerp(a.x, destino, k), y: 0.9 + (v.alto ? k * 0.8 : -k * 0.3), brazos: v.dir < 0 ? [Math.PI * 1.1, Math.PI * 0.9] : [Math.PI * 0.1, -Math.PI * 0.1], inclinacion: -v.dir * k * Math.min(1, Math.abs(destino - a.x) / 2.5), alcance: 0.95 }; }
+    function posArquero() { const a = S.arquero, v = a.vuelo; if (!v || S.t < v.t0) return { x: a.x, y: 0.9, brazos: [Math.PI * 0.75, Math.PI * 0.25], inclinacion: 0 }; const k = easeOut((S.t - v.t0) / v.dur); const destino = v.hasta != null ? v.hasta : a.x + v.dir * 2.6; return { x: lerp(a.x, destino, k), y: 0.9 + (v.alto ? k * 0.8 : -k * 0.3), brazos: v.dir < 0 ? [Math.PI * 1.1, Math.PI * 0.9] : [Math.PI * 0.1, -Math.PI * 0.1], inclinacion: v.dir * k * Math.min(1, Math.abs(destino - a.x) / 2.5), alcance: 0.95 }; }
     function cerrar(res) {
       const p = S.pelota;
       if (res === 'gol') { S.red = { k: 0, x: (p.x / ARCO.ancho) + 0.5 }; p.vz *= 0.15; p.vx *= 0.2; p.vy *= 0.2; S.sacudida = 0.5; vibrar('partido'); }
