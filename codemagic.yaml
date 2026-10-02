@@ -74,6 +74,37 @@ workflows:
           sed -i '' "s/platform :ios, '1[0-9]\.[0-9]*'/platform :ios, '15.0'/" ios/App/Podfile
           # íconos y splash de la app, generados de assets/ (icon-only.png 1024, splash.png 2732)
           npx @capacitor/assets generate --ios --iconBackgroundColor '#14110F' --iconBackgroundColorDark '#14110F' --splashBackgroundColor '#14110F' --splashBackgroundColorDark '#14110F'
+          # ── EL ÍCONO DE LA APP, A MANO Y SIN CONFIAR EN NADIE ──────────
+          # @capacitor/assets genera íconos y splash, pero el de 1024 de la
+          # App Store se escribe explícito: el día que la herramienta cambie
+          # de formato, la app no vuelve a TestFlight con el logo de Capacitor.
+          ICO=ios/App/App/Assets.xcassets/AppIcon.appiconset
+          mkdir -p "$ICO"
+          cp apple-icono-1024.png "$ICO/AppIcon-1024.png"
+          cat > "$ICO/Contents.json" <<'JSON'
+          {
+            "images" : [
+              {
+                "filename" : "AppIcon-1024.png",
+                "idiom" : "universal",
+                "platform" : "ios",
+                "size" : "1024x1024"
+              }
+            ],
+            "info" : { "author" : "xcode", "version" : 1 }
+          }
+          JSON
+          echo "── ícono ──"
+          ls -la "$ICO"
+          # Sin alfa, o la subida a App Store Connect rebota. Se comprueba acá.
+          python3 - <<'PY'
+          from struct import unpack
+          d = open("apple-icono-1024.png","rb").read()
+          w,h = unpack(">II", d[16:24]); color = d[25]
+          print("   %d × %d, tipo de color %d" % (w,h,color))
+          assert (w,h) == (1024,1024), "el ícono de Apple tiene que ser 1024 × 1024"
+          assert color in (0,2,3), "el ícono de Apple no puede tener canal alfa"
+          PY
           npx cap sync ios
       - name: Los textos que Apple exige en el Info.plist
         script: |
