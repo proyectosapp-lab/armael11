@@ -1,0 +1,144 @@
+/* mam.css — la carcasa de Mano a mano. El papel y la tinta de la familia; cada deporte con su color. */
+:root{
+  --papel:#F6F1EA; --tinta:#14110F; --gris:#5C554F; --linea:#E8E0D5; --pista:#DED5C9; --blanco:#FFFFFF;
+  --futbol:#177A40; --tenis:#C2542E; --nba:#E8731C; --acento:#14110F; --acento-texto:#FFFFFF;
+  --ok:#1E8A4A; --mal:#C2542E;
+  --arriba:env(safe-area-inset-top); --abajo:env(safe-area-inset-bottom);
+}
+@media (prefers-color-scheme: dark){
+  :root{ --papel:#0D1117; --tinta:#F2EDE6; --gris:#A39B93; --linea:#242B36; --pista:#2A323E; --blanco:#161C25; --acento:#F2EDE6; --acento-texto:#14110F; }
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--papel);color:var(--tinta);font-family:Poppins,system-ui,-apple-system,sans-serif;font-weight:500;-webkit-text-size-adjust:100%;overflow:hidden}
+button{font:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+a{color:inherit}
+.mam-app{height:100%;display:flex;flex-direction:column}
+
+/* ── cabecera: la marca y los deportes ── */
+.mam-cab{flex:none;padding:calc(var(--arriba) + 8px) 14px 8px;background:var(--papel);display:flex;flex-direction:column;gap:8px;border-bottom:1px solid var(--linea)}
+.mam-marca{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:700;letter-spacing:-.2px}
+.mam-loseta{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:9px;background:var(--tinta);position:relative}
+.mam-loseta i{position:absolute;width:10px;height:10px;border-radius:50%}
+.mam-loseta i.f{background:#fff;left:4px;top:4px}.mam-loseta i.t{background:#E8E337;right:4px;top:4px}.mam-loseta i.n{background:var(--nba);left:10px;bottom:4px}
+.mam-loseta.grande{width:84px;height:84px;border-radius:24px}
+.mam-loseta.grande i{width:26px;height:26px}.mam-loseta.grande i.f{left:12px;top:12px}.mam-loseta.grande i.t{right:12px;top:12px}.mam-loseta.grande i.n{left:29px;bottom:12px}
+.mam-deportes{display:flex;gap:6px}
+.mam-deportes button{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;height:40px;border-radius:12px;border:1px solid var(--linea);background:var(--blanco);color:var(--gris);font-size:14px;font-weight:600}
+.mam-deportes button i{width:10px;height:10px;border-radius:50%;background:currentColor;opacity:.6}
+.mam-deportes button[data-deporte=futbol] i{background:var(--futbol)}.mam-deportes button[data-deporte=tenis] i{background:var(--tenis)}.mam-deportes button[data-deporte=nba] i{background:var(--nba)}
+.mam-deportes button[aria-selected=true]{background:var(--tinta);color:var(--papel);border-color:var(--tinta)}
+.mam-deportes button[aria-selected=true] i{opacity:1}
+.mam-deportes button[hidden]{display:none}
+
+/* ── el cuerpo: los marcos de cada deporte y las pantallas propias ── */
+.mam-cuerpo{flex:1;min-height:0;position:relative}
+.mam-marcos,.mam-marcos iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:var(--papel)}
+.mam-marcos iframe[hidden]{display:none}
+.mam-pantalla{position:absolute;inset:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 16px 24px;display:flex;flex-direction:column;gap:12px;background:var(--papel)}
+.mam-pantalla[hidden]{display:none}
+body.mam-cargando .mam-marcos::after{content:"";position:absolute;inset:0;background:var(--papel)}
+
+/* ── la barra de abajo ── */
+.mam-barra{flex:none;display:grid;grid-template-columns:repeat(4,1fr);padding:4px 6px calc(var(--abajo) + 4px);background:var(--blanco);border-top:1px solid var(--linea)}
+.mam-barra button{position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 0 4px;border:0;background:transparent;color:var(--gris);font-size:11px;font-weight:600;border-radius:12px}
+.mam-barra button svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.mam-barra button[aria-selected=true]{color:var(--tinta)}
+.mam-barra button[aria-selected=true] svg{stroke-width:2.4}
+.mam-globo{position:absolute;top:4px;right:calc(50% - 20px);min-width:16px;height:16px;padding:0 4px;border-radius:8px;background:var(--tenis);color:#fff;font-size:10px;font-style:normal;font-weight:700;display:flex;align-items:center;justify-content:center}
+.mam-globo[hidden]{display:none}
+
+/* ── la bienvenida ── */
+.mam-bienvenida{position:fixed;inset:0;z-index:40;background:var(--papel);overflow-y:auto;padding:calc(var(--arriba) + 36px) 22px calc(var(--abajo) + 24px)}
+.mam-bienvenida[hidden]{display:none}
+.mam-bienvenida-caja{max-width:420px;margin:0 auto;display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px}
+.mam-bienvenida h1{margin:8px 0 0;font-size:34px;letter-spacing:-1px;line-height:1}
+.mam-bienvenida p{margin:0;color:var(--gris);font-size:15px}
+.mam-bienvenida h2{margin:18px 0 2px;font-size:18px}
+.mam-elegir{display:flex;flex-direction:column;gap:8px;width:100%}
+.mam-elegir button{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;column-gap:12px;align-items:center;text-align:left;padding:12px 14px;border-radius:14px;border:2px solid var(--linea);background:var(--blanco);color:var(--tinta)}
+.mam-elegir button i{grid-row:1/3;width:16px;height:16px;border-radius:50%}
+.mam-elegir button[data-deporte=futbol] i{background:var(--futbol)}.mam-elegir button[data-deporte=tenis] i{background:var(--tenis)}.mam-elegir button[data-deporte=nba] i{background:var(--nba)}
+.mam-elegir button b{font-size:16px}.mam-elegir button small{color:var(--gris);font-size:12px}
+.mam-elegir button[aria-pressed=true]{border-color:var(--tinta)}
+.mam-elegir button[aria-pressed=true]::after{content:"✓";grid-row:1/3;grid-column:3;font-weight:800}
+.mam-boton{height:50px;padding:0 22px;border:0;border-radius:14px;background:var(--acento);color:var(--acento-texto);font-size:16px;font-weight:700;width:100%;margin-top:10px}
+.mam-boton:disabled{opacity:.5}
+.mam-boton.secundario{background:var(--blanco);color:var(--tinta);border:1px solid var(--linea)}
+.mam-boton.chico{height:40px;font-size:14px;width:auto}
+.mam-nota{font-size:12px;color:var(--gris);line-height:1.45;margin:0}
+
+/* ── piezas comunes de las pantallas propias ── */
+.mam-seccion{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin:8px 0 2px}
+.mam-seccion span{font-size:12px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--tenis)}
+.mam-seccion small{font-size:11px;color:var(--gris)}
+.mam-tarjeta{background:var(--blanco);border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.mam-titulo{margin:0;font-size:22px;letter-spacing:-.5px;line-height:1.1}
+.mam-fila{display:flex;align-items:center;gap:10px}
+.mam-fila>.crece{flex:1;min-width:0}
+.mam-campo{width:100%;height:46px;padding:0 12px;border:1px solid var(--linea);border-radius:12px;background:var(--papel);color:var(--tinta);font:inherit;font-size:16px}
+.mam-aviso{font-size:13px;color:var(--mal);min-height:18px}
+.mam-aviso.bien{color:var(--ok)}
+.mam-chips{display:flex;gap:6px;flex-wrap:wrap}
+.mam-chips button{height:34px;padding:0 12px;border-radius:999px;border:1px solid var(--linea);background:var(--blanco);color:var(--tinta);font-size:13px;font-weight:600}
+.mam-chips button[aria-pressed=true]{background:var(--tinta);color:var(--papel);border-color:var(--tinta)}
+.mam-lista{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.mam-vacio{color:var(--gris);font-size:14px;text-align:center;padding:24px 10px}
+
+/* desafíos: elegir partidos */
+.mam-dia{font-size:12px;font-weight:700;color:var(--gris);margin:10px 0 2px}
+.mam-partido{display:grid;grid-template-columns:10px 1fr auto;align-items:center;gap:10px;padding:10px 12px;background:var(--blanco);border-radius:12px;border:2px solid transparent;text-align:left;width:100%;color:var(--tinta)}
+.mam-partido i{width:10px;height:10px;border-radius:50%}
+.mam-partido.futbol i{background:var(--futbol)}.mam-partido.tenis i{background:var(--tenis)}.mam-partido.nba i{background:var(--nba)}
+.mam-partido b{display:block;font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mam-partido small{color:var(--gris);font-size:11px}
+.mam-partido[aria-pressed=true]{border-color:var(--tinta)}
+.mam-partido .tilde{width:22px;height:22px;border-radius:50%;border:2px solid var(--linea);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800}
+.mam-partido[aria-pressed=true] .tilde{background:var(--tinta);color:var(--papel);border-color:var(--tinta)}
+.mam-pegajoso{position:sticky;bottom:0;background:var(--papel);padding:10px 0 4px;display:flex;gap:8px;align-items:center}
+
+/* desafíos: jugar */
+.mam-eleccion{display:grid;grid-template-columns:1fr auto 1fr;gap:6px;align-items:stretch}
+.mam-eleccion.tres{grid-template-columns:1fr 1fr 1fr}
+.mam-eleccion button{min-height:46px;padding:6px 8px;border-radius:12px;border:1px solid var(--linea);background:var(--blanco);color:var(--tinta);font-size:14px;font-weight:600;white-space:normal;line-height:1.15}
+.mam-eleccion button[aria-pressed=true]{background:var(--tinta);color:var(--papel);border-color:var(--tinta)}
+.mam-eleccion button.acierto{background:var(--ok);color:#fff;border-color:var(--ok)}
+.mam-eleccion button.error{opacity:.5}
+.mam-eleccion button:disabled{cursor:default}
+.mam-eleccion span{align-self:center;font-size:11px;color:var(--gris);text-align:center}
+.mam-revelado{display:flex;flex-wrap:wrap;gap:4px 10px;font-size:12px;color:var(--gris)}
+.mam-revelado b{color:var(--tinta)}
+.mam-tabla{width:100%;border-collapse:collapse;font-size:14px}
+.mam-tabla td,.mam-tabla th{padding:8px 6px;border-bottom:1px solid var(--linea);text-align:left}
+.mam-tabla th{font-size:11px;color:var(--gris);font-weight:600}
+.mam-tabla td:last-child,.mam-tabla th:last-child{text-align:right;font-variant-numeric:tabular-nums;font-weight:700}
+.mam-tabla tr.yo td{font-weight:700}
+.mam-tabla tr.modelo td{color:var(--tenis)}
+.mam-codigo{display:flex;align-items:center;justify-content:space-between;gap:8px;background:var(--pista);border-radius:12px;padding:10px 12px}
+.mam-codigo b{font-size:22px;letter-spacing:3px;font-variant-numeric:tabular-nums}
+.mam-estado{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;background:var(--pista);color:var(--tinta)}
+.mam-estado.en-juego{background:var(--ok);color:#fff}.mam-estado.terminado{background:var(--tinta);color:var(--papel)}
+.mam-desafio-item{display:grid;grid-template-columns:1fr auto;gap:4px 10px;padding:12px 14px;background:var(--blanco);border-radius:14px;text-align:left;width:100%;color:var(--tinta);border:0}
+.mam-desafio-item b{font-size:15px}.mam-desafio-item small{color:var(--gris);font-size:12px}
+.mam-desafio-item .puesto{grid-row:1/3;align-self:center;font-size:22px;font-weight:800;font-variant-numeric:tabular-nums}
+.mam-imagen{width:100%;border-radius:14px;display:block}
+
+/* planes */
+.mam-planes{display:flex;flex-direction:column;gap:8px}
+.mam-plan{display:grid;grid-template-columns:1fr auto;gap:2px 10px;align-items:center;padding:12px 14px;border-radius:14px;border:2px solid var(--linea);background:var(--blanco);color:var(--tinta);text-align:left;width:100%}
+.mam-plan b{font-size:15px}.mam-plan small{color:var(--gris);font-size:12px}.mam-plan .precio{grid-row:1/3;font-size:18px;font-weight:800;white-space:nowrap}
+.mam-plan.todo{border-color:var(--tinta)}
+.mam-plan.activo{border-color:var(--ok)}
+.mam-plan.activo .precio{color:var(--ok);font-size:13px}
+.mam-plan:disabled{opacity:.6}
+.mam-letra{font-size:11px;color:var(--gris);line-height:1.45}
+.mam-sinred{display:none;background:var(--tenis);color:#fff;font-size:12px;text-align:center;padding:4px}
+body.mam-sin-red .mam-sinred{display:block}
+.mam-deportes[hidden]{display:none}
+.mam-boton.peligro{color:#B3261E;border-color:#B3261E}
+.mam-plan.resaltado{outline:3px solid var(--acento,#E8731C);outline-offset:2px}
+.mam-campo+.mam-campo,.mam-campo+.mam-fila,form .mam-boton{margin-top:8px}
+
+/* los juegos */
+.mam-cancha-caja{border-radius:18px;overflow:hidden;background:#0B1026;box-shadow:0 10px 30px rgba(0,0,0,.25);line-height:0}
+.mam-cancha{display:block;width:100%;touch-action:none;user-select:none;-webkit-user-select:none;outline:none}
+.mam-juego .mam-nota{margin:0 0 4px}

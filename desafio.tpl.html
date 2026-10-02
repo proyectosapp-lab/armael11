@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="es"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Te desafiaron · Mano a mano</title>
+<meta name="robots" content="noindex">
+<meta name="description" content="Un desafío de Mano a mano: elegí quién gana en fútbol, tenis y NBA, contra tus amigos y contra el modelo.">
+<meta property="og:title" content="Te desafiaron en Mano a mano">
+<meta property="og:description" content="Elegí quién gana. Contra tus amigos y contra el modelo. Fútbol, tenis y NBA.">
+<meta property="og:image" content="{{RAIZ}}/mano-a-mano-og.png">
+<meta name="theme-color" content="#14110F">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--tinta:#14110F;--papel:#F6F1EA;--blanco:#fff;--linea:#E3DBD0;--gris:#6B635A;--futbol:#177A40;--tenis:#C2542E;--nba:#E8731C;--acento:#E8731C}
+*{box-sizing:border-box}html,body{margin:0;background:var(--papel);color:var(--tinta);font-family:Poppins,system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+.caja{max-width:430px;margin:0 auto;padding:24px 16px 48px}
+.marca{display:flex;align-items:center;gap:10px;font-weight:800;font-size:18px;margin-bottom:18px}.marca img{width:34px;height:34px;border-radius:10px}
+h1{font-size:26px;line-height:1.15;margin:0 0 6px;font-weight:800}h1 small{display:block;font-size:13px;color:var(--gris);font-weight:600;margin-top:4px}
+.tarjeta{background:var(--blanco);border:1px solid var(--linea);border-radius:16px;padding:14px;margin:14px 0}
+.partido{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--linea)}.partido:first-child{border-top:0}
+.partido i{width:9px;height:9px;border-radius:50%;flex:none}.partido.futbol i{background:var(--futbol)}.partido.tenis i{background:var(--tenis)}.partido.nba i{background:var(--nba)}
+.partido b{display:block;font-size:14px}.partido small{color:var(--gris);font-size:12px}
+.boton{display:flex;align-items:center;justify-content:center;gap:8px;height:52px;border-radius:14px;background:var(--tinta);color:#fff;font-weight:700;font-size:16px;text-decoration:none;margin-top:10px}
+.boton.sec{background:var(--blanco);color:var(--tinta);border:1px solid var(--linea)}
+.nota{font-size:12.5px;color:var(--gris);line-height:1.45}
+.codigo{font-family:ui-monospace,Menlo,monospace;letter-spacing:.2em;font-weight:800;font-size:22px}
+.tabla{width:100%;border-collapse:collapse;font-size:14px}.tabla td{padding:7px 4px;border-top:1px solid var(--linea)}.tabla td:last-child{text-align:right;font-weight:800}
+.vacio{color:var(--gris);text-align:center;padding:18px 0}
+@media (prefers-color-scheme:dark){:root{--tinta:#F3EEE6;--papel:#14110F;--blanco:#1E1A17;--linea:#2E2824;--gris:#A69D92}}
+</style>
+</head><body>
+<div class="caja">
+  <div class="marca"><img src="{{RAIZ}}/mano-a-mano-192.png" alt=""> Mano a mano</div>
+  <h1 id="titulo">Te desafiaron<small id="sub">cargando el desafío…</small></h1>
+  <div class="tarjeta" id="partidos"><div class="vacio">…</div></div>
+  <div class="tarjeta" id="tabla" hidden></div>
+  <a class="boton" id="abrir" href="#">Abrir en la app</a>
+  <a class="boton sec" id="apple" href="#" hidden>Bajar para iPhone</a>
+  <a class="boton sec" id="play" href="https://play.google.com/store/apps/details?id=com.armael11.app">Bajar para Android</a>
+  <p class="nota">Elegís quién gana en cada partido. Todos a ciegas: nadie ve lo que eligió otro ni lo que eligió el modelo hasta que el partido empieza. Un punto por cada partido que elegís bien. Sin plata, sin premios. Gratis.</p>
+  <p class="nota">Código del desafío: <span class="codigo" id="codigo">—</span></p>
+  <p class="nota">Mano a mano es una app independiente, sin relación con ligas, torneos, jugadores ni equipos. <a href="{{RAIZ}}/privacidad.html">Privacidad</a></p>
+</div>
+<script>
+(function(){
+  var SB = { url: "{{SUPABASE_URL}}", anon: "{{SUPABASE_ANON}}" };
+  var TIENDA_APPLE = "{{APPLE_STORE}}";
+  var codigo = (/[#&]?([A-Z0-9]{4,8})/i.exec((location.hash || "").replace("#", "")) || [])[1];
+  codigo = codigo ? codigo.toUpperCase() : "";
+  var $ = function (id) { return document.getElementById(id); };
+  var esc = function (s) { return String(s == null ? "" : s).replace(/[&<>"]/g, function (c) { return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]; }); };
+  $("codigo").textContent = codigo || "—";
+  if (TIENDA_APPLE) { $("apple").href = TIENDA_APPLE; $("apple").hidden = false; }
+  // "Abrir en la app": en un teléfono con la app, este mismo link lo abre ella (link universal / app link).
+  // Sin la app, lleva a la tienda del teléfono.
+  var esIphone = /iPhone|iPad/i.test(navigator.userAgent), esAndroid = /Android/i.test(navigator.userAgent);
+  $("abrir").href = esIphone ? (TIENDA_APPLE || "#") : esAndroid ? $("play").href : "#";
+  $("abrir").addEventListener("click", function (e) { if (!esIphone && !esAndroid) { e.preventDefault(); alert("Abrilo desde el teléfono: ahí está la app."); } });
+  var DEP = { futbol: "Fútbol", tenis: "Tenis", nba: "NBA" };
+  function hora(iso) { try { return new Intl.DateTimeFormat("es-AR", { timeZone: "America/Argentina/Buenos_Aires", weekday: "short", day: "numeric", month: "numeric", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(iso)); } catch (e) { return ""; } }
+  if (!codigo || !SB.url) { $("sub").textContent = "Pedile el código al que te invitó y ponelo en la app."; $("partidos").innerHTML = ""; return; }
+  fetch(SB.url + "/rest/v1/rpc/ver_desafio", { method: "POST", headers: { apikey: SB.anon, Authorization: "Bearer " + SB.anon, "Content-Type": "application/json" }, body: JSON.stringify({ p_codigo: codigo }) })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (d) {
+      if (!d || !d.codigo) { $("sub").textContent = "No encontré ese desafío. Fijate el código."; $("partidos").innerHTML = ""; return; }
+      $("titulo").firstChild.textContent = d.nombre || "Te desafiaron";
+      var n = (d.jugadores || []).length;
+      $("sub").textContent = (d.creador ? d.creador + " te desafía · " : "") + (d.partidos || []).length + " partidos · " + n + (n === 1 ? " jugador" : " jugadores") + (d.modelo_juega ? " · juega el modelo" : "");
+      $("partidos").innerHTML = (d.partidos || []).map(function (p) {
+        return '<div class="partido ' + esc(p.deporte) + '"><i></i><div><b>' + esc(p.local) + " – " + esc(p.visita) + "</b><small>" + esc(p.rotulo || DEP[p.deporte] || "") + " · " + esc(hora(p.empieza)) + (p.resultado ? " · jugado" : "") + "</small></div></div>";
+      }).join("") || '<div class="vacio">Sin partidos.</div>';
+      if (d.estado !== "abierto" && (d.jugadores || []).length) {
+        var filas = d.jugadores.map(function (j, i) { return "<tr><td>" + (i + 1) + "º " + esc(j.apodo) + "</td><td>" + esc(j.puntos) + "</td></tr>"; });
+        if (d.modelo_juega) filas.push("<tr><td>el modelo</td><td>" + esc(d.modelo_puntos) + "</td></tr>");
+        $("tabla").innerHTML = '<table class="tabla">' + filas.join("") + "</table>"; $("tabla").hidden = false;
+      }
+    }).catch(function () { $("sub").textContent = "No pude cargar el desafío. Probá de nuevo."; });
+})();
+</script>
+</body></html>

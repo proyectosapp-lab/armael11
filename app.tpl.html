@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="es">
+<html lang="es" data-mam-deporte="futbol">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -852,6 +852,11 @@ th{font-family:var(--display);font-weight:500;letter-spacing:.8px}
   .vista{animation:entrar .2s ease-out}
   @keyframes entrar{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 }
+/* ── adentro de Mano a mano (body.mam-marco): sin cabeza, sin pie, sin cuenta; la barra pasa arriba ── */
+body.mam-marco .cabeza,body.mam-marco .pie,body.mam-marco #cuenta,body.mam-marco #seña,body.mam-marco #filete,body.mam-marco #estrellas{display:none!important}
+body.mam-marco .barra{position:fixed;top:0;bottom:auto;border-top:0;border-bottom:1px solid var(--linea,rgba(0,0,0,.1));padding:6px 6px 6px}
+body.mam-marco .envase{padding-top:72px;padding-bottom:24px}
+body.mam-marco .barra .mam-club{margin-left:auto}
 </style>
 </head>
 <body>
@@ -4115,6 +4120,10 @@ function bloqueInstalar(){
 }
 
 function tarjetasDePlan(){
+  /* Adentro de Mano a mano los planes se compran en la pestaña Cuenta del cascarón: acá solo se dice qué es del plan. */
+  if(window.mamMarco && window.mamMarco.adentro())
+    return window.mamMarco.candadoHTML({ clase:"aviso mam-candado", boton:"acc", deporte:"futbol", titulo:"Esto es del plan Fútbol",
+      texto:"Simulaciones sin tope en las once ligas. Lo básico, el fantasy, los desafíos y los números son gratis siempre." });
   /* ── OJO CON EL ORDEN, QUE YA NOS MORDIÓ ──────────────────────────────
      Esto ahora se dibuja en la PORTADA, o sea en el primer `pintar()`, y
      las variables de la cuenta (`conBackend`, `PLANES`, `PLAY_OK`) se
@@ -5394,7 +5403,33 @@ function leerPronostico(){
 }
 
 /* ══════════════════ render y eventos ══════════════════ */
+/* ── MANO A MANO: el pronóstico de un partido de liga, SIN tocar la pantalla ni el borrador ──
+   El cascarón lo llama al crear un desafío, para guardar qué elige el modelo hoy (y taparlo hasta que el
+   partido empiece). Se arma el partido como lo haría simularDeLiga, se calcula, y se deja todo como estaba.
+   `var` y no `let`: pintar() lo lee y corre antes de que este renglón exista si fuera let. */
+var mamSilencio=false;
+async function mamPronostico(slug, fixtureId){
+  const antes={ ...J, pool:{ ...J.pool } };
+  const ligaAntes=(typeof LIGA!=="undefined") ? LIGA : null;
+  mamSilencio=true;
+  try{
+    simularDeLiga(slug, fixtureId);
+    if(J.err || !J.xiA || !J.xiB || J.xiA.length<11 || J.xiB.length<11) return null;
+    const { xgA, xgB }=golEsperadoDe(J.xiA, J.xiB);
+    const s=simular(xgA, xgB, 4000);
+    return { l:s.win/100, e:s.draw/100, v:s.loss/100 };
+  }catch(e){ return null; }
+  finally{
+    for(const k of Object.keys(J)) delete J[k];
+    Object.assign(J, antes);
+    if(ligaAntes) usarLiga(ligaAntes);
+    mamSilencio=false;
+  }
+}
+window.mamPronostico=mamPronostico;
+
 function pintar(){
+  if(mamSilencio) return;
   pintarColores();
   /* El borrador se guarda acá y no en cada función que toca el equipo. Hay
      ocho lugares que lo modifican —sumar, sacar, cambiar formación, poner
@@ -5616,6 +5651,18 @@ $("barra").addEventListener("click",e=>{
 $("btema").onclick=()=>{ tema=temaReal()==="oscuro"?"claro":"oscuro"; pintar(); };
 prefiere.addEventListener("change",()=>{ if(tema==="auto") pintar(); });
 pintar();
+if(window.mamMarco && window.mamMarco.adentro()){
+  /* Partidos → El 11; Jugá → Fantasy (si el club lo tiene). Y se avisa que la página está lista. */
+  window.mamMarco.alIr(a=>{ tab = (a==="juga" && !$("btfantasy").hidden) ? "fantasy" : "juego"; pintar(); });
+  if(!PORTADA){
+    /* "Cambiar de club" vivía en el pie, que adentro de la app no se ve: va como botón en la barra de arriba. */
+    const bc=document.createElement("button"); bc.type="button"; bc.className="mam-club";
+    bc.innerHTML='<span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v6H4zM4 14h16v6H4z"/></svg></span>Club';
+    bc.addEventListener("click",e=>{ e.stopPropagation(); location.href="index.html?elegir&mam=1"; });
+    $("barra").appendChild(bc);
+  }
+  window.mamMarco.listo();
+}
 
 /* ── ENTRAR DIRECTO A UN PARTIDO DESDE LA CONSULTA (27/9/2026) ───────────
    Las páginas de /consulta/ mandan a `/#simular=<liga>:<id>`: el que leyó
@@ -5715,7 +5762,7 @@ async function arrancarCuenta(){
      guarda aparte, así sobrevive el viaje al correo y la vuelta. */
   capturarInvitacion();
   $("bcuenta").hidden=false;
-  $("bcuenta").onclick=()=>{ cuentaAbierta=!cuentaAbierta; pintarCuenta(); };
+  $("bcuenta").onclick=()=>{ if(window.mamMarco && window.mamMarco.adentro()) return window.mamMarco.cuenta(); cuentaAbierta=!cuentaAbierta; pintarCuenta(); };
   /* Antes de la tanda de pedidos, no después de que fallen: si el token de
      una hora ya venció, esto lo renueva UNA vez y todo lo que sigue sale
      con el nuevo. Sin esto, seis pedidos daban 401 juntos y se peleaban por
@@ -5809,6 +5856,7 @@ function salirDeLaCuenta(){
 
 function pintarCuenta(aviso="", mal=false){
   const c=$("cuenta");
+  if(window.mamMarco && window.mamMarco.adentro()){ c.hidden=true; cuentaAbierta=false; return; }   /* la cuenta la pinta el cascarón */
 
   /* ── ENTRAR Y SALIR TAMBIÉN SON COSAS DE LA TIENDA ────────────────────
      RevenueCat tiene que saber de quién es el teléfono AHORA, no de quién
@@ -6190,6 +6238,7 @@ function engancharPremium(){
   document.querySelectorAll("[data-plan]").forEach(b=>{
     b.onclick=async()=>{
       if(comprando) return;
+      if(window.mamMarco && window.mamMarco.adentro()){ window.mamMarco.pase("futbol"); return; }
       /* ── SIN CUENTA NO SE PUEDE COMPRAR, Y HAY QUE DECIRLO ────────────
          El pase se acredita a un perfil: sin cuenta no hay a quién
          acreditárselo, y una compra que no sabe de quién es, es una compra

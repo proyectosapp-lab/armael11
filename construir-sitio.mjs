@@ -57,6 +57,9 @@ if (HAY_BACKEND)
    como <script> suelto, no como módulo. */
 writeFileSync(new URL("nativo.js", DATOS),
   readFileSync(aca("./nativo.js"), "utf8").replace(/^export\s+/gm, ""));
+/* mam-marco.js: lo que la página necesita para vivir adentro de Mano a mano (la app de los tres deportes).
+   Afuera de la app (sin ?mam=1) no hace nada. */
+writeFileSync(new URL("mam-marco.js", DATOS), readFileSync(aca("./mam-marco.js"), "utf8"));
 
 /* El contador de campaña. Va solo si hay backend, por la misma razón que
    cuentas.js: sin base a donde mandar, es un archivo que no hace nada y
@@ -310,6 +313,7 @@ function armarPagina(club, op) {
         apple: CFG.apple?.revenuecat ? { revenuecat: CFG.apple.revenuecat } : undefined,
       }) + '</script>',
     '<script src="datos/nativo.js"></script>',
+    '<script src="datos/mam-marco.js"></script>',
     HAY_BACKEND ? '<script src="datos/cuentas.js"></script>' : null,
     HAY_BACKEND ? '<script src="datos/campana.js"></script>' : null,
     FECHA ? '<script src="datos/fantasy.js"></script>' : null,
@@ -816,6 +820,29 @@ writeFileSync(new URL("app.webmanifest", SITIO), JSON.stringify({
     { src: "/sitio-icono-mask-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
   ] : [],
 }, null, 1) + "\n");
+
+/* ── MANO A MANO: la página de un desafío, y el link universal del iPhone ──
+   `desafio.html#CODIGO` es el link que se manda por WhatsApp. Muestra el
+   desafío (lo que `ver_desafio` deja ver sin sesión: nombre, partidos,
+   tabla; nunca elecciones) y manda a la tienda. Con la app instalada, el
+   teléfono abre el link adentro de la app: Android por el assetlinks de
+   abajo, iPhone por el apple-app-site-association, que se escribe solo si
+   `sitio.json` trae `apple.team` (el Team ID de Apple Developer). */
+{
+  const tpl = aca("./desafio.tpl.html");
+  if (existsSync(tpl)) {
+    const SB = CFG.supabase || {};
+    writeFileSync(new URL("desafio.html", SITIO), readFileSync(tpl, "utf8")
+      .replace(/\{\{RAIZ\}\}/g, RAIZ).replace(/\{\{SUPABASE_URL\}\}/g, SB.url || "").replace(/\{\{SUPABASE_ANON\}\}/g, SB.anon || "")
+      .replace(/\{\{APPLE_STORE\}\}/g, (CFG.apple || {}).tienda || ""));
+    for (const n of ["mano-a-mano-192.png", "mano-a-mano-og.png"]) if (existsSync(aca("./" + n))) copyFileSync(aca("./" + n), new URL(n, SITIO));
+  }
+  const AASA = new URL(".well-known/apple-app-site-association", SITIO);
+  if ((CFG.apple || {}).team) {
+    mkdirSync(new URL(".well-known/", SITIO), { recursive: true });
+    writeFileSync(AASA, JSON.stringify({ applinks: { apps: [], details: [{ appID: CFG.apple.team + ".com.armael11.app", paths: ["/desafio.html", "/desafio.html#*"] }] } }, null, 1) + "\n");
+  } else if (existsSync(AASA)) rmSync(AASA);
+}
 
 /* 4. EL ASSETLINKS. Es el papel que le demuestra a Android que la app y el
       dominio son de la misma persona; sin él la app abre con la barra del

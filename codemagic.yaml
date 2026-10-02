@@ -1,282 +1,129 @@
 # ══════════════════════════════════════════════════════════════════════════
-#  ARMÁ EL 11 — compilar para iPhone sin tener una Mac
+#  MANO A MANO — compilar para iPhone y para Android sin tener una Mac
 #
-#  Apple solo deja compilar en macOS. Codemagic presta una Mac: toma este
-#  repo de GitHub, corre lo de abajo y sube el resultado a App Store Connect.
-#  Fausto no toca una terminal en ningún momento.
+#  Reemplaza al codemagic.yaml de Armá el 11 (misma app, com.armael11.app,
+#  ahora con los tres deportes adentro). Va suelto en la raíz del repo
+#  `armael11`, se sube arrastrando. Codemagic compila cuando se crea una
+#  etiqueta (v1.1.0, v1.1.1, …), y sube el .ipa a TestFlight. El .aab de
+#  Android queda para bajar y subirlo a mano a Play Console (prueba interna
+#  → producción), que es lo que ya hacés.
 #
-#  ESTE ARCHIVO SÍ SE PUEDE SUBIR ARRASTRANDO. Va suelto en la raíz, como
-#  todo lo demás. No empieza con punto, así que no se esconde (a diferencia
-#  de `.github/workflows/publicar.yml`, que hay que editar con el lápiz).
-#
-#  ─── LO QUE NO SE GUARDA EN EL REPO ──────────────────────────────────────
-#  La carpeta `ios/` con el proyecto de Xcode NO se versiona: la genera
-#  `npx cap add ios` en cada compilación. Es a propósito. Un proyecto de
-#  Xcode son miles de líneas de XML que nadie puede revisar ni editar sin
-#  una Mac, y que se desincronizan en silencio. Generándolo cada vez, lo
-#  único que hay que mantener es lo que se ve acá, en texto.
-#
-#  Lo que hay que hacer UNA VEZ en Codemagic, y es UNA sola cosa:
-#  Teams → Personal account → Integrations → Developer Portal → agregar la
-#  clave de la API de App Store Connect y llamarla exactamente `armael11`.
-#  Ese nombre es el que dice `integrations:` acá abajo.
-#
-#  Con eso alcanza: Codemagic se encarga solo de los certificados y los
-#  perfiles de aprovisionamiento (es lo que hace `ios_signing`). NO hacen
-#  falta variables de entorno sueltas, y por eso este archivo no declara
-#  ningún `groups:` — un grupo que no existe hace fallar la compilación
-#  antes de empezar, con un error que no dice qué grupo falta.
-#
-#  OJO CON LA CLAVE: es el `.p8` de APP STORE CONNECT, no el de APNs. Son
-#  dos claves distintas, se ven iguales, y usar la equivocada da un error
-#  de autenticación que no dice cuál de las dos es el problema.
+#  LO QUE HAY QUE TENER EN CODEMAGIC (una sola vez):
+#   · Integrations → Developer Portal: la clave de App Store Connect, con el
+#     nombre `armael11` (ya está: es la de siempre).
+#   · Code signing identities → iOS: certificado y perfil llamados `armael11`
+#     (ya están).
+#   · Code signing identities → Android keystores: subir `signing.keystore`
+#     (el del paquete de Play que generó PWABuilder) con el nombre
+#     `armael11_play`, y sus contraseñas y alias tal como dice
+#     `signing-key-info.txt`. ES LA MISMA CLAVE DE SIEMPRE: con otra, Play
+#     rechaza la actualización ("el paquete está firmado con otra clave").
+#   · (Opcional, para que el link de un desafío abra la app en el iPhone)
+#     Environment variables → grupo `manoamano`: APPLE_TEAM_ID = tu Team ID
+#     de Apple (Developer → Membership details). Sin esto compila igual: el
+#     link abre la página web del desafío, que manda a la tienda.
 # ══════════════════════════════════════════════════════════════════════════
+
+definitions:
+  empaquetar: &empaquetar
+    name: Armar el www que va adentro (las tres webs + el cascarón)
+    script: |
+      set -e
+      node empaquetar-mam.mjs
+      # Se planta solo si un sitio no bajó, si quedó publicidad adentro o si
+      # el paquete está vacío. La comprobación vive en ese archivo.
+  instalar: &instalar
+    name: Instalar Capacitor
+    script: |
+      set -e
+      npm install
+      npm ls @revenuecat/purchases-capacitor || true
 
 workflows:
   ios:
-    name: Armá el 11 · iPhone
+    name: Mano a mano · iPhone
     instance_type: mac_mini_m2
     max_build_duration: 60
-
     environment:
       xcode: latest
       node: 22
       cocoapods: default
+      groups:
+        - manoamano
       vars:
         BUNDLE_ID: "com.armael11.app"
-      # ── LA FIRMA: SE NOMBRA LO QUE HAY, NO SE PIDE QUE LO ADIVINE ──────
-      # Nueve compilaciones para llegar acá, y la historia vale porque
-      # explica por qué esta versión es distinta de las otras tres:
-      #
-      # 1. `distribution_type` + `bundle_identifier`. Codemagic tenía que
-      #    ir a buscar o crear el certificado y el perfil. Murió con "No
-      #    matching profiles found" ANTES de correr un paso, o sea sin log.
-      # 2. Se pidió la firma a mano, solo para que el error quedara
-      #    escrito. Funcionó: "Cannot save Signing Certificates without
-      #    certificate private key". Faltaba la clave privada.
-      # 3. Se generó el certificado en Codemagic, que crea la clave y la
-      #    guarda. Y volvió a fallar igual: porque el certificado era la
-      #    MITAD. El perfil de aprovisionamiento es la otra, se guarda en
-      #    otro cajón, y ese cajón estaba vacío.
-      #
-      # Así que ahora no se le pide a nadie que busque ni cree nada. Las dos
-      # piezas están guardadas en Codemagic con nombre propio, y acá se las
-      # nombra. Es la forma más aburrida y la única que no depende de que
-      # algo salga a preguntarle a Apple en el momento equivocado.
-      #
-      # `armael11` es el `Reference name` de las dos, en
-      # Settings → Code signing identities. Si alguna se renombra, esto se
-      # rompe con un error que SÍ dice cuál falta.
       ios_signing:
         certificates:
           - armael11
         provisioning_profiles:
           - armael11
-
     integrations:
       app_store_connect: armael11
-
     triggering:
       events:
         - tag
-      # A propósito: SOLO cuando se crea una etiqueta (`v1.0.0`, `v1.0.1`).
-      # Si compilara en cada push, cada zip que sube Fausto mandaría una
-      # versión a TestFlight. El contenido de la app se actualiza solo desde
-      # la web; el paquete se recompila cuando hay algo que recompilar.
-
     scripts:
-      - name: Armar el www que va adentro del .ipa
-        script: |
-          node empaquetar-ios.mjs
-          # Se planta solo si quedó AdSense adentro. La comprobación vive en
-          # ese archivo y no acá porque tiene que valer también cuando alguien
-          # lo corre en su máquina.
-
-      - name: Las pruebas que se pueden correr sin navegador
-        script: |
-          node probar-datos-ios.mjs
-          node probar-empaquetado-ios.mjs
-          node probar-nativo.mjs
-          node probar-campana.mjs
-          # La pantalla de compra del iPhone. Esta prueba es la que evita el
-          # rechazo por la regla 3.1.2 —falta el botón de restaurar, falta el
-          # link a los términos, no dice que se renueva sola—, que es el más
-          # común de todos. Corre acá y no solo al publicar el sitio porque
-          # es una compilación la que va a la revisión, no un zip.
-          node probar-tienda-ios.mjs
-
-      - name: Instalar Capacitor y generar el proyecto de Xcode
+      - *empaquetar
+      - *instalar
+      - name: Generar el proyecto de Xcode
         script: |
           set -e
-          npm install
-          # Qué versión del plugin de RevenueCat quedó. Se imprime porque el
-          # día que falle algo de compras, la primera pregunta va a ser esa y
-          # no hay dónde mirarla si no queda escrita.
-          #
-          # SI ESTE PASO FALLA CON "No matching version found for
-          # @revenuecat/purchases-capacitor": la línea del package.json pide
-          # una versión que no existe. Se arregla cambiando ese "^10.0.0" por
-          # la versión que corresponda a Capacitor 7 -el plugin sube de major
-          # junto con Capacitor-, y es el único lugar donde está escrita.
-          npm ls @revenuecat/purchases-capacitor || true
           npx cap add ios || true
-
-          # ── EL MÍNIMO DE iOS ─────────────────────────────────────────────
-          # Capacitor genera el proyecto con iOS 14.0 y Apple avisó en la
-          # primera subida:
-          #   ITMS-90068: MinimumOSVersion too low. Starting in Spring 2027,
-          #   all iOS apps must have a MinimumOSVersion of 15.0 or later.
-          # No rechazó nada -la subida entró igual- pero es una fecha con
-          # nombre y apellido, y arreglarlo ahora cuesta dos líneas.
-          #
-          # 15.0 y no más: es lo que Apple pide y no deja a nadie afuera que
-          # importe. Un iPhone que no llega a iOS 15 es un 6 o anterior, de
-          # 2014, que además no podría con la cancha.
-          #
-          # Va ANTES de `cap sync`, que es el que corre `pod install`: el
-          # Podfile y el proyecto tienen que decir lo mismo antes de que
-          # CocoaPods resuelva nada, o las dependencias quedan compiladas
-          # para una versión y la app para otra.
-          sed -i '' "s/IPHONEOS_DEPLOYMENT_TARGET = 1[0-9]\.[0-9]*;/IPHONEOS_DEPLOYMENT_TARGET = 15.0;/g" \
-            ios/App/App.xcodeproj/project.pbxproj
-
-          # ── SOLO IPHONE ─────────────────────────────────────────────────
-          # Capacitor genera el proyecto con TARGETED_DEVICE_FAMILY = "1,2",
-          # o sea iPhone Y iPad. Nadie lo eligio: es el default, y estuvo mal
-          # desde la primera compilacion.
-          #
-          # Se descubrio porque App Store Connect no dejaba enviar sin subir
-          # capturas de iPad. Y ese cartel era el sintoma barato de un
-          # problema caro: si la app se declara compatible con iPad, el
-          # revisor LA PRUEBA en un iPad.
-          #
-          # Ahi hay dos cosas que no aguantan esa prueba:
-          #   · La app esta clavada en vertical (mas abajo, en el Info.plist).
-          #     Apple espera que una app de iPad ande en las dos
-          #     orientaciones, y una clavada en una sola es motivo de rechazo.
-          #   · El diseno es una cancha en un telefono. En una pantalla de
-          #     trece pulgadas es un telefono estirado.
-          #
-          # Declararlo solo para iPhone no es achicar el producto: es decir
-          # la verdad sobre lo que hay. El dia que exista una version pensada
-          # para iPad se cambia esta linea, se prueba, y se suben sus
-          # capturas.
-          sed -i '' 's/TARGETED_DEVICE_FAMILY = "1,2";/TARGETED_DEVICE_FAMILY = 1;/g' \
-            ios/App/App.xcodeproj/project.pbxproj
-          echo "── familia de dispositivos ──"
-          grep -m2 TARGETED_DEVICE_FAMILY ios/App/App.xcodeproj/project.pbxproj
-
-          # ── EL ÍCONO DE LA APP ───────────────────────────────────────────
-          # `cap add ios` deja el ícono de Capacitor. Nadie lo eligió, igual
-          # que lo del iPad: es el default del framework. La app estuvo en
-          # TestFlight con el logo de Capacitor en la pantalla de inicio.
-          #
-          # No se sube por App Store Connect: desde Xcode 14 el ícono de 1024
-          # tiene que estar ADENTRO del .ipa, en el catálogo de recursos. Por
-          # eso se copia acá y no se carga a mano en ningún formulario.
-          #
-          # Se reescribe el Contents.json entero en vez de confiar en el que
-          # generó Capacitor: así no importa con qué nombre ni con cuántas
-          # medidas venga la plantilla de esta versión. Una sola entrada de
-          # 1024 es el formato que Xcode usa desde la 14, y lo que sobre en
-          # la carpeta queda sin referenciar y no se compila.
-          ICO=ios/App/App/Assets.xcassets/AppIcon.appiconset
-          cp apple-icono-1024.png "$ICO/AppIcon-1024.png"
-          cat > "$ICO/Contents.json" <<'JSON'
-          {
-            "images" : [
-              {
-                "filename" : "AppIcon-1024.png",
-                "idiom" : "universal",
-                "platform" : "ios",
-                "size" : "1024x1024"
-              }
-            ],
-            "info" : { "author" : "xcode", "version" : 1 }
-          }
-          JSON
-          echo "── ícono ──"
-          ls -la "$ICO"
-          # Sin alfa, o la subida a App Store Connect rebota. Se comprueba acá
-          # y no se confía: el archivo lo genera `iconos.cjs` a mano, y una
-          # regeneración distraída con transparencia costaría una compilación
-          # entera para enterarse.
-          python3 - <<'PY'
-          from struct import unpack
-          d = open("apple-icono-1024.png","rb").read()
-          w,h = unpack(">II", d[16:24]); color = d[25]
-          print("   %d × %d, tipo de color %d" % (w,h,color))
-          assert (w,h) == (1024,1024), "el ícono de Apple tiene que ser 1024 × 1024"
-          assert color in (0,2,3), "el ícono de Apple no puede tener canal alfa"
-          PY
+          sed -i '' "s/IPHONEOS_DEPLOYMENT_TARGET = 1[0-9]\.[0-9]*;/IPHONEOS_DEPLOYMENT_TARGET = 15.0;/g" ios/App/App.xcodeproj/project.pbxproj
+          sed -i '' 's/TARGETED_DEVICE_FAMILY = "1,2";/TARGETED_DEVICE_FAMILY = 1;/g' ios/App/App.xcodeproj/project.pbxproj
           sed -i '' "s/platform :ios, '1[0-9]\.[0-9]*'/platform :ios, '15.0'/" ios/App/Podfile
-          echo "── mínimo de iOS ──"
-          grep -m2 IPHONEOS_DEPLOYMENT_TARGET ios/App/App.xcodeproj/project.pbxproj
-          grep -m1 "platform :ios" ios/App/Podfile
-
+          # íconos y splash de la app, generados de assets/ (icon-only.png 1024, splash.png 2732)
+          npx @capacitor/assets generate --ios --iconBackgroundColor '#14110F' --iconBackgroundColorDark '#14110F' --splashBackgroundColor '#14110F' --splashBackgroundColorDark '#14110F'
           npx cap sync ios
-
       - name: Los textos que Apple exige en el Info.plist
         script: |
+          set -e
           P=ios/App/App/Info.plist
-          # El nombre que se ve debajo del ícono. Con acento, igual que en
-          # Play, la web y el material de Instagram.
-          /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName Armá el 11" "$P"
-          # Solo vertical. La app es una cancha en un teléfono; en horizontal
-          # no entra el once y la barra de pestañas queda absurda.
+          /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName Mano a mano" "$P"
           /usr/libexec/PlistBuddy -c "Delete :UISupportedInterfaceOrientations" "$P" || true
           /usr/libexec/PlistBuddy -c "Add :UISupportedInterfaceOrientations array" "$P"
           /usr/libexec/PlistBuddy -c "Add :UISupportedInterfaceOrientations:0 string UIInterfaceOrientationPortrait" "$P"
-          # Sin esto, la barra de estado queda negra sobre fondo oscuro.
           /usr/libexec/PlistBuddy -c "Add :UIViewControllerBasedStatusBarAppearance bool false" "$P" || true
           /usr/libexec/PlistBuddy -c "Add :UIStatusBarStyle string UIStatusBarStyleLightContent" "$P" || true
-          # La versión sale del número de compilación de Codemagic, así no
-          # hay que acordarse de subirlo a mano nunca.
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" "$P"
-          # ── LA PREGUNTA DE EXPORTACIÓN, CONTESTADA DE UNA VEZ ───────────
-          # Sin esto, App Store Connect frena CADA compilación con "Falta
-          # información de exportación" y hay que contestar a mano un
-          # cuestionario de cuatro opciones. En la build 10 se eligió la
-          # segunda —"algoritmos estándar"— y era la cuarta: "ninguno".
-          #
-          # La app no usa criptografía propia. Habla HTTPS y nada más, que
-          # es exactamente la excepción que la ley contempla, así que la
-          # respuesta correcta es `false`. Puesta acá, Apple no vuelve a
-          # preguntar en ninguna compilación.
-          /usr/libexec/PlistBuddy -c "Add :ITSAppUsesNonExemptEncryption bool false" "$P" || \
-          /usr/libexec/PlistBuddy -c "Set :ITSAppUsesNonExemptEncryption false" "$P"
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString 1.1.0" "$P" || true
+          /usr/libexec/PlistBuddy -c "Add :ITSAppUsesNonExemptEncryption bool false" "$P" || /usr/libexec/PlistBuddy -c "Set :ITSAppUsesNonExemptEncryption false" "$P"
+          # Compartir la imagen de la tabla guarda un png en el caché de la app: no toca la galería, no hace falta pedir permiso.
           plutil -p "$P" | head -40
-
+      - name: El link universal (armael11.com/desafio.html → abre la app), si hay Team ID
+        script: |
+          set -e
+          if [ -z "${APPLE_TEAM_ID:-}" ]; then echo "sin APPLE_TEAM_ID: los links abren la web"; exit 0; fi
+          E=ios/App/App/App.entitlements
+          cat > "$E" <<'XML'
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>com.apple.developer.associated-domains</key>
+            <array><string>applinks:armael11.com</string></array>
+          </dict></plist>
+          XML
+          # que el proyecto use ese archivo
+          sed -i '' 's/CODE_SIGN_ENTITLEMENTS = [^;]*;//g' ios/App/App.xcodeproj/project.pbxproj
+          sed -i '' 's/PRODUCT_BUNDLE_IDENTIFIER = com.armael11.app;/PRODUCT_BUNDLE_IDENTIFIER = com.armael11.app; CODE_SIGN_ENTITLEMENTS = App\/App.entitlements;/g' ios/App/App.xcodeproj/project.pbxproj
+          grep -c "App.entitlements" ios/App/App.xcodeproj/project.pbxproj
+          # Y en el servidor: armael11.com/.well-known/apple-app-site-association tiene que decir
+          # {"applinks":{"apps":[],"details":[{"appID":"TEAMID.com.armael11.app","paths":["/desafio.html"]}]}}
+          # (está en el zip, en sitio-futbol/.well-known/, con TEAMID para reemplazar). Y en Apple Developer,
+          # el App ID necesita "Associated Domains" tildado.
       - name: Poner el perfil en el proyecto
         script: |
-          # Codemagic ya bajó (o creó) el certificado y el perfil antes de
-          # empezar, por el bloque `ios_signing` de arriba. Esto solo los
-          # mete adentro del proyecto de Xcode que `cap add ios` acaba de
-          # generar: sin esto, Xcode firmaría con lo que encuentre.
           xcode-project use-profiles
-          # Qué quedó puesto, para que la próxima vez que algo falle haya un
-          # renglón que leer en vez de una adivinanza.
-          echo "── perfiles disponibles ──"
-          ls -la ~/Library/MobileDevice/Provisioning\ Profiles/ 2>/dev/null || echo "(ninguno)"
-
       - name: Compilar
         script: |
-          xcode-project build-ipa \
-            --workspace "ios/App/App.xcworkspace" \
-            --scheme "App"
-
+          xcode-project build-ipa --workspace "ios/App/App.xcworkspace" --scheme "App"
     artifacts:
       - build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
-
     publishing:
       app_store_connect:
         auth: integration
         submit_to_testflight: true
-        # NO se manda solo a revisión de App Store. Va a TestFlight, se
-        # prueba en un iPhone de verdad, y recién ahí se aprieta el botón a
-        # mano. La decisión del 17/9 sigue valiendo: no se manda a ver si
-        # pasa, se construye para que pase.
         submit_to_app_store: false
       email:
         recipients:
@@ -285,14 +132,81 @@ workflows:
           success: true
           failure: true
 
-# ── LO QUE FALTA PARA LA v1.1, ANOTADO ACÁ PARA NO OLVIDARLO ──────────────
-#  Los avisos por APNs. El App ID ya tiene Push Notifications habilitado y el
-#  .p8 está descargado, pero el plugin necesita además el entitlement
-#  `aps-environment` adentro del proyecto de Xcode, y eso hay que escribirlo
-#  en el `.entitlements` que `cap add ios` NO genera. Es un paso más en este
-#  archivo, con PlistBuddy, y hay que verlo contra una compilación de verdad
-#  en vez de escribirlo a ciegas.
-#
-#  La v1 sale con las otras cuatro cosas que un navegador no puede hacer:
-#  vibra en cada gol, comparte con la hoja del sistema, abre los links del
-#  feed adentro de la app, y funciona sin conexión. Alcanzan para la 4.2.
+  android:
+    name: Mano a mano · Android
+    instance_type: linux_x2
+    max_build_duration: 60
+    environment:
+      node: 22
+      java: 17
+      android_signing:
+        - armael11_play
+    triggering:
+      events:
+        - tag
+    scripts:
+      - *empaquetar
+      - *instalar
+      - name: Generar el proyecto de Android
+        script: |
+          set -e
+          npx cap add android || true
+          npx @capacitor/assets generate --android --iconBackgroundColor '#14110F' --iconBackgroundColorDark '#14110F' --splashBackgroundColor '#14110F' --splashBackgroundColorDark '#14110F'
+          npx cap sync android
+          G=android/app/build.gradle
+          # la versión: el número de compilación de Codemagic (tiene que ser mayor que el de la TWA que está en Play)
+          BASE=${ANDROID_VERSION_CODE_BASE:-100}
+          sed -i "s/versionCode [0-9]*/versionCode $((BASE + BUILD_NUMBER))/" "$G"
+          sed -i 's/versionName "[^"]*"/versionName "1.1.0"/' "$G"
+          grep -E "versionCode|versionName|applicationId" "$G"
+          # el nombre que se ve debajo del ícono
+          sed -i 's|<string name="app_name">[^<]*</string>|<string name="app_name">Mano a mano</string>|; s|<string name="title_activity_main">[^<]*</string>|<string name="title_activity_main">Mano a mano</string>|' android/app/src/main/res/values/strings.xml
+          # solo vertical, y el link de un desafío (armael11.com/desafio.html) abre la app
+          M=android/app/src/main/AndroidManifest.xml
+          sed -i 's/<activity /<activity android:screenOrientation="portrait" /' "$M"
+          python3 - "$M" <<'PY'
+          import sys,re
+          p=sys.argv[1]; s=open(p).read()
+          filtro='''            <intent-filter android:autoVerify="true">
+                          <action android:name="android.intent.action.VIEW" />
+                          <category android:name="android.intent.category.DEFAULT" />
+                          <category android:name="android.intent.category.BROWSABLE" />
+                          <data android:scheme="https" android:host="armael11.com" android:pathPrefix="/desafio.html" />
+                      </intent-filter>
+          '''
+          if 'armael11.com' not in s:
+              s=s.replace('</activity>', filtro+'        </activity>',1)
+          open(p,'w').write(s)
+          PY
+          grep -n "armael11.com\|portrait" "$M"
+      - name: Firmar y compilar el .aab
+        script: |
+          set -e
+          cd android
+          # la firma: Codemagic deja las variables del keystore (CM_KEYSTORE_PATH, CM_KEYSTORE_PASSWORD, CM_KEY_ALIAS, CM_KEY_PASSWORD)
+          cat >> app/build.gradle <<'GRADLE'
+
+          android {
+              signingConfigs {
+                  release {
+                      storeFile file(System.getenv("CM_KEYSTORE_PATH"))
+                      storePassword System.getenv("CM_KEYSTORE_PASSWORD")
+                      keyAlias System.getenv("CM_KEY_ALIAS")
+                      keyPassword System.getenv("CM_KEY_PASSWORD")
+                  }
+              }
+              buildTypes { release { signingConfig signingConfigs.release } }
+          }
+          GRADLE
+          ./gradlew bundleRelease
+          ls -la app/build/outputs/bundle/release/
+    artifacts:
+      - android/app/build/outputs/bundle/release/*.aab
+      - android/app/build/outputs/**/*.apk
+    publishing:
+      email:
+        recipients:
+          - steelsmartshomes@gmail.com
+        notify:
+          success: true
+          failure: true
