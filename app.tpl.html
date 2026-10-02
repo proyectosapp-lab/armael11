@@ -852,6 +852,12 @@ th{font-family:var(--display);font-weight:500;letter-spacing:.8px}
   .vista{animation:entrar .2s ease-out}
   @keyframes entrar{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 }
+/* ── pulido (lista de control de apps): objetivos de 44 px, foco visible, menos movimiento ── */
+.chip{min-height:44px}.tsel .chip{min-height:36px}
+.barra button{min-height:52px}
+button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--acento);outline-offset:2px}
+button:disabled{opacity:.45;cursor:default}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
 /* ── adentro de Mano a mano (body.mam-marco): sin cabeza, sin pie, sin cuenta; la barra pasa arriba ── */
 body.mam-marco .cabeza,body.mam-marco .pie,body.mam-marco #cuenta,body.mam-marco #seña,body.mam-marco #filete,body.mam-marco #estrellas{display:none!important}
 body.mam-marco .barra{position:fixed;top:0;bottom:auto;border-top:0;border-bottom:1px solid var(--linea,rgba(0,0,0,.1));padding:6px 6px 6px}

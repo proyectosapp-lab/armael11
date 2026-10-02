@@ -23,7 +23,7 @@ a{color:inherit}
 .mam-loseta.grande{width:84px;height:84px;border-radius:24px}
 .mam-loseta.grande i{width:26px;height:26px}.mam-loseta.grande i.f{left:12px;top:12px}.mam-loseta.grande i.t{right:12px;top:12px}.mam-loseta.grande i.n{left:29px;bottom:12px}
 .mam-deportes{display:flex;gap:6px}
-.mam-deportes button{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;height:40px;border-radius:12px;border:1px solid var(--linea);background:var(--blanco);color:var(--gris);font-size:14px;font-weight:600}
+.mam-deportes button{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;height:44px;border-radius:12px;border:1px solid var(--linea);background:var(--blanco);color:var(--gris);font-size:14px;font-weight:600}
 .mam-deportes button i{width:10px;height:10px;border-radius:50%;background:currentColor;opacity:.6}
 .mam-deportes button[data-deporte=futbol] i{background:var(--futbol)}.mam-deportes button[data-deporte=tenis] i{background:var(--tenis)}.mam-deportes button[data-deporte=nba] i{background:var(--nba)}
 .mam-deportes button[aria-selected=true]{background:var(--tinta);color:var(--papel);border-color:var(--tinta)}
@@ -40,7 +40,7 @@ body.mam-cargando .mam-marcos::after{content:"";position:absolute;inset:0;backgr
 
 /* ── la barra de abajo ── */
 .mam-barra{flex:none;display:grid;grid-template-columns:repeat(4,1fr);padding:4px 6px calc(var(--abajo) + 4px);background:var(--blanco);border-top:1px solid var(--linea)}
-.mam-barra button{position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 0 4px;border:0;background:transparent;color:var(--gris);font-size:11px;font-weight:600;border-radius:12px}
+.mam-barra button{position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;min-height:52px;padding:6px 0 4px;border:0;background:transparent;color:var(--gris);font-size:11px;font-weight:600;border-radius:12px}
 .mam-barra button svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
 .mam-barra button[aria-selected=true]{color:var(--tinta)}
 .mam-barra button[aria-selected=true] svg{stroke-width:2.4}
@@ -64,7 +64,7 @@ body.mam-cargando .mam-marcos::after{content:"";position:absolute;inset:0;backgr
 .mam-boton{height:50px;padding:0 22px;border:0;border-radius:14px;background:var(--acento);color:var(--acento-texto);font-size:16px;font-weight:700;width:100%;margin-top:10px}
 .mam-boton:disabled{opacity:.5}
 .mam-boton.secundario{background:var(--blanco);color:var(--tinta);border:1px solid var(--linea)}
-.mam-boton.chico{height:40px;font-size:14px;width:auto}
+.mam-boton.chico{height:44px;font-size:14px;width:auto}
 .mam-nota{font-size:12px;color:var(--gris);line-height:1.45;margin:0}
 
 /* ── piezas comunes de las pantallas propias ── */
@@ -79,7 +79,7 @@ body.mam-cargando .mam-marcos::after{content:"";position:absolute;inset:0;backgr
 .mam-aviso{font-size:13px;color:var(--mal);min-height:18px}
 .mam-aviso.bien{color:var(--ok)}
 .mam-chips{display:flex;gap:6px;flex-wrap:wrap}
-.mam-chips button{height:34px;padding:0 12px;border-radius:999px;border:1px solid var(--linea);background:var(--blanco);color:var(--tinta);font-size:13px;font-weight:600}
+.mam-chips button{height:40px;padding:0 14px;border-radius:999px;border:1px solid var(--linea);background:var(--blanco);color:var(--tinta);font-size:13px;font-weight:600}
 .mam-chips button[aria-pressed=true]{background:var(--tinta);color:var(--papel);border-color:var(--tinta)}
 .mam-lista{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
 .mam-vacio{color:var(--gris);font-size:14px;text-align:center;padding:24px 10px}
@@ -142,3 +142,11 @@ body.mam-sin-red .mam-sinred{display:block}
 .mam-cancha-caja{border-radius:18px;overflow:hidden;background:#0B1026;box-shadow:0 10px 30px rgba(0,0,0,.25);line-height:0}
 .mam-cancha{display:block;width:100%;touch-action:none;user-select:none;-webkit-user-select:none;outline:none}
 .mam-juego .mam-nota{margin:0 0 4px}
+
+/* ── pulido (lista de control de apps): respuesta al toque, foco visible, menos movimiento ── */
+button,.mam-partido,.mam-plan,.mam-desafio-item{transition:background-color .15s ease,color .15s ease,opacity .15s ease,border-color .15s ease}
+button:active,.mam-partido:active,.mam-plan:active,.mam-desafio-item:active{opacity:.78}
+button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(--nba);outline-offset:2px}
+button:disabled{opacity:.45;cursor:default}
+.mam-globo{color:#14110F}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
