@@ -11,7 +11,7 @@ window.MAM_SITIO = {
   // la clave PÚBLICA de RevenueCat de la app (la misma app de RevenueCat que Armá el 11: el paquete es com.armael11.app).
   // En Android, RevenueCat da OTRA clave pública (goog_…): va en `revenuecatAndroid`.
   apple: { revenuecat: "appl_dQnGEbXpKWceFceVepoLEHQGWNn" },
-  android: { revenuecat: "" },
+  android: { revenuecat: "goog_PgSNAWmcLaQuIEkuZrjfMGUlxtR" },
   // los tres sitios: de acá bajan los datos cuando hay red, y a acá van los links que se abren afuera
   sitios: { futbol: "https://armael11.com", tenis: "https://sacavos.com", nba: "https://armaelquinteto.com" },
   // dónde viven las sub-apps adentro del paquete (relativo a index.html). En la web de prueba pueden ser los sitios.
