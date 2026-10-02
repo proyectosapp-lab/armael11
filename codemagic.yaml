@@ -184,6 +184,15 @@ workflows:
           npx cap add android || true
           npx @capacitor/assets generate --android --iconBackgroundColor '#14110F' --iconBackgroundColorDark '#14110F' --splashBackgroundColor '#14110F' --splashBackgroundColorDark '#14110F'
           npx cap sync android
+          # Play exige apuntar a Android 16 (API 36) y la Biblioteca de Facturación 8 (la trae
+          # @revenuecat/purchases-capacitor 11, que está en package.json). Se comprueba acá.
+          V=android/variables.gradle
+          sed -i 's/compileSdkVersion = [0-9]*/compileSdkVersion = 36/; s/targetSdkVersion = [0-9]*/targetSdkVersion = 36/' "$V"
+          grep -E "SdkVersion" "$V"
+          echo "android.suppressUnsupportedCompileSdk=36" >> android/gradle.properties
+          RC=$(node -p "require('@revenuecat/purchases-capacitor/package.json').version")
+          echo "RevenueCat purchases-capacitor $RC"
+          case "$RC" in 11.*|12.*) ;; *) echo "purchases-capacitor $RC trae Billing 7: Play lo rechaza"; exit 1;; esac
           G=android/app/build.gradle
           # la versión: el número de compilación de Codemagic (tiene que ser mayor que el de la TWA que está en Play)
           BASE=${ANDROID_VERSION_CODE_BASE:-100}
