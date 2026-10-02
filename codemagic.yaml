@@ -37,6 +37,9 @@ definitions:
     script: |
       set -e
       npm install
+      # RevenueCat 11 o más: es el que trae la Biblioteca de Facturación 8 que Play exige.
+      # Se pide explícito por si un package-lock.json viejo del repo clava la 10.
+      npm install @revenuecat/purchases-capacitor@^11
       npm ls @revenuecat/purchases-capacitor || true
 
 workflows:
