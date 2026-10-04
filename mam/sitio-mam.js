@@ -20,7 +20,7 @@ window.MAM_SITIO = {
   // La app registra este dominio como "link universal", así el que ya la tiene abre el desafío adentro.
   desafios: { dominio: "https://armael11.com", ruta: "/desafio.html" },
   // el link de la App Store se completa cuando la app esté publicada (App Store Connect → Información de la app → Ver en App Store)
-  tiendas: { apple: "", play: "https://play.google.com/store/apps/details?id=com.armael11.app" },
+  tiendas: { apple: "https://apps.apple.com/app/id6813729689", play: "https://play.google.com/store/apps/details?id=com.armael11.app" },
   // los avisos al teléfono (push) llegan en una versión siguiente: mientras esté en false no se pide permiso para nada
   avisos: false,
   privacidad: "https://armael11.com/privacidad.html",
