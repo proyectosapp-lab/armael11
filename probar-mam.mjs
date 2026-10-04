@@ -43,7 +43,7 @@ const BASE = "http://127.0.0.1:" + servidor.address().port;
 const UID = "11111111-1111-1111-1111-111111111111";
 const TOKEN = "x." + Buffer.from(JSON.stringify({ sub: UID, exp: 9999999999, is_anonymous: true })).toString("base64url") + ".y";
 const SESION = { access_token: TOKEN, refresh_token: "r", user: { id: UID, is_anonymous: true } };
-let DESAFIO = null; const LLAMADAS = [];
+let DESAFIO = null; const LLAMADAS = []; let PAGADO = false;   // PAGADO: la tienda simulada ya cobró (ver "la compra adentro del teléfono")
 async function simularBackend(page) {
   await page.route(/supabase\.co/, async (route) => {
     const req = route.request(); const url = req.url(); const metodo = req.method();
@@ -53,7 +53,8 @@ async function simularBackend(page) {
     if (/\/auth\/v1\/signup/.test(url)) return ok(SESION);
     if (/\/auth\/v1\/user/.test(url)) return ok(SESION.user);
     if (/\/rest\/v1\/perfil/.test(url)) return ok([{ id: SESION.user.id, usuario: "fausto", plan: "gratis", premium_hasta: null }]);
-    if (/\/rest\/v1\/pase/.test(url)) return ok([]);
+    if (/\/rest\/v1\/pase/.test(url)) return ok(PAGADO ? [{ producto: "sacavos", hasta: new Date(Date.now() + 30 * 864e5).toISOString() }] : []);
+    if (/functions\/v1\/pago-apple/.test(url)) { PAGADO = true; LLAMADAS.push("AUTH " + (req.headers()["authorization"] || "")); return ok({ ok: true, plan: "tenis", planes: ["tenis"] }); }
     if (/\/rest\/v1\/ajuste/.test(url)) return ok([{ clave: "cobra", valor: "no" }, { clave: "cobra_sacavos", valor: "no" }, { clave: "cobra_quinteto", valor: "no" }]);
     if (/\/rest\/v1\/prueba/.test(url)) return ok([]);
     if (/rpc\/ponerme_apodo/.test(url)) return ok("fausto");
@@ -239,6 +240,54 @@ await page.mouse.click(200, 560); await page.waitForTimeout(200); await deslizar
 for (let i = 0; i < 20; i++) { await page.waitForTimeout(300); est = await page.evaluate(() => { const s = window.mamJuegos._estado().estado; return { tiros: s.tiros, ultimo: s.ultimo }; }); if (est.ultimo) break; }
 ok(est.tiros === 1 && est.ultimo, "deslizar hacia arriba tira y el tiro se resuelve (" + est.ultimo + ")");
 await page.screenshot({ path: aca("./app/captura-6-juego.png") });
+
+console.log("\n── la compra adentro del teléfono (tienda simulada) ──");
+/* Un Capacitor de mentira con el plugin de RevenueCat: anota cada llamada. Lo que se prueba es el ORDEN que protege la
+   plata: la tienda se presenta con el perfil de Supabase (logIn) ANTES de comprar, y después de comprar se le avisa al
+   servidor con el token. Si RevenueCat se queda con un usuario anónimo, Apple cobra y el pase no llega nunca. */
+const CAPACITOR = (plataforma) => `
+  window.__RC = { llamadas: [] };
+  const anotar = (...a) => window.__RC.llamadas.push(a);
+  const Purchases = {
+    configure: async (o) => { anotar("configure", (o && o.appUserID) || null); },
+    logIn: async (o) => { anotar("logIn", o.appUserID); return { created: true }; },
+    logOut: async () => { anotar("logOut"); throw new Error("LogOutError: the current user is anonymous"); },
+    getProducts: async (o) => { anotar("getProducts", o.productIdentifiers);
+      const ids = o.productIdentifiers.filter((id) => ${JSON.stringify(plataforma)} === "android" ? /:mensual$/.test(id) : !/:/.test(id));
+      return { products: ids.map((id) => ({ identifier: id, productIdentifier: id, priceString: /todo/.test(id) ? "US$ 3,99" : "US$ 1,99", introPrice: { price: 0, priceString: "Gratis", periodNumberOfUnits: 3, periodUnit: "DAY" } })) }; },
+    purchaseStoreProduct: async (o) => { anotar("purchase", o.product.identifier); return { productIdentifier: o.product.identifier }; },
+    restorePurchases: async () => { anotar("restore"); return {}; },
+  };
+  window.Capacitor = { isNativePlatform: () => true, getPlatform: () => ${JSON.stringify(plataforma)}, Plugins: { Purchases, Haptics: { impact() {} }, App: { addListener() { return { remove() {} }; } } } };
+  try { localStorage.setItem("mam.deportes", '["futbol","tenis","nba"]'); localStorage.setItem("mam.pestana", '"cuenta"'); } catch (e) {}
+`;
+for (const plataforma of ["ios", "android"]) {
+  const ctx2 = await navegador.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, locale: "es-AR" });
+  const p2 = await ctx2.newPage(); p2.on("pageerror", (e) => errores.push(plataforma + ": " + e.message));
+  await simularBackend(p2); await p2.addInitScript(CAPACITOR(plataforma));
+  PAGADO = false; LLAMADAS.length = 0;
+  await p2.goto(BASE + "/index.html"); await p2.waitForTimeout(1200);
+  const rc = () => p2.evaluate(() => window.__RC.llamadas);
+  let ll = await rc();
+  ok(ll.some((l) => l[0] === "configure") && ll.some((l) => l[0] === "getProducts"), plataforma + ": sin cuenta, la tienda arranca y pide los precios");
+  const pedidos = (ll.find((l) => l[0] === "getProducts") || [])[1] || [];
+  ok(plataforma === "android" ? pedidos.some((i) => /:mensual$/.test(i)) && pedidos.some((i) => !/:/.test(i)) : pedidos.every((i) => !/:/.test(i)), plataforma + ": pide los productos como los nombra RevenueCat ahí (" + pedidos.length + " ids)");
+  ok(await p2.isVisible("#mam-cuenta [data-form-apodo]"), plataforma + ": la cuenta pide un apodo");
+  await p2.fill("#mam-cuenta [data-form-apodo] input[name=apodo]", "fausto"); await p2.click("#mam-cuenta [data-form-apodo] button"); await p2.waitForTimeout(1200);
+  ll = await rc();
+  const login = ll.find((l) => l[0] === "logIn");
+  ok(login && login[1] === UID, plataforma + ": con el apodo puesto, RevenueCat se presenta con el perfil de Supabase (logIn " + (login ? login[1].slice(0, 8) : "no") + ")");
+  const planes = await p2.$$eval("#mam-cuenta [data-plan]", (b) => b.map((x) => x.dataset.plan + " " + x.querySelector(".precio").textContent + " · " + x.querySelector("small").textContent));
+  ok(planes.length === 4 && planes.every((t) => /US\$ (1|3),99 \/ mes/.test(t)) && planes.every((t) => /3 días gratis/.test(t)), plataforma + ": los cuatro planes muestran el precio de la tienda y la prueba gratis");
+  await p2.click('#mam-cuenta [data-plan="mam.tenis"]'); await p2.waitForTimeout(1500);
+  ll = await rc(); const compra = ll.find((l) => l[0] === "purchase");
+  ok(compra && /^com\.armael11\.app\.mam\.tenis\.mensual(:mensual)?$/.test(compra[1]), plataforma + ": tocar Tenis compra ese producto en la tienda (" + (compra ? compra[1] : "no") + ")");
+  ok(ll.findIndex((l) => l[0] === "logIn") < ll.findIndex((l) => l[0] === "purchase"), plataforma + ": y la presentación (logIn) fue ANTES de la compra");
+  ok(LLAMADAS.some((l) => /^AUTH Bearer x\./.test(l)), plataforma + ": después de comprar le avisa al servidor (pago-apple) con el token de la sesión");
+  const txt = await p2.textContent("#mam-cuenta");
+  ok(/Ya tenés el plan/.test(txt) && /tenés hasta el/.test(await p2.textContent('#mam-cuenta [data-plan="mam.tenis"]')), plataforma + ": la pantalla dice 'Ya tenés el plan' y Tenis muestra hasta cuándo");
+  await ctx2.close();
+}
 
 console.log("\n── sin desbordes a 390 ──");
 for (const p of ["partidos", "juga", "desafios", "cuenta"]) { await page.click(`#mam-barra [data-pestana="${p}"]`); await page.waitForTimeout(300); const ancho = await page.evaluate(() => document.documentElement.scrollWidth); ok(ancho <= 390, p + ": sin scroll horizontal (" + ancho + ")"); }

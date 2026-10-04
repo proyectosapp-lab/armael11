@@ -322,8 +322,8 @@ caso("la app lee el premium y no intenta escribirlo",
        /vence <= ahora\) continue/.test(APPLE));
   caso("y si hay dos activas gana la que vence más tarde, que es la que acaba de comprar",
        /vence > mejor\.vence/.test(APPLE));
-  caso("un producto que no es ninguno de los tres se ignora",
-       /if \(!PLANES\[id\]\) continue/.test(APPLE));
+  caso("un producto que no es ninguno de los nuestros se ignora (con o sin el plan base de Play)",
+       /const def = PLANES\[id\] \|\| PLANES\[String\(id\)\.split\(":"\)\[0\]\];\s*if \(!def\) continue/.test(APPLE));
 
   /* ── QUÉ SE CONTESTA CUANDO ALGO SALE MAL ────────────────────────────── */
   /* Un aviso que no se puede atribuir se contesta 200: con un 500,

@@ -263,7 +263,9 @@
   function engancharCuenta(raizEl) {
     const c = CU(); const n = N();
     const form = (sel, fn) => { const f = raizEl.querySelector(sel); if (f) f.addEventListener('submit', async (ev) => { ev.preventDefault(); const b = f.querySelector('button[type=submit]'); if (b) b.disabled = true; try { await fn(f); } catch (e) { avisoCuenta(e.message); if (b) b.disabled = false; } }); return f; };
-    form('[data-form-apodo]', async (f) => { await c.entrarConApodo(f.apodo.value); CU_ESTADO.pases = null; CU_ESTADO.aviso = 'Listo.'; CU_ESTADO.bien = true; cambioDeCuenta(); pintarCuenta(); });
+    // `pedido = false`: la tienda se vuelve a presentar con el perfil nuevo (quienCompra). Si no, RevenueCat se queda con un
+    // usuario anónimo, Apple cobra y el servidor no encuentra la compra en el perfil de Supabase: cobrado y sin plan.
+    form('[data-form-apodo]', async (f) => { await c.entrarConApodo(f.apodo.value); CU_ESTADO.pases = null; CU_ESTADO.pedido = false; CU_ESTADO.aviso = 'Listo.'; CU_ESTADO.bien = true; cambioDeCuenta(); pintarCuenta(); });
     const fe = form('[data-form-entrar]', async (f) => { await c.entrarConClave(f.email.value, f.clave.value); CU_ESTADO.pases = null; CU_ESTADO.pedido = false; cambioDeCuenta(); pintarCuenta(); });
     if (fe) { const l = fe.querySelector('[data-link]'); l.addEventListener('click', async () => { l.disabled = true; try { await c.pedirLink(fe.email.value, (S().desafios || {}).dominio + '/'); avisoCuenta('Te mandé un link al mail. Abrilo desde este teléfono.', true); } catch (e) { avisoCuenta(e.message); l.disabled = false; } }); }
     form('[data-form-atar]', async (f) => { await c.atarMail(f.email.value, f.clave.value); CU_ESTADO.aviso = 'Te mandé un mail para confirmarlo. Mientras tanto, seguís jugando igual.'; CU_ESTADO.bien = true; pintarCuenta(); });

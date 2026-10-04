@@ -31,11 +31,14 @@
   async function quienCompra(perfil) { const T = await lista(); if (!T) return false; try { if (perfil) await T.logIn({ appUserID: String(perfil) }); else await T.logOut(); return true; } catch (e) { return false; } }
 
   let PRECIOS = null, ESTADO = 'nuevo';
+  // En Play, RevenueCat nombra la suscripción con su plan base: "com….futbol.mensual:mensual". Para encontrar el plan se
+  // mira lo que hay antes de los dos puntos; en la App Store no hay dos puntos y queda igual.
+  const base = (id) => String(id || '').split(':')[0];
   // de la tienda: precio y, si lo hay, la prueba gratis que configuraste en App Store Connect / Play (introPrice)
   function armar(productos) {
     const out = {};
     for (const p of productos || []) {
-      const id = String((p && (p.identifier || p.productIdentifier)) || '');
+      const id = base((p && (p.identifier || p.productIdentifier)) || '');
       const precio = String((p && p.priceString) || '').trim();
       const plan = PLANES.find((x) => x.producto === id);
       if (!plan || !precio) continue;
@@ -47,7 +50,10 @@
   async function traerPrecios() {
     ESTADO = 'pidiendo'; const T = await lista();
     if (!T) { ESTADO = 'sin-tienda'; PRECIOS = null; return null; }
-    try { const r = await T.getProducts({ productIdentifiers: PLANES.map((p) => p.producto), type: 'subs' }); PRECIOS = armar((r && r.products) || []); if (!PRECIOS) MOTIVO = 'la tienda no devolvió los productos (¿están creados y en revisión?)'; }
+    // en Android se piden las dos formas (con y sin ":mensual"): la que exista, vuelve
+    const ids = PLANES.map((p) => p.producto); const n = N();
+    const pedidos = n && n.esAndroid() ? ids.concat(ids.map((i) => i + ':mensual')) : ids;
+    try { const r = await T.getProducts({ productIdentifiers: pedidos, type: 'subs' }); PRECIOS = armar((r && r.products) || []); if (!PRECIOS) MOTIVO = 'la tienda no devolvió los productos (¿están creados y en revisión?)'; }
     catch (e) { PRECIOS = null; MOTIVO = 'no pude pedir los precios: ' + String((e && e.message) || e); }
     ESTADO = 'listo'; return PRECIOS;
   }
