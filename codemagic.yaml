@@ -157,7 +157,14 @@ workflows:
     publishing:
       app_store_connect:
         auth: integration
-        submit_to_testflight: true
+        # Sube el .ipa a App Store Connect: aparece en TestFlight → iOS cuando Apple termina
+        # de procesarlo (10 a 60 minutos) y desde ahí se prueba (grupo interno) y se elige
+        # para la versión de la App Store. NO se manda a la "revisión beta" de TestFlight
+        # (eso es solo para testers externos y exige la Información de la prueba completa:
+        # con `true` y esa ficha vacía, el build termina en rojo con "Beta App Description
+        # is missing" aunque ya haya subido). Si algún día querés testers externos: llená
+        # TestFlight → Información de la prueba y ponelo en true.
+        submit_to_testflight: false
         submit_to_app_store: false
       email:
         recipients:
