@@ -142,6 +142,7 @@ body.mam-sin-red .mam-sinred{display:block}
 .mam-cancha-caja{border-radius:18px;overflow:hidden;background:#0B1026;box-shadow:0 10px 30px rgba(0,0,0,.25);line-height:0}
 .mam-cancha{display:block;width:100%;touch-action:none;user-select:none;-webkit-user-select:none;outline:none}
 .mam-juego .mam-nota{margin:0 0 4px}
+.mam-juego .mam-fila{flex-wrap:wrap;gap:8px}.mam-juego .mam-fila .mam-boton.chico{flex:1 1 auto;padding:0 12px;min-width:0;white-space:nowrap}
 
 /* ── pulido (lista de control de apps): respuesta al toque, foco visible, menos movimiento ── */
 button,.mam-partido,.mam-plan,.mam-desafio-item{transition:background-color .15s ease,color .15s ease,opacity .15s ease,border-color .15s ease}
