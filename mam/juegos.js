@@ -90,15 +90,23 @@
 
   /* ─── la cámara: mundo (x a la derecha, y arriba, z adelante; metros) → pantalla ───
      La cámara está en (0, altura, 0) mirando a +z, con un poco de inclinación hacia abajo. */
-  // z0 y dir: dónde está la cámara y hacia dónde mira (+1 hacia +z, −1 hacia −z: desde atrás del arco)
-  function camara(alt, foco, horizonte, z0, dir) {
-    z0 = z0 || 0; dir = dir || 1;
-    return {
-      alt, foco, horizonte, z0, dir,
-      p: (x, y, z) => { const d = Math.max(0.3, dir * (z - z0)); return { x: W / 2 + (dir * x * foco) / d, y: horizonte - ((y - alt) * foco) / d, k: foco / d }; },
+  // Una cámara de verdad: está en (x0, alt, z0), mira hacia +z (dir 1) o −z (dir −1) e inclina la vista hacia abajo
+  // `pitch` radianes. `cy` es dónde cae en pantalla la línea de la mirada; el horizonte queda más arriba, en cy − foco·tan(pitch).
+  function camara(cfg) {
+    const C = Object.assign({ x0: 0, alt: 1.5, z0: 0, dir: 1, pitch: 0, foco: 330, cy: 215 }, cfg);
+    const cp = Math.cos(C.pitch), sp = Math.sin(C.pitch);
+    const cam = {
+      alt: C.alt, foco: C.foco, z0: C.z0, dir: C.dir, pitch: C.pitch, cy: C.cy, x0: C.x0,
+      hz: C.cy - C.foco * Math.tan(C.pitch),
+      p: (x, y, z) => {
+        const dx = C.dir * (x - C.x0), dz = C.dir * (z - C.z0), dy = y - C.alt;
+        const d = Math.max(0.3, dz * cp - dy * sp), yv = dy * cp + dz * sp;
+        return { x: W / 2 + (dx * C.foco) / d, y: C.cy - (yv * C.foco) / d, k: C.foco / d, d };
+      },
       // la misma cámara, un poco más cerca: el "empujón" mientras la pelota vuela
-      cerca: (push) => camara(alt, foco * (1 + push), horizonte, z0, dir),
+      cerca: (push) => camara(Object.assign({}, C, { foco: C.foco * (1 + push) })),
     };
+    return cam;
   }
 
   /* ─── el gesto: deslizar. Devuelve dirección (−1…1), largo (px), velocidad (px/ms) y comba (−1…1) ─── */
@@ -229,31 +237,51 @@
   /* ═══════════════════════════════ FÚTBOL: el estadio, el arco, las figuras ═══════════════════════════════ */
   const ARCO = { ancho: 7.32, alto: 2.44, poste: 0.06 };
   // F: { euforia (0..1, la tribuna salta), gx (el arco corrido en x: tiro libre) }
+  // La tribuna de fondo es un objeto en el mundo (filas que suben detrás del arco), no una franja pintada: se ve más
+  // grande cuanto más cerca, y la gente de las primeras filas tiene tamaño de persona.
+  function tribuna3D(cam, t, F, zPie, haciaCamara, opc) {
+    const ctx = CTX; const dirF = haciaCamara ? -1 : 1;     // las filas suben alejándose de la cámara
+    const O2 = Object.assign({ FILAS: 16, SUBE: 0.75, ATRAS: 0.85, X0: -34, X1: 34, valla: '#1F2440', fila: ['#2A2E4A', '#262A44'], escalon: '#1C1F36', techo: '#4A5078' }, opc || {});
+    const FILAS = O2.FILAS, SUBE = O2.SUBE, ATRAS = O2.ATRAS, X0 = O2.X0, X1 = O2.X1;
+    const eu = F.euforia || 0; const paleta = ['#4A4F6B', '#5B5F7A', '#E8E337', '#3C415C', '#DADADA', '#C2542E', '#4A4F6B', '#7D9BD9', '#3A9A62', '#2F3350', '#F0EFEA', '#6B4A3A'];
+    // el muro del frente (la valla) y el fondo oscuro de la tribuna
+    { const a = cam.p(X0, 0, zPie), b = cam.p(X1, 0, zPie), c = cam.p(X1, 1.1, zPie), d = cam.p(X0, 1.1, zPie); ctx.fillStyle = O2.valla; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.lineTo(c.x, c.y); ctx.lineTo(d.x, d.y); ctx.closePath(); ctx.fill(); }
+    // primero todos los escalones (de adelante hacia atrás), después toda la gente (de atrás hacia adelante):
+    // así nadie queda tapado por el escalón de la fila de atrás
+    for (let f = 0; f < FILAS; f++) {
+      const z0 = zPie + dirF * f * ATRAS, z1 = z0 + dirF * ATRAS, y0 = 1.1 + f * SUBE, y1 = y0 + SUBE;
+      const a = cam.p(X0, y0, z0), b = cam.p(X1, y0, z0), c = cam.p(X1, y0, z1), d = cam.p(X0, y0, z1);
+      ctx.fillStyle = O2.fila[f % 2]; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.lineTo(c.x, c.y); ctx.lineTo(d.x, d.y); ctx.closePath(); ctx.fill();
+      const e = cam.p(X1, y1, z1), g = cam.p(X0, y1, z1); ctx.fillStyle = O2.escalon; ctx.beginPath(); ctx.moveTo(d.x, d.y); ctx.lineTo(c.x, c.y); ctx.lineTo(e.x, e.y); ctx.lineTo(g.x, g.y); ctx.closePath(); ctx.fill();
+    }
+    for (let f = FILAS - 1; f >= 0; f--) {
+      const z0 = zPie + dirF * f * ATRAS, y0 = 1.1 + f * SUBE;
+      const n = 92; const zp = z0 + dirF * ATRAS * 0.5;
+      for (let i = 0; i < n; i++) { const h = hash(f * 131 + i * 7); if (h < 0.07) continue; const x = X0 + 1 + (i + 0.5) * ((X1 - X0 - 2) / n) + (hash(f * 17 + i) - 0.5) * 0.35; const salto = eu > 0 ? Math.max(0, Math.sin(t * 9 + i * 1.7 + f)) * 0.45 * eu : 0; const q = cam.p(x, y0 + 0.5 + salto, zp); if (q.x < -6 || q.x > W + 6) continue; const s = Math.max(1, 0.36 * q.k); ctx.fillStyle = paleta[Math.floor(hash(f * 53 + i * 11) * paleta.length)]; ctx.globalAlpha = 0.75 + 0.25 * hash(f * 7 + i * 13); ctx.beginPath(); ctx.roundRect(q.x - s / 2, q.y - s * 1.1, s, s * 1.7, s * 0.3); ctx.fill(); ctx.fillStyle = ['#C68642', '#8D5524', '#E0B08A', '#5C3A21'][(i + f) % 4]; ctx.beginPath(); ctx.arc(q.x, q.y - s * 1.3, s * 0.36, 0, Math.PI * 2); ctx.fill(); }
+      ctx.globalAlpha = 1;
+    }
+    // flashes de las cámaras cuando hay gol
+    if (eu > 0) { ctx.fillStyle = '#fff'; for (let i = 0; i < 12; i++) { const paso = Math.floor(t * 18); if (hash(paso * 7 + i * 13) < 0.35) { const f = Math.floor(hash(i + 900 + paso) * FILAS); const q = cam.p(X0 + hash(i + 950 + paso) * (X1 - X0), 1.1 + f * SUBE + 0.9, zPie + dirF * (f + 0.5) * ATRAS); ctx.globalAlpha = 0.9 * eu; ctx.beginPath(); ctx.arc(q.x, q.y, 2.5, 0, Math.PI * 2); ctx.fill(); } } ctx.globalAlpha = 1; }
+    // el techo de la tribuna, oscuro, y el borde iluminado
+    { const f = FILAS; const zt = zPie + dirF * f * ATRAS, yt = 1.1 + f * SUBE; const a = cam.p(X0, yt, zt), b = cam.p(X1, yt, zt); ctx.strokeStyle = O2.techo; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); }
+  }
   function escenaFutbol(cam, zArco, t, F) {
     const ctx = CTX; F = F || {}; const gx = F.gx || 0;
-    const hz = cam.p(0, 0, cam.z0 + cam.dir * 400).y;
+    const hz = cam.hz;
     // cielo de noche con estrellas
-    const cielo = ctx.createLinearGradient(0, 0, 0, hz); cielo.addColorStop(0, '#05081A'); cielo.addColorStop(1, '#1B2A52'); ctx.fillStyle = cielo; ctx.fillRect(0, 0, W, hz + 2);
-    ctx.save(); for (let i = 0; i < 28; i++) { const sx = hash(i) * W, sy = hash(i + 50) * Math.max(10, hz - 130); ctx.globalAlpha = 0.25 + 0.5 * (0.5 + 0.5 * Math.sin(t * 1.7 + i * 2.1)); ctx.fillStyle = '#fff'; ctx.fillRect(sx, sy, 1.6, 1.6); } ctx.restore();
-    // torres de luz: cuatro mástiles con su halo
-    for (const [lx, h] of [[W * 0.08, 150], [W * 0.92, 150], [W * 0.31, 112], [W * 0.69, 112]]) {
-      const top = hz - h; ctx.strokeStyle = '#242A48'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(lx, hz - 60); ctx.lineTo(lx, top); ctx.stroke();
-      const g = ctx.createRadialGradient(lx, top, 0, lx, top, 95); g.addColorStop(0, 'rgba(255,246,205,.55)'); g.addColorStop(0.3, 'rgba(255,246,205,.12)'); g.addColorStop(1, 'rgba(255,246,205,0)'); ctx.fillStyle = g; ctx.fillRect(lx - 95, top - 95, 190, 190);
-      ctx.fillStyle = '#FFF4C8'; ctx.beginPath(); ctx.roundRect(lx - 10, top - 7, 20, 9, 2); ctx.fill();
-    }
-    // la tribuna: dos bandejas, y la gente (que salta con el gol)
-    for (const [y0, hgt, c0, c1] of [[hz - 100, 46, '#1A1D33', '#262A44'], [hz - 52, 46, '#2C2F45', '#3B3F5C']]) { const tg = ctx.createLinearGradient(0, y0, 0, y0 + hgt); tg.addColorStop(0, c0); tg.addColorStop(1, c1); ctx.fillStyle = tg; ctx.fillRect(0, y0, W, hgt); }
-    ctx.save(); const eu = F.euforia || 0; const paleta = ['#E8E337', '#fff', '#C2542E', '#8bb4ff', '#fff', '#3ED17A'];
-    for (let i = 0; i < 320; i++) { const sx = (i * 37 + 11) % W; const arriba = i % 2 === 0; const base = arriba ? hz - 100 + 7 + ((i * 47) % 34) : hz - 52 + 7 + ((i * 53) % 36); const salto = eu > 0 ? Math.max(0, Math.sin(t * 9 + i * 1.7)) * 5 * eu : 0; ctx.globalAlpha = 0.4 + 0.35 * hash(i + 7); ctx.fillStyle = paleta[i % paleta.length]; ctx.fillRect(sx, base - salto, 2.4, 2.4); }
-    // flashes de las cámaras cuando hay gol
-    if (eu > 0) { ctx.fillStyle = '#fff'; for (let i = 0; i < 10; i++) { if (hash(Math.floor(t * 18) + i * 13) < 0.35) { const sx = hash(i + 900 + Math.floor(t * 18)) * W, sy = hz - 96 + hash(i + 950 + Math.floor(t * 18)) * 80; ctx.globalAlpha = 0.9 * eu; ctx.beginPath(); ctx.arc(sx, sy, 2.5, 0, Math.PI * 2); ctx.fill(); } } }
-    ctx.restore();
-    // el cartel del perímetro: la marca propia, nada ajeno
-    ctx.fillStyle = '#14110F'; ctx.fillRect(0, hz - 7, W, 8); ctx.save(); ctx.globalAlpha = 0.95; for (let x = 0; x < W; x += 120) texto(ctx, 'MANO A MANO', x + 60, hz - 3, 6, '#E8731C', 800); ctx.restore();
+    const cielo = ctx.createLinearGradient(0, 0, 0, Math.max(40, hz)); cielo.addColorStop(0, '#05081A'); cielo.addColorStop(1, '#1B2A52'); ctx.fillStyle = cielo; ctx.fillRect(0, 0, W, H);
+    ctx.save(); for (let i = 0; i < 28; i++) { const sx = hash(i) * W, sy = hash(i + 50) * Math.max(10, hz - 20); ctx.globalAlpha = 0.25 + 0.5 * (0.5 + 0.5 * Math.sin(t * 1.7 + i * 2.1)); ctx.fillStyle = '#fff'; ctx.fillRect(sx, sy, 1.6, 1.6); } ctx.restore();
+    // las luces: halos arriba de la tribuna
+    for (const lx of [W * 0.12, W * 0.5, W * 0.88]) { const g = ctx.createRadialGradient(lx, 14, 0, lx, 14, 120); g.addColorStop(0, 'rgba(255,246,205,.45)'); g.addColorStop(0.3, 'rgba(255,246,205,.1)'); g.addColorStop(1, 'rgba(255,246,205,0)'); ctx.fillStyle = g; ctx.fillRect(lx - 120, -100, 240, 240); ctx.fillStyle = '#FFF4C8'; ctx.beginPath(); ctx.roundRect(lx - 16, 6, 32, 9, 3); ctx.fill(); }
     // césped en perspectiva, con franjas
-    const sueloG = ctx.createLinearGradient(0, hz, 0, H); sueloG.addColorStop(0, '#2E8F4C'); sueloG.addColorStop(1, '#1E7A3E'); ctx.fillStyle = sueloG; ctx.fillRect(0, hz, W, H - hz);
+    const suelo0 = cam.p(0, 0, cam.z0 + cam.dir * 400).y;
+    const sueloG = ctx.createLinearGradient(0, suelo0, 0, H); sueloG.addColorStop(0, '#2A8A48'); sueloG.addColorStop(1, '#1E7A3E'); ctx.fillStyle = sueloG; ctx.fillRect(0, suelo0, W, H - suelo0);
     ctx.fillStyle = 'rgba(255,255,255,.06)';
-    for (let i = 2; i < 60; i += 4) { const z = cam.z0 + cam.dir * i, z2 = cam.z0 + cam.dir * (i + 2); const a = cam.p(-40, 0, z), b = cam.p(40, 0, z), c = cam.p(40, 0, z2), d = cam.p(-40, 0, z2); ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.lineTo(c.x, c.y); ctx.lineTo(d.x, d.y); ctx.closePath(); ctx.fill(); }
+    for (let i = 2; i < 80; i += 4) { const z = cam.z0 + cam.dir * i, z2 = cam.z0 + cam.dir * (i + 2); const a = cam.p(-60, 0, z), b = cam.p(60, 0, z), c = cam.p(60, 0, z2), d = cam.p(-60, 0, z2); ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.lineTo(c.x, c.y); ctx.lineTo(d.x, d.y); ctx.closePath(); ctx.fill(); }
+    // la tribuna de fondo: detrás del arco (vista del pateador) o detrás del pateador (vista del arquero)
+    if (cam.dir > 0) tribuna3D(cam, t, F, zArco + 6.5, false); else tribuna3D(cam, t, F, -9, true);
+    // el cartel del perímetro, al pie de la tribuna: la marca propia, nada ajeno
+    { const zc = cam.dir > 0 ? zArco + 6.3 : -8.8; for (let x = -32; x < 32; x += 8) { const a = cam.p(x, 0, zc), b = cam.p(x + 8, 0, zc), c = cam.p(x + 8, 0.9, zc), d = cam.p(x, 0.9, zc); ctx.fillStyle = '#14110F'; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.lineTo(c.x, c.y); ctx.lineTo(d.x, d.y); ctx.closePath(); ctx.fill(); const m = cam.p(x + 4, 0.45, zc); if (m.x > -40 && m.x < W + 40) texto(ctx, 'MANO A MANO', m.x, m.y, Math.max(3, 0.33 * m.k), '#E8731C', 800); } }
     // líneas del área (corridas con el arco)
     ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 2; ctx.lineJoin = 'round';
     const linea = (pts) => { ctx.beginPath(); pts.forEach((p, i) => { const q = cam.p(p[0] + gx, 0, p[1]); if (i) ctx.lineTo(q.x, q.y); else ctx.moveTo(q.x, q.y); }); ctx.stroke(); };
@@ -285,39 +313,56 @@
     ctx.strokeStyle = '#d8dbe0'; ctx.lineWidth = Math.max(1.5, Math.min(4, 0.06 * B.k)); ctx.beginPath(); ctx.moveTo(B.x, B.y); ctx.lineTo(Bz.x, Bz.y); ctx.moveTo(C.x, C.y); ctx.lineTo(Cz.x, Cz.y); ctx.stroke();
     ctx.restore();
   }
-  // la figura articulada: brazos y piernas de dos tramos, cabeza, camiseta con número.
-  // `pose`: {x, y (altura del centro del cuerpo), z, inclinacion, brazos: [angIzq, angDer], codos: [flex, flex],
-  //          piernas: [angIzq, angDer] (o un número: apertura), rodillas: [flex, flex], escala}
+  // la figura: un jugador con cuerpo de jugador. Hombros anchos y cintura fina, camiseta con mangas y número, short,
+  // muslos y gemelos de piel, medias y botines; brazos y piernas de dos tramos (codos y rodillas).
+  // `pose`: {x, y (altura de la cadera), z, inclinacion, brazos: [angIzq, angDer], codos: [flex, flex],
+  //          piernas: [angIzq, angDer] (o un número: apertura), rodillas: [flex, flex]}
   // Ángulos en el plano de la figura, 0 = hacia la derecha de la pantalla, π/2 = hacia abajo.
   // inclinacion > 0 = la cabeza se va hacia la derecha (x+). Un arquero que vuela a x+ se inclina positivo: cabeza adelante, pies atrás.
   function figura(cam, pose, colores, escala) {
     const ctx = CTX; const p = cam.p(pose.x, pose.y, pose.z); const k = p.k * (escala || 1);
-    const alto = 1.75 * k, ancho = 0.5 * k;
-    { const ps = cam.p(pose.x, 0, pose.z); sombra(ctx, ps, ancho * (0.9 + 0.9 * Math.abs(pose.inclinacion || 0)), 0.22); }
+    const A = 1.8 * k;                                                  // la altura del jugador en pantalla
+    { const ps = cam.p(pose.x, 0, pose.z); sombra(ctx, ps, 0.22 * A * (1 + 1.2 * Math.abs(pose.inclinacion || 0)), 0.25); }
     ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(pose.inclinacion || 0);
     const seg = (x0, y0, a, l) => ({ x: x0 + Math.cos(a) * l, y: y0 + Math.sin(a) * l });
-    const miembro = (x0, y0, a1, l1, a2, l2, grosor, color) => { const m = seg(x0, y0, a1, l1), f = seg(m.x, m.y, a2, l2); ctx.strokeStyle = color; ctx.lineWidth = grosor; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(m.x, m.y); ctx.lineTo(f.x, f.y); ctx.stroke(); return f; };
-    const hombroY = -alto * 0.36, caderaY = alto * 0.04, hx = ancho * 0.5, cx = ancho * 0.2;
+    const trazo = (x0, y0, x1, y1, grosor, color) => { ctx.strokeStyle = color; ctx.lineWidth = grosor; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke(); };
+    const hombroY = -0.27 * A, hx = 0.13 * A, cx = 0.075 * A, cabezaR = 0.065 * A;
     const brazos = pose.brazos || [Math.PI * 0.78, Math.PI * 0.22];
     const codos = pose.codos || [0.3, -0.3];
     const piernas = Array.isArray(pose.piernas) ? pose.piernas : [Math.PI / 2 + 0.14 + (pose.piernas || 0) * 0.5, Math.PI / 2 - 0.14 - (pose.piernas || 0) * 0.5];
     const rodillas = pose.rodillas || [-0.12, 0.12];
-    const lB = alto * 0.25, lA = alto * 0.23, lM = alto * 0.27, lP = alto * 0.26;
-    // piernas y botines (detrás del cuerpo)
-    const pies = [miembro(-cx, caderaY, piernas[0], lM, piernas[0] + rodillas[0], lP, ancho * 0.42, colores.pantalon), miembro(cx, caderaY, piernas[1], lM, piernas[1] + rodillas[1], lP, ancho * 0.42, colores.pantalon)];
-    ctx.fillStyle = colores.botin || '#15151a'; for (const f of pies) { ctx.beginPath(); ctx.ellipse(f.x, f.y + ancho * 0.08, ancho * 0.3, ancho * 0.17, 0, 0, Math.PI * 2); ctx.fill(); }
-    // cuerpo
-    ctx.fillStyle = colores.camiseta; ctx.beginPath(); ctx.roundRect(-ancho * 0.62, hombroY - ancho * 0.12, ancho * 1.24, caderaY - hombroY + ancho * 0.22, ancho * 0.3); ctx.fill();
-    if (colores.franja) { ctx.fillStyle = colores.franja; ctx.fillRect(-ancho * 0.1, hombroY - ancho * 0.05, ancho * 0.2, caderaY - hombroY + ancho * 0.1); }
-    if (colores.numero && ancho > 9) texto(ctx, colores.numero, 0, (hombroY + caderaY) / 2 + ancho * 0.05, Math.max(6, ancho * 0.62), colores.numeroColor || 'rgba(0,0,0,.5)', 800);
-    // brazos (adelante) y manos o guantes
-    const manos = [miembro(-hx, hombroY, brazos[0], lB, brazos[0] + codos[0], lA, ancho * 0.36, colores.camiseta), miembro(hx, hombroY, brazos[1], lB, brazos[1] + codos[1], lA, ancho * 0.36, colores.camiseta)];
-    ctx.fillStyle = colores.guantes || colores.piel; for (const m of manos) { ctx.beginPath(); ctx.arc(m.x, m.y, ancho * (colores.guantes ? 0.3 : 0.2), 0, Math.PI * 2); ctx.fill(); }
-    // cabeza
-    const cabY = hombroY - alto * 0.165;
-    ctx.fillStyle = colores.piel; ctx.beginPath(); ctx.arc(0, cabY, ancho * 0.42, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = colores.pelo || '#2b1d12'; ctx.beginPath(); ctx.arc(0, cabY - ancho * 0.06, ancho * 0.41, Math.PI, Math.PI * 2); ctx.fill();
-    if (ancho > 13) { ctx.fillStyle = '#1b1b1f'; ctx.beginPath(); ctx.arc(-ancho * 0.14, cabY + ancho * 0.05, ancho * 0.05, 0, Math.PI * 2); ctx.arc(ancho * 0.14, cabY + ancho * 0.05, ancho * 0.05, 0, Math.PI * 2); ctx.fill(); }
+    const lB = 0.17 * A, lA = 0.16 * A, lM = 0.25 * A, lP = 0.24 * A;
+    const piel = colores.piel, medias = colores.medias || colores.pantalon, borde = 'rgba(0,0,0,.28)';
+    // piernas: muslo de piel, gemelo con media, botín; detrás del cuerpo
+    for (const [s, ang, rod] of [[-1, piernas[0], rodillas[0]], [1, piernas[1], rodillas[1]]]) {
+      const h = { x: s * cx * 0.8, y: 0 }; const r = seg(h.x, h.y, ang, lM); const f = seg(r.x, r.y, ang + rod, lP);
+      trazo(h.x, h.y, r.x, r.y, 0.085 * A + 1, borde); trazo(h.x, h.y, r.x, r.y, 0.085 * A, piel);
+      trazo(r.x, r.y, f.x, f.y, 0.07 * A + 1, borde); trazo(r.x, r.y, f.x, f.y, 0.07 * A, piel);
+      const m = seg(r.x, r.y, ang + rod, lP * 0.42); trazo(m.x, m.y, f.x, f.y, 0.072 * A, medias);
+      ctx.fillStyle = colores.botin || '#15151a'; ctx.beginPath(); ctx.ellipse(f.x + Math.cos(ang + rod) * 0.02 * A, f.y + 0.02 * A, 0.055 * A, 0.032 * A, (ang + rod) - Math.PI / 2, 0, Math.PI * 2); ctx.fill();
+    }
+    // el short
+    ctx.fillStyle = colores.pantalon; ctx.beginPath(); ctx.moveTo(-cx * 1.15, -0.03 * A); ctx.lineTo(cx * 1.15, -0.03 * A); ctx.lineTo(cx * 1.35, 0.17 * A); ctx.lineTo(cx * 0.2, 0.19 * A); ctx.lineTo(0, 0.14 * A); ctx.lineTo(-cx * 0.2, 0.19 * A); ctx.lineTo(-cx * 1.35, 0.17 * A); ctx.closePath(); ctx.fill();
+    // el torso: hombros anchos, cintura fina, con un poco de luz de arriba
+    const g = ctx.createLinearGradient(0, hombroY, 0, 0); g.addColorStop(0, colores.camisetaLuz || colores.camiseta); g.addColorStop(1, colores.camiseta);
+    ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(-hx, hombroY); ctx.quadraticCurveTo(0, hombroY - 0.03 * A, hx, hombroY); ctx.quadraticCurveTo(hx * 1.05, hombroY * 0.4, cx * 1.15, 0); ctx.lineTo(-cx * 1.15, 0); ctx.quadraticCurveTo(-hx * 1.05, hombroY * 0.4, -hx, hombroY); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = borde; ctx.lineWidth = 1; ctx.stroke();
+    if (colores.franja) { ctx.fillStyle = colores.franja; ctx.fillRect(-0.03 * A, hombroY, 0.06 * A, -hombroY); }
+    if (colores.numero && A > 26) texto(ctx, colores.numero, 0, hombroY * 0.5, Math.max(6, 0.14 * A), colores.numeroColor || 'rgba(0,0,0,.5)', 800);
+    // brazos: manga corta (camiseta) y antebrazo de piel; manos o guantes
+    for (const [s, ang, codo] of [[-1, brazos[0], codos[0]], [1, brazos[1], codos[1]]]) {
+      const h = { x: s * hx * 0.92, y: hombroY + 0.02 * A }; const c = seg(h.x, h.y, ang, lB); const m = seg(c.x, c.y, ang + codo, lA);
+      trazo(h.x, h.y, c.x, c.y, 0.075 * A + 1, borde); trazo(h.x, h.y, c.x, c.y, 0.075 * A, colores.camiseta);
+      trazo(c.x, c.y, m.x, m.y, 0.06 * A + 1, borde); trazo(c.x, c.y, m.x, m.y, 0.06 * A, piel);
+      ctx.fillStyle = colores.guantes || piel; ctx.beginPath(); ctx.arc(m.x, m.y, colores.guantes ? 0.05 * A : 0.034 * A, 0, Math.PI * 2); ctx.fill();
+      if (colores.guantes) { ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.beginPath(); ctx.arc(m.x - 0.012 * A, m.y - 0.012 * A, 0.02 * A, 0, Math.PI * 2); ctx.fill(); }
+    }
+    // cuello y cabeza, con pelo
+    const cabY = hombroY - 0.035 * A - cabezaR;
+    trazo(0, hombroY, 0, cabY + cabezaR * 0.6, 0.05 * A, piel);
+    ctx.fillStyle = piel; ctx.beginPath(); ctx.arc(0, cabY, cabezaR, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = colores.pelo || '#2b1d12'; ctx.beginPath(); ctx.arc(0, cabY - cabezaR * 0.12, cabezaR * 0.98, Math.PI * 1.02, Math.PI * 1.98); ctx.quadraticCurveTo(cabezaR * 0.3, cabY - cabezaR * 0.35, -cabezaR * 0.98, cabY - cabezaR * 0.1); ctx.closePath(); ctx.fill();
+    if (A > 60) { ctx.fillStyle = '#1b1b1f'; ctx.beginPath(); ctx.arc(-cabezaR * 0.35, cabY + cabezaR * 0.1, cabezaR * 0.1, 0, Math.PI * 2); ctx.arc(cabezaR * 0.35, cabY + cabezaR * 0.1, cabezaR * 0.1, 0, Math.PI * 2); ctx.fill(); }
     ctx.restore();
   }
   // las poses del arquero: quieto (se mece en puntas de pie) y en vuelo (los brazos adelante, las piernas atrás)
@@ -376,13 +421,13 @@
   /* ═══════════════════════════════ PENALES ═══════════════════════════════ */
   function Penales() {
     const Z_ARCO = 14, Z_PELOTA = 3, DIST = Z_ARCO - Z_PELOTA;
-    const camPateo = camara(1.5, 330, 215);                       // detrás de la pelota, mirando al arco
-    const camArco = camara(3.4, 235, 170, Z_ARCO + 5.2, -1);      // detrás y por encima del arco, mirando al pateador: cuando el arquero soy yo
+    const camPateo = camara({ alt: 2.8, z0: -0.6, pitch: 0.244, foco: 430, cy: 250 });                         // detrás y por encima de la pelota, mirando al arco
+    const camArco = camara({ alt: 3.4, z0: Z_ARCO + 5.2, dir: -1, pitch: 0.3, foco: 250, cy: 190 });           // detrás y por encima del arco, mirando al pateador: cuando el arquero soy yo
     const vistaArco = () => S.tanda === 'el' && S.fase !== 'final';
     const S = { fase: 'guia', t: 0, serie: [], serieRival: [], turno: 0, tanda: 'yo', pelota: null, arquero: null, mensaje: null, red: null, sacudida: 0, fin: null, racha: 0, amago: null, estela: [], euforia: 0, confeti: null, lectura: null, muerteSubita: false };
-    const COL_YO = { camiseta: '#E8E337', pantalon: '#1b1b1f', piel: '#C68642', guantes: '#E8731C', numero: '1' };
-    const COL_RIVAL = { camiseta: '#C2542E', pantalon: '#1b1b1f', piel: '#8D5524', numero: '1', numeroColor: 'rgba(255,255,255,.6)' };
-    const COL_PATEADOR = { camiseta: '#C2542E', pantalon: '#1b1b1f', piel: '#8D5524', numero: '9', numeroColor: 'rgba(255,255,255,.6)' };
+    const COL_YO = { camiseta: '#E8E337', camisetaLuz: '#F4F07A', pantalon: '#1b1b1f', medias: '#E8E337', piel: '#C68642', guantes: '#E8731C', numero: '1' };
+    const COL_RIVAL = { camiseta: '#C2542E', camisetaLuz: '#DD7A5A', pantalon: '#1b1b1f', medias: '#C2542E', piel: '#8D5524', numero: '1', numeroColor: 'rgba(255,255,255,.6)' };
+    const COL_PATEADOR = { camiseta: '#F3EEE6', camisetaLuz: '#FFFFFF', pantalon: '#14110F', medias: '#F3EEE6', piel: '#8D5524', numero: '9', numeroColor: 'rgba(0,0,0,.45)' };
     const nombreRival = (O.rival && O.rival.nombre) || 'el modelo';
     function reiniciarPelota() { S.pelota = { x: 0, y: 0.11, z: Z_PELOTA, vx: 0, vy: 0, vz: 0, r: 0.11, rot: 0, comba: 0, quieta: true }; S.estela = []; }
     function reiniciarArquero() { S.arquero = { x: 0, y: 0.9, z: Z_ARCO - 0.3, vuelo: null }; }
@@ -547,12 +592,12 @@
 
   /* ═══════════════════════════════ TIRO LIBRE ═══════════════════════════════ */
   function TiroLibre() {
-    const cam0 = camara(1.7, 330, 210);
+    const cam0 = camara({ alt: 3.2, z0: -1, pitch: 0.21, foco: 430, cy: 240 });
     const Z_PELOTA = 3.2; let Z_ARCO = 24, DIST = Z_ARCO - Z_PELOTA; const Z_BARRERA = Z_PELOTA + 9.15;
     const S = { fase: 'guia', t: 0, serie: [], pelota: null, arquero: null, barrera: null, mensaje: null, red: null, sacudida: 0, fin: null, racha: 0, salto: 0, gx: 0, escuadras: 0, estela: [], euforia: 0, confeti: null, lectura: null, rival: 0 };
     // lo que mete el modelo en su tanda de cinco: entre 2 y 4, para tener a quién ganarle
     const rivalMete = () => 2 + (azar() < 0.55 ? 1 : 0) + (azar() < 0.3 ? 1 : 0);
-    const COL_RIVAL = { camiseta: '#C2542E', pantalon: '#1b1b1f', piel: '#8D5524', numeroColor: 'rgba(255,255,255,.6)' }, COL_ARQ = { camiseta: '#E8E337', pantalon: '#1b1b1f', piel: '#C68642', guantes: '#E8731C', numero: '1' };
+    const COL_RIVAL = { camiseta: '#C2542E', camisetaLuz: '#DD7A5A', pantalon: '#1b1b1f', medias: '#C2542E', piel: '#8D5524', numeroColor: 'rgba(255,255,255,.6)' }, COL_ARQ = { camiseta: '#E8E337', camisetaLuz: '#F4F07A', pantalon: '#1b1b1f', medias: '#E8E337', piel: '#C68642', guantes: '#E8731C', numero: '1' };
     const nombreRival = (O.rival && O.rival.nombre) || 'el modelo';
     // cada tiro, un lugar distinto: el arco queda corrido (gx) y más o menos lejos; la barrera tapa el palo cercano, el arquero el otro
     function armar() {
@@ -653,7 +698,7 @@
 
   /* ═══════════════════════════════ TRIPLES ═══════════════════════════════ */
   function Triples() {
-    const cam0 = camara(1.9, 360, 310);                          // más alta y más corta que antes: el arco del tiro entra entero en pantalla
+    const cam0 = camara({ alt: 2.2, z0: -1, pitch: 0.105, foco: 390, cy: 322 });   // un paso atrás de la pelota: el arco del tiro entra entero en pantalla
     const ARO = { z: 7.6, y: 3.05, r: 0.225, tablero: { ancho: 1.8, alto: 1.05, abajo: 2.9 } };
     const PUESTOS = [{ n: 'esquina izquierda', ang: -0.55 }, { n: 'ala izquierda', ang: -0.28 }, { n: 'frente', ang: 0 }, { n: 'ala derecha', ang: 0.28 }, { n: 'esquina derecha', ang: 0.55 }];
     const POR_PUESTO = 5;                                                     // cinco pelotas por puesto; la última es la dorada y vale doble
@@ -720,22 +765,22 @@
       if (S.sacudida > 0) ctx.translate(Math.sin(S.t * 91) * 3 * S.sacudida, Math.cos(S.t * 73) * 3 * S.sacudida);
       const push = S.fase === 'vuelo' ? 0.06 * easeOut(S.t / 0.6) : S.fase === 'fin-tiro' ? 0.06 * (1 - easeOut(S.t / 0.5)) : 0;
       const cam = cam0.cerca(push);
-      // el estadio: la cancha en sombra, las bandejas de la tribuna, flashes, luces altas
-      const hz = cam.p(0, 0, 400).y;
-      const cielo = ctx.createLinearGradient(0, 0, 0, hz); cielo.addColorStop(0, '#07060F'); cielo.addColorStop(0.6, '#1B1428'); cielo.addColorStop(1, '#2A1F35'); ctx.fillStyle = cielo; ctx.fillRect(0, 0, W, hz + 2);
+      // el estadio: la cancha en sombra, luces altas, banderines, y la tribuna de verdad detrás del tablero
+      const hz = cam.hz;
+      const cielo = ctx.createLinearGradient(0, 0, 0, Math.max(40, hz)); cielo.addColorStop(0, '#07060F'); cielo.addColorStop(0.6, '#1B1428'); cielo.addColorStop(1, '#2A1F35'); ctx.fillStyle = cielo; ctx.fillRect(0, 0, W, H);
       for (const lx of [W * 0.18, W * 0.5, W * 0.82]) { const g = ctx.createRadialGradient(lx, 10, 0, lx, 10, 150); g.addColorStop(0, 'rgba(255,240,210,.32)'); g.addColorStop(1, 'rgba(255,240,210,0)'); ctx.fillStyle = g; ctx.fillRect(lx - 150, -60, 300, 240); }
       // banderines colgados del techo: la marca propia
       for (const [bx, c] of [[W * 0.3, '#E8731C'], [W * 0.5, '#14110F'], [W * 0.7, '#E8731C']]) { ctx.strokeStyle = 'rgba(255,255,255,.2)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(bx, 0); ctx.lineTo(bx, 64); ctx.stroke(); ctx.fillStyle = c; ctx.beginPath(); ctx.moveTo(bx - 15, 64); ctx.lineTo(bx + 15, 64); ctx.lineTo(bx + 15, 106); ctx.lineTo(bx, 116); ctx.lineTo(bx - 15, 106); ctx.closePath(); ctx.fill(); ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.stroke(); texto(ctx, 'MANO', bx, 82, 6.5, 'rgba(255,255,255,.85)', 800); texto(ctx, 'A MANO', bx, 94, 6.5, 'rgba(255,255,255,.85)', 800); }
-      // tres bandejas con la gente; la de abajo, más cerca y más grande
-      ctx.save(); const paleta = ['#E8731C', '#fff', '#E8E337', '#8bb4ff', '#fff', '#C2542E'];
-      for (let b = 0; b < 3; b++) { const y0 = hz - 150 + b * 50, hgt = 46; const tg = ctx.createLinearGradient(0, y0, 0, y0 + hgt); tg.addColorStop(0, b === 2 ? '#2A2436' : '#1C1826'); tg.addColorStop(1, b === 2 ? '#3A3148' : '#2A2436'); ctx.fillStyle = tg; ctx.fillRect(0, y0, W, hgt); ctx.fillStyle = 'rgba(255,255,255,.08)'; ctx.fillRect(0, y0 + hgt - 2, W, 2);
-        for (let i = 0; i < 120; i++) { const sx = (i * 41 + b * 17 + 7) % W, sy = y0 + 8 + ((i * 29 + b * 5) % (hgt - 12)); ctx.globalAlpha = 0.35 + 0.35 * hash(i + b * 300); ctx.fillStyle = paleta[(i + b) % paleta.length]; ctx.fillRect(sx, sy, 2.2 + b * 0.4, 2.2 + b * 0.4); } ctx.globalAlpha = 1; }
-      // flashes de cámaras, más cuando hay racha
-      const fl = S.racha >= 3 ? 0.5 : 0.12; ctx.fillStyle = '#fff'; for (let i = 0; i < 8; i++) { const paso = Math.floor(S.t * 14); if (hash(paso * 7 + i * 31) < fl) { ctx.globalAlpha = 0.9; ctx.beginPath(); ctx.arc(hash(paso + i * 97) * W, hz - 150 + hash(paso + i * 61) * 140, 2.3, 0, Math.PI * 2); ctx.fill(); } }
-      ctx.restore();
+      // el piso: el parquet hasta la línea de fondo y, más allá, el pasillo oscuro hasta la tribuna
+      { const s0 = cam.p(0, 0, 400).y; const piso = ctx.createLinearGradient(0, s0, 0, H); piso.addColorStop(0, '#D4A066'); piso.addColorStop(1, '#A6713B'); ctx.fillStyle = piso; ctx.fillRect(0, s0, W, H - s0); }
+      { const zb = ARO.z + 1.2; const a = cam.p(-40, 0, zb), b = cam.p(40, 0, zb), c = cam.p(40, 0, zb + 60), d = cam.p(-40, 0, zb + 60); ctx.fillStyle = '#3A2E30'; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.lineTo(c.x, c.y); ctx.lineTo(d.x, d.y); ctx.closePath(); ctx.fill(); }
+      // la tribuna detrás del aro (la referencia de "corto" o "largo"), con flashes si hay racha
+      tribuna3D(cam, S.t, { euforia: S.racha >= 3 ? 0.35 : 0 }, ARO.z + 3.2, false, { FILAS: 14, SUBE: 0.62, ATRAS: 0.72, X0: -24, X1: 24, valla: '#2A2436', fila: ['#2E2838', '#2A2434'], escalon: '#1E1A26', techo: '#5A4E6A' });
+      // el cartel al pie de la tribuna
+      { const zc = ARO.z + 3.1; for (let x = -24; x < 24; x += 6) { const a = cam.p(x, 0, zc), b = cam.p(x + 6, 0, zc), c = cam.p(x + 6, 0.8, zc), d = cam.p(x, 0.8, zc); ctx.fillStyle = (x / 6) % 2 ? '#14110F' : '#E8731C'; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.lineTo(c.x, c.y); ctx.lineTo(d.x, d.y); ctx.closePath(); ctx.fill(); const m = cam.p(x + 3, 0.4, zc); if (m.x > -40 && m.x < W + 40) texto(ctx, 'MANO A MANO', m.x, m.y, Math.max(3, 0.3 * m.k), (x / 6) % 2 ? '#E8731C' : '#14110F', 800); } }
       // el parquet: tablas con vetas
       const piso = ctx.createLinearGradient(0, hz, 0, H); piso.addColorStop(0, '#D4A066'); piso.addColorStop(1, '#A6713B'); ctx.fillStyle = piso; ctx.fillRect(0, hz, W, H - hz);
-      ctx.save(); for (let x = -14; x <= 14; x += 1) { const a = cam.p(x, 0, 1), b = cam.p(x, 0, 60); ctx.strokeStyle = 'rgba(80,40,10,.22)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); if (hash(x + 40) < 0.5) { const c = cam.p(x + 1, 0, 1), d = cam.p(x + 1, 0, 60); ctx.fillStyle = 'rgba(255,230,190,.07)'; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.lineTo(d.x, d.y); ctx.lineTo(c.x, c.y); ctx.closePath(); ctx.fill(); } } ctx.restore();
+      ctx.save(); { const zb = ARO.z + 1.2; for (let x = -14; x <= 14; x += 1) { const a = cam.p(x, 0, cam.z0 + 0.4), b = cam.p(x, 0, zb); ctx.strokeStyle = 'rgba(80,40,10,.22)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); if (hash(x + 40) < 0.5) { const c = cam.p(x + 1, 0, cam.z0 + 0.4), d = cam.p(x + 1, 0, zb); ctx.fillStyle = 'rgba(255,230,190,.07)'; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.lineTo(d.x, d.y); ctx.lineTo(c.x, c.y); ctx.closePath(); ctx.fill(); } } } ctx.restore();
       // las líneas de la cancha, giradas alrededor del aro según el puesto (la cámara siempre mira al aro)
       const giro = PUESTOS[S.puesto].ang;
       const gira = (x, z) => { const dz = z - ARO.z; return { x: x * Math.cos(giro) - dz * Math.sin(giro), z: ARO.z + x * Math.sin(giro) + dz * Math.cos(giro) }; };
@@ -762,7 +807,7 @@
       const p = S.pelota; const pp = cam.p(p.x, p.y, p.z); const r = Math.max(4, p.r * pp.k);
       const detras = p.z > ARO.z;        // la pelota atrás del aro se dibuja antes que el aro
       const fuego = S.racha >= 3;
-      const dibujarPelota = () => { const sp = cam.p(p.x, 0, p.z); if (S.fase === 'vuelo') estela(ctx, cam, S.estela, p.r, fuego); sombra(ctx, sp, r * (1 - clamp(p.y / 5, 0, 0.6)), 0.3); pelotaBasquet(ctx, pp.x, pp.y, r, p.rot, fuego || p.dorada); if (p.dorada) { ctx.save(); ctx.strokeStyle = '#FFD23F'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(pp.x, pp.y, r + 2, 0, Math.PI * 2); ctx.stroke(); ctx.restore(); } };
+      const dibujarPelota = () => { const sp = cam.p(p.x, 0, p.z); if (S.fase === 'vuelo') estela(ctx, cam, S.estela, p.r, fuego); sombra(ctx, sp, Math.max(3, p.r * sp.k) * (1 - clamp(p.y / 7, 0, 0.5)), 0.42); if (S.fase === 'vuelo' && p.y > 0.5) { ctx.save(); ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 1; ctx.setLineDash([3, 4]); ctx.beginPath(); ctx.moveTo(pp.x, pp.y + r); ctx.lineTo(sp.x, sp.y); ctx.stroke(); ctx.restore(); } pelotaBasquet(ctx, pp.x, pp.y, r, p.rot, fuego || p.dorada); if (p.dorada) { ctx.save(); ctx.strokeStyle = '#FFD23F'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(pp.x, pp.y, r + 2, 0, Math.PI * 2); ctx.stroke(); ctx.restore(); } };
       if (detras) dibujarPelota();
       // el aro y la red: dos aros de hilo y doce tiras que se mecen con la pelota
       const ac = cam.p(0, ARO.y, ARO.z); const ar = ARO.r * ac.k; const onda = S.red ? Math.sin(S.red.k * Math.PI) * 7 : 0;

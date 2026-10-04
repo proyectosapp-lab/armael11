@@ -17,11 +17,11 @@ a{color:inherit}
 /* ── cabecera: la marca y los deportes ── */
 .mam-cab{flex:none;padding:calc(var(--arriba) + 8px) 14px 8px;background:var(--papel);display:flex;flex-direction:column;gap:8px;border-bottom:1px solid var(--linea)}
 .mam-marca{display:flex;align-items:center;gap:8px;font-size:15px;font-weight:700;letter-spacing:-.2px}
-.mam-loseta{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:9px;background:var(--tinta);position:relative}
-.mam-loseta i{position:absolute;width:10px;height:10px;border-radius:50%}
-.mam-loseta i.f{background:#fff;left:4px;top:4px}.mam-loseta i.t{background:#E8E337;right:4px;top:4px}.mam-loseta i.n{background:var(--nba);left:10px;bottom:4px}
+.mam-loseta{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:9px;background:var(--tinta);position:relative;overflow:hidden}
+.mam-loseta i{display:none}
+.mam-loseta::before{content:"";position:absolute;inset:0;background:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><path d='M17 78 L17 26 L50 58' fill='none' stroke='%23ffffff' stroke-width='13' stroke-linejoin='round' stroke-linecap='round'/><path d='M83 78 L83 26 L50 58' fill='none' stroke='%23DFF140' stroke-width='13' stroke-linejoin='round' stroke-linecap='round'/><circle cx='50' cy='60' r='11' fill='%23E8731C'/><circle cx='50' cy='60' r='11' fill='none' stroke='%2314110F' stroke-width='2.5'/></svg>") center/100% 100% no-repeat}
 .mam-loseta.grande{width:84px;height:84px;border-radius:24px}
-.mam-loseta.grande i{width:26px;height:26px}.mam-loseta.grande i.f{left:12px;top:12px}.mam-loseta.grande i.t{right:12px;top:12px}.mam-loseta.grande i.n{left:29px;bottom:12px}
+
 .mam-deportes{display:flex;gap:6px}
 .mam-deportes button{flex:1;display:flex;align-items:center;justify-content:center;gap:7px;height:44px;border-radius:12px;border:1px solid var(--linea);background:var(--blanco);color:var(--gris);font-size:14px;font-weight:600}
 .mam-deportes button i{width:10px;height:10px;border-radius:50%;background:currentColor;opacity:.6}
