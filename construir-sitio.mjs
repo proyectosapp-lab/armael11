@@ -352,10 +352,20 @@ function armarPagina(club, op) {
 
 let hechos = 0, sinFeed = [], conJuego = 0;
 
+/* ── EL FEED DE LA RONDA ANTERIOR TAMBIÉN VALE ───────────────────────────
+   Los feeds los arma `todos.mjs` en la raíz, y solo en la ronda COMPLETA. En
+   la ronda corta (una formación nueva, cada quince minutos los días de
+   partido) la raíz está pelada: solo existe el feed de Talleres, que está
+   commiteado. Hasta el 4/10/2026 eso hacía que la ronda corta publicara el
+   sitio con UNA página de club y 29 que no existían (404 en armael11.com y
+   en el paquete de la app) hasta la próxima completa, hasta tres horas.
+   La copia que la última completa dejó en sitio/datos/ sobrevive en el
+   cache del workflow: si en la raíz no hay feed nuevo, se usa esa.        */
 for (const club of CLUBES) {
   const feed = aca("./feed-" + club.id + ".js");
-  if (!existsSync(feed)) { sinFeed.push(club.nom); continue; }
-  copyFileSync(feed, new URL("feed-" + club.id + ".js", DATOS));
+  const guardado = new URL("feed-" + club.id + ".js", DATOS);
+  if (existsSync(feed)) copyFileSync(feed, guardado);
+  else if (!existsSync(guardado)) { sinFeed.push(club.nom); continue; }
 
   const juego = aca("./sitio/datos/cache-" + club.id + ".js");
   const hayJuego = existsSync(juego);

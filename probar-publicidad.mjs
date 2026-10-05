@@ -17,7 +17,7 @@
       script de AdSense en la misma página es una infracción de política, no
       un detalle estético.
    ══════════════════════════════════════════════════════════════════════════ */
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, rmSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 
 const aca = p => new URL(p, import.meta.url);
@@ -162,6 +162,27 @@ try {
     const html = leer("./sitio/talleres-cba.html");
     caso("solo viaja el id, no el bloque de configuración entero",
          !/no-tiene-que-viajar/.test(html));
+  }
+
+  /* ─── 4. LA RONDA CORTA NO BORRA LOS CLUBES ──────────────────────────
+     En la ronda corta la raíz no tiene feeds (los arma todos.mjs solo en la
+     completa) pero sitio/datos/ conserva la copia de la última completa, que
+     el workflow guarda en su cache. Con esa copia la página del club se
+     arma igual. El 4/10/2026 armael11.com estuvo con una sola página de
+     club y la app no se pudo empaquetar por esto. */
+  {
+    const club = "aldosivi";
+    const enRaiz = aca("./feed-" + club + ".js"), guardado = aca("./sitio/datos/feed-" + club + ".js");
+    const habiaGuardado = existsSync(guardado);
+    caso("la prueba corre sin el feed de " + club + " en la raíz (si no, no prueba nada)", !existsSync(enRaiz));
+    if (!habiaGuardado) writeFileSync(guardado, "window.FEED = " + JSON.stringify({ club, items: [] }) + ";\n");
+    try {
+      construir();
+      caso("sin feed en la raíz pero con la copia en sitio/datos, la página del club se arma igual",
+           existsSync(aca("./sitio/" + club + ".html")));
+    } finally {
+      if (!habiaGuardado) for (const f of [guardado, aca("./sitio/" + club + ".html"), aca("./sitio/datos/app-" + club + ".webmanifest")]) rmSync(f, { force: true });
+    }
   }
 } finally {
   /* Pase lo que pase, sitio.json vuelve a ser el de Fausto y el sitio se
