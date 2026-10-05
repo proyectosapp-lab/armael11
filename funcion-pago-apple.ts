@@ -6,6 +6,9 @@
    REEMPLAZANDO lo que había. Mismo nombre a propósito: el webhook de
    RevenueCat y la app ya apuntan acá. "Verify JWT" sigue DESTILDADO.
 
+   v2.1 (4/10): en Play, RevenueCat nombra cada suscripción con su plan base
+   ("…mam.futbol.mensual:mensual"); se reconoce con o sin los dos puntos.
+
    Qué cambia respecto de la versión anterior:
      · Siete productos en vez de tres: los tres viejos de Armá el 11
        (liga/tres/todas) y los cuatro de Mano a mano (futbol/tenis/nba/todo).
@@ -72,8 +75,9 @@ export function activosDe(sub: any, ahora = Date.now()) {
   const subs = (sub && sub.subscriptions) || {};
   const porFamilia: Record<string, any> = {};
   for (const id of Object.keys(subs)) {
-    if (!PLANES[id]) continue;
-    const def = PLANES[id];
+    /* en Play, RevenueCat nombra la suscripción con su plan base ("…futbol.mensual:mensual"): se mira lo de antes de los dos puntos */
+    const def = PLANES[id] || PLANES[String(id).split(":")[0]];
+    if (!def) continue;
     const s = subs[id] || {};
     const vence = Date.parse(String(s.expires_date || ""));
     if (!Number.isFinite(vence) || vence <= ahora) continue;
