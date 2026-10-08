@@ -87,7 +87,7 @@
     const el = $('mam-juga'); const lista = JUEGOS_DE[deporte] || []; const sel = JUGA[deporte] || (lista[0] && lista[0][0]);
     el.innerHTML = `<div class="mam-chips" data-juegos>${lista.map(([k, n]) => `<button type="button" data-j="${k}" aria-pressed="${k === sel ? 'true' : 'false'}">${n}</button>`).join('')}</div><div data-juego></div>`;
     el.querySelectorAll('[data-j]').forEach((b) => b.addEventListener('click', () => { JUGA[deporte] = b.dataset.j; guardar('mam.juga', JUGA); mostrar(); }));
-    if (raiz.mamJuegos && sel && sel !== 'fantasy') raiz.mamJuegos.montar(el.querySelector('[data-juego]'), sel, { vibrar: (t) => N() && N().vibrar(t), compartir: (t) => N() && N().compartir(t, (S().tiendas || {}).play || '', 'Mano a mano'), rival: { nombre: 'el modelo' } });
+    if (raiz.mamJuegos && sel && sel !== 'fantasy') raiz.mamJuegos.montar(el.querySelector('[data-juego]'), sel, { vibrar: (t) => N() && N().vibrar(t), compartir: (t) => N() && N().compartir(t, (S().tiendas || {}).play || '', 'Mano a mano'), rival: { nombre: 'el modelo' }, momento });
   }
   function mostrar() {
     pintarDeportes(); pintarBarra();
@@ -110,6 +110,16 @@
     if (p) { pestana = p; guardar('mam.pestana', p); }
     mostrar();
     N() && N().vibrar('toque');
+  }
+
+  // ── la reseña: después de un poco de uso real ──
+  // Un "momento" es algo que salió bien: un desafío terminado que se mira, una marca personal nueva. Al segundo momento se
+  // pide la reseña (la hoja la decide el sistema), y no se vuelve a pedir por 90 días. Sin premio: Apple lo prohíbe.
+  function momento(motivo) {
+    const n = N(); if (!n || !n.hayNativo()) return;
+    const r = leer('mam.resena', { momentos: 0, pedida: 0 }); r.momentos = (r.momentos || 0) + 1; r.ultimo = motivo;
+    if (r.momentos >= 2 && Date.now() - (r.pedida || 0) > 90 * 864e5) { r.pedida = Date.now(); r.momentos = 0; setTimeout(() => n.pedirResena(), 1500); }
+    guardar('mam.resena', r);
   }
 
   // ── la primera vez ──
@@ -206,11 +216,13 @@
   }
   function contexto() {
     const codigo = desafioPendiente; desafioPendiente = null;
-    return { partidos, modelo, ir: (p) => ir(p), alCambiarCuenta: () => { recargarTodos(); D().refrescarGlobo(); }, codigo };
+    return { partidos, modelo, ir: (p) => ir(p), alCambiarCuenta: () => { recargarTodos(); D().refrescarGlobo(); }, codigo, momento };
   }
 
   // ── la cuenta ──
   let CU_ESTADO = { pases: null, comprando: false, precios: null, aviso: '', bien: false, pedido: false };
+  // un campo de contraseña con el ojito para ver lo que se escribe
+  const campoClave = (nombre, placeholder, autocompletar, requerido) => `<div class="mam-clave"><input class="mam-campo" name="${nombre}" type="password" placeholder="${esc(placeholder)}" autocomplete="${autocompletar}"${requerido ? ' required' : ''}><button type="button" class="mam-ojo" data-ojo aria-label="Mostrar la contraseña" aria-pressed="false"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1.5 12S5.5 5 12 5s10.5 7 10.5 7-4 7-10.5 7S1.5 12 1.5 12z"/><circle cx="12" cy="12" r="3.2"/><line class="tachado" x1="4" y1="20" x2="20" y2="4"/></svg></button></div>`;
   async function pintarCuenta() {
     const raizEl = $('mam-cuenta'); const c = CU(); const n = N(); const nativo = !!(n && n.hayNativo());
     await c.asegurarSesion();
@@ -220,33 +232,44 @@
     const anonima = yo && c.esAnonima && c.esAnonima();
     if (yo && !CU_ESTADO.pases) { try { CU_ESTADO.pases = await c.misPases(); } catch (e) { CU_ESTADO.pases = { futbol: null, tenis: null, nba: null }; } }
     if (nativo && !CU_ESTADO.pedido) { CU_ESTADO.pedido = true; T().arrancar(yo && yo.uid).then(() => T().quienCompra(yo && yo.uid)).then(() => T().traerPrecios()).then((pr) => { CU_ESTADO.precios = pr; if (pestana === 'cuenta') pintarCuenta(); }); }
-    const web = {};
+    // en la web (armael11.com/app) se paga con Mercado Pago: el precio lo dice el servidor (crear-pago), acá no hay números
+    if (!nativo && !CU_ESTADO.web && c.hayBackend()) { CU_ESTADO.web = {}; c.planesWeb().then((pl) => { const m = {}; for (const x of pl || []) m[x.id] = x.precio; CU_ESTADO.web = m; if (pestana === 'cuenta') pintarCuenta(); }).catch(() => {}); }
+    const web = {}; for (const pl of T().PLANES) { const pr = CU_ESTADO.web && CU_ESTADO.web[pl.web]; if (pr) web[pl.id] = pr; }
+    // qué deportes cobran hoy (ajuste cobra / cobra_sacavos / cobra_quinteto): un plan de un deporte abierto no se vende
+    if (yo && !CU_ESTADO.cobra && c.hayBackend()) { CU_ESTADO.cobra = { futbol: true, tenis: true, nba: true }; c.cobra().then((cb) => { CU_ESTADO.cobra = cb; if (pestana === 'cuenta') pintarCuenta(); }); }
     const s = S();
     let html = `<div class="mam-seccion"><span>Cuenta</span><small>${yo ? esc(perfil ? perfil.usuario : '') : 'sin cuenta todavía'}</small></div>`;
     if (!yo) {
+      /* UNA sola pantalla de entrada: el apodo arriba (es lo que necesita el que llega por un desafío) y, plegado, "ya tengo
+         cuenta" con el código por mail como camino principal y la contraseña como segundo. */
+      const conMail = CU_ESTADO.conMail || !!CU_ESTADO.codigoPara;
       html += `<div class="mam-tarjeta">
-        <h2 class="mam-titulo">Entrá con un apodo</h2>
-        <p class="mam-nota">Alcanza para jugar desafíos. Sin mail, sin contraseña.</p>
+        <h2 class="mam-titulo">Jugar con un apodo</h2>
+        <p class="mam-nota">Alcanza para los desafíos. Sin mail ni contraseña.</p>
         <form data-form-apodo class="mam-fila"><input class="mam-campo crece" name="apodo" placeholder="tu apodo" maxlength="16" autocomplete="nickname" required><button class="mam-boton chico" type="submit">Listo</button></form>
-      </div>
-      <div class="mam-tarjeta">
-        <h2 class="mam-titulo">¿Ya tenés cuenta?</h2>
-        <p class="mam-nota">La misma de Armá el 11, Sacá vos o el Quinteto.</p>
-        <form data-form-entrar><input class="mam-campo" name="email" type="email" placeholder="tu mail" autocomplete="email" required><input class="mam-campo" name="clave" type="password" placeholder="contraseña" autocomplete="current-password" required>
-        <div class="mam-fila"><button class="mam-boton chico" type="submit">Entrar</button><button class="mam-boton secundario chico" type="button" data-link>Mandame un link</button></div></form>
+        <p class="mam-nota" style="margin-top:12px">${conMail ? 'Ya con cuenta (la misma de Armá el 11, Sacá vos o el Quinteto):' : `<a href="#" data-con-mail>Ya tengo cuenta: entrar con el mail</a>`}</p>
+        ${!conMail ? '' : CU_ESTADO.codigoPara ? `<p class="mam-nota">Mandamos un código a <b>${esc(CU_ESTADO.codigoPara)}</b>. Escríbelo aquí (si no llega, puede estar en spam).</p>
+        <form data-form-codigo class="mam-fila"><input class="mam-campo crece" name="codigo" inputmode="numeric" autocomplete="one-time-code" placeholder="código" maxlength="10" required><button class="mam-boton chico" type="submit">Entrar</button></form>
+        <div class="mam-fila"><button class="mam-boton secundario chico" type="button" data-otro-mail>Usar otro mail</button></div>`
+        : `<form data-form-entrar><input class="mam-campo" name="email" type="email" placeholder="tu mail" autocomplete="email" required>
+        <div class="mam-fila"><button class="mam-boton chico" type="button" data-codigo>Mandar un código al mail</button></div>
+        <p class="mam-nota" style="margin:10px 0 6px">O con contraseña:</p>
+        ${campoClave('clave', 'contraseña', 'current-password')}
+        <div class="mam-fila"><button class="mam-boton secundario chico" type="submit">Entrar con contraseña</button></div></form>`}
       </div>
       <div class="mam-aviso${CU_ESTADO.bien ? ' bien' : ''}" data-aviso>${esc(CU_ESTADO.aviso)}</div>`;
     } else {
       html += `<div class="mam-tarjeta">
         <h2 class="mam-titulo">Hola, ${esc(perfil ? perfil.usuario : 'jugador')}</h2>
         <form data-form-apodo class="mam-fila"><input class="mam-campo crece" name="apodo" placeholder="cambiar apodo" maxlength="16" value="${esc(perfil ? perfil.usuario : '')}"><button class="mam-boton secundario chico" type="submit">Cambiar</button></form>
-        ${anonima ? `<p class="mam-nota">Tu cuenta vive en este teléfono. Si querés recuperarla en otro, atale un mail.</p>
-        <form data-form-atar><input class="mam-campo" name="email" type="email" placeholder="tu mail" autocomplete="email" required><input class="mam-campo" name="clave" type="password" placeholder="una contraseña" autocomplete="new-password" required><button class="mam-boton secundario chico" type="submit">Atar el mail</button></form>` : ''}
+        ${anonima ? `<p class="mam-nota">La cuenta vive en este teléfono. Para recuperarla en otro, vincula un mail.</p>
+        <form data-form-atar><input class="mam-campo" name="email" type="email" placeholder="tu mail" autocomplete="email" required>${campoClave('clave', 'una contraseña', 'new-password', true)}<button class="mam-boton secundario chico" type="submit">Vincular el mail</button></form>` : ''}
         <div class="mam-aviso${CU_ESTADO.bien ? ' bien' : ''}" data-aviso>${esc(CU_ESTADO.aviso)}</div>
       </div>`;
-      html += `<div class="mam-seccion"><span>Planes</span><small>los desafíos y los juegos son gratis siempre</small></div>
-        <div class="mam-tarjeta" data-planes>${T().panelHTML({ pases: CU_ESTADO.pases || {}, nativo, precios: CU_ESTADO.precios, preciosWeb: web, comprando: CU_ESTADO.comprando })}</div>`;
-      html += `<div class="mam-seccion"><span>Qué seguís</span></div>
+      const conPrueba = nativo && CU_ESTADO.precios && Object.values(CU_ESTADO.precios).some((p) => p && p.prueba);
+      html += `<div class="mam-seccion"><span>Planes</span><small>${conPrueba ? '3 días gratis la primera vez' : 'los desafíos y los juegos son gratis siempre'}</small></div>
+        <div class="mam-tarjeta" data-planes>${T().panelHTML({ pases: CU_ESTADO.pases || {}, nativo, precios: CU_ESTADO.precios, preciosWeb: web, comprando: CU_ESTADO.comprando, cobra: CU_ESTADO.cobra })}</div>`;
+      html += `<div class="mam-seccion"><span>Qué sigues</span></div>
         <div class="mam-tarjeta"><div class="mam-chips" data-sigo>${DEPORTES.map((d) => `<button type="button" data-d="${d}" aria-pressed="${(deportes || DEPORTES).includes(d) ? 'true' : 'false'}">${NOMBRE[d]}</button>`).join('')}</div></div>`;
       html += `<div class="mam-tarjeta">
         <div class="mam-fila" style="justify-content:space-between;flex-wrap:wrap;gap:8px"><button type="button" class="mam-boton secundario chico" data-salir>Salir</button><button type="button" class="mam-boton secundario chico peligro" data-borrar>Borrar mi cuenta</button></div>
@@ -266,12 +289,18 @@
     // `pedido = false`: la tienda se vuelve a presentar con el perfil nuevo (quienCompra). Si no, RevenueCat se queda con un
     // usuario anónimo, Apple cobra y el servidor no encuentra la compra en el perfil de Supabase: cobrado y sin plan.
     form('[data-form-apodo]', async (f) => { await c.entrarConApodo(f.apodo.value); CU_ESTADO.pases = null; CU_ESTADO.pedido = false; CU_ESTADO.aviso = 'Listo.'; CU_ESTADO.bien = true; cambioDeCuenta(); pintarCuenta(); });
-    const fe = form('[data-form-entrar]', async (f) => { await c.entrarConClave(f.email.value, f.clave.value); CU_ESTADO.pases = null; CU_ESTADO.pedido = false; cambioDeCuenta(); pintarCuenta(); });
-    if (fe) { const l = fe.querySelector('[data-link]'); l.addEventListener('click', async () => { l.disabled = true; try { await c.pedirLink(fe.email.value, (S().desafios || {}).dominio + '/'); avisoCuenta('Te mandé un link al mail. Abrilo desde este teléfono.', true); } catch (e) { avisoCuenta(e.message); l.disabled = false; } }); }
-    form('[data-form-atar]', async (f) => { await c.atarMail(f.email.value, f.clave.value); CU_ESTADO.aviso = 'Te mandé un mail para confirmarlo. Mientras tanto, seguís jugando igual.'; CU_ESTADO.bien = true; pintarCuenta(); });
+    const fe = form('[data-form-entrar]', async (f) => { if (!f.clave.value) throw new Error('Escribe la contraseña, o pide un código al mail para entrar sin ella.'); await c.entrarConClave(f.email.value, f.clave.value); CU_ESTADO.pases = null; CU_ESTADO.pedido = false; CU_ESTADO.conMail = false; cambioDeCuenta(); pintarCuenta(); });
+    /* Entrar sin contraseña: un CÓDIGO por mail, no un link. El link abría el navegador del teléfono (y mandaba a
+       armael11.com): la sesión quedaba afuera de la app. El código se escribe acá y la sesión queda acá. */
+    if (fe) { const l = fe.querySelector('[data-codigo]'); l.addEventListener('click', async () => { l.disabled = true; try { CU_ESTADO.codigoPara = await c.pedirCodigo(fe.email.value); pintarCuenta(); } catch (e) { avisoCuenta(e.message); l.disabled = false; } }); }
+    form('[data-form-codigo]', async (f) => { await c.entrarConCodigo(CU_ESTADO.codigoPara, f.codigo.value); CU_ESTADO.codigoPara = null; CU_ESTADO.conMail = false; CU_ESTADO.pases = null; CU_ESTADO.pedido = false; cambioDeCuenta(); pintarCuenta(); });
+    const otro = raizEl.querySelector('[data-otro-mail]'); if (otro) otro.addEventListener('click', () => { CU_ESTADO.codigoPara = null; pintarCuenta(); });
+    const cm = raizEl.querySelector('[data-con-mail]'); if (cm) cm.addEventListener('click', (ev) => { ev.preventDefault(); CU_ESTADO.conMail = true; pintarCuenta(); });
+    raizEl.querySelectorAll('[data-ojo]').forEach((b) => b.addEventListener('click', () => { const i = b.parentElement.querySelector('input'); const ver = i.type === 'password'; i.type = ver ? 'text' : 'password'; b.setAttribute('aria-pressed', ver ? 'true' : 'false'); b.setAttribute('aria-label', ver ? 'Ocultar la contraseña' : 'Mostrar la contraseña'); }));
+    form('[data-form-atar]', async (f) => { await c.atarMail(f.email.value, f.clave.value); CU_ESTADO.aviso = 'Mandamos un mail para confirmarlo. Mientras tanto, se sigue jugando igual.'; CU_ESTADO.bien = true; pintarCuenta(); });
     const salir = raizEl.querySelector('[data-salir]'); if (salir) salir.addEventListener('click', () => { c.salir(); CU_ESTADO = { pases: null, comprando: false, precios: CU_ESTADO.precios, aviso: '', bien: false, pedido: false, web: CU_ESTADO.web }; T().quienCompra(null); cambioDeCuenta(); pintarCuenta(); });
     const borrar = raizEl.querySelector('[data-borrar]'); if (borrar) borrar.addEventListener('click', async () => {
-      if (borrar.dataset.seguro !== '1') { borrar.dataset.seguro = '1'; borrar.textContent = 'Tocá otra vez para borrar todo'; setTimeout(() => { borrar.dataset.seguro = ''; borrar.textContent = 'Borrar mi cuenta'; }, 6000); return; }
+      if (borrar.dataset.seguro !== '1') { borrar.dataset.seguro = '1'; borrar.textContent = 'Toca otra vez para borrar todo'; setTimeout(() => { borrar.dataset.seguro = ''; borrar.textContent = 'Borrar mi cuenta'; }, 6000); return; }
       borrar.disabled = true;
       try { await c.borrarMiCuenta(); CU_ESTADO = { pases: null, comprando: false, precios: CU_ESTADO.precios, aviso: 'Cuenta borrada.', bien: true, pedido: false, web: CU_ESTADO.web }; T().quienCompra(null); cambioDeCuenta(); pintarCuenta(); }
       catch (e) { avisoCuenta(e.message); borrar.disabled = false; }
@@ -295,19 +324,22 @@
   }
   async function comprar(plan) {
     const c = CU(); const n = N(); const nativo = !!(n && n.hayNativo());
-    if (!c.quienSoy()) { avisoCuenta('Primero elegí un apodo.'); return; }
+    if (!c.quienSoy()) { avisoCuenta('Primero elige un apodo.'); return; }
     if (CU_ESTADO.pases) { const pl = T().PLANES.find((x) => x.id === plan); if (pl && pl.da.every((d) => CU_ESTADO.pases[d])) return; }
     CU_ESTADO.comprando = true; await pintarCuenta();
     try {
       if (nativo) {
         await T().comprar(plan);
         await acreditar();
-        CU_ESTADO.aviso = 'Listo. Ya tenés el plan.'; CU_ESTADO.bien = true;
+        CU_ESTADO.aviso = 'Listo. El plan ya está activo.'; CU_ESTADO.bien = true;
         n.vibrar('partido');
       } else {
-        /* en la web no se vende acá: cada deporte se compra en su propio sitio (Mercado Pago, en pesos) */
-        const pl = T().PLANES.find((x) => x.id === plan); const d = pl && pl.da.length === 1 ? pl.da[0] : 'futbol';
-        const url = (S().sitios || {})[d] || ''; if (url) window.open(url + '/#cuenta', '_blank');
+        /* en la web: Mercado Pago, un mes por vez. El servidor arma el link (crear-pago) con el precio y el perfil del
+           token; se va en la misma pestaña y Mercado Pago vuelve a gracias.html → index.html#cuenta. */
+        const pl = T().PLANES.find((x) => x.id === plan);
+        const link = await c.linkDePago(pl ? pl.web : plan);
+        location.href = link;
+        return;
       }
     } catch (e) {
       if (!T().cancelada(e)) CU_ESTADO.aviso = T().textoDeError(e);
@@ -345,6 +377,8 @@
     const c = codigoDe(h); if (c) return abrirDesafio(c);
     if (/^#juegos/.test(h)) { history.replaceState(null, '', location.pathname); ir('juga'); }
     if (/^#desafios/.test(h)) { history.replaceState(null, '', location.pathname); ir('desafios'); }
+    // la vuelta de Mercado Pago (gracias.html → index.html#cuenta): se vuelve a leer qué tiene la persona
+    if (/^#cuenta/.test(h)) { history.replaceState(null, '', location.pathname); CU_ESTADO.pases = null; ir('cuenta'); }
   }
 
   // ── la red ──
@@ -375,5 +409,5 @@
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', arrancar); else arrancar();
 
-  raiz.mam = { ir, partidos, modelo, abrirDesafio, recargarTodos, estado: () => ({ deportes, deporte, pestana }), _marcos: marcos };
+  raiz.mam = { ir, partidos, modelo, abrirDesafio, recargarTodos, momento, estado: () => ({ deportes, deporte, pestana }), _marcos: marcos };
 })(typeof window !== 'undefined' ? window : globalThis);

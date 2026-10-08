@@ -78,6 +78,12 @@
       return true;
     } catch (e) { console.error('push', e); return false; }
   }
+  // la reseña en la tienda (App Store / Play): la hoja nativa, que el sistema muestra o no (Apple: hasta 3 veces al año).
+  // Nunca a cambio de nada: Apple lo prohíbe. Cuándo pedirla lo decide el cascarón (momentos de uso real).
+  async function pedirResena() {
+    const p = P(); if (!p || !p.InAppReview) return false;
+    try { await p.InAppReview.requestReview(); return true; } catch (e) { return false; }
+  }
   // el link universal (armael11.com/desafio.html#CODIGO) con la app ya instalada: Capacitor avisa por appUrlOpen
   function alAbrirLink(fn) {
     const p = P(); if (!p || !p.App) return false;
@@ -92,5 +98,5 @@
     } catch (e) {}
   }
   if (typeof document !== 'undefined') { if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bajarDeLaHora); else bajarDeLaHora(); }
-  raiz.mamNativo = { hayNativo, plataforma, esIos, esAndroid, vibrar, compartir, compartirImagen, abrir, engancharLinks, hayRed, alCambiarRed, pedirAvisos, alAbrirLink };
+  raiz.mamNativo = { hayNativo, plataforma, esIos, esAndroid, vibrar, compartir, compartirImagen, abrir, engancharLinks, hayRed, alCambiarRed, pedirAvisos, alAbrirLink, pedirResena };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -19,6 +19,8 @@
   }
   let raizEl = null, ctx = null, vista = { que: 'lista' }, cache = {};
   const $ = (q) => raizEl.querySelector(q);
+  const guardar = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
+  const leer = (k, def) => { try { const v = localStorage.getItem(k); return v == null ? def : JSON.parse(v); } catch (e) { return def; } };
   const aviso = (t, bien) => { const a = $('[data-aviso]'); if (a) { a.textContent = t || ''; a.classList.toggle('bien', !!bien); } };
   const link = (codigo) => (S().desafios || {}).dominio + ((S().desafios || {}).ruta || '/desafio.html') + '#' + codigo;
 
@@ -30,7 +32,7 @@
       <p class="mam-nota">${esc(porque || 'Un apodo alcanza para jugar. Sin mail, sin contraseña. Es el nombre que van a ver tus amigos en la tabla.')}</p>
       <form data-form-apodo class="mam-fila"><input class="mam-campo crece" name="apodo" placeholder="tu apodo" maxlength="16" autocomplete="nickname" required><button class="mam-boton chico" type="submit">Listo</button></form>
       <div class="mam-aviso" data-aviso></div>
-      <p class="mam-nota">¿Ya tenés cuenta en Armá el 11, Sacá vos o el Quinteto? <a href="#" data-ir-cuenta>Entrá con tu mail</a>.</p>
+      <p class="mam-nota">Si ya tienes cuenta en Armá el 11, Sacá vos o el Quinteto, <a href="#" data-ir-cuenta>entra con tu mail</a>.</p>
     </div>`;
   }
   function engancharApodo(despues) {
@@ -56,7 +58,7 @@
     let mios = [];
     try { mios = (await CU().rpc('mis_desafios')) || []; } catch (e) { aviso(e.message); }
     const ul = $('[data-lista]'); if (!ul) return;
-    if (!mios.length) { ul.innerHTML = `<li class="mam-vacio">Todavía no tenés desafíos. Creá uno y mandale el link a un amigo.</li>${comoFuncionaHTML()}`; return; }
+    if (!mios.length) { ul.innerHTML = `<li class="mam-vacio">Todavía no hay desafíos. Crea uno y mándale el link a un amigo.</li>${comoFuncionaHTML()}`; return; }
     ul.innerHTML = mios.map((d) => `<li><button type="button" class="mam-desafio-item" data-abrir="${esc(d.codigo)}">
       <b>${esc(d.nombre)}</b><span class="puesto">${d.estado === 'abierto' ? '' : (d.puesto || '') + 'º'}</span>
       <small>${d.jugadores} ${d.jugadores === 1 ? 'jugador' : 'jugadores'} · ${d.partidos} ${d.partidos === 1 ? 'partido' : 'partidos'} · <span class="mam-estado ${esc(d.estado.replace(' ', '-'))}">${esc(d.estado)}</span>${d.proximo ? ' · próximo ' + esc(diaTexto(diaDe(Date.parse(d.proximo)))) + ' ' + esc(horaDe(Date.parse(d.proximo))) : ''}</small></button></li>`).join('');
@@ -64,7 +66,7 @@
     actualizarGlobo(mios);
   }
   function comoFuncionaHTML() {
-    return `<div class="mam-tarjeta" style="margin-top:6px"><b>Cómo es</b><p class="mam-nota" style="margin:0">Elegís partidos de fútbol, tenis o NBA, de hoy o de la semana, y mandás el link. Cada uno elige quién gana, a ciegas: las elecciones se ven recién cuando empieza el partido. Un punto por cada partido que elegís bien. El modelo también juega, y pierde seguido.</p></div>`;
+    return `<div class="mam-tarjeta" style="margin-top:6px"><b>Cómo es</b><p class="mam-nota" style="margin:0">Eliges partidos de fútbol, tenis o NBA, de hoy o de la semana, y mandas el link. Cada uno elige quién gana, a ciegas: las elecciones se ven recién cuando empieza el partido. Un punto por cada partido bien elegido. El modelo también juega, y pierde seguido.</p></div>`;
   }
   function actualizarGlobo(mios) {
     const n = (mios || []).filter((d) => d.estado !== 'terminado').length;
@@ -87,7 +89,7 @@
         <button type="button" data-parejos>Los 5 más parejos</button>
       </div>
       <div data-partidos></div>
-      <div class="mam-pegajoso"><span class="crece mam-nota" data-cuenta>Elegí entre 1 y 30 partidos</span><button type="button" class="mam-boton chico" data-crear-ya disabled>Crear</button></div>
+      <div class="mam-pegajoso"><span class="crece mam-nota" data-cuenta>Elige entre 1 y 30 partidos</span><button type="button" class="mam-boton chico" data-crear-ya disabled>Crear</button></div>
       <div class="mam-aviso" data-aviso></div>`;
     $('[data-volver]').addEventListener('click', pintarLista);
     $('[data-nombre]').addEventListener('input', (e) => { NOMBRE = e.target.value; });
@@ -124,7 +126,7 @@
       pintarPartidos();
     }));
     $('[data-filtro]').querySelectorAll('[data-f]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.f === FILTRO ? 'true' : 'false'));
-    const n = SEL.size; $('[data-cuenta]').textContent = n ? `${n} ${n === 1 ? 'partido' : 'partidos'} elegidos` : 'Elegí entre 1 y 30 partidos'; $('[data-crear-ya]').disabled = !n;
+    const n = SEL.size; $('[data-cuenta]').textContent = n ? `${n} ${n === 1 ? 'partido' : 'partidos'} elegidos` : 'Elige entre 1 y 30 partidos'; $('[data-crear-ya]').disabled = !n;
   }
   async function crearYa() {
     const b = $('[data-crear-ya]'); b.disabled = true; aviso('Creando…');
@@ -171,7 +173,7 @@
     if (!d) { raizEl.innerHTML = `<div class="mam-vacio">Ese desafío no existe.</div><button type="button" class="mam-boton secundario" data-volver>Volver</button>`; $('[data-volver]').addEventListener('click', pintarLista); return; }
     cache[codigo] = d;
     if (necesitaApodo()) {
-      raizEl.innerHTML = `<div class="mam-seccion"><span>Te desafiaron</span></div>${resumenHTML(d)}${apodoHTML(`${d.creador ? esc(d.creador) + ' te desafió' : 'Te desafiaron'}: ${d.partidos.length} ${d.partidos.length === 1 ? 'partido' : 'partidos'}. Elegí un apodo para entrar.`)}`;
+      raizEl.innerHTML = `<div class="mam-seccion"><span>Te desafiaron</span></div>${resumenHTML(d)}${apodoHTML(`${d.creador ? esc(d.creador) + ' te desafió' : 'Te desafiaron'}: ${d.partidos.length} ${d.partidos.length === 1 ? 'partido' : 'partidos'}. Elige un apodo para entrar.`)}`;
       engancharApodo(() => unirme(codigo)); return;
     }
     if (!d.soy) {
@@ -195,7 +197,7 @@
         <h2 class="mam-titulo">${esc(d.nombre)}</h2>
         <div class="mam-codigo"><span class="mam-nota">Código del desafío</span><b>${esc(d.codigo)}</b></div>
         <div class="mam-fila"><button type="button" class="mam-boton chico crece" data-compartir>Mandar el link</button>${d.estado !== 'abierto' ? '<button type="button" class="mam-boton secundario chico crece" data-imagen>Imagen de la tabla</button>' : ''}</div>
-        ${recienCreado ? '<p class="mam-nota">Listo. Mandale el link a tus amigos y elegí tus ganadores abajo.</p>' : ''}
+        ${recienCreado ? '<p class="mam-nota">Listo. Mándales el link a tus amigos y elige tus ganadores abajo.</p>' : ''}
         ${pendientes ? `<p class="mam-nota">Te faltan ${pendientes} ${pendientes === 1 ? 'partido' : 'partidos'} por elegir.</p>` : ''}
       </div>
       <div class="mam-aviso" data-aviso></div>`;
@@ -209,13 +211,15 @@
       <div class="mam-tarjeta"><table class="mam-tabla"><thead><tr><th>#</th><th>jugador</th><th>elegidos</th><th>puntos</th></tr></thead><tbody>
       ${jugadores.map((j, i) => `<tr class="${j.yo ? 'yo' : ''}${j.modelo ? ' modelo' : ''}"><td>${i + 1}</td><td>${esc(j.apodo)}${j.creador ? ' <small class="mam-nota">(lo armó)</small>' : ''}</td><td>${j.elegidos}/${d.partidos.length}</td><td>${j.puntos}</td></tr>`).join('')}
       </tbody></table>
-      ${d.modelo_juega > 0 ? '<p class="mam-nota">El modelo elige antes de que empiece cada partido y se revela cuando empieza, igual que vos.</p>' : ''}
+      ${d.modelo_juega > 0 ? '<p class="mam-nota">El modelo elige antes de que empiece cada partido y se revela cuando empieza, igual que todos.</p>' : ''}
       ${d.estado === 'terminado' ? '<button type="button" class="mam-boton" data-revancha>Revancha</button>' : ''}
       </div>`;
     raizEl.innerHTML = html;
     $('[data-volver]').addEventListener('click', pintarLista);
     $('[data-compartir]').addEventListener('click', () => compartir(d));
     const im = $('[data-imagen]'); if (im) im.addEventListener('click', () => imagen(d));
+    /* un desafío terminado en el que jugué, visto por primera vez: un momento para la reseña (una vez por desafío) */
+    if (d.estado === 'terminado' && (d.jugadores || []).some((j) => j.yo) && ctx.momento) { const v = leer('mam.vistos', []); if (!v.includes(d.codigo)) { v.push(d.codigo); guardar('mam.vistos', v.slice(-50)); try { ctx.momento('desafio'); } catch (e) {} } }
     const rv = $('[data-revancha]'); if (rv) rv.addEventListener('click', () => pintarCrear({ nombre: 'Revancha: ' + d.nombre.replace(/^Revancha: /, '').slice(0, 50) }));
     raizEl.querySelectorAll('[data-elegir]').forEach((b) => b.addEventListener('click', () => elegir(d, b.dataset.deporte, b.dataset.partido, Number(b.dataset.elegir))));
   }
@@ -229,7 +233,7 @@
       return `<button type="button" class="${cls}" data-elegir="${i}" data-deporte="${esc(p.deporte)}" data-partido="${esc(p.partido)}" aria-pressed="${p.mia === i ? 'true' : 'false'}" ${bloqueado ? 'disabled' : ''}>${esc(nombre)}</button>`;
     });
     const estado = p.resultado ? (p.mia == null ? 'no elegiste' : p.mia === p.resultado ? '✓ la tuya' : 'no fue')
-      : bloqueado ? 'empezó: cerrado' : (p.mia == null ? 'elegí' : 'elegido');
+      : bloqueado ? 'empezó: cerrado' : (p.mia == null ? 'elegir' : 'elegido');
     let revelado = '';
     if (p.empezo) {
       const otros = Object.entries(p.elecciones || {}).map(([a, e]) => `<span><b>${esc(a)}</b> ${esc(NOMBRE_OP(p, e))}</span>`);
@@ -251,10 +255,10 @@
     } catch (e) { aviso(e.message); if (/empezó/.test(e.message)) abrir(d.codigo); }
   }
   async function compartir(d) {
-    const texto = `Te desafío en Mano a mano: "${d.nombre}", ${d.partidos.length} ${d.partidos.length === 1 ? 'partido' : 'partidos'}. Elegí quién gana y vemos quién sabe más. Código ${d.codigo}.`;
+    const texto = `Te desafío en Mano a mano: "${d.nombre}", ${d.partidos.length} ${d.partidos.length === 1 ? 'partido' : 'partidos'}. Elige quién gana y vemos quién sabe más. Código ${d.codigo}.`;
     const n = N();
     if (n && await n.compartir(texto, link(d.codigo), 'Mandar el desafío')) return;
-    try { await navigator.clipboard.writeText(texto + ' ' + link(d.codigo)); aviso('Link copiado. Pegalo donde quieras.', true); } catch (e) { aviso('El link: ' + link(d.codigo), true); }
+    try { await navigator.clipboard.writeText(texto + ' ' + link(d.codigo)); aviso('Link copiado. Pégalo donde quieras.', true); } catch (e) { aviso('El link: ' + link(d.codigo), true); }
   }
   // la imagen de la tabla: 1080×1350, dibujada acá, sin fotos ni logos
   function imagen(d) {

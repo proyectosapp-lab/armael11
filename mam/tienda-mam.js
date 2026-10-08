@@ -6,13 +6,15 @@
 (function (raiz) {
   'use strict';
   // Los ids tienen que coincidir LETRA POR LETRA con App Store Connect, Play Console, RevenueCat y pago-tiendas.ts.
+  // `web` es el nombre del mismo plan en crear-pago (Mercado Pago, para armael11.com/app): el precio en pesos vive allá.
   const PLANES = [
-    { id: 'mam.futbol', producto: 'com.armael11.app.mam.futbol.mensual', nombre: 'Fútbol', detalle: 'el simulador en las once ligas, sin tope', da: ['futbol'] },
-    { id: 'mam.tenis',  producto: 'com.armael11.app.mam.tenis.mensual',  nombre: 'Tenis',  detalle: 'el número, la perilla y la simulación de cada partido ATP', da: ['tenis'] },
-    { id: 'mam.nba',    producto: 'com.armael11.app.mam.nba.mensual',    nombre: 'NBA',    detalle: 'el número y la rotación de cada partido', da: ['nba'] },
-    { id: 'mam.todo',   producto: 'com.armael11.app.mam.todo.mensual',   nombre: 'Todo',   detalle: 'fútbol, tenis y NBA', da: ['futbol', 'tenis', 'nba'], todo: true },
+    { id: 'mam.futbol', producto: 'com.armael11.app.mam.futbol.mensual', web: 'futbol', nombre: 'Fútbol', detalle: 'el simulador en las once ligas, sin tope', da: ['futbol'] },
+    { id: 'mam.tenis',  producto: 'com.armael11.app.mam.tenis.mensual',  web: 'tenis',  nombre: 'Tenis',  detalle: 'el número, la perilla y la simulación de cada partido ATP', da: ['tenis'] },
+    { id: 'mam.nba',    producto: 'com.armael11.app.mam.nba.mensual',    web: 'nba',    nombre: 'NBA',    detalle: 'el número y la rotación de cada partido', da: ['nba'] },
+    { id: 'mam.todo',   producto: 'com.armael11.app.mam.todo.mensual',   web: 'todo',   nombre: 'Todo',   detalle: 'fútbol, tenis y NBA', da: ['futbol', 'tenis', 'nba'], todo: true },
   ];
-  const LETRA_CHICA = 'Se renueva sola todos los meses hasta que la canceles. Se cancela cuando quieras desde los ajustes de tu teléfono (Suscripciones), y seguís teniendo el plan hasta el final del mes pago. Los desafíos, los juegos y los resultados son gratis siempre.';
+  const LETRA_CHICA = 'Se renueva sola todos los meses hasta que se cancele. Se cancela cuando quieras desde los ajustes del teléfono (Suscripciones), y el plan sigue activo hasta el final del mes pago. Los desafíos, los juegos y los resultados son gratis siempre.';
+  const LETRA_WEB = 'En la web se paga con Mercado Pago, un mes por vez y sin renovación automática: el mes se suma a lo que te quede. Los desafíos, los juegos y los resultados son gratis siempre.';
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const S = () => raiz.MAM_SITIO || {};
   const N = () => raiz.mamNativo || null;
@@ -60,10 +62,10 @@
   function cancelada(e) { if (!e) return false; if (e.userCancelled === true || e.userCancelled === 'true') return true; if (String(e.code) === '1') return true; return /cancel/i.test(String(e.message || '')); }
   function textoDeError(e) {
     const m = String((e && e.message) || '');
-    if (/network|conexión|connection|internet/i.test(m)) return 'No pude hablar con la tienda. Fijate la conexión y probá de nuevo.';
+    if (/network|conexión|connection|internet/i.test(m)) return 'No pudimos hablar con la tienda. Revisa la conexión y prueba de nuevo.';
     if (/not allowed|restricted|permission/i.test(m)) return 'Este teléfono tiene las compras restringidas.';
-    if (/already|pending/i.test(m)) return 'Esa compra ya está en curso. Esperá unos segundos y probá otra vez.';
-    return 'No pude completar la compra. Si te llegó el cobro, tocá Restaurar compras.';
+    if (/already|pending/i.test(m)) return 'Esa compra ya está en curso. Espera unos segundos y prueba otra vez.';
+    return 'No pudimos completar la compra. Si llegó el cobro, toca Restaurar compras.';
   }
   async function comprar(planId) {
     const T = await lista(); if (!T) throw new Error('La compra no está disponible en este teléfono.');
@@ -78,19 +80,23 @@
   // Restaurar compras · Términos · Privacidad. `pases` = { futbol: hasta|null, tenis, nba } según el servidor.
   function panelHTML(o) {
     o = o || {}; const pases = o.pases || {}; const nativo = !!o.nativo; const precios = o.precios || PRECIOS; const web = o.preciosWeb || {};
+    const cobra = o.cobra || null;   // { futbol, tenis, nba }: false = ese deporte hoy es abierto para todos, no se vende
     const tiene = (plan) => plan.da.every((d) => pases[d]);
     const filas = PLANES.map((plan) => {
       const activo = tiene(plan);
+      const abierto = !!cobra && plan.da.every((d) => cobra[d] === false);
       const pr = nativo ? (precios && precios[plan.id]) : null;
-      const precio = nativo ? (pr ? pr.precio + ' / mes' : '…') : (web[plan.id] ? '$' + Number(web[plan.id]).toLocaleString('es-AR') + ' / mes' : 'se compra en el sitio');
-      const prueba = nativo && pr && pr.prueba ? ` · ${pr.prueba} días gratis la primera vez` : '';
-      return `<button type="button" class="mam-plan${plan.todo ? ' todo' : ''}${activo ? ' activo' : ''}" data-plan="${plan.id}" ${o.comprando ? 'disabled' : ''}>
-        <b>${esc(plan.nombre)}${plan.todo ? ' · los tres deportes' : ''}</b><small>${esc(plan.detalle)}${esc(prueba)}</small>
-        <span class="precio">${activo ? 'tenés hasta el ' + esc(fechaCorta(pases[plan.da[0]])) : esc(precio)}</span></button>`;
+      const precio = nativo ? (pr ? pr.precio + ' / mes' : '…') : (web[plan.id] ? '$' + Number(web[plan.id]).toLocaleString('es-AR') + ' / mes' : '…');
+      /* la prueba gratis la pone la tienda (oferta introductoria): se muestra como lo que es, y el botón dice qué hace */
+      const prueba = nativo && pr && pr.prueba ? pr.prueba : 0;
+      const accion = activo ? 'activo hasta el ' + esc(fechaCorta(pases[plan.da[0]])) : abierto ? 'por ahora, abierto para todos' : prueba ? `probar ${prueba} días gratis · después ${esc(precio)}` : esc(precio);
+      return `<button type="button" class="mam-plan${plan.todo ? ' todo' : ''}${activo ? ' activo' : ''}${abierto ? ' abierto' : ''}" data-plan="${plan.id}" ${o.comprando || abierto ? 'disabled' : ''}>
+        <b>${esc(plan.nombre)}${plan.todo ? ' · los tres deportes' : ''}</b><small>${esc(plan.detalle)}</small>
+        <span class="precio">${accion}</span></button>`;
     }).join('');
     const s = S();
     return `<div class="mam-planes">${filas}</div>
-      <p class="mam-letra">${esc(LETRA_CHICA)}${!nativo ? ' En la web cada deporte se compra en su sitio, con Mercado Pago y sin renovación automática.' : ''}</p>
+      <p class="mam-letra">${esc(nativo ? LETRA_CHICA : LETRA_WEB)}</p>
       ${!nativo || (precios) ? '' : `<p class="mam-letra">Buscando los precios en la tienda…${MOTIVO ? ' (' + esc(MOTIVO) + ')' : ''}</p>`}
       <div class="mam-fila" style="justify-content:space-between;flex-wrap:wrap;gap:6px 12px">
         ${nativo ? '<button type="button" class="mam-boton secundario chico" data-restaurar>Restaurar compras</button>' : '<span></span>'}
@@ -98,6 +104,6 @@
       </div>`;
   }
   function fechaCorta(iso) { try { return new Date(iso).toLocaleDateString('es-AR', { day: 'numeric', month: 'long' }); } catch (e) { return ''; } }
-  raiz.mamTienda = { PLANES, LETRA_CHICA, arrancar, quienCompra, traerPrecios, comprar, restaurar, cancelada, textoDeError, panelHTML, armar,
+  raiz.mamTienda = { PLANES, LETRA_CHICA, LETRA_WEB, arrancar, quienCompra, traerPrecios, comprar, restaurar, cancelada, textoDeError, panelHTML, armar,
     estado: () => ({ precios: PRECIOS, estado: ESTADO, motivo: MOTIVO }) };
 })(typeof window !== 'undefined' ? window : globalThis);

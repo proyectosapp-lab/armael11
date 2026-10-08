@@ -31,9 +31,9 @@
     let d = {}; try { d = JSON.parse(await r.text()); } catch (e) {}
     const cru = d.message || d.error_description || d.msg || d.error || ('HTTP ' + r.status);
     if (/invalid login|invalid credentials/i.test(cru)) return 'Mail o contraseña incorrectos.';
-    if (/rate limit|too many/i.test(cru)) return 'Demasiados intentos seguidos. Esperá un minuto.';
+    if (/rate limit|too many/i.test(cru)) return 'Demasiados intentos seguidos. Espera un minuto.';
     if (/anonymous sign-ins are disabled/i.test(cru)) return 'Falta prender las cuentas anónimas en Supabase (Authentication → Allow anonymous sign-ins).';
-    if (/error sending|failed to send|smtp/i.test(cru)) return 'No pudimos mandarte el mail. No es tu casilla: es nuestro correo. Probá en un rato.';
+    if (/error sending|failed to send|smtp/i.test(cru)) return 'No pudimos mandar el mail. No es tu casilla: es nuestro correo. Prueba en un rato.';
     return cru;
   }
   let renovando = null;
@@ -94,7 +94,7 @@
     const e = limpiarMail(email);
     if (!MAIL_OK(e)) throw new Error('Ese mail no parece un mail.');
     if (String(clave || '').length < 6) throw new Error('La contraseña necesita al menos 6 caracteres.');
-    if (!(await asegurarSesion())) throw new Error('Primero elegí un apodo.');
+    if (!(await asegurarSesion())) throw new Error('Primero elige un apodo.');
     await pedir('/auth/v1/user', { metodo: 'PUT', cuerpo: { email: e, password: clave } });
     return true;   // Supabase manda un mail para confirmar; hasta entonces la cuenta sigue andando igual
   }
@@ -116,11 +116,31 @@
     if (s) await asegurarPerfil(e);
     return { sesion: s, confirmar: !s };
   }
+  // El link del mail: la vuelta va en la DIRECCIÓN (?redirect_to=), no en el cuerpo. Supabase ignora un `options` en el
+  // cuerpo del pedido (eso lo traduce su librería, que acá no se usa) y manda a la Site URL: armael11.com, siempre.
   async function pedirLink(email, volverA) {
     const e = limpiarMail(email);
     if (!MAIL_OK(e)) throw new Error('Ese mail no parece un mail.');
-    await pedir('/auth/v1/otp', { metodo: 'POST', sinToken: true, cuerpo: { email: e, create_user: true, options: { email_redirect_to: volverA } } });
+    await pedir('/auth/v1/otp' + (volverA ? '?redirect_to=' + encodeURIComponent(volverA) : ''), { metodo: 'POST', sinToken: true, cuerpo: { email: e, create_user: true } });
     return true;
+  }
+  // Adentro de la app no sirve un link: el mail se abre en el navegador del teléfono y la sesión queda allá, no en la app.
+  // Por eso la app pide un CÓDIGO: el mismo mail trae seis números ({{ .Token }} en la plantilla de Supabase) y se escriben acá.
+  async function pedirCodigo(email) {
+    const e = limpiarMail(email);
+    if (!MAIL_OK(e)) throw new Error('Ese mail no parece un mail.');
+    await pedir('/auth/v1/otp', { metodo: 'POST', sinToken: true, cuerpo: { email: e, create_user: true } });
+    return e;
+  }
+  async function entrarConCodigo(email, codigo) {
+    const e = limpiarMail(email); const t = String(codigo || '').replace(/\D/g, '');
+    if (t.length < 6) throw new Error('El código son los números que llegaron al mail.');
+    let d;
+    try { d = await pedir('/auth/v1/verify', { metodo: 'POST', sinToken: true, cuerpo: { type: 'email', email: e, token: t } }); }
+    catch (err) { throw new Error(/expired|invalid|otp/i.test(err.message || '') ? 'Ese código no sirve o ya venció. Pide uno nuevo.' : err.message); }
+    if (!guardarSesionDe(d)) throw new Error('No pude entrar.');
+    await asegurarPerfil(e);
+    return sesion;
   }
   // el link del mail vuelve con #access_token=…: se captura y se guarda
   function capturarVuelta() {
@@ -193,6 +213,6 @@
     return d;
   }
   raiz.mamCuentas = { hayBackend, pedir, rpc, quienSoy: () => sesion, asegurarSesion, salir, esAnonima, miPerfil, perfil: () => PERFIL,
-    entrarConApodo, atarMail, entrarConClave, crearCuenta, pedirLink, capturarVuelta, asegurarPerfil, borrarMiCuenta,
+    entrarConApodo, atarMail, entrarConClave, crearCuenta, pedirLink, pedirCodigo, entrarConCodigo, capturarVuelta, asegurarPerfil, borrarMiCuenta,
     misPases, cobra, planesWeb, linkDePago, avisarPagoDeTienda };
 })(typeof window !== 'undefined' ? window : globalThis);

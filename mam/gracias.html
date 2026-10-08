@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>Volviendo del pago · Mano a mano</title>
+<link rel="icon" href="icono.svg" type="image/svg+xml">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="mam.css">
+<style>
+  .mam-gracias { max-width: 520px; margin: 0 auto; padding: 28px 18px 40px; }
+  .mam-gracias h1 { font-size: 26px; margin: 18px 0 6px; }
+  .mam-gracias .mam-nota { margin: 0 0 16px; }
+  .mam-gracias .mam-boton { display: inline-block; text-decoration: none; margin-top: 18px; }
+</style>
+</head>
+<body>
+<div class="mam-app">
+  <header class="mam-cab">
+    <div class="mam-marca"><span class="mam-loseta" aria-hidden="true"><i class="f"></i><i class="t"></i><i class="n"></i></span><b>Mano a mano</b></div>
+  </header>
+  <main class="mam-gracias">
+    <h1 id="tit">Gracias</h1>
+    <p class="mam-nota" id="sub">Estamos confirmando el pago con Mercado Pago.</p>
+    <div class="mam-tarjeta">
+      <p style="margin:0" id="txt">La confirmación la hace el servidor por su lado, así que puede tardar unos segundos. Vuelve a la app: en cuanto figure, el plan aparece solo en tu cuenta.</p>
+    </div>
+    <a class="mam-boton" href="index.html#cuenta" id="volver">Volver a la app</a>
+    <p class="mam-letra" style="margin-top:22px">Si pasan unos minutos y el plan no aparece, no vuelvas a pagar: escríbenos y lo resolvemos. Un pago cobrado siempre se puede acreditar a mano.</p>
+  </main>
+</div>
+<script>
+/* El estado viene en la dirección y por eso no se le cree para nada que importe: solo cambia el texto.
+   Lo que se compró se lee de la base cuando la app vuelve a abrir la cuenta. */
+var q = new URLSearchParams(location.search);
+var e = q.get("estado") || q.get("status") || "";
+if (/falló|failure|rejected/i.test(e)) {
+  document.getElementById("tit").textContent = "No se completó";
+  document.getElementById("sub").textContent = "El pago no se hizo. No se te cobró nada.";
+  document.getElementById("txt").textContent = "Puedes intentarlo de nuevo desde tu cuenta, con el mismo medio de pago u otro.";
+} else if (/pendiente|pending|in_process/i.test(e)) {
+  document.getElementById("tit").textContent = "Quedó pendiente";
+  document.getElementById("sub").textContent = "Es normal si elegiste efectivo o transferencia.";
+  document.getElementById("txt").textContent = "Cuando Mercado Pago lo confirme, el plan aparece solo en tu cuenta. No hace falta hacer nada más.";
+}
+</script>
+</body>
+</html>

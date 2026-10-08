@@ -136,6 +136,13 @@ body.mam-sin-red .mam-sinred{display:block}
 .mam-deportes[hidden]{display:none}
 .mam-boton.peligro{color:#B3261E;border-color:#B3261E}
 .mam-plan.resaltado{outline:3px solid var(--acento,#E8731C);outline-offset:2px}
+.mam-plan .precio{font-size:14px;max-width:46vw;white-space:normal;text-align:right;line-height:1.2}
+.mam-plan.abierto .precio{color:var(--gris);font-weight:600;font-size:12px}
+/* el campo de contraseña con el ojito */
+.mam-clave{position:relative}.mam-clave .mam-campo{padding-right:44px}
+.mam-ojo{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:36px;height:36px;border:0;background:transparent;color:var(--gris);padding:6px;border-radius:10px}
+.mam-ojo svg{width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round}
+.mam-ojo .tachado{display:none}.mam-ojo[aria-pressed="true"] .tachado{display:block}
 .mam-campo+.mam-campo,.mam-campo+.mam-fila,form .mam-boton{margin-top:8px}
 
 /* los juegos */

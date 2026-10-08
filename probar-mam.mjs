@@ -43,7 +43,7 @@ const BASE = "http://127.0.0.1:" + servidor.address().port;
 const UID = "11111111-1111-1111-1111-111111111111";
 const TOKEN = "x." + Buffer.from(JSON.stringify({ sub: UID, exp: 9999999999, is_anonymous: true })).toString("base64url") + ".y";
 const SESION = { access_token: TOKEN, refresh_token: "r", user: { id: UID, is_anonymous: true } };
-let DESAFIO = null; const LLAMADAS = []; let PAGADO = false;   // PAGADO: la tienda simulada ya cobró (ver "la compra adentro del teléfono")
+let DESAFIO = null; const LLAMADAS = []; let PAGADO = false; const COBRA = { futbol: "si", tenis: "si", nba: "si" };   // los ajustes cobra / cobra_sacavos / cobra_quinteto   // PAGADO: la tienda simulada ya cobró (ver "la compra adentro del teléfono")
 async function simularBackend(page) {
   await page.route(/supabase\.co/, async (route) => {
     const req = route.request(); const url = req.url(); const metodo = req.method();
@@ -51,11 +51,13 @@ async function simularBackend(page) {
     const ok = (d, status = 200) => route.fulfill({ status, contentType: "application/json", body: JSON.stringify(d) });
     if (metodo === "OPTIONS") return route.fulfill({ status: 204, headers: { "access-control-allow-origin": "*", "access-control-allow-headers": "*", "access-control-allow-methods": "*" } });
     if (/\/auth\/v1\/signup/.test(url)) return ok(SESION);
+    if (/\/auth\/v1\/otp/.test(url)) { LLAMADAS.push("OTP " + url.replace(/^.*\/auth\/v1\/otp/, "") + " " + req.postData()); return ok({}); }
+    if (/\/auth\/v1\/verify/.test(url)) { const b = req.postDataJSON(); LLAMADAS.push("VERIFY " + JSON.stringify(b)); return b.token === "123456" ? ok({ ...SESION, user: { id: UID, is_anonymous: false } }) : route.fulfill({ status: 403, contentType: "application/json", body: JSON.stringify({ msg: "Token has expired or is invalid" }) }); }
     if (/\/auth\/v1\/user/.test(url)) return ok(SESION.user);
     if (/\/rest\/v1\/perfil/.test(url)) return ok([{ id: SESION.user.id, usuario: "fausto", plan: "gratis", premium_hasta: null }]);
     if (/\/rest\/v1\/pase/.test(url)) return ok(PAGADO ? [{ producto: "sacavos", hasta: new Date(Date.now() + 30 * 864e5).toISOString() }] : []);
     if (/functions\/v1\/pago-apple/.test(url)) { PAGADO = true; LLAMADAS.push("AUTH " + (req.headers()["authorization"] || "")); return ok({ ok: true, plan: "tenis", planes: ["tenis"] }); }
-    if (/\/rest\/v1\/ajuste/.test(url)) return ok([{ clave: "cobra", valor: "no" }, { clave: "cobra_sacavos", valor: "no" }, { clave: "cobra_quinteto", valor: "no" }]);
+    if (/\/rest\/v1\/ajuste/.test(url)) return ok([{ clave: "cobra", valor: COBRA.futbol }, { clave: "cobra_sacavos", valor: COBRA.tenis }, { clave: "cobra_quinteto", valor: COBRA.nba }]);
     if (/\/rest\/v1\/prueba/.test(url)) return ok([]);
     if (/rpc\/ponerme_apodo/.test(url)) return ok("fausto");
     if (/rpc\/mis_desafios/.test(url)) return ok(DESAFIO ? [{ codigo: DESAFIO.codigo, nombre: DESAFIO.nombre, estado: "abierto", partidos: DESAFIO.partidos.length, jugadores: 1, proximo: DESAFIO.partidos[0].empieza, mis_puntos: 0, puesto: 1 }] : []);
@@ -71,7 +73,12 @@ async function simularBackend(page) {
     if (/rpc\/elegir_desafio/.test(url)) { const b = req.postDataJSON(); const p = DESAFIO.partidos.find((x) => x.deporte === b.p_deporte && x.partido === b.p_partido); if (p) p.mia = b.p_eleccion; return ok(null); }
     if (/rpc\/registrar_dispositivo/.test(url)) return ok(null);
     if (/rpc\/mi_prueba|rpc\/mi_pase/.test(url)) return ok([]);
-    if (/functions\/v1\/crear-pago/.test(url)) return ok({ planes: [] });
+    if (/functions\/v1\/crear-pago/.test(url)) {
+      /* la web: el precio lo dice el servidor; el POST arma el link de Mercado Pago (acá, la página de gracias) */
+      if (metodo === "GET") return ok({ planes: [["futbol", 2990], ["tenis", 2990], ["nba", 2990], ["todo", 5990], ["sacavos", 2990], ["liga", 3000]].map(([id, precio]) => ({ id, meses: 1, precio, moneda: "ARS" })) });
+      const b = req.postDataJSON() || {}; LLAMADAS.push("PLAN " + b.plan + " AUTH " + (req.headers()["authorization"] || "")); PAGADO = true;
+      return ok({ link: BASE + "/gracias.html?estado=aprobado", prueba: BASE + "/gracias.html" });
+    }
     return ok([]);
   });
 }
@@ -202,7 +209,12 @@ ok(/fausto/i.test(cuenta), "la cuenta muestra el apodo");
 ok((await page.$$("#mam-cuenta [data-plan]")).length === 4, "cuatro planes: Fútbol, Tenis, NBA, Todo");
 ok(/se renueva sola|Restaurar|Privacidad/i.test(cuenta), "la letra chica de las suscripciones está");
 ok(await page.isVisible("#mam-cuenta [data-borrar]"), "hay Borrar mi cuenta");
-ok(await page.isVisible("#mam-cuenta [data-form-atar]"), "la cuenta anónima ofrece atar un mail");
+ok(await page.isVisible("#mam-cuenta [data-form-atar]"), "la cuenta anónima ofrece vincular un mail");
+ok((await page.$$("#mam-cuenta [data-ojo]")).length === 1 && (await page.getAttribute("#mam-cuenta [data-form-atar] input[name=clave]", "type")) === "password", "la contraseña viene tapada y tiene el ojito");
+await page.click("#mam-cuenta [data-form-atar] [data-ojo]");
+ok((await page.getAttribute("#mam-cuenta [data-form-atar] input[name=clave]", "type")) === "text" && (await page.getAttribute("#mam-cuenta [data-form-atar] [data-ojo]", "aria-pressed")) === "true", "el ojito muestra lo que se escribe");
+await page.click("#mam-cuenta [data-form-atar] [data-ojo]");
+ok((await page.getAttribute("#mam-cuenta [data-form-atar] input[name=clave]", "type")) === "password", "y la vuelve a tapar");
 await page.screenshot({ path: aca("./app/captura-5-cuenta.png") });
 
 console.log("\n── el marco pide los planes ──");
@@ -258,14 +270,15 @@ const CAPACITOR = (plataforma) => `
     purchaseStoreProduct: async (o) => { anotar("purchase", o.product.identifier); return { productIdentifier: o.product.identifier }; },
     restorePurchases: async () => { anotar("restore"); return {}; },
   };
-  window.Capacitor = { isNativePlatform: () => true, getPlatform: () => ${JSON.stringify(plataforma)}, Plugins: { Purchases, Haptics: { impact() {} }, App: { addListener() { return { remove() {} }; } } } };
+  window.__RESENAS = 0;
+  window.Capacitor = { isNativePlatform: () => true, getPlatform: () => ${JSON.stringify(plataforma)}, Plugins: { Purchases, Haptics: { impact() {} }, App: { addListener() { return { remove() {} }; } }, InAppReview: { requestReview: async () => { window.__RESENAS++; } } } };
   try { localStorage.setItem("mam.deportes", '["futbol","tenis","nba"]'); localStorage.setItem("mam.pestana", '"cuenta"'); } catch (e) {}
 `;
 for (const plataforma of ["ios", "android"]) {
   const ctx2 = await navegador.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, locale: "es-AR" });
   const p2 = await ctx2.newPage(); p2.on("pageerror", (e) => errores.push(plataforma + ": " + e.message));
   await simularBackend(p2); await p2.addInitScript(CAPACITOR(plataforma));
-  PAGADO = false; LLAMADAS.length = 0;
+  PAGADO = false; LLAMADAS.length = 0; COBRA.nba = plataforma === "android" ? "no" : "si";   // en Android se prueba un deporte abierto
   await p2.goto(BASE + "/index.html"); await p2.waitForTimeout(1200);
   const rc = () => p2.evaluate(() => window.__RC.llamadas);
   let ll = await rc();
@@ -277,16 +290,72 @@ for (const plataforma of ["ios", "android"]) {
   ll = await rc();
   const login = ll.find((l) => l[0] === "logIn");
   ok(login && login[1] === UID, plataforma + ": con el apodo puesto, RevenueCat se presenta con el perfil de Supabase (logIn " + (login ? login[1].slice(0, 8) : "no") + ")");
-  const planes = await p2.$$eval("#mam-cuenta [data-plan]", (b) => b.map((x) => x.dataset.plan + " " + x.querySelector(".precio").textContent + " · " + x.querySelector("small").textContent));
-  ok(planes.length === 4 && planes.every((t) => /US\$ (1|3),99 \/ mes/.test(t)) && planes.every((t) => /3 días gratis/.test(t)), plataforma + ": los cuatro planes muestran el precio de la tienda y la prueba gratis");
+  const planes = await p2.$$eval("#mam-cuenta [data-plan]", (b) => b.map((x) => x.dataset.plan + " " + x.querySelector(".precio").textContent));
+  const vendibles = planes.filter((t) => !/^mam\.nba /.test(t) || plataforma === "ios");
+  ok(planes.length === 4 && vendibles.every((t) => /probar 3 días gratis · después US\$ (1|3),99 \/ mes/.test(t)), plataforma + ": los planes ofrecen la prueba de la tienda: 'probar 3 días gratis · después el precio' (" + planes.join(" · ") + ")");
+  if (plataforma === "android") ok(/mam\.nba por ahora, abierto para todos/.test(planes.join(" · ")) && (await p2.$eval('#mam-cuenta [data-plan="mam.nba"]', (b) => b.disabled)), "un deporte con el cobro apagado no se vende: 'por ahora, abierto para todos', botón apagado");
+  ok(/3 días gratis la primera vez/.test(await p2.textContent("#mam-cuenta")), plataforma + ": y el título de Planes lo dice");
   await p2.click('#mam-cuenta [data-plan="mam.tenis"]'); await p2.waitForTimeout(1500);
   ll = await rc(); const compra = ll.find((l) => l[0] === "purchase");
   ok(compra && /^com\.armael11\.app\.mam\.tenis\.mensual(:mensual)?$/.test(compra[1]), plataforma + ": tocar Tenis compra ese producto en la tienda (" + (compra ? compra[1] : "no") + ")");
   ok(ll.findIndex((l) => l[0] === "logIn") < ll.findIndex((l) => l[0] === "purchase"), plataforma + ": y la presentación (logIn) fue ANTES de la compra");
   ok(LLAMADAS.some((l) => /^AUTH Bearer x\./.test(l)), plataforma + ": después de comprar le avisa al servidor (pago-apple) con el token de la sesión");
   const txt = await p2.textContent("#mam-cuenta");
-  ok(/Ya tenés el plan/.test(txt) && /tenés hasta el/.test(await p2.textContent('#mam-cuenta [data-plan="mam.tenis"]')), plataforma + ": la pantalla dice 'Ya tenés el plan' y Tenis muestra hasta cuándo");
+  ok(/El plan ya está activo/.test(txt) && /activo hasta el/.test(await p2.textContent('#mam-cuenta [data-plan="mam.tenis"]')), plataforma + ": la pantalla dice que el plan está activo y Tenis muestra hasta cuándo");
+  if (plataforma === "ios") {
+    /* la reseña: al segundo momento de uso real, y no de nuevo por 90 días */
+    await p2.evaluate(() => window.mam.momento("marca")); await p2.waitForTimeout(100);
+    ok((await p2.evaluate(() => window.__RESENAS)) === 0, "un solo momento bueno todavía no pide la reseña");
+    await p2.evaluate(() => window.mam.momento("desafio")); await p2.waitForTimeout(2000);
+    ok((await p2.evaluate(() => window.__RESENAS)) === 1, "al segundo momento (marca personal + desafío terminado) pide la reseña a la tienda");
+    await p2.evaluate(() => { window.mam.momento("marca"); window.mam.momento("marca"); }); await p2.waitForTimeout(2000);
+    ok((await p2.evaluate(() => window.__RESENAS)) === 1, "y no la vuelve a pedir enseguida (90 días)");
+  }
+  COBRA.nba = "si";
   await ctx2.close();
+}
+
+console.log("\n── la compra en la web (Mercado Pago, armael11.com/app) ──");
+{
+  const ctx3 = await navegador.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, locale: "es-AR" });
+  const p3 = await ctx3.newPage(); p3.on("pageerror", (e) => errores.push("web: " + e.message));
+  await simularBackend(p3); PAGADO = false; LLAMADAS.length = 0;
+  await p3.addInitScript(() => { try { localStorage.setItem("mam.deportes", '["futbol","tenis","nba"]'); localStorage.setItem("mam.pestana", '"cuenta"'); } catch (e) {} });
+  await p3.goto(BASE + "/index.html"); await p3.waitForTimeout(1200);
+  await p3.fill("#mam-cuenta [data-form-apodo] input[name=apodo]", "fausto"); await p3.click("#mam-cuenta [data-form-apodo] button"); await p3.waitForTimeout(1200);
+  const planes = await p3.$$eval("#mam-cuenta [data-plan]", (b) => b.map((x) => x.dataset.plan + " " + x.querySelector(".precio").textContent));
+  ok(planes.length === 4 && /mam\.futbol \$2\.990 \/ mes/.test(planes[0]) && /mam\.todo \$5\.990 \/ mes/.test(planes[3]), "los cuatro planes muestran el precio en pesos que dijo el servidor (" + planes.join(" · ") + ")");
+  ok(/Mercado Pago/.test(await p3.textContent("#mam-cuenta")) && !/se compra en el sitio/.test(await p3.textContent("#mam-cuenta")), "la letra chica es la de la web: Mercado Pago, un mes por vez, sin mandar a cada sitio");
+  ok(!/\$ ?2990|2\.990 ?\/ ?mes/.test(readFileSync(join(PRUEBA, "mam.js"), "utf8") + readFileSync(join(PRUEBA, "tienda-mam.js"), "utf8")), "en la app no hay ningún precio escrito");
+  await p3.click('#mam-cuenta [data-plan="mam.tenis"]'); await p3.waitForTimeout(1500);
+  ok(LLAMADAS.some((l) => /^PLAN tenis AUTH Bearer x\./.test(l)), "tocar Tenis le pide el link al servidor con el plan 'tenis' y el token de la sesión");
+  ok(/gracias\.html/.test(p3.url()) && /Gracias/.test(await p3.textContent("h1")), "y se va a Mercado Pago, que vuelve a gracias.html de la app");
+  await p3.click("#volver"); await p3.waitForTimeout(1500);
+  ok(/index\.html$/.test(p3.url().split("#")[0]) && (await p3.isVisible("#mam-cuenta")), "Volver a la app abre la cuenta");
+  ok(/activo hasta el/.test(await p3.textContent('#mam-cuenta [data-plan="mam.tenis"]')), "y la cuenta vuelve a leer el pase: Tenis ya figura");
+  await ctx3.close();
+}
+
+console.log("\n── entrar con un código por mail (no un link) ──");
+{
+  const ctx4 = await navegador.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, locale: "es-AR" });
+  const p4 = await ctx4.newPage(); p4.on("pageerror", (e) => errores.push("código: " + e.message));
+  await simularBackend(p4); LLAMADAS.length = 0;
+  await p4.addInitScript(() => { try { localStorage.setItem("mam.deportes", '["futbol","tenis","nba"]'); localStorage.setItem("mam.pestana", '"cuenta"'); } catch (e) {} });
+  await p4.goto(BASE + "/index.html"); await p4.waitForTimeout(1200);
+  ok(await p4.isVisible("#mam-cuenta [data-form-apodo]") && await p4.isVisible("#mam-cuenta [data-con-mail]") && !(await p4.$("#mam-cuenta [data-form-entrar]")), "una sola pantalla: el apodo arriba y 'ya tengo cuenta' plegado");
+  await p4.click("#mam-cuenta [data-con-mail]"); await p4.waitForTimeout(300);
+  ok(await p4.isVisible("#mam-cuenta [data-codigo]") && !(await p4.$("#mam-cuenta [data-link]")) && (await p4.$$("#mam-cuenta [data-ojo]")).length === 1, "desplegado: pide el mail, ofrece el código (no un link) y la contraseña con ojito");
+  await p4.fill("#mam-cuenta [data-form-entrar] input[name=email]", "Fausto@Mail.com"); await p4.click("#mam-cuenta [data-codigo]"); await p4.waitForTimeout(800);
+  const otp = LLAMADAS.find((l) => /^OTP /.test(l)) || "";
+  ok(/"email":"fausto@mail\.com"/.test(otp) && !/redirect/.test(otp), "pide el código al servidor, con el mail limpio y sin link de vuelta (" + otp.slice(0, 80) + ")");
+  ok(await p4.isVisible("#mam-cuenta [data-form-codigo]") && /fausto@mail\.com/.test(await p4.textContent("#mam-cuenta")), "aparece el campo para escribir el código, con el mail al que se mandó");
+  await p4.fill("#mam-cuenta [data-form-codigo] input[name=codigo]", "000000"); await p4.click("#mam-cuenta [data-form-codigo] button"); await p4.waitForTimeout(800);
+  ok(/no sirve o ya venció/.test(await p4.textContent("#mam-cuenta")), "un código equivocado lo dice en castellano");
+  await p4.fill("#mam-cuenta [data-form-codigo] input[name=codigo]", "123 456"); await p4.click("#mam-cuenta [data-form-codigo] button"); await p4.waitForTimeout(1200);
+  ok(LLAMADAS.some((l) => /^VERIFY .*"type":"email".*"token":"123456"/.test(l)), "el código se verifica como 'email', sin espacios");
+  ok(await p4.isVisible("#mam-cuenta [data-salir]") && JSON.parse(await p4.evaluate(() => localStorage.getItem("tste.sesion"))).uid === UID, "con el código bien, la sesión queda guardada EN la app");
+  await ctx4.close();
 }
 
 console.log("\n── sin desbordes a 390 ──");

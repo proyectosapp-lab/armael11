@@ -120,7 +120,7 @@ workflows:
           /usr/libexec/PlistBuddy -c "Add :UIViewControllerBasedStatusBarAppearance bool false" "$P" || true
           /usr/libexec/PlistBuddy -c "Add :UIStatusBarStyle string UIStatusBarStyleLightContent" "$P" || true
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion $BUILD_NUMBER" "$P"
-          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString 1.1.0" "$P" || true
+          /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString 1.1.1" "$P" || true
           /usr/libexec/PlistBuddy -c "Add :ITSAppUsesNonExemptEncryption bool false" "$P" || /usr/libexec/PlistBuddy -c "Set :ITSAppUsesNonExemptEncryption false" "$P"
           # Compartir la imagen de la tabla guarda un png en el caché de la app: no toca la galería, no hace falta pedir permiso.
           plutil -p "$P" | head -40
@@ -207,7 +207,7 @@ workflows:
           # la versión: el número de compilación de Codemagic (tiene que ser mayor que el de la TWA que está en Play)
           BASE=${ANDROID_VERSION_CODE_BASE:-100}
           sed -i "s/versionCode [0-9]*/versionCode $((BASE + BUILD_NUMBER))/" "$G"
-          sed -i 's/versionName "[^"]*"/versionName "1.1.0"/' "$G"
+          sed -i 's/versionName "[^"]*"/versionName "1.1.1"/' "$G"
           grep -E "versionCode|versionName|applicationId" "$G"
           # el nombre que se ve debajo del ícono
           sed -i 's|<string name="app_name">[^<]*</string>|<string name="app_name">Mano a mano</string>|; s|<string name="title_activity_main">[^<]*</string>|<string name="title_activity_main">Mano a mano</string>|' android/app/src/main/res/values/strings.xml

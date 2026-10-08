@@ -31,7 +31,7 @@
   /* ─── el sonido: todo sintetizado con Web Audio (sin archivos, sin derechos de nadie). Se despierta con el
      primer toque, que es lo que piden los teléfonos. Se apaga con el botón, y queda guardado. ─── */
   const Sonido = (() => {
-    let ctx = null, on = leer('mam.sonido', true) !== false, ruidoBuf = null, amb = null;
+    let ctx = null, on = leer('mam.sonido', false) === true, ruidoBuf = null, amb = null;
     const ac = () => { if (!on) return null; try { const AC = raiz.AudioContext || raiz.webkitAudioContext; if (!AC) return null; ctx = ctx || new AC(); if (ctx.state === 'suspended') ctx.resume(); return ctx; } catch (e) { return null; } };
     const buf = (c) => { if (!ruidoBuf) { ruidoBuf = c.createBuffer(1, c.sampleRate * 2, c.sampleRate); const d = ruidoBuf.getChannelData(0); let s = 1; for (let i = 0; i < d.length; i++) { s = (s * 1664525 + 1013904223) >>> 0; d[i] = (s / 4294967296) * 2 - 1; } } return ruidoBuf; };
     function tono(f0, f1, dur, tipo, vol, retraso) {
@@ -232,7 +232,7 @@
   }
   // la marca personal de cada juego, en el teléfono
   const marcaDe = (juego) => leer('mam.marca.' + juego, null);
-  function anotarMarca(juego, fin, mejor) { const vieja = marcaDe(juego); const nueva = !vieja || mejor(fin, vieja); if (nueva) guardar('mam.marca.' + juego, fin); return nueva; }
+  function anotarMarca(juego, fin, mejor) { const vieja = marcaDe(juego); const nueva = !vieja || mejor(fin, vieja); if (nueva) guardar('mam.marca.' + juego, fin); if (nueva && vieja && O.momento) { try { O.momento('marca'); } catch (e) {} } return nueva; }
 
   /* ═══════════════════════════════ FÚTBOL: el estadio, el arco, las figuras ═══════════════════════════════ */
   const ARCO = { ancho: 7.32, alto: 2.44, poste: 0.06 };
@@ -413,7 +413,7 @@
     texto(ctx, F.grande, W / 2, H * 0.43, 64, '#fff', 800);
     texto(ctx, F.detalle, W / 2, H * 0.52, 14, 'rgba(255,255,255,.8)', 600);
     if (F.marca) { ctx.fillStyle = F.nueva ? 'rgba(232,115,28,.25)' : 'rgba(255,255,255,.1)'; ctx.beginPath(); ctx.roundRect(W / 2 - 120, H * 0.57, 240, 30, 10); ctx.fill(); texto(ctx, F.nueva ? '¡NUEVA MARCA PERSONAL!' : 'Tu mejor: ' + F.marca, W / 2, H * 0.57 + 15, 13, F.nueva ? '#FFB36B' : 'rgba(255,255,255,.85)', 800); }
-    texto(ctx, 'Tocá para jugar otra', W / 2, H * 0.68, 16, '#fff', 700);
+    texto(ctx, 'Toca para jugar otra', W / 2, H * 0.68, 16, '#fff', 700);
     texto(ctx, 'y mandale el resultado a un amigo con Compartir', W / 2, H * 0.72, 11.5, 'rgba(255,255,255,.6)', 600);
     ctx.restore();
   }
@@ -576,7 +576,7 @@
       }
       // HUD
       const yo = S.serie.reduce((a, b) => a + b, 0), el = S.serieRival.reduce((a, b) => a + b, 0);
-      hud(ctx, 'VOS ' + yo, el + ' ' + nombreRival.toUpperCase(), S.fase === 'guia' ? 'Deslizá para patear' : S.tanda === 'yo' && S.fase === 'listo' ? (S.muerteSubita ? 'Muerte súbita: tu penal' : 'Tu penal: deslizá hacia el arco') : S.fase === 'rival-prepara' ? 'Patea él: tocá a dónde te tirás' : S.fase === 'vuelo-rival' ? '¡Tirate!' : '', '#177A40');
+      hud(ctx, 'TÚ ' + yo, el + ' ' + nombreRival.toUpperCase(), S.fase === 'guia' ? 'Desliza para patear' : S.tanda === 'yo' && S.fase === 'listo' ? (S.muerteSubita ? 'Muerte súbita: tu penal' : 'Tu penal: desliza hacia el arco') : S.fase === 'rival-prepara' ? 'Patea él: toca hacia dónde te tiras' : S.fase === 'vuelo-rival' ? '¡Tírate!' : '', '#177A40');
       const nPips = Math.max(5, S.serie.length, S.serieRival.length);
       ctx.save(); tandas(ctx, S.serie.concat(Array(Math.max(0, nPips - S.serie.length)).fill(null)), 24, 62); tandas(ctx, S.serieRival.concat(Array(Math.max(0, nPips - S.serieRival.length)).fill(null)), W - 24, 62, true); ctx.restore();
       if (S.racha >= 2 && S.tanda === 'yo' && S.fase === 'listo') texto(ctx, '🔥 ' + S.racha + ' seguidos', 24, 80, 11, '#FFB36B', 800, 'left');
@@ -584,7 +584,7 @@
       if (S.confeti != null) confeti(ctx, S.t - S.confeti, ['#E8E337', '#3ED17A', '#fff', '#E8731C']);
       if (S.mensaje) cartel(ctx, S.mensaje.t, S.mensaje.sub, S.mensaje.color, S.mensaje.k);
       if (S.corte && S.t < 0.3 && (S.fase === 'listo' || S.fase === 'rival-prepara')) { ctx.save(); ctx.globalAlpha = 1 - S.t / 0.3; ctx.fillStyle = '#05081A'; ctx.fillRect(0, 0, W, H); ctx.restore(); }
-      if (S.fase === 'final') { const f = S.fin, gane = f.yo > f.el; const m = marcaDe('penales'); pantallaFinal(ctx, { k: S.t, titulo: gane ? '¡GANASTE!' : 'PERDISTE', color: gane ? '#3ED17A' : '#FF6B5B', grande: f.yo + ' – ' + f.el, detalle: 'vos · ' + nombreRival + (f.muerteSubita ? ' · muerte súbita' : ''), marca: m ? m.yo + ' – ' + m.el : null, nueva: f.nueva }); }
+      if (S.fase === 'final') { const f = S.fin, gane = f.yo > f.el; const m = marcaDe('penales'); pantallaFinal(ctx, { k: S.t, titulo: gane ? '¡GANASTE!' : 'PERDISTE', color: gane ? '#3ED17A' : '#FF6B5B', grande: f.yo + ' – ' + f.el, detalle: 'tú · ' + nombreRival + (f.muerteSubita ? ' · muerte súbita' : ''), marca: m ? m.yo + ' – ' + m.el : null, nueva: f.nueva }); }
       ctx.restore();
     }
     return { avanzar, dibujar, soltar, mover: null, estado: S, reiniciar };
@@ -641,7 +641,7 @@
       if (res === 'poste') { p.vz = -4; p.vx = -Math.sign(p.x - S.gx) * 2; vibrar('set'); son('poste'); }
       if (res === 'afuera') son('ohh');
       const gol = res === 'gol' ? 1 : 0; S.serie.push(gol); S.racha = gol ? S.racha + 1 : 0;
-      S.mensaje = { t: gol ? (escuadra ? '¡A LA ESCUADRA!' : '¡GOLAZO!') : res === 'barrera' ? 'BARRERA' : res === 'atajada' ? 'ATAJÓ' : res === 'poste' ? 'PALO' : 'AFUERA', sub: gol ? (S.racha >= 2 ? S.racha + ' seguidos' : '') : res === 'barrera' ? 'por arriba, o con comba por el costado' : res === 'afuera' ? 'apuntá al arco: está corrido' : res === 'atajada' ? 'más lejos del arquero' : '', color: gol ? '#3ED17A' : '#FF6B5B', k: 0 };
+      S.mensaje = { t: gol ? (escuadra ? '¡A LA ESCUADRA!' : '¡GOLAZO!') : res === 'barrera' ? 'BARRERA' : res === 'atajada' ? 'ATAJÓ' : res === 'poste' ? 'PALO' : 'AFUERA', sub: gol ? (S.racha >= 2 ? S.racha + ' seguidos' : '') : res === 'barrera' ? 'por arriba, o con comba por el costado' : res === 'afuera' ? 'apunta al arco: está corrido' : res === 'atajada' ? 'más lejos del arquero' : '', color: gol ? '#3ED17A' : '#FF6B5B', k: 0 };
       if (S.arquero.vuelo) S.arquero.vuelo.t0 -= S.t;
       S.fase = 'fin-tiro'; S.t = 0;
     }
@@ -684,13 +684,13 @@
       if (S.fase === 'vuelo') estela(ctx, cam, S.estela, p.r * 1.25, false);
       sombra(ctx, sp, r * (1 - clamp(p.y / 4, 0, 0.6)), 0.35 * (1 - clamp(p.y / 5, 0, 0.7))); pelotaFutbol(ctx, pp.x, pp.y, r, p.rot);
       if (S.fase === 'guia' || (S.fase === 'listo' && S.serie.length === 0)) flechaGuia(ctx, pp.x, pp.y - r - 6, S.t);
-      hud(ctx, 'VOS ' + S.serie.reduce((a, b) => a + b, 0), S.rival + ' ' + nombreRival.toUpperCase(), S.fase === 'guia' ? 'Deslizá curvo para darle comba' : S.fase === 'listo' ? (Math.round(DIST) + ' m · ' + (S.gx > 1 ? 'el arco está a la derecha' : S.gx < -1 ? 'el arco está a la izquierda' : 'de frente')) : '', '#177A40');
+      hud(ctx, 'TÚ ' + S.serie.reduce((a, b) => a + b, 0), S.rival + ' ' + nombreRival.toUpperCase(), S.fase === 'guia' ? 'Desliza curvo para darle comba' : S.fase === 'listo' ? (Math.round(DIST) + ' m · ' + (S.gx > 1 ? 'el arco está a la derecha' : S.gx < -1 ? 'el arco está a la izquierda' : 'de frente')) : '', '#177A40');
       ctx.save(); tandas(ctx, S.serie.concat(Array(Math.max(0, 5 - S.serie.length)).fill(null)), 24, 62); ctx.restore();
       texto(ctx, 'tiro ' + Math.min(5, S.serie.length + 1) + ' de 5' + (S.escuadras ? ' · ◥ ' + S.escuadras : ''), W - 24, 62, 11, S.escuadras ? '#FFB36B' : 'rgba(255,255,255,.8)', 800, 'right');
       lecturaGesto(ctx, S.lectura, S.fase === 'vuelo' ? S.t : S.fase === 'fin-tiro' && S.lectura ? S.t + 1 : 9);
       if (S.confeti != null) confeti(ctx, S.t - S.confeti, ['#E8E337', '#3ED17A', '#fff', '#E8731C']);
       if (S.mensaje) cartel(ctx, S.mensaje.t, S.mensaje.sub, S.mensaje.color, S.mensaje.k);
-      if (S.fase === 'final') { const g = S.fin.goles, rv = S.fin.rival; const m = marcaDe('libre'); pantallaFinal(ctx, { k: S.t, titulo: g > rv ? '¡LE GANASTE!' : g === rv ? 'EMPATE' : 'GANÓ EL MODELO', color: g > rv ? '#3ED17A' : g === rv ? '#E8E337' : '#FF6B5B', grande: g + ' – ' + rv, detalle: 'vos · ' + nombreRival + ', de 5 cada uno' + (S.escuadras ? ' · ' + S.escuadras + ' a la escuadra' : ''), marca: m ? m.goles + ' de 5' : null, nueva: S.fin.nueva }); }
+      if (S.fase === 'final') { const g = S.fin.goles, rv = S.fin.rival; const m = marcaDe('libre'); pantallaFinal(ctx, { k: S.t, titulo: g > rv ? '¡LE GANASTE!' : g === rv ? 'EMPATE' : 'GANÓ EL MODELO', color: g > rv ? '#3ED17A' : g === rv ? '#E8E337' : '#FF6B5B', grande: g + ' – ' + rv, detalle: 'tú · ' + nombreRival + ', de 5 cada uno' + (S.escuadras ? ' · ' + S.escuadras + ' a la escuadra' : ''), marca: m ? m.goles + ' de 5' : null, nueva: S.fin.nueva }); }
       ctx.restore();
     }
     return { avanzar, dibujar, soltar, estado: S, reiniciar };
@@ -821,7 +821,7 @@
       if (S.flash > 0) { ctx.save(); ctx.globalAlpha = 0.25 * S.flash; ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H); ctx.restore(); }
       if (S.fase === 'guia' || (S.fase === 'listo' && S.tiros === 0)) flechaGuia(ctx, pp.x, pp.y - r - 6, S.t);
       const seg = Math.ceil(S.tiempo);
-      hud(ctx, 'VOS ' + S.puntos, seg + ' s', S.fase === 'guia' ? 'Deslizá hacia arriba para tirar' : S.fase === 'listo' ? PUESTOS[S.puesto].n + (dorada() ? ' · la dorada vale doble' : '') : '', seg <= 10 ? '#FF6B5B' : '#E8731C');
+      hud(ctx, 'TÚ ' + S.puntos, seg + ' s', S.fase === 'guia' ? 'Desliza hacia arriba para tirar' : S.fase === 'listo' ? PUESTOS[S.puesto].n + (dorada() ? ' · la dorada vale doble' : '') : '', seg <= 10 ? '#FF6B5B' : '#E8731C');
       if (S.fase !== 'final') texto(ctx, nombreRival + ' hizo ' + S.rival, W / 2, 29, 10.5, 'rgba(255,255,255,.7)', 700);
       // las cinco pelotas del puesto: las tiradas, la que viene, y la dorada al final
       ctx.save(); for (let i = 0; i < POR_PUESTO; i++) { const cx = 24 + i * 15; ctx.beginPath(); ctx.arc(cx, 62, 5.5, 0, Math.PI * 2); ctx.fillStyle = i < S.enPuesto ? 'rgba(255,255,255,.3)' : i === POR_PUESTO - 1 ? '#FFD23F' : '#F0862E'; ctx.fill(); if (i === S.enPuesto) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke(); } } ctx.restore();
@@ -829,7 +829,7 @@
       if (seg <= 10 && S.fase !== 'final' && S.fase !== 'guia') { ctx.save(); ctx.globalAlpha = 0.6 + 0.4 * Math.sin(S.t * 10); texto(ctx, String(seg), W / 2, 90, 44, '#FF6B5B', 800); ctx.restore(); }
       if (S.confeti != null) confeti(ctx, S.t - S.confeti, ['#FFD23F', '#F0862E', '#fff']);
       if (S.mensaje) cartel(ctx, S.mensaje.t, S.mensaje.sub, S.mensaje.color, S.mensaje.k);
-      if (S.fase === 'final') { const f = S.fin; const m = marcaDe('triples'); pantallaFinal(ctx, { k: S.t, fondo: 'rgba(11,10,20,.88)', titulo: f.puntos > f.rival ? (f.puntos >= 45 ? '¡EN LLAMAS!' : '¡LE GANASTE!') : f.puntos === f.rival ? 'EMPATE' : 'GANÓ EL MODELO', color: f.puntos > f.rival ? (f.puntos >= 45 ? '#FFD23F' : '#3ED17A') : f.puntos === f.rival ? '#E8E337' : '#FF6B5B', grande: f.puntos + ' – ' + f.rival, detalle: 'vos · ' + nombreRival + ' · ' + f.tiros + ' tiros · mejor racha ' + f.racha, marca: m ? m.puntos + ' pts' : null, nueva: f.nueva }); }
+      if (S.fase === 'final') { const f = S.fin; const m = marcaDe('triples'); pantallaFinal(ctx, { k: S.t, fondo: 'rgba(11,10,20,.88)', titulo: f.puntos > f.rival ? (f.puntos >= 45 ? '¡EN LLAMAS!' : '¡LE GANASTE!') : f.puntos === f.rival ? 'EMPATE' : 'GANÓ EL MODELO', color: f.puntos > f.rival ? (f.puntos >= 45 ? '#FFD23F' : '#3ED17A') : f.puntos === f.rival ? '#E8E337' : '#FF6B5B', grande: f.puntos + ' – ' + f.rival, detalle: 'tú · ' + nombreRival + ' · ' + f.tiros + ' tiros · mejor racha ' + f.racha, marca: m ? m.puntos + ' pts' : null, nueva: f.nueva }); }
       ctx.restore();
     }
     return { avanzar, dibujar, soltar, estado: S, reiniciar };
@@ -838,16 +838,16 @@
   /* ═══════════════════════════════ montar / desmontar ═══════════════════════════════ */
   const JUEGOS = { penales: Penales, libre: TiroLibre, triples: Triples };
   const FICHA = {
-    penales: { titulo: 'Penales', sub: 'Cinco y cinco contra el arquero del modelo, y muerte súbita si empatan. Deslizá hacia el arco: la velocidad del dedo es la fuerza, el largo es la altura. Ojo al amago del arquero. Cuando patea él, tocá a dónde te tirás.' },
-    libre: { titulo: 'Tiro libre', sub: 'Cinco tiros contra los cinco del modelo, cada uno desde un lugar distinto: el arco queda corrido y la barrera tapa el palo cercano. Deslizá curvo y la pelota toma comba: por arriba de la barrera o por el costado, lejos del arquero. A la escuadra vale el aplauso.' },
-    triples: { titulo: 'Triples', sub: 'Sesenta segundos contra el minuto del modelo, cinco pelotas por puesto alrededor del arco. Deslizá hacia arriba: el largo del gesto es la fuerza. Tres puntos cada uno; la dorada de cada puesto vale seis, y con tres seguidos la pelota se prende fuego.' },
+    penales: { titulo: 'Penales', sub: 'Cinco y cinco contra el arquero del modelo, y muerte súbita si empatan. Desliza hacia el arco: la velocidad del dedo es la fuerza, el largo es la altura. Ojo al amago del arquero. Cuando patea él, toca hacia dónde te tiras.' },
+    libre: { titulo: 'Tiro libre', sub: 'Cinco tiros contra los cinco del modelo, cada uno desde un lugar distinto: el arco queda corrido y la barrera tapa el palo cercano. Desliza curvo y la pelota toma comba: por arriba de la barrera o por el costado, lejos del arquero. A la escuadra vale el aplauso.' },
+    triples: { titulo: 'Triples', sub: 'Sesenta segundos contra el minuto del modelo, cinco pelotas por puesto alrededor del arco. Desliza hacia arriba: el largo del gesto es la fuerza. Tres puntos cada uno; la dorada de cada puesto vale seis, y con tres seguidos la pelota se prende fuego.' },
   };
   function montar(el, juego, opciones) {
     desmontar(); O = opciones || {}; RAIZ = el;
     const f = FICHA[juego] || FICHA.penales;
     el.innerHTML = `<div class="mam-juego"><div class="mam-seccion"><span>${esc(f.titulo)}</span><small>gratis siempre</small></div>
       <p class="mam-nota">${esc(f.sub)}</p>
-      <div class="mam-cancha-caja"><canvas class="mam-cancha" aria-label="${esc(f.titulo)}: deslizá para jugar"></canvas></div>
+      <div class="mam-cancha-caja"><canvas class="mam-cancha" aria-label="${esc(f.titulo)}: desliza para jugar"></canvas></div>
       <div class="mam-fila" style="justify-content:space-between"><button type="button" class="mam-boton secundario chico" data-juego-otra>Otra vez</button><button type="button" class="mam-boton secundario chico" data-juego-sonido aria-pressed="${Sonido.activo() ? 'true' : 'false'}">${Sonido.activo() ? 'Sonido: sí' : 'Sonido: no'}</button><button type="button" class="mam-boton secundario chico" data-juego-compartir>Compartir</button></div></div>`;
     CV = el.querySelector('canvas'); CTX = prepararLienzo(CV);
     G = JUEGOS[juego] ? JUEGOS[juego]() : Penales(); G.nombre = juego;
