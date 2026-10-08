@@ -8,6 +8,10 @@
    bien; lo que estaba mal era qué partidos entraban.
    ══════════════════════════════════════════════════════════════════════════ */
 import { calcular, esFaseRegular, rachasDe } from "./stats-calc.mjs";
+import { statsDeLiga, filaDeCalculo, etiquetaTemporada, escribirStatsLigas } from "./stats-ligas.mjs";
+import { mkdtempSync, readFileSync, existsSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { pathToFileURL } from "node:url";
 
 const casos = [];
 const caso = (n, ok, extra = "") => casos.push([n, ok, extra]);
@@ -159,6 +163,59 @@ const final = [pt(7, 1, 3, 3, 0, "Final")];
        "pjXG: " + out2.tabla.map(t => t.pjXG).join(","));
   caso("y la diferencia compara goles y xG del MISMO universo",
        out2.tabla.every(t => Math.abs((t.gfXG - t.xg) - t.xgDif) < 0.05));
+}
+
+
+/* ── 8/10/2026: los Números de las otras diez ligas ──────────────────────
+   Salen de estadisticas/<liga>.json con la misma cuenta. Lo que se prueba
+   es la traducción de formato, el peso y lo que NO debe salir.          */
+{
+  const equipos = ["Alfa", "Beta", "Gama", "Delta", "Eps", "Zeta"];
+  const ps = []; let id = 1;
+  for (let v = 0; v < 2; v++) for (let i = 0; i < 6; i++) for (let j = 0; j < 6; j++) {
+    if (i === j) continue;
+    ps.push({ id: id++, fecha: new Date(Date.UTC(2026, 7, 1) + id * 864e5).toISOString(),
+              ronda: "Regular Season - " + ((id % 10) + 1), estado: id % 7 === 0 ? "NS" : "FT",
+              local: 10 + i, visita: 10 + j, nl: equipos[i], nv: equipos[j],
+              gl: (i * 3 + j) % 4, gv: (i + j * 2) % 3,
+              st: id % 2 ? { tl: 10 + i, tv: 8 + j, xl: 1.1, xv: 0.8 } : undefined });
+  }
+  const info = { slug: "prueba", nombre: "Liga Prueba", pais: "Pruebalandia", zona: "europa" };
+  const conSt = ps.find(p => p.st), sinSt = ps.find(p => !p.st);
+  const f = filaDeCalculo(conSt);
+  caso("la fila de la semanal se traduce a lo que lee la cuenta",
+       f.h === conSt.local && f.hn === conSt.nl && f.gh === conSt.gl && f.xh === 1.1 && f.th === conSt.st.tl);
+  caso("sin estadísticas, el xG queda en null y los tiros vacíos",
+       filaDeCalculo(sinSt).xh === null && filaDeCalculo(sinSt).th === undefined);
+  const st = statsDeLiga({ temporada: 2026, actualizado: "2026-10-01T00:00:00Z", partidos: ps }, info);
+  caso("salen los números de la liga", !!st && st.liga === "Liga Prueba (Pruebalandia)" && st.slug === "prueba");
+  caso("solo cuenta los jugados", st.partidosJugados === ps.filter(p => p.estado === "FT").length);
+  caso("la temporada europea se escribe 2026/27", st.temporadaEtiqueta === "2026/27" &&
+       etiquetaTemporada({ zona: "america" }, 2026) === "2026");
+  caso("la tabla tiene a los seis con posición y forma",
+       st.tabla.length === 6 && st.tabla.every(t => t.pos && Array.isArray(t.forma)));
+  caso("sin historial ni datos de jugador: pesa poco y no promete nada",
+       !JSON.stringify(st).includes('"hist"') && st.jugadores === null && st.faltan === null &&
+       JSON.stringify(st).length < 40000, String(JSON.stringify(st).length));
+  caso("las rachas y los récords traen el nombre y el dato, nada más",
+       st.rachas.invictos.every(t => t.nom && t.rachas && t.localPts === undefined));
+  caso("con menos de diez partidos no hay números",
+       statsDeLiga({ partidos: ps.slice(0, 5) }, info) === null && statsDeLiga(null, info) === null);
+  caso("la nota dice que no es la tabla de la liga y no explica la cuenta",
+       /No es la tabla que publica la liga/.test(st.nota) && !/calcul[ao]\b.*(cómo|como)/i.test(st.nota));
+
+  const dir = pathToFileURL(mkdtempSync(tmpdir() + "/stats-") + "/");
+  const lista = escribirStatsLigas({
+    ligas: [{ slug: "argentina", nombre: "Liga Profesional", pais: "Argentina", zona: "america" }, info,
+            { slug: "vacia", nombre: "Sin datos", pais: "Nadie", zona: "america" }],
+    leer: f => f.includes("prueba") ? { temporada: 2026, partidos: ps } : null, DATOS: dir });
+  caso("escribe un JSON por liga con datos y la lista para el desplegable",
+       existsSync(new URL("stats-prueba.json", dir)) && existsSync(new URL("stats-ligas.js", dir)) &&
+       !existsSync(new URL("stats-vacia.json", dir)));
+  caso("Argentina está en la lista aunque no tenga semanal (la trae stats-liga.js), y primera",
+       lista[0].slug === "argentina" && lista.length === 2 && lista[1].partidos === st.partidosJugados);
+  caso("la lista es un script con una sola global",
+       /^window\.STATS_LIGAS_LISTA=\[/.test(readFileSync(new URL("stats-ligas.js", dir), "utf8")));
 }
 
 /* ─── resultado ──────────────────────────────────────────────────────────── */

@@ -95,11 +95,14 @@ const srv = http.createServer((q, s) => {
        exigiendo es lo que de verdad importaba: que no se pida NADA SOBRE LA
        PERSONA -su perfil, su equipo, su cupo, su premium- ni se escriba nada
        antes de que la persona haga algo. */
-    const sobreLaPersona = llamados.filter(x => !/GET \/functions\/v1\/crear-pago/.test(x));
+    /* `sumar_hito` es el contador de la campaña de Instagram (campana.js): cuenta visitas por anuncio, sin sesión
+       y sin nada de la persona. Tampoco es "sobre la persona". */
+    const publicos = /GET \/functions\/v1\/crear-pago|POST \/rest\/v1\/rpc\/sumar_hito/;
+    const sobreLaPersona = llamados.filter(x => !publicos.test(x));
     caso('sin pedirle al backend nada sobre la persona todavía',
          sobreLaPersona.length === 0, sobreLaPersona.join(' | '));
     caso('lo único que se pide al abrir es la lista pública de precios',
-         llamados.every(x => /GET \/functions\/v1\/crear-pago/.test(x)), llamados.join(' | '));
+         llamados.every(x => publicos.test(x)), llamados.join(' | '));
 
     /* ── 2. CREAR CUENTA Y ENTRAR ───────────────────────────────────────
        El link por mail dejó de ser el camino principal, y no fue un
@@ -117,6 +120,15 @@ const srv = http.createServer((q, s) => {
 
     /* Una contraseña corta la rechaza la pantalla, sin ir al servidor: el
        viaje de ida y vuelta para escuchar lo mismo es tiempo regalado. */
+    /* El ojito (8/10/2026): muestra y vuelve a esconder lo escrito. */
+    await pg.fill('#cclave', 'secreta');
+    await pg.click('#cojo');
+    const visible = await pg.locator('#cclave').getAttribute('type');
+    await pg.click('#cojo');
+    caso('el ojito muestra la contraseña y la vuelve a esconder',
+         visible === 'text' && await pg.locator('#cclave').getAttribute('type') === 'password' &&
+         await pg.locator('#cclave').inputValue() === 'secreta');
+
     await pg.fill('#cmail', 'Fausto@Ejemplo.com');
     await pg.fill('#cclave', '123');
     await pg.click('#centrar');

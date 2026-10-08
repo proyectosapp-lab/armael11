@@ -10,6 +10,10 @@
   "_publicable": "Supabase está migrando a un formato nuevo de clave pública. La de este proyecto es sb_publishable_jQ5s46PkhT05wMgOez_oYQ_NeNvR15Q y hace lo mismo que la de arriba. Queda anotada acá: el día que la vieja deje de funcionar, se cambia una línea."
  },
  "_supabase": "Las DOS claves PÚBLICAS del backend, de Project Settings → API. La 'anon' está hecha para vivir en el navegador: sola no puede leer ni escribir nada que las políticas de la base no permitan. La tercera clave, la 'service_role', NO va acá ni en ningún archivo del proyecto: va como secreto de GitHub llamado SUPABASE_SERVICE_KEY. Los pasos están en BACKEND.md. Vacío = la app funciona como hasta ahora, sin cuentas ni tablas.",
+ "contacto": "steelsmartshomes@gmail.com",
+ "_contacto": "El mail de contacto PUBLICO: va en contacto.html, en la privacidad y en el pie de terminos. Es lo que AdSense y las tiendas piden ver. Si queres otro mail para esto (uno de la S.A.S., por ejemplo), se cambia aca y las paginas lo toman en la proxima ronda.",
+ "titular": "",
+ "_titular": "Quien esta detras, para contacto, terminos y quienes somos. Vacio = 'un proyecto independiente hecho en Cordoba, Argentina'. Cuando IPJ inscriba la sociedad, poner 'OLGOS APP S.A.S.' y las tres paginas pasan a nombrarla. Los terminos (terminos.html) sirven tambien como acuerdo de licencia en la ficha de Apple, en vez del EULA estandar.",
  "miniaturas": "todas",
  "_miniaturas": "Qué imágenes muestra el feed. 'todas' = la miniatura de YouTube en los videos y la que el propio medio declara en su feed en las notas. 'videos' = solo YouTube (pesa 20 kB, se arma con el id del video y no trae fotos de terceros). 'ninguna' = jerarquía sin imágenes. Ninguna imagen se aloja acá: se enlaza al servidor del medio, igual que la vista previa de WhatsApp, y va con carga diferida, así que solo se baja lo que se llega a ver.",
  "contador": "",
@@ -34,6 +38,8 @@
  },
  "_android": "El paquete y las huellas SHA-256 que autorizan a la app de Android a abrir armael11.com a pantalla completa, sin la barra del navegador. Con esto se escribe sitio/.well-known/assetlinks.json. Van DOS huellas y las dos son públicas (son certificados, no llaves). La primera es la de CARGA: la generó PWABuilder y es con la que se firma el .aab que se sube. La segunda es la de FIRMA DE LA APP: Google reemplaza la firma al distribuir, así que es la que de verdad tiene la app instalada desde Play, y se saca de Play Console → Protegido con Play → Firma de apps, columna 'Clave clásica' (la poscuántica NO sirve para esto: Android todavía no la usa acá). Con las dos puestas la app abre a pantalla completa; con una sola abre igual, pero con la barra del navegador arriba. Si el bloque 'android' se saca, el archivo se borra del sitio.",
  "apple": {
+  "team": "",
+  "_team": "El Team ID de Apple Developer (10 letras y numeros, arriba a la derecha en developer.apple.com/account). Con esto construir-sitio escribe /.well-known/apple-app-site-association y los links de armael11.com/desafio.html abren Mano a mano en el iPhone (ver LEEME de la 1.1.1). Vacio = los links abren la web. No es secreto.",
   "revenuecat": "appl_dQnGEbXpKWceFceVepoLEHQGWNn",
   "tienda": "https://apps.apple.com/app/id6813729689"
  },

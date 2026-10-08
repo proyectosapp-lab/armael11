@@ -190,6 +190,7 @@ const IMPRESCINDIBLES = [
   "control.js", "probar-control.mjs", "control.tpl.html", "panel-de-control.sql",
   "paginas-medido.mjs", "probar-paginas-medido.mjs",
   "consulta-datos.mjs", "consulta.mjs", "estadisticas-api.mjs", "probar-consulta.mjs",
+  "stats-ligas.mjs", "portada-texto.mjs",
 ];
 const faltan = IMPRESCINDIBLES.filter(f => !existsSync(aca("./" + f)));
 if (faltan.length) {
@@ -231,6 +232,7 @@ if (MODO === "corta") {
   if (nuevas) {
     rmSync(new URL("./.formaciones-nuevas", import.meta.url), { force: true });
     paso("Armar el sitio", "construir-sitio.mjs", { obligatorio: true });
+    paso("Armar la app web (Mano a mano, en /app/)", "app-web.mjs");
     salidaWorkflow("publicar", "si");
     console.log("\n  Salió una formación: se publica.\n");
   } else {
@@ -296,6 +298,9 @@ if (!hayKey) {
 
 /* ─── 4. el sitio ────────────────────────────────────────────────────────── */
 paso("Armar el sitio", "construir-sitio.mjs", { obligatorio: true });
+/* La app web: lo mismo que va a las tiendas, en armael11.com/app/. No es
+   obligatorio: si falla, el sitio sale igual. */
+paso("Armar la app web (Mano a mano, en /app/)", "app-web.mjs");
 /* La completa deja su sello: es lo que hace que las próximas rondas sean
    cortas hasta dentro de tres horas. */
 sellar(SELLOS_EN, sellos, "completa");

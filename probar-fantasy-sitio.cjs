@@ -387,9 +387,9 @@ const uno = (pg, sel) => pg.locator(sel).first();
       pintar();
       return document.body.innerText;
     });
-    caso('el aviso dice cuántos de ese club ya tenés y cuántos faltan',
-         /Ten[eé]s 2 de Talleres/.test(aviso3) && /1 m[aá]s/.test(aviso3),
-         (aviso3.match(/Ten[eé]s[^\n]*/) || ['(no dice nada)'])[0]);
+    caso('el aviso dice cuántos de ese club ya tienes y cuántos faltan',
+         /Tienes 2 de Talleres/.test(aviso3) && /1 m[aá]s/.test(aviso3),
+         (aviso3.match(/Tienes[^\n]*/) || ['(no dice nada)'])[0]);
 
     const avisoTope = await pg.evaluate(() => {
       const suyos = FECHA.jugadores.filter(j => j.club === 'Talleres');
@@ -637,7 +637,7 @@ const uno = (pg, sel) => pg.locator(sel).first();
     const orden = await pg.evaluate(() => {
       const h = [...document.querySelectorAll("h3.sec")];
       const torneos = h.find(x => /torneos de amigos/i.test(x.innerText));
-      const lista = h.find(x => /elegí jugadores/i.test(x.innerText));
+      const lista = h.find(x => /elige jugadores/i.test(x.innerText));
       return { hay: !!torneos, hayLista: !!lista,
                arriba: !!(torneos && lista) &&
                  torneos.getBoundingClientRect().top < lista.getBoundingClientRect().top };

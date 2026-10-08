@@ -165,7 +165,8 @@ ${cuerpo}
 <footer>
   Armá el 11 es una app independiente, sin relación con ningún club ni con
   ninguna liga. Es un simulador: lo único que se compra son más simulaciones.<br>
-  <a href="/">Inicio</a> · <a href="/privacidad.html">Privacidad</a>
+  <a href="/">Inicio</a> · <a href="/privacidad.html">Privacidad</a> ·
+  <a href="/terminos.html">Términos</a> · <a href="/contacto.html">Contacto</a> · <a href="/quienes-somos.html">Quiénes somos</a>
 </footer>
 </div></body></html>
 `;
@@ -185,7 +186,7 @@ ${cuerpo}
    elegir qué se dice primero y cómo; no es decir lo que no pasó.
    ══════════════════════════════════════════════════════════════════════ */
 
-const ir = (texto = "Armá tu once") =>
+const ir = (texto = "Arma tu once") =>
   `<p style="margin:22px 0 6px"><a class="ir" href="/">${esc(texto)}</a></p>`;
 
 function comoFunciona() {
@@ -193,19 +194,19 @@ function comoFunciona() {
   return {
     archivo: "como-funciona.html",
     titulo: "Cómo funciona: tu once, jugado 6.000 veces",
-    descripcion: "Armás el equipo, elegís el planteo y la app juega el partido 6.000 veces. " +
-      "En segundos sabés cuánto ganás, cuánto empatás y cuánto perdés.",
+    descripcion: "Armas el equipo, eliges el planteo y la app juega el partido 6.000 veces. " +
+      "En segundos sabes cuánto ganas, cuánto empatas y cuánto pierdes.",
     cuerpo: `
 <h1>Tu once, jugado ${M.simulaciones.toLocaleString("es-AR")} veces.</h1>
-<p class="bajada">Armás el equipo, elegís el planteo y la app juega el partido
-   ${M.simulaciones.toLocaleString("es-AR")} veces. En segundos sabés cuánto
-   ganás, cuánto empatás y cuánto perdés.</p>
+<p class="bajada">Armas el equipo, eliges el planteo y la app juega el partido
+   ${M.simulaciones.toLocaleString("es-AR")} veces. En segundos sabes cuánto
+   ganas, cuánto empatas y cuánto pierdes.</p>
 ${ir()}
 
 <h2>No es un dado</h2>
-<p>Con los mismos datos, los mismos números. Si cambiás un jugador, el
-   resultado se mueve, y se mueve por lo que cambiaste. Sacás al 9, metés un
-   volante más, adelantás la línea: cada decisión tiene un precio, y la app
+<p>Con los mismos datos, los mismos números. Si cambias un jugador, el
+   resultado se mueve, y se mueve por lo que cambiaste. Sacas al 9, metes un
+   volante más, adelantas la línea: cada decisión tiene un precio, y la app
    te lo muestra.</p>
 
 <h2>Lo que sabe de cada equipo</h2>
@@ -213,7 +214,7 @@ ${ir()}
    propia liga. Cuánto pesa jugar de local. Y lo que hizo la temporada
    pasada, para que tres goles en la primera fecha no confundan a nadie.</p>
 
-<h2>Lo que ponés vos</h2>
+<h2>Lo que pones tú</h2>
 <p>El once, la formación y el planteo con un toque: <b>se para atrás, espera
    y sale de contra, va a buscarlo, se juega la vida</b>. Y cuatro perillas
    finas —línea, presión, ancho y ritmo— para el que quiere ajustar más.
@@ -275,9 +276,9 @@ function techo({ stats }) {
 <h2>Por eso importa la barra</h2>
 <p>Acertar o no acertar es lo de menos. Lo que sirve es saber <b>cuánto</b>:
    si tu equipo sale con 70% o con 40%, si el partido está abierto o
-   cerrado, y qué pasa con eso cuando cambiás el once. Eso es lo que te da la
+   cerrado, y qué pasa con eso cuando cambias el once. Eso es lo que te da la
    app.</p>
-${ir("Mirá la barra de tu partido")}
+${ir("Mira la barra de tu partido")}
 <p class="fuentes">Los números de la literatura:
    <a href="https://arxiv.org/abs/2309.14807">Evaluating Soccer Match Prediction
    Models</a>.</p>
@@ -296,8 +297,8 @@ function esSuerte() {
       "100 tiros de moneda. Nadie piensa que es suerte.",
     cuerpo: `
 <h1>${caras("Portugal")} caras de 100.</h1>
-<p class="bajada">Si tirás una moneda cien veces y salen noventa caras, no
-   pensás "qué suerte". Pensás que está cargada. Así se ve la ventaja del
+<p class="bajada">Si tiras una moneda cien veces y salen noventa caras, no
+   piensas "qué suerte". Piensas que está cargada. Así se ve la ventaja del
    modelo en Portugal.</p>
 
 <h2>Contra qué se mide</h2>
@@ -321,9 +322,9 @@ function esSuerte() {
   <tr><td>60 a 65</td><td>Le gana, con poco margen</td></tr>
   <tr><td>50 a 60</td><td>Se puede simular, no prometer</td></tr>
 </table>
-<p>Así sabés cuánto pesa la barra antes de mirarla. Y cada simulación vale
+<p>Así sabes cuánto pesa la barra antes de mirarla. Y cada simulación vale
    más.</p>
-${ir("Simulá con la barra a la vista")}
+${ir("Simula con la barra a la vista")}
 `,
   };
 }
@@ -354,18 +355,18 @@ ${bloque("El pelotón", G.peloton,
 ${bloque("Más difíciles", G.dificiles,
   "Más sorpresas, más partidos abiertos. La barra orienta; el partido decide.")}
 ${bloque("La más brava", G.brava,
-  "La más impredecible de las once. Está medido, y es la que más se discute: <a href=\"/liga-argentina.html\">mirá por qué</a>.")}
+  "La más impredecible de las once. Está medido, y es la que más se discute: <a href=\"/liga-argentina.html\">mira por qué</a>.")}
 
-<h2>Lo que tenés en cada una</h2>
+<h2>Lo que tienes en cada una</h2>
 <ul>
   <li>Cualquier partido de la próxima fecha, con los planteles de verdad.</li>
   <li>El once que viene jugando, armado solo, para que arranques de ahí.</li>
-  <li>Cuando sale el once del DT, lo simulás contra el tuyo y ves cuál leía
+  <li>Cuando sale el once del DT, lo simulas contra el tuyo y ves cuál leía
       mejor el partido.</li>
   <li>El cartel de la liga en el botón, para que sepas cuánto pesa la barra
       antes de simular.</li>
 </ul>
-${ir("Elegí la liga")}
+${ir("Elige la liga")}
 `,
   };
 }
@@ -407,9 +408,9 @@ ${numeros}
    lesiones de último momento, ni los viajes, ni el clásico del domingo.</p>
 
 <h2>Entonces, a discutir</h2>
-<p>En Europa, el pronóstico manda. Acá manda la discusión. Armá tu once,
-   mové el planteo y llevá tu número a la charla del lunes.</p>
-${ir("Armá el de tu equipo")}
+<p>En Europa, el pronóstico manda. Acá manda la discusión. Arma tu once,
+   mové el planteo y lleva tu número a la charla del lunes.</p>
+${ir("Arma el de tu equipo")}
 `,
   };
 }
@@ -432,6 +433,7 @@ export function paginasMedido({ RAIZ = "", ligas = [], stats = null } = {}) {
 export function mapaDelSitio(RAIZ, hoy = new Date().toISOString().slice(0, 10), extra = []) {
   if (!RAIZ) return "";
   const urls = ["", ...PAGINAS.map(p => p.archivo), "privacidad.html", "borrar-cuenta.html",
+                "terminos.html", "contacto.html", "quienes-somos.html",
                 ...extra.map(r => r.replace(/index\.html$/, ""))];
   return `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">

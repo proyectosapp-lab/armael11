@@ -273,8 +273,8 @@ for (const form of ["4-4-2", "4-3-3", "3-5-2", "4-2-3-1", "5-3-2"]) {
   caso("marcando personal, el rival ataca menos", marca.B.ATA < base.B.ATA);
   caso("pero tu defensa se resiente: el que marca deja de hacer lo otro",
        marca.A.DEF < base.A.DEF);
-  caso("y se dice a quién marcás y con quién",
-       marca.notas.some(n => /Marcás personal/.test(n)), marca.notas.join(" | "));
+  caso("y se dice a quién marcas y con quién",
+       marca.notas.some(n => /Marcas personal/.test(n)), marca.notas.join(" | "));
 
   const flojo = aplicarIndicaciones(lineas(mio), lineas(suyo),
     { ...INDICACIONES_POR_DEFECTO, ataque: "flojo" }, mio, suyo);
@@ -301,7 +301,7 @@ for (const form of ["4-4-2", "4-3-3", "3-5-2", "4-2-3-1", "5-3-2"]) {
        desperdicio.A.ATA < lineas(conVolantes).ATA,
        "" + desperdicio.A.ATA.toFixed(2) + " vs " + lineas(conVolantes).ATA.toFixed(2));
   caso("y se avisa que es un desperdicio",
-       desperdicio.notas.some(n => /tirar plata/.test(n)), desperdicio.notas.join(" | "));
+       desperdicio.notas.some(n => /desperdiciarlos/.test(n)), desperdicio.notas.join(" | "));
 
   caso("son tres indicaciones, no once jugadores con dos cada uno",
        INDICACIONES.length === 3);

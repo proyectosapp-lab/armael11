@@ -82,7 +82,8 @@ export function absolutizar(html, origen, { conservar = [] } = {}) {
   });
   // sin manifest ni "agregar a inicio": ya está instalada. Y sin el service worker, que en WKWebView no anda.
   t = t.replace(/<link rel="manifest"[^>]*>\n?/g, "").replace(/<meta name="(apple-)?mobile-web-app-capable"[^>]*>\n?/g, "");
-  t = t.replace(/<!-- consulta:inicio -->[\s\S]*?<!-- consulta:fin -->\n?/g, "");
+  // y el texto de la portada para los buscadores (portada-texto.mjs): adentro de la app es estorbo
+  t = t.replace(/<!-- (consulta|portada):inicio -->[\s\S]*?<!-- \1:fin -->\n?/g, "");
   return t;
 }
 
@@ -194,8 +195,8 @@ if (ME_CORREN) {
     if (!cascaron || RESUMEN.futbol.paginas < 10 || !ligas || !tenis || !nba) {
       console.log("\n" + linea + "\n  ME PLANTO. El paquete está incompleto.");
       console.log("    cascarón: " + cascaron + " · fútbol: " + RESUMEN.futbol.paginas + " páginas, " + ligas + " ligas · tenis: " + tenis + " · nba: " + nba + "\n");
-      if (!LOCAL) process.exit(1);
-      console.log("  (modo local: sigo igual, es para probar)");
+      if (!process.env.MAM_SIN_GUARDIA) process.exit(1);
+      console.log("  (MAM_SIN_GUARDIA: sigo igual, es para probar)");
     }
     const total = arch.reduce((a, f) => a + f.bytes, 0);
     console.log("  ✓ el paquete trae " + arch.length + " archivos · " + kb(total));

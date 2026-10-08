@@ -197,16 +197,15 @@ srv.listen(8099, async () => {
   {
     const port = await pg.evaluate(() => {
       const antes = PLANES;
-      PLANES = [{ id:"liga", nombre:"Tu liga", precio:3000, detalle:"una liga" },
-                { id:"tres", nombre:"3 ligas", precio:7500, detalle:"tres ligas" },
-                { id:"todas", nombre:"Todas", precio:12000, detalle:"las once" }];
+      PLANES = [{ id:"futbol", nombre:"Fútbol", precio:2990, detalle:"las once ligas" },
+                { id:"todo", nombre:"Todo", precio:5990, detalle:"fútbol, tenis y NBA" }];
       pintar();
       const bs = [...document.querySelectorAll("[data-plan]")];
       /* Contra el título "Elegí la liga" y no contra los chips: en este
          punto de la suite todavía no hay ligas inyectadas, pero el título
          está siempre. */
       const titulo = [...document.querySelectorAll("h3.sec")]
-        .find(h => /Elegí la liga/i.test(h.textContent));
+        .find(h => /Elige la liga/i.test(h.textContent));
       const arriba = bs.length && titulo
         ? !!(bs[0].compareDocumentPosition(titulo) & Node.DOCUMENT_POSITION_FOLLOWING) : null;
       /* Lo que se rompió una vez: cada plan ERA el botón, un rectángulo
@@ -226,7 +225,7 @@ srv.listen(8099, async () => {
       PLANES = antes; pintar();
       return r;
     });
-    caso("los planes se compran desde la portada", port.botones === 3, JSON.stringify(port));
+    caso("los planes se compran desde la portada", port.botones === 2, JSON.stringify(port));
     caso("y están arriba de la lista de ligas, no al final de todo",
          port.antesDeLasLigas === true);
     caso("con sus escuchadores puestos", port.escuchan === true);
@@ -271,7 +270,7 @@ srv.listen(8099, async () => {
   }
 
   caso("y no pide ninguna API key: es el simulador de ligas",
-       await pg.locator('#k').count() === 0 && await pg.locator('h3.sec', { hasText: /Elegí la liga/i }).count() === 1);
+       await pg.locator('#k').count() === 0 && await pg.locator('h3.sec', { hasText: /Elige la liga/i }).count() === 1);
 
   /* ── EL GANCHO ────────────────────────────────────────────────────────
      Dos líneas y las dos medidas. Los números NO se pueden mover solos:
@@ -540,6 +539,32 @@ srv.listen(8099, async () => {
               : "sin datos de jugadores, queda el cartel de pendiente",
        hayJug ? tieneSeccion("JUGADORES") : tieneSeccion("LO QUE FALTA"),
        secciones.map(t => t.split("\n")[0]).join(" | "));
+
+  /* ── LAS ONCE LIGAS EN NÚMEROS (8/10/2026) ──────────────────────────────
+     Un desplegable, y los números de la liga elegida se bajan recién ahí
+     (datos/stats-<liga>.json). Argentina sigue viniendo adentro. */
+  {
+    const lista = await pg.evaluate(() => (window.STATS_LIGAS_LISTA || []).map(l => l.slug));
+    caso("Números ofrece las ligas en un desplegable",
+         lista.length >= 2 && await pg.locator('#numliga option').count() === lista.length,
+         lista.join(","));
+    caso("y arranca en la liga argentina, que es la de este club",
+         await pg.locator('#numliga').inputValue() === "argentina");
+    const otra = lista.find(sl => sl !== "argentina");
+    const pedidos = [];
+    pg.on('request', r => { if (/datos\/stats-[a-z]+\.json/.test(r.url())) pedidos.push(r.url()); });
+    await pg.selectOption('#numliga', otra);
+    await pg.waitForTimeout(900);
+    caso("elegir otra liga baja SOLO su archivo", pedidos.length === 1 && pedidos[0].includes("stats-" + otra + ".json"),
+         pedidos.join(","));
+    const titulo = (await pg.locator('h3.sec').first().innerText()).trim();
+    caso("y la pantalla pasa a esa liga, con su tabla", !/Liga Profesional/.test(titulo) && await pg.locator('table tr').count() > 5, titulo);
+    caso("sin resaltar a Talleres, que no juega ahí", await pg.locator('table tr.yo').count() === 0);
+    caso("y sin el cartel interno de 'lo que falta'", !(await pg.locator('h3.sec').allInnerTexts()).some(t => /LO QUE FALTA/i.test(t)));
+    await pg.selectOption('#numliga', 'argentina');
+    await pg.waitForTimeout(300);
+    caso("volver a Argentina no baja nada: viene adentro de la página", pedidos.length === 1);
+  }
 
   await pg.click('#barra button[data-tab="juego"]');
   await pg.waitForTimeout(900);
@@ -836,7 +861,7 @@ srv.listen(8099, async () => {
   caso("pero la barra de las tres puntas sigue estando",
        await pg.locator('.res').count() > 0);
   caso("y el marcador dice que es el partido que se vio",
-       /el partido que acabás de ver/.test(trasSimular));
+       /el partido que acabas de ver/.test(trasSimular));
 
   /* ══════════════════════════════════════════════════════════════════════
      ABAJO DEL RESULTADO NO VA NINGUNA ACLARACIÓN. GRABADO EN PIEDRA.
@@ -1282,8 +1307,8 @@ srv.listen(8099, async () => {
        empezado.desde.minuto === 70 && empezado.desde.golesA === 2,
        JSON.stringify(empezado.desde));
   caso("y avisa cuántos minutos va a simular", /20 minutos que faltan/.test(empezado.texto));
-  caso("dice que el planteo de esos minutos lo decidís vos",
-       /lo decidís vos/i.test(empezado.texto));
+  caso("dice que el planteo de esos minutos lo decides tú",
+       /lo decides tú/i.test(empezado.texto));
   /* El límite de verdad es otro: las perillas son solo tuyas. Decirlo mal
      —"no ajusta por cómo va el partido"— hacía creer que el planteo no
      entraba en la cuenta, y entra. */
@@ -1859,6 +1884,35 @@ srv.listen(8099, async () => {
     return { estado: r.status(), texto: r.ok() ? await r.text() : "" };
   };
 
+  /* ── LA PORTADA DICE ALGO SIN JAVASCRIPT (8/10/2026) ─────────────────────
+     Segundo rechazo de AdSense: la portada tenía 83 palabras en el HTML.
+     Ahora lleva el texto de portada-texto.mjs, y las páginas de club no. */
+  {
+    const sinJs = h => h.replace(/<(script|style)[\s\S]*?<\/\1>/g, " ").replace(/<[^>]+>/g, " ").replace(/&[a-z]+;/g, " ").replace(/\s+/g, " ").trim();
+    const portada = await traer('/index.html');
+    const palabras = sinJs(portada.texto).split(" ").length;
+    caso("la portada tiene más de 400 palabras legibles sin JavaScript", palabras > 400, palabras + " palabras");
+    caso("entre marcas que el empaquetador sabe sacar",
+         /<!-- portada:inicio -->[\s\S]*<!-- portada:fin -->/.test(portada.texto));
+    caso("con los enlaces a las tiendas", /apps\.apple\.com\/app\/id\d+/.test(portada.texto) && /play\.google\.com\/store\/apps\/details\?id=com\.armael11\.app/.test(portada.texto));
+    caso("y con la próxima fecha enlazada a la consulta", /<ul class="fecha">[\s\S]*href="\/consulta\/argentina\//.test(portada.texto) || !/liga-argentina\.js/.test(portada.texto));
+    const prohibidas = /\b(cuota|cuotas|pick|fija|value|acertá|apost\w*|apuesta\w*|betting|odds|pronóstico)\b/i;
+    caso("sin palabras prohibidas", !prohibidas.test(sinJs(portada.texto)), (sinJs(portada.texto).match(prohibidas) || [""])[0]);
+    const bloque = (portada.texto.match(/<!-- portada:inicio -->([\s\S]*)<!-- portada:fin -->/) || ["", ""])[1];
+    caso("y el texto nuevo es neutro: sin 'vos'", !/\bvos\b/i.test(sinJs(bloque)));
+    const club = await traer('/' + CLUB + '.html');
+    caso("la página de club NO lleva ese texto", !/<!-- portada:inicio -->/.test(club.texto) && !/class="portada-texto"/.test(club.texto));
+    for (const p of ["/contacto.html", "/terminos.html", "/quienes-somos.html"]) {
+      const r = await traer(p);
+      caso(p + " existe, se indexa y nombra al titular o al proyecto",
+           r.estado === 200 && /content="index,follow"/.test(r.texto) && /(S\.A\.S\.|proyecto independiente)/.test(r.texto));
+    }
+    caso("el pie de la app enlaza términos, contacto y quiénes somos",
+         /href="\/terminos\.html"/.test(club.texto) && /href="\/contacto\.html"/.test(club.texto) && /href="\/quienes-somos\.html"/.test(club.texto));
+    const mapa = await traer('/sitemap.xml');
+    caso("el mapa del sitio lista las tres", /terminos\.html/.test(mapa.texto) && /contacto\.html/.test(mapa.texto) && /quienes-somos\.html/.test(mapa.texto));
+  }
+
   const sw = await traer('/sw.js');
   caso("el service worker se publica", sw.estado === 200);
   caso("y atiende los pedidos, que es lo que Play mide",
@@ -2084,10 +2138,12 @@ srv.listen(8099, async () => {
     await p6.route('**/v3.football.api-sports.io/**', r => r.abort());
     await p6.route(/supabase\.co/, r => /crear-pago/.test(r.request().url())
       ? r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ planes: [
+          { id: 'futbol', titulo: 'Fútbol', precio: 2990, detalle: 'once ligas' },
+          { id: 'tenis', titulo: 'Tenis', precio: 2990, detalle: 'tenis' },
+          { id: 'nba', titulo: 'NBA', precio: 2990, detalle: 'nba' },
+          { id: 'todo', titulo: 'Todo', precio: 5990, detalle: 'los tres' },
           { id: 'sacavos', titulo: 'Sacá vos', precio: 2990, detalle: 'tenis' },
           { id: 'liga', titulo: 'Tu liga', precio: 3000, detalle: 'una liga' },
-          { id: 'tres', titulo: '3 ligas', precio: 7500, detalle: 'tres ligas' },
-          { id: 'todas', titulo: 'Todas', precio: 12000, detalle: 'once ligas' },
           { id: 'otro-producto', titulo: 'Otro', precio: 1, detalle: 'x' } ] }) })
       : r.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
     await p6.goto('http://localhost:8099/index.html', { waitUntil: 'load' });
@@ -2096,8 +2152,10 @@ srv.listen(8099, async () => {
       ids: (typeof PLANES !== 'undefined' ? PLANES : []).map(p => p.id).join(','),
       texto: document.body.innerText }));
     await p6.close();
-    caso("la pantalla de compra muestra solo los planes de Armá el 11",
-         r.ids === 'liga,tres,todas', r.ids);
+    /* 5/10/2026: los planes por liga caducaron. En el sitio de fútbol, Fútbol y Todo; nada de tenis ni NBA solos,
+       y un plan por liga que el servidor todavía devolviera tampoco se ofrece. */
+    caso("la pantalla de compra muestra solo Fútbol y Todo",
+         r.ids === 'futbol,todo', r.ids);
     caso("y no ofrece el pase de Sacá vos", !/Sacá vos/.test(r.texto));
     const tplF = require('fs').readFileSync(require('path').join(__dirname, 'app.tpl.html'), 'utf8');
     caso("la cuenta ya no dice que el fantasy 'llega en la próxima'",
@@ -2136,7 +2194,7 @@ srv.listen(8099, async () => {
         panel: document.getElementById('cuenta').innerText }));
       caso("y al tocarlo la sesión se borra y el panel dice que saliste",
            despues.sesion === null && /Saliste de tu cuenta/.test(despues.panel) &&
-           /Entrá a tu cuenta/.test(despues.panel), JSON.stringify(despues).slice(0, 200));
+           /Entra a tu cuenta/.test(despues.panel), JSON.stringify(despues).slice(0, 200));
       caso("y el link del pie se va", !despues.pie);
     } else {
       caso("(el sitio de prueba tiene backend, para probar la salida)", false, "sin backend");
@@ -2301,9 +2359,8 @@ srv.listen(8099, async () => {
   {
     const compra = await pg.evaluate(() => {
       window.__antes = { planes: PLANES, cupo: CUPO };
-      PLANES = [{ id:"liga", nombre:"Tu liga", precio:3000, detalle:"una liga" },
-                { id:"tres", nombre:"3 ligas", precio:7500, detalle:"tres ligas" },
-                { id:"todas", nombre:"Todas las ligas", precio:12000, detalle:"las once" }];
+      PLANES = [{ id:"futbol", nombre:"Fútbol", precio:2990, detalle:"las once ligas" },
+                { id:"todo", nombre:"Todo", precio:5990, detalle:"fútbol, tenis y NBA" }];
       CUPO = { plan:"gratis", usadas:3, hasta:null, ligas:["argentina"], cobra:false };
       pintar();
       const todos = [...document.querySelectorAll("[data-plan]")];
@@ -2317,10 +2374,10 @@ srv.listen(8099, async () => {
         apagados: fuera.filter(b => b.disabled).length,
       };
     });
-    caso("los tres planes se pueden comprar desde donde se ve el precio",
-         compra.fueraDelPanel === 3, JSON.stringify(compra));
-    caso("y son los tres planes de verdad",
-         compra.ids.join(",") === "liga,tres,todas", compra.ids.join(","));
+    caso("los dos planes se pueden comprar desde donde se ve el precio",
+         compra.fueraDelPanel === 2, JSON.stringify(compra));
+    caso("y son los dos planes de verdad",
+         compra.ids.join(",") === "futbol,todo", compra.ids.join(","));
     caso("son botones, no texto de adorno", compra.sonBotones === true);
     caso("y cada uno escucha: un botón dibujado que no hace nada parece roto",
          compra.escuchan === true);
@@ -2425,9 +2482,10 @@ srv.listen(8099, async () => {
          sinPlanes.replace(/<[^>]*>/g," ").replace(/\s+/g," ").slice(0,140));
   }
   /* El texto tiene que mandar al plan que corresponde, no a "comprá algo". */
+  /* 5/10: los planes por liga caducaron; al que todavía tiene uno se lo manda al plan Fútbol. */
   caso("y el cartel dice a qué plan hay que ir para esa liga",
-       /plan de tres ligas o el de todas/.test(cupos.textoOtra) &&
-       /plan de todas/.test(cupos.textoTres),
+       /plan Fútbol, que abre las once/.test(cupos.textoOtra) &&
+       /plan Fútbol, que abre las once/.test(cupos.textoTres),
        cupos.textoOtra + " · " + cupos.textoTres);
   /* Un plan que la base no conozca no puede volverse ilimitado por accidente:
      cae al tope de gratis, que es el más chico. */

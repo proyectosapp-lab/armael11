@@ -196,6 +196,17 @@ caso("UN PARTIDO POR JUGAR NO LLEVA NI UN PORCENTAJE",
      proximas.map(p => (texto(p.html).match(/.{20}\d\s*%.{10}/) || [""])[0]).join(" | "));
 caso("y manda a simularlo, derecho a ese partido",
      proximas.every(p => p.html.includes('href="/#simular=inventada:800')));
+/* 8/10/2026: AdSense no tiene que ver el molde repetido. Lo fino va con
+   noindex y fuera del sitemap; lo que tiene estadísticas y número, no. */
+const conStYP = jugadas.filter(p => p.indexar);
+caso("un partido por jugar va con noindex",
+     proximas.every(p => p.indexar === false && /name="robots" content="noindex/.test(p.html)));
+caso("un jugado sin estadísticas también", jugadas.some(p => p.indexar === false) &&
+     jugadas.filter(p => p.indexar === false).every(p => /noindex/.test(p.html)));
+caso("un jugado con estadísticas y número, sí se indexa",
+     conStYP.length === 1 && /content="index,follow"/.test(conStYP[0].html), String(conStYP.length));
+caso("la liga, la portada de consulta y los equipos siguen indexables",
+     P.filter(p => !/-\d+\.html$/.test(p.ruta)).every(p => p.indexar !== false && /content="index,follow"/.test(p.html)));
 const conP = jugadas.find(p => p.html.includes("Lo que daba el modelo"));
 caso("un partido jugado sí dice lo que daba el modelo, y que era antes",
      conP && /con lo que se sabía antes del partido/i.test(texto(conP.html)));
@@ -221,7 +232,7 @@ caso("cada una con su dirección canónica",
      P.every(p => p.html.includes('<link rel="canonical" href="https://armael11.com/' + p.ruta.replace(/index\.html$/, "") + '">')));
 
 /* Todos los links internos llevan a algo que existe. */
-const fijas = new Set(["", "consulta/", "como-funciona.html", "es-suerte.html", "ligas.html", "privacidad.html"]);
+const fijas = new Set(["", "consulta/", "como-funciona.html", "es-suerte.html", "ligas.html", "privacidad.html", "terminos.html", "contacto.html", "quienes-somos.html"]);
 const rotos = [];
 for (const p of P) for (const m of p.html.matchAll(/href="\/([^"#?]*)(#[^"]*)?"/g)) {
   const r = m[1];

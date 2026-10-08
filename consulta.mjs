@@ -107,7 +107,12 @@ const CSS_EXTRA = `
   .grilla b{display:block;font-size:18px} .grilla span{font-size:14px;color:var(--suave)}
 `;
 
-function pagina({ RAIZ, ruta, titulo, descripcion, miga, cuerpo }) {
+/* `indexar` (8/10/2026): AdSense rechazó el sitio dos veces por "contenido
+   de bajo valor", y el 99% del sitemap eran estas páginas. Las de un partido
+   por jugar son finas y efímeras —desaparecen cuando el partido sale de la
+   lista— y las de un jugado sin estadísticas son un molde con dos nombres.
+   Van con noindex y fuera del sitemap; Google ve las que tienen qué decir. */
+function pagina({ RAIZ, ruta, titulo, descripcion, miga, cuerpo, indexar = true }) {
   const canon = RAIZ ? RAIZ + "/" + ruta.replace(/index\.html$/, "") : "";
   return `<!doctype html>
 <html lang="es"><head>
@@ -115,7 +120,7 @@ function pagina({ RAIZ, ruta, titulo, descripcion, miga, cuerpo }) {
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>${esc(titulo)} · Armá el 11</title>
 <meta name="description" content="${esc(descripcion)}">
-<meta name="robots" content="index,follow">
+<meta name="robots" content="${indexar ? "index,follow" : "noindex,follow"}">
 ${canon ? `<link rel="canonical" href="${esc(canon)}">` : ""}
 <meta property="og:title" content="${esc(titulo)}">
 <meta property="og:description" content="${esc(descripcion)}">
@@ -128,7 +133,8 @@ ${cuerpo}
   Armá el 11 es una app independiente, sin relación con ningún club ni con
   ninguna liga. No tiene apuestas ni contenido de juego con dinero.<br>
   <a href="/">Inicio</a> · <a href="/consulta/">Partidos y equipos</a> ·
-  <a href="/como-funciona.html">Cómo funciona</a> · <a href="/privacidad.html">Privacidad</a>
+  <a href="/como-funciona.html">Cómo funciona</a> · <a href="/privacidad.html">Privacidad</a> ·
+  <a href="/terminos.html">Términos</a> · <a href="/contacto.html">Contacto</a>
 </footer>
 </div></body></html>
 `;
@@ -202,10 +208,13 @@ function paginaJugado({ RAIZ, liga, nombreLiga, p, partidos, equipos }) {
   ${p.st.xl != null ? `<tr><td>Goles esperados (xG)</td><td class="n">${dec(p.st.xl)}</td><td class="n">${dec(p.st.xv)}</td></tr>` : ""}
 </table>` : "";
   const res = `${p.nl} ${p.gl}-${p.gv} ${p.nv}`;
+  /* Con estadísticas y con lo que daba el modelo hay algo propio que decir;
+     sin eso es el resultado y dos nombres, y eso no se indexa. */
+  const indexar = !!(p.st && p.p);
   return {
-    ruta: urlPartido(liga, p),
+    ruta: urlPartido(liga, p), indexar,
     html: pagina({
-      RAIZ, ruta: urlPartido(liga, p),
+      RAIZ, ruta: urlPartido(liga, p), indexar,
       titulo: `${res} · ${ronda(p.ronda)}`,
       descripcion: `${res} · ${ronda(p.ronda)} · ${nombreLiga}. ${lineaAguja || ""} Lo que daba el modelo antes del partido y los números.`.replace(/\s+/g, " "),
       miga: `<a href="/consulta/">Partidos y equipos</a> · <a href="${aLiga(liga)}">${esc(nombreLiga)}</a>`,
@@ -219,8 +228,8 @@ ${st}
 <div class="dos">${bloqueLlegada(liga, equipos.get(p.local), p.fecha, true)}${bloqueLlegada(liga, equipos.get(p.visita), p.fecha, false)}</div>
 ${bloqueCaraACara(liga, partidos, p.local, p.visita, p.id)}
 <h2>¿Y con otro once?</h2>
-<p>Armá los dos equipos, cambiá el planteo y jugalo 6.000 veces.</p>
-${boton("Simulá la próxima fecha", aLiga(liga))}
+<p>Arma los dos equipos, cambia el planteo y jugalo 6.000 veces.</p>
+${boton("Simula la próxima fecha", aLiga(liga))}
 `,
     }),
   };
@@ -231,9 +240,9 @@ function paginaProximo({ RAIZ, liga, nombreLiga, p, partidos, equipos }) {
   const donde = [p.estadio, p.ciudad].filter(Boolean).join(", ");
   const destino = p.enApp ? enlace(liga, p) : "/";
   return {
-    ruta: urlPartido(liga, p),
+    ruta: urlPartido(liga, p), indexar: false,
     html: pagina({
-      RAIZ, ruta: urlPartido(liga, p),
+      RAIZ, ruta: urlPartido(liga, p), indexar: false,
       titulo: `${p.nl} vs ${p.nv} · ${ronda(p.ronda)}`,
       descripcion: `${p.nl} contra ${p.nv} · ${ronda(p.ronda)} · ${nombreLiga}, ${dia(p.fecha)}. Cómo llegan los dos y dónde simularlo.`,
       miga: `<a href="/consulta/">Partidos y equipos</a> · <a href="${aLiga(liga)}">${esc(nombreLiga)}</a>`,
@@ -241,9 +250,9 @@ function paginaProximo({ RAIZ, liga, nombreLiga, p, partidos, equipos }) {
 <h1>${esc(p.nl)} vs ${esc(p.nv)}</h1>
 <p class="bajada">${esc(juntar(ronda(p.ronda), dia(p.fecha) + ", " + hora(p.fecha) + " (hora argentina)", donde))}${p.arbitro ? "<br>Árbitro: " + esc(p.arbitro) : ""}</p>
 <div class="dato">
-  <p><b>¿Quién gana?</b> Armá los dos onces, elegí cómo juega cada uno y
-     mirá en qué termina después de 6.000 partidos.</p>
-  <a class="ir" href="${esc(destino)}">Simulá este partido</a>
+  <p><b>¿Quién gana?</b> Arma los dos onces, elige cómo juega cada uno y
+     mira en qué termina después de 6.000 partidos.</p>
+  <a class="ir" href="${esc(destino)}">Simula este partido</a>
 </div>
 <h2>Cómo llegan</h2>
 <div class="dos">${bloqueLlegada(liga, equipos.get(p.local), p.fecha, true)}${bloqueLlegada(liga, equipos.get(p.visita), p.fecha, false)}</div>
@@ -275,7 +284,7 @@ ${prox ? `
   <p class="chico" style="margin:0 0 4px">Próximo partido</p>
   <p><b><a href="${aPartido(liga, prox)}">${esc(prox.nl)} vs ${esc(prox.nv)}</a></b><br>
      <span class="chico">${esc(dia(prox.fecha))}, ${esc(hora(prox.fecha))}</span></p>
-  <a class="ir" href="${esc(prox.enApp ? enlace(liga, prox) : "/")}">Simulalo</a>
+  <a class="ir" href="${esc(prox.enApp ? enlace(liga, prox) : "/")}">Simúlalo</a>
 </div>` : ""}
 ${eq.pj ? `
 <h2>La temporada</h2>
@@ -293,7 +302,7 @@ ${eq.pj ? `
   <span class="res">${h.gf}-${h.gc}</span></div><div class="s">${esc(dia(h.fecha))}</div></a></li>`;
 }).join("")}</ul>
 <p class="chico">${puntito("verde")}la barra lo decía · ${puntito("gris")}daba parejo · ${puntito("naranja")}sorpresa</p>` : ""}
-${boton("Armá el once de " + eq.nombre)}
+${boton("Arma el once de " + eq.nombre)}
 `,
     }),
   };
@@ -326,7 +335,7 @@ ${proximos.length ? `
 <h2>La próxima fecha</h2>
 <ul class="lista">${proximos.slice(0, 20).map(p => `<li><a href="${aPartido(liga, p)}"><div class="q"><span>${esc(p.nl)} vs ${esc(p.nv)}</span>
   <span class="chico">${esc(diaCorto(p.fecha))} ${esc(hora(p.fecha))}</span></div></a></li>`).join("")}</ul>
-${boton("Simulá cualquiera de estos")}` : ""}
+${boton("Simula cualquiera de estos")}` : ""}
 ${recientes.length ? `
 <h2>Lo que pasó</h2>
 ${conP.length ? `<p>En los últimos ${conP.length} con número: ${puntito("verde")}<b>${cuenta("verde")}</b> la barra lo decía ·
@@ -357,7 +366,7 @@ function paginaIndice({ RAIZ, resumenes }) {
       cuerpo: `
 <h1>Once ligas. Cada partido, con sus números.</h1>
 <p class="bajada">La próxima fecha, lo que pasó en cada partido y lo que daba
-   el modelo antes. Elegí tu liga.</p>
+   el modelo antes. Elige tu liga.</p>
 <div class="grilla">${resumenes.map(r => `<a href="${aLiga(r.slug)}"><b>${esc(r.pais)}</b>
   <span>${esc(r.nombre)}<br>${r.jugados} jugados · ${r.proximos} por jugar</span></a>`).join("")}</div>
 <p>Cada partido jugado dice qué daba el modelo con lo que se sabía antes, y

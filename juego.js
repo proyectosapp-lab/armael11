@@ -407,7 +407,7 @@ export const INDICACIONES = [
     { v:"parejo", n:"Repartido",
       dice:"Se ataca por donde se pueda. Sin ventaja y sin costo." },
     { v:"flojo",  n:"Por el lado flojo",
-      dice:"Se carga sobre el defensor más débil del rival. Ganás la mitad de " +
+      dice:"Se carga sobre el defensor más débil del rival. Ganas la mitad de " +
            "la diferencia entre ese defensor y el promedio de su defensa — " +
            "mucho si tienen un punto flojo, nada si son parejos." },
   ]},
@@ -417,7 +417,7 @@ export const INDICACIONES = [
     { v:"pelotazo",  n:"Directa",
       dice:"Se saltea el mediocampo: tu ataque depende menos de tus volantes y " +
            "más de tus delanteros. Conviene con volantes flojos y delanteros " +
-           "buenos, y al revés es un desperdicio. Y regalás más la pelota: " +
+           "buenos, y al revés es un desperdicio. Y regalas más la pelota: " +
            "el rival suma 0,10 de gol esperado." },
   ]},
 ];
@@ -456,7 +456,7 @@ export function aplicarIndicaciones(A, B, ind, misXI, susXI, voz = "vos"){
       a.DEF -= Math.max(0, val(miMejorD) - M) * CUESTA_MARCAR * 0.72 / nD;
       const suMejor = peligro.nombre || (yo ? "su mejor jugador" : "el mejor del rival");
       const miD = miMejorD.nombre || (yo ? "tu mejor defensor" : "su mejor defensor");
-      notas.push(yo ? "Marcás personal a " + suMejor + ", y para eso ocupás a " + miD + "."
+      notas.push(yo ? "Marcas personal a " + suMejor + ", y para eso ocupas a " + miD + "."
                     : "Marca personal a " + suMejor + ", y para eso ocupa a " + miD + ".");
     } else {
       notas.push("No hay a quién marcar personal con este once: se juega por zona.");
@@ -469,7 +469,7 @@ export function aplicarIndicaciones(A, B, ind, misXI, susXI, voz = "vos"){
       const flojo = Math.min(...sus), prom = sus.reduce((x,y)=>x+y,0)/sus.length;
       const gana = (prom - flojo) / 2;
       a.ATA += gana;
-      const donde = yo ? "Cargás sobre su lado más flojo"
+      const donde = yo ? "Cargas sobre su lado más flojo"
                        : "Carga sobre el lado más flojo del rival";
       notas.push(gana > 0.12
         ? donde + ", y ahí hay diferencia."
@@ -483,8 +483,8 @@ export function aplicarIndicaciones(A, B, ind, misXI, susXI, voz = "vos"){
     a.ATA = ata*(0.68 + PELOTAZO.medio - PELOTAZO.directo) + med*(0.32 - PELOTAZO.medio) +
             A.def*PELOTAZO.directo;
     notas.push(med > ata
-      ? (yo ? "Con pelotazo salteás a tus volantes, que son lo mejor que tenés. Es tirar plata."
-            : "Con pelotazo saltea a sus volantes, que son lo mejor que tiene. Es tirar plata.")
+      ? (yo ? "Con pelotazo salteas a tus volantes, que son lo mejor que tienes. Es desperdiciarlos."
+            : "Con pelotazo saltea a sus volantes, que son lo mejor que tiene. Es desperdiciarlos.")
       : (yo ? "El pelotazo te saltea el mediocampo, que no es tu fuerte."
             : "El pelotazo le saltea el mediocampo, que no es su fuerte."));
   }
@@ -560,7 +560,7 @@ export const PLANTEOS = [
   { id:"contra", n:"Espera y sale de contra",
     K:{ linea:-45, presion:-25, ancho:35, ritmo:55 },
     dice:"Se para atrás pero sale rápido y abierto. Cede el balón y busca el " +
-         "espacio: rinde cuando tenés gente veloz por afuera." },
+         "espacio: rinde cuando tienes gente veloz por afuera." },
   { id:"buscarlo", n:"Va a buscarlo",
     K:{ linea:45, presion:55, ancho:25, ritmo:40 },
     dice:"Línea alta y presión. Genera más y deja la espalda: cada pelota que " +
@@ -589,15 +589,15 @@ export function tacticas(k){
   let mine=1, theirs=1, theirsFlat=0; const notas=[];
   const lin=k.linea/100;
   mine *= 1+0.13*lin; theirs *= 1+0.20*lin;
-  if(lin> .35) notas.push("Con la línea alta generás más, pero le dejás la espalda al rival.");
-  if(lin<-.35) notas.push("Con la línea baja te exponés menos, pero también creás menos.");
+  if(lin> .35) notas.push("Con la línea alta generas más, pero le dejas la espalda al rival.");
+  if(lin<-.35) notas.push("Con la línea baja te expones menos, pero también creas menos.");
 
   const pre=k.presion/100;
   mine *= 1+0.14*pre;
   if(pre>0){ theirsFlat += 0.26*pre;
-    if(pre>.35) notas.push("Presionando alto le cortás la salida, pero cada pelota que te ganan es una contra franca.");
+    if(pre>.35) notas.push("Presionando alto le cortas la salida, pero cada pelota que te ganan es una contra franca.");
   } else { theirs *= 1+0.12*pre;
-    if(pre<-.35) notas.push("Replegado le cedés el balón: te llegan menos, pero vos también llegás menos.");
+    if(pre<-.35) notas.push("Replegado le cedes el balón: te llegan menos, pero tú también llegas menos.");
   }
 
   const rit=k.ritmo/100;

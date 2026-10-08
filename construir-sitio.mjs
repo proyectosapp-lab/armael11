@@ -22,6 +22,9 @@
 import { readFileSync, writeFileSync, mkdirSync, copyFileSync, existsSync, rmSync } from "node:fs";
 import { paginasMedido, mapaDelSitio, robots } from "./paginas-medido.mjs";
 import { paginasConsulta, leerLigaJs } from "./consulta.mjs";
+import { escribirStatsLigas } from "./stats-ligas.mjs";
+import { textoPortada, CSS_PORTADA } from "./portada-texto.mjs";
+import { proximosDe } from "./consulta.mjs";
 
 const aca = p => new URL(p, import.meta.url);
 const CLUBES = JSON.parse(readFileSync(aca("./clubes.json")));
@@ -117,6 +120,21 @@ const TAGS_LIGAS = LIGAS_LISTAS.length
        .filter(sl => existsSync(new URL("onces-" + sl + ".js", DATOS)))
        .map(sl => '<script src="datos/onces-' + sl + '.js"></script>')]
   : [];
+
+/* ─── LOS NÚMEROS DE LAS ONCE LIGAS ──────────────────────────────────────
+   8/10/2026. Un JSON por liga en sitio/datos/ (la app lo pide cuando se
+   elige esa liga en el desplegable de Números) y la lista para el
+   desplegable, que sí viaja como <script>. Sale de estadisticas/<liga>.json,
+   sin red; Argentina sigue siendo stats-liga.js. Ver stats-ligas.mjs. */
+const LIGAS_CFG = existsSync(aca("./ligas.json"))
+  ? (() => { try { return JSON.parse(readFileSync(aca("./ligas.json"), "utf8")); } catch (e) { return null; } })()
+  : null;
+const STATS_LIGAS = escribirStatsLigas({
+  ligas: LIGAS_CFG ? LIGAS_CFG.ligas : [],
+  leer: f => { try { return JSON.parse(readFileSync(aca(f), "utf8")); } catch (e) { return null; } },
+  DATOS, log: m => console.log("  números: " + m),
+});
+const TAG_STATS_LIGAS = STATS_LIGAS.length ? '<script src="datos/stats-ligas.js"></script>' : null;
 
 /* El registro del service worker. Va en las dos plantillas —la portada y
    las páginas de club— porque la app puede arrancar en cualquiera de las
@@ -321,6 +339,7 @@ function armarPagina(club, op) {
     '<script src="datos/juego.js"></script>',
     ...TAGS_LIGAS,
     '<script src="datos/stats-liga.js"></script>',
+    TAG_STATS_LIGAS,
     ...op.datos,
   ].filter(Boolean).join("\n");
 
@@ -344,6 +363,11 @@ function armarPagina(club, op) {
     process.exit(1);
   }
   html = html.replaceAll("{{CLUB_OFICIAL}}", esc(op.oficial));
+  /* El texto de la portada (portada-texto.mjs): solo en index.html. Las
+     páginas de club lo tienen vacío; el CSS va en todas y no molesta. */
+  if (!html.includes("{{PORTADA}}")) { console.log("  ✗ falta el marcador {{PORTADA}} en app.tpl.html"); process.exit(1); }
+  html = html.replace("{{PORTADA}}", op.portada || "");
+  html = html.replace("</style>\n</head>", CSS_PORTADA + "</style>\n</head>");
 
   html = html.replace(/<title>[\s\S]*?<\/title>/i, op.cabeza);
   html = html.replace("</body>", contador + publicidad + "\n</body>");
@@ -487,14 +511,14 @@ writeFileSync(new URL("portada.js", DATOS),
   }) + ";\n");
 
 const cabezaPortada = [
-  `<title>Armá el 11 · el simulador donde el once lo armás vos</title>`,
-  `<meta name="description" content="Tocás una perilla y se mueve el resultado. Cada partido se juega 6.000 veces con los goles reales de su liga. Y todo lo que se dice de tu club, en un solo lugar.">`,
+  `<title>Armá el 11 · el simulador donde el once lo armas tú</title>`,
+  `<meta name="description" content="Tocas una perilla y se mueve el resultado. Cada partido se juega 6.000 veces con los goles reales de su liga. Y todo lo que se dice de tu club, en un solo lugar.">`,
   `<meta name="theme-color" content="#177A40">`,
   `<meta property="og:type" content="website">`,
   `<meta property="og:site_name" content="Armá el 11">`,
   `<meta property="og:locale" content="es_AR">`,
-  `<meta property="og:title" content="Armá el 11 · el simulador donde el once lo armás vos">`,
-  `<meta property="og:description" content="Tocás una perilla y se mueve el resultado. 6.000 partidos por simulación, con los goles reales de cada liga. Está medido.">`,
+  `<meta property="og:title" content="Armá el 11 · el simulador donde el once lo armas tú">`,
+  `<meta property="og:description" content="Tocas una perilla y se mueve el resultado. 6.000 partidos por simulación, con los goles reales de cada liga. Está medido.">`,
   RAIZ ? `<meta property="og:url" content="${RAIZ}/">\n<link rel="canonical" href="${RAIZ}/">` : "",
   `<meta name="twitter:card" content="summary">`,
   `<link rel="icon" href="${icono({ color: "#177A40", ini: "11" })}">`,
@@ -504,8 +528,29 @@ const cabezaPortada = [
   `<meta name="mobile-web-app-capable" content="yes">`,
 ].filter(Boolean).join("\n");
 
+/* Lo que la portada dice sin JavaScript (portada-texto.mjs). La próxima
+   fecha sale de la liga del día si está bajada, si no de la semanal. */
+const PORTADA_TEXTO = (() => {
+  const leer = f => { try { return JSON.parse(readFileSync(aca(f), "utf8")); } catch (e) { return null; } };
+  let ligaJs = null;
+  try { ligaJs = leerLigaJs(readFileSync(new URL("liga-argentina.js", DATOS), "utf8")); } catch (e) {}
+  const proximos = proximosDe(leer("./estadisticas/argentina.json"), ligaJs);
+  const insignias = {};
+  if (existsSync(aca("./app-store-badge.svg"))) { copyFileSync(aca("./app-store-badge.svg"), new URL("app-store-badge.svg", SITIO)); insignias.apple = "/app-store-badge.svg"; }
+  if (existsSync(aca("./google-play-badge.png"))) { copyFileSync(aca("./google-play-badge.png"), new URL("google-play-badge.png", SITIO)); insignias.play = "/google-play-badge.png"; }
+  return textoPortada({
+    proximos,
+    tiendas: { apple: (CFG.apple || {}).tienda || "",
+               play: (CFG.android || {}).paquete ? "https://play.google.com/store/apps/details?id=" + CFG.android.paquete : "",
+               insignias },
+    statsArgentina: leer("./stats-liga.json"),
+    numeroDeLigas: LIGAS_CFG && LIGAS_CFG.ligas ? LIGAS_CFG.ligas.length : 11,
+  });
+})();
+
 armarPagina({ id: "arma-el-11" }, {
   datos: ['<script src="datos/portada.js"></script>'],
+  portada: PORTADA_TEXTO,
   oficial: "ningún club ni con la Liga Profesional",
   cabeza: cabezaPortada,
   archivo: "index.html",
@@ -593,6 +638,88 @@ const pagina = (titulo, cuerpo, { indexar = true } = {}) => `<!doctype html>
 
 const HOY = new Date().toISOString().slice(0, 10).split("-").reverse().join("/");
 const CONTACTO = (CFG.contacto || "").trim();
+/* Quién está detrás (8/10/2026). `titular` en sitio.json: el nombre de la
+   sociedad cuando esté inscripta (OLGOS APP S.A.S., en trámite en IPJ
+   Córdoba). Vacío = "un proyecto independiente hecho en Córdoba". Las
+   páginas de contacto, términos y quiénes somos lo leen de acá, así que el
+   día que se inscriba se cambia una línea y las tres dicen lo mismo. */
+const TITULAR = (CFG.titular || "").trim();
+const QUIEN = TITULAR ? `<b>${esc(TITULAR)}</b>, con domicilio en Córdoba, Argentina` : "un proyecto independiente hecho en Córdoba, Argentina";
+const PIE_LEGAL = `<p>${CONTACTO ? `Contacto: <a href="mailto:${esc(CONTACTO)}">${esc(CONTACTO)}</a> · ` : ""}<a href="/terminos.html">Términos</a> · <a href="/privacidad.html">Privacidad</a> · <a href="/quienes-somos.html">Quiénes somos</a></p>`;
+
+/* ══ CONTACTO, TÉRMINOS Y QUIÉNES SOMOS ══════════════════════════════════
+   Las tres páginas que un sitio con publicidad tiene que tener y este no
+   tenía (segundo rechazo de AdSense, 7/10). Texto llano, sin promesas que
+   no se cumplan: lo que se cobra, cómo se cancela, qué pasa con los datos. */
+writeFileSync(new URL("contacto.html", SITIO), pagina("Contacto", `
+<h1>Contacto</h1>
+<p class="fecha">Respondemos en uno o dos días hábiles.</p>
+${CONTACTO ? `<div class="caja2"><p style="margin:0"><b>Escríbenos a <a href="mailto:${esc(CONTACTO)}">${esc(CONTACTO)}</a></b></p></div>` : `<p>La dirección de contacto está en la ficha de la app en cada tienda.</p>`}
+<h2>Para qué sirve escribir</h2>
+<ul>
+  <li><b>Un pago que no aparece.</b> Si pagaste un plan y en tu cuenta no figura, no vuelvas a pagar: mándanos el correo con el que entraste y, si es de Mercado Pago, el número de operación. Un pago cobrado siempre se puede acreditar a mano.</li>
+  <li><b>Un dato mal.</b> Un jugador que ya no está en el plantel, una formación que no es, un resultado equivocado. Los datos salen de una fuente externa y a veces llegan con errores; con el partido y el equipo lo revisamos.</li>
+  <li><b>Un medio que no quiere aparecer en el feed.</b> Los títulos y enlaces del feed pertenecen a cada medio y se enlaza siempre a la fuente original. Si eres el responsable de un medio y prefieres no estar, lo sacamos.</li>
+  <li><b>Borrar la cuenta.</b> Se hace sin escribir, desde <a href="/borrar-cuenta.html">esta página</a>. Si no puedes entrar, escríbenos desde el mismo correo.</li>
+  <li><b>Una idea.</b> Buena parte de lo que hay en la app salió de mensajes de hinchas. Se leen todos.</li>
+</ul>
+<h2>Quién responde</h2>
+<p>Armá el 11 y Mano a mano son de ${QUIEN}. Más en <a href="/quienes-somos.html">quiénes somos</a>.</p>
+${PIE_LEGAL}
+`));
+
+writeFileSync(new URL("quienes-somos.html", SITIO), pagina("Quiénes somos", `
+<h1>Quiénes somos</h1>
+<p class="fecha">Actualizado el ${HOY}</p>
+<p>Armá el 11 es un simulador de partidos de fútbol, y Mano a mano es la app para iPhone y Android que lo junta con el tenis y la NBA. Las dos son de ${QUIEN}. Es una <b>app independiente</b>: no tiene relación con ningún club, con ninguna liga, con ningún medio ni con ninguna de las fuentes de datos que usa.</p>
+<h2>Por qué existe</h2>
+<p>Empezó como la app de un solo club: todo lo que se decía de Talleres de Córdoba, en un solo lugar, y el once probable para discutir antes de cada partido. El once terminó siendo lo importante. De ahí salió el simulador —armar los dos equipos, elegir el planteo y ver qué pasa en 6.000 partidos—, después las once ligas, y después los otros dos deportes.</p>
+<h2>Lo que nos importa</h2>
+<ul>
+  <li><b>Está medido.</b> Cada número que el modelo da antes de un partido queda guardado y se compara con lo que pasó. La comparación es pública, liga por liga, con lo bueno y con lo malo: <a href="/como-funciona.html">cómo funciona</a>.</li>
+  <li><b>Es un juego.</b> Simular, desafiar a los amigos, discutir el once. No es una herramienta para otra cosa, y no se presenta como tal.</li>
+  <li><b>Sin rastreadores.</b> Ningún pedido a terceros por el solo hecho de abrir la página. Lo que se guarda y lo que no, en la <a href="/privacidad.html">política de privacidad</a>.</li>
+  <li><b>Las fuentes se nombran.</b> Los títulos del feed enlazan al medio original. Los datos de partidos y planteles vienen de un proveedor externo y se dice cuándo se actualizaron.</li>
+</ul>
+<h2>Cómo se sostiene</h2>
+<p>Con los planes mensuales de la app (el simulador sin tope de cada deporte) y con publicidad en la versión web. Los desafíos, los juegos y los resultados son gratis siempre.</p>
+${PIE_LEGAL}
+`));
+
+writeFileSync(new URL("terminos.html", SITIO), pagina("Términos de uso", `
+<h1>Términos de uso</h1>
+<p class="fecha">Actualizado el ${HOY}</p>
+<p>Estos términos valen para el sitio armael11.com y para la app Mano a mano (iPhone y Android), que son de ${QUIEN}. Al usarlos, los aceptas. Están escritos para leerse, y si algo no se entiende, <a href="/contacto.html">pregunta</a>.</p>
+
+<h2>1. Qué es el servicio</h2>
+<p>Un simulador de partidos de fútbol, tenis y NBA, con desafíos entre amigos, juegos y un feed de noticias de cada club. Es una app independiente, sin relación con ningún club, liga, medio ni proveedor de datos. Lo que el simulador muestra es el resultado de un modelo estadístico con los datos disponibles: sirve para jugar y discutir, y no es una garantía de nada sobre un partido real.</p>
+
+<h2>2. La cuenta</h2>
+<p>La mayor parte se usa sin cuenta. Para guardar equipos, participar en desafíos y comprar un plan hace falta una, que se crea con un apodo o con un correo. Eres responsable de lo que se haga con tu cuenta y de que el apodo no ofenda ni se haga pasar por otra persona; una cuenta que se use para molestar a otros se puede cerrar. La cuenta se borra cuando quieras desde <a href="/borrar-cuenta.html">esta página</a>, y con ella se borra todo lo tuyo.</p>
+
+<h2>3. Lo gratis y lo pago</h2>
+<p>Los desafíos, los juegos, los resultados y las noticias son gratis. El simulador tiene un cupo gratis por mes; sin tope, es de los planes mensuales: <b>Fútbol</b>, <b>Tenis</b>, <b>NBA</b> y <b>Todo</b>. El precio se ve en la tienda, en la moneda de tu país, antes de comprar.</p>
+<ul>
+  <li><b>En el iPhone y en Android</b> el plan se compra en la App Store o en Google Play, se cobra a tu cuenta de la tienda y <b>se renueva solo cada mes</b> hasta que lo canceles, desde los ajustes de suscripciones de tu teléfono. Al cancelar, el plan sigue activo hasta el final del mes ya pago. Las primeras veces puede haber unos días de prueba gratis: se cobra recién al terminar, salvo que canceles antes. Las devoluciones las maneja la tienda, con sus reglas.</li>
+  <li><b>En la web</b> se paga con Mercado Pago un mes por vez, sin renovación automática: cada pago suma un mes a lo que te quede. Si un pago no se acredita, no vuelvas a pagar: <a href="/contacto.html">escríbenos</a> y lo acreditamos a mano.</li>
+</ul>
+
+<h2>4. Los contenidos de otros</h2>
+<p>Los títulos y enlaces del feed pertenecen a cada medio y se enlaza siempre a la fuente original; no se reproduce el contenido. Los datos de partidos, planteles y estadísticas vienen de un proveedor externo y pueden llegar con errores o demoras. Los nombres de clubes, ligas y jugadores se usan solo para identificar los partidos.</p>
+
+<h2>5. Lo que no se puede hacer</h2>
+<p>Copiar la app o el sitio, extraer sus datos de forma automática, interferir con el servicio o usar la cuenta de otra persona. Lo que escribas en la app (apodos, nombres de desafíos) es tuyo, y nos das permiso para mostrarlo a los otros participantes del desafío, que es para lo que sirve.</p>
+
+<h2>6. Sin garantías</h2>
+<p>El servicio se ofrece como está. Puede haber cortes, datos equivocados o cambios en lo que hace. Hacemos lo posible para que ande bien, pero no garantizamos que esté siempre disponible ni que cada número sea correcto, y no respondemos por decisiones que alguien tome a partir de una simulación.</p>
+
+<h2>7. Cambios</h2>
+<p>Estos términos pueden cambiar; la fecha de arriba dice cuándo fue la última vez. Un cambio importante se avisa en la app. Si no estás de acuerdo, puedes dejar de usar el servicio y borrar tu cuenta.</p>
+
+<h2>8. Ley y jurisdicción</h2>
+<p>Valen las leyes de la República Argentina. Cualquier diferencia se intenta resolver primero por correo; si no se puede, en los tribunales ordinarios de la ciudad de Córdoba, Argentina.</p>
+${PIE_LEGAL}
+`));
 
 writeFileSync(new URL("privacidad.html", SITIO), pagina("Privacidad", `
 <h1>Qué guardamos, y qué no</h1>
@@ -602,16 +729,16 @@ writeFileSync(new URL("privacidad.html", SITIO), pagina("Privacidad", `
    armar el once, simular partidos y ver los números. <b>Sin cuenta no
    guardamos nada tuyo.</b></p>
 
-<h2>Lo que se guarda si creás una cuenta</h2>
+<h2>Lo que se guarda si creas una cuenta</h2>
 <ul>
-  <li><b>Tu correo electrónico.</b> Es con lo que entrás, junto con una
-      contraseña que elegís vos. Si preferís no tener una, te mandamos un
+  <li><b>Tu correo electrónico.</b> Es con lo que entras, junto con una
+      contraseña que eliges tú. Si prefieres no tener una, te mandamos un
       link por mail. Se usa para eso y nada más.</li>
-  <li><b>Un nombre de usuario</b> que elegís vos. Es lo único que ven los
+  <li><b>Un nombre de usuario</b> que eliges tú. Es lo único que ven los
       demás en las tablas: no pedimos tu nombre real.</li>
-  <li><b>Los equipos que armás</b> en cada fecha y los puntajes que sacan.</li>
+  <li><b>Los equipos que armas</b> en cada fecha y los puntajes que sacan.</li>
   <li><b>En qué torneos de amigos estás.</b></li>
-  <li><b>Qué plan compraste y hasta cuándo te dura</b>, si comprás uno. Queda
+  <li><b>Qué plan compraste y hasta cuándo te dura</b>, si compras uno. Queda
       anotada la fecha, el importe y por dónde entró el pago.</li>
 </ul>
 <p><b>La tarjeta no pasa por acá.</b> El cobro lo hace la tienda —Apple en el
@@ -625,7 +752,7 @@ writeFileSync(new URL("privacidad.html", SITIO), pagina("Privacidad", `
    en el sitio. Tu correo no se muestra a otros usuarios en ningún lado.</p>
 <p>Para funcionar usamos algunos servicios que ven parte de esto:
    <b>Supabase</b>, donde vive la base de datos, y <b>Brevo</b>, que despacha
-   el correo con el link para entrar. Si comprás un plan se suma la tienda por
+   el correo con el link para entrar. Si compras un plan se suma la tienda por
    la que compraste —<b>Apple</b>, <b>Google Play</b> o <b>Mercado Pago</b>—
    y, en el caso del iPhone, <b>RevenueCat</b>, que es quien nos avisa cuando
    una suscripción se renueva o se cancela.</p>
@@ -638,7 +765,7 @@ writeFileSync(new URL("privacidad.html", SITIO), pagina("Privacidad", `
 
 <h2>Borrar todo</h2>
 <div class="caja2">
-  <p style="margin:0">Podés borrar tu cuenta y todo lo que guardamos, en
+  <p style="margin:0">Puedes borrar tu cuenta y todo lo que guardamos, en
      cualquier momento y sin pedírselo a nadie, desde la propia app o desde
      <a href="/borrar-cuenta.html">esta página</a>. Es inmediato y no se puede
      deshacer.</p>
@@ -654,7 +781,7 @@ writeFileSync(new URL("borrar-cuenta.html", SITIO), pagina("Borrar mi cuenta", `
 <h1>Borrar tu cuenta</h1>
 <p class="fecha">Sin instalar nada y sin escribirle a nadie.</p>
 
-<p>Entrá con tu correo, abrí el panel de tu cuenta arriba a la derecha y tocá
+<p>Entra con tu correo, abrí el panel de tu cuenta arriba a la derecha y toca
    <b>Borrar mi cuenta</b>. Te va a pedir una confirmación y listo.</p>
 
 <div class="caja2">
@@ -665,15 +792,15 @@ writeFileSync(new URL("borrar-cuenta.html", SITIO), pagina("Borrar mi cuenta", `
     <li>Tu lugar en las tablas de los torneos donde estabas</li>
   </ul>
   <p style="margin:12px 0 0"><b>Qué no:</b> los torneos que hayas creado
-     siguen existiendo para los demás. Si desaparecieran con vos, once
+     siguen existiendo para los demás. Si desaparecieran con tú, once
      personas que no tienen nada que ver se quedarían sin su torneo.</p>
 </div>
 
-<p>No queda nada guardado ni hay período de gracia: cuando confirmás, se borra.
-   Si después querés volver, es una cuenta nueva desde cero.</p>
+<p>No queda nada guardado ni hay período de gracia: cuando confirmas, se borra.
+   Si después quieres volver, es una cuenta nueva desde cero.</p>
 
 <p style="margin-top:22px"><a href="/">Ir a Armá el 11 para entrar y borrarla</a></p>
-${CONTACTO ? `<p>Si no podés entrar a tu cuenta, escribinos a <a href="mailto:${esc(CONTACTO)}">${esc(CONTACTO)}</a> desde el mismo correo y la borramos nosotros.</p>` : ""}
+${CONTACTO ? `<p>Si no puedes entrar a tu cuenta, escríbenos a <a href="mailto:${esc(CONTACTO)}">${esc(CONTACTO)}</a> desde el mismo correo y la borramos nosotros.</p>` : ""}
 `));
 
 /* ══════════════════ LAS PÁGINAS DE "ESTÁ MEDIDO" ══════════════════
@@ -714,7 +841,11 @@ ${CONTACTO ? `<p>Si no podés entrar a tu cuenta, escribinos a <a href="mailto:$
   }
   if (consulta.length) console.log("  consulta: " + consulta.length + " páginas");
 
-  const mapa = mapaDelSitio(RAIZ, undefined, consulta.map(p => p.ruta));
+  /* Al sitemap van solo las indexables: ver `indexar` en consulta.mjs. */
+  const indexables = consulta.filter(p => p.indexar !== false);
+  if (consulta.length) console.log("  consulta: " + indexables.length + " en el sitemap, " +
+                                   (consulta.length - indexables.length) + " con noindex");
+  const mapa = mapaDelSitio(RAIZ, undefined, indexables.map(p => p.ruta));
   if (mapa) writeFileSync(new URL("sitemap.xml", SITIO), mapa);
   writeFileSync(new URL("robots.txt", SITIO), robots(RAIZ));
 }
@@ -739,13 +870,13 @@ writeFileSync(new URL("gracias.html", SITIO), pagina("Volviendo del pago", `
 
 <div class="caja2">
   <p style="margin:0" id="txt">La confirmación la hace el servidor por su
-     lado, así que puede tardar unos segundos. Volvé a la app: en cuanto
+     lado, así que puede tardar unos segundos. Vuelve a la app: en cuanto
      figure, el pase aparece solo en tu cuenta.</p>
 </div>
 
 <p style="margin-top:22px"><a href="/" id="volver"><b>Volver a Armá el 11</b></a></p>
 <p style="color:var(--suave);font-size:14px">Si pasan unos minutos y el pase
-   no aparece, no vuelvas a pagar: escribinos${CONTACTO
+   no aparece, no vuelvas a pagar: escríbenos${CONTACTO
      ? ` a <a href="mailto:${esc(CONTACTO)}">${esc(CONTACTO)}</a>` : ""} y lo
    resolvemos. Un pago cobrado siempre se puede acreditar a mano.</p>
 
@@ -758,7 +889,7 @@ if (/falló|failure|rejected/i.test(e)) {
   document.getElementById("tit").textContent = "No se completó";
   document.getElementById("sub").textContent = "El pago no se hizo. No se te cobró nada.";
   document.getElementById("txt").textContent =
-    "Podés intentarlo de nuevo desde el panel de tu cuenta, con el mismo medio de pago u otro.";
+    "Puedes intentarlo de nuevo desde el panel de tu cuenta, con el mismo medio de pago u otro.";
 } else if (/pendiente|pending|in_process/i.test(e)) {
   document.getElementById("tit").textContent = "Quedó pendiente";
   document.getElementById("sub").textContent = "Es normal si elegiste efectivo o transferencia.";
@@ -815,7 +946,7 @@ else console.log("  ⚠ faltan los íconos PNG: la app se puede envolver igual, 
 writeFileSync(new URL("app.webmanifest", SITIO), JSON.stringify({
   name: "Armá el 11",
   short_name: "Armá el 11",
-  description: "Armá tu once, simulá el partido y competí con tus amigos.",
+  description: "Arma tu once, simula el partido y competí con tus amigos.",
   start_url: "/",
   scope: "/",
   id: "/",

@@ -134,7 +134,7 @@ console.log("\n── la liga argentina ──");
 
 console.log("\n── los links ──");
 {
-  const existen = new Set(["", ...PAGINAS.map(p => p.archivo), "privacidad.html", "consulta/"]);
+  const existen = new Set(["", ...PAGINAS.map(p => p.archivo), "privacidad.html", "terminos.html", "contacto.html", "quienes-somos.html", "consulta/"]);
   const rotos = [];
   for (const p of P)
     for (const m of p.html.matchAll(/href="\/([^"#?]*)"/g))

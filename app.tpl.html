@@ -643,6 +643,9 @@ select,input[type=text],input[type=email],input[type=password],input[type=number
   border:1px solid var(--borde);background:var(--papel);color:var(--tinta);font:inherit;font-size:14px}
 input[type=number]{width:100%;font-family:var(--display);font-weight:500;font-variant-numeric:tabular-nums}
 select:focus,input:focus{outline:2px solid color-mix(in srgb, var(--acento) 55%, transparent);outline-offset:1px}
+.clave{position:relative}.clave input{padding-right:46px}
+.ojo{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:40px;height:40px;border:0;background:transparent;color:var(--tinta-2,inherit);display:flex;align-items:center;justify-content:center;border-radius:10px;cursor:pointer;padding:0}
+.ojo .tachado{display:none}.ojo[aria-pressed="true"] .tachado{display:block}
 /* EL ZOOM DEL iPHONE AL TOCAR UN CAMPO (28/9). iOS agranda la pantalla
    cuando un campo tiene letra de menos de 16 px, y no la vuelve a achicar.
    Apple rechazó la 1.0 (4.0, Design) con una captura del iPad: el revisor
@@ -877,6 +880,11 @@ body.mam-marco .barra .mam-club{margin-left:auto}
   </div>
   <div id="cuenta" hidden></div>
   <div id="vista"></div>
+  <!-- EL TEXTO DE LA PORTADA. Solo en index.html, lo escribe
+       construir-sitio con portada-texto.mjs: es lo que un buscador lee
+       sin JavaScript. En las páginas de club queda vacío, y adentro de
+       la app de las tiendas no viaja (el empaquetador lo saca). -->
+  {{PORTADA}}
   <!-- EL AVISO DE INDEPENDENCIA NOMBRA AL CLUB DE ESTA PÁGINA.
        Decía "Club Atlético Talleres" fijo, en las treinta: la página de
        River aclaraba que no tenía relación con Talleres. Un descargo legal
@@ -894,7 +902,7 @@ body.mam-marco .barra .mam-club{margin-left:auto}
 
          Ahora se mira el pie y se sabe. Cuesta una línea. -->
     <span class="ver">{{VERSION}}</span> · <a href="index.html?elegir" id="bcambiar">Cambiar de club</a><br>
-    <a href="/privacidad.html">Privacidad</a> · <a href="/borrar-cuenta.html">Borrar mi cuenta</a><span id="pie-cuenta" hidden> · <a href="#cuenta" id="pie-salir">Salir de la cuenta</a></span><br>
+    <a href="/privacidad.html">Privacidad</a> · <a href="/terminos.html">Términos</a> · <a href="/contacto.html">Contacto</a> · <a href="/quienes-somos.html">Quiénes somos</a> · <a href="/borrar-cuenta.html">Borrar mi cuenta</a><span id="pie-cuenta" hidden> · <a href="#cuenta" id="pie-salir">Salir de la cuenta</a></span><br>
     <!-- ESTÁ MEDIDO. Texto de verdad, en HTML común: es lo único de todo el
          sitio que un buscador puede leer sin ejecutar JavaScript. Ver
          `paginas-medido.mjs`. -->
@@ -1194,7 +1202,7 @@ function heroPortada(){
   const R = PORTADA.respaldo || {};
   const rec = clubRecordado(), c = rec && PORTADA.clubes.find(x=>x.id===rec);
   return `<section class="tarjeta gancho">
-      <h2>Tocás una perilla y se mueve el resultado.</h2>
+      <h2>Tocas una perilla y se mueve el resultado.</h2>
       <p>Cada partido se juega <b>6.000 veces</b> con los goles reales de su liga.
         No tira un dado: está medido en <b>${esc(R.partidos||"13.345")} partidos</b> de ${esc(R.ligas||"trece")} ligas,
         y en ${esc(R.limpias||"1.783")} partidos de tres ligas que el modelo nunca había visto.</p>
@@ -1208,10 +1216,10 @@ function heroPortada(){
 function vistaClubes(){
   const rec = clubRecordado();
   const lista = [...PORTADA.clubes].sort((a,b)=>(b.id===rec)-(a.id===rec) || a.nom.localeCompare(b.nom,"es"));
-  return `<h3 class="sec">Elegí tu club</h3>
+  return `<h3 class="sec">Elige tu club</h3>
     <div class="tarjeta">
       <p class="bajada" style="margin-top:0">Las noticias, el próximo partido y el once de tu equipo:
-        armás el tuyo, sale el del DT, y el resultado real dice quién tenía razón.</p>
+        armas el tuyo, sale el del DT, y el resultado real dice quién tenía razón.</p>
       <div class="grilla">${lista.map(c=>`<a class="club${c.id===rec?" actual":""}" href="${esc(c.id)}.html"
           style="--c:${esc(c.color)};--c2:${esc(c.color2)};--t:${esc(c.tinta)}">
           <span class="mono-c">${esc(c.ini)}</span>
@@ -1347,7 +1355,7 @@ async function traerMiEquipo(){
     const e = g && armarEquipo(g);
     if(!e) return;
     F11 = e;
-    fAviso = "Este es el equipo que tenés guardado para esta fecha.";
+    fAviso = "Este es el equipo que tienes guardado para esta fecha.";
     guardarBorrador();
     pintar();
   }catch(e){}
@@ -1530,13 +1538,13 @@ function textoDeMiEquipo(){
   return "Armé mi 11 para la fecha " + FCH.numero +
          (FCH.torneo ? " del " + FCH.torneo : "") + " en Armá el 11.\n" +
          F11.formacion + (cap ? " · capitán: " + apellido(cap.nombre) : "") +
-         " · gasté " + gasto + " de " + pres + ".\n¿Podés hacerlo mejor?";
+         " · gasté " + gasto + " de " + pres + ".\n¿Puedes hacerlo mejor?";
 }
 
 function textoDeLiga(l){
   return "Te invito a mi torneo \"" + l.nombre + "\" en Armá el 11.\n" +
-         "Armás tu equipo cada fecha y competimos en la misma tabla.\n" +
-         "Entrá con el código " + l.codigo + ":";
+         "Armas tu equipo cada fecha y competimos en la misma tabla.\n" +
+         "Entra con el código " + l.codigo + ":";
 }
 const linkDeLiga = l => dondeEstoy() + "#liga=" + l.codigo;
 
@@ -1608,7 +1616,7 @@ function bloqueZonas(){
         <b>${esc(z.nombre)}</b>
         <span class="fsub">${f ? esc(f.nombre) + " · fechas " + f.desde + " a " + f.hasta
                               : "clasificados"}</span></div>
-      <p class="bajada" style="margin-top:4px">Clasificaste. Acá competís contra los
+      <p class="bajada" style="margin-top:4px">Clasificaste. Acá compites contra los
          que ganaron su propio torneo de amigos.</p>
       ${t.length ? `<div class="mini">${t.map((x,i)=>
         `<div class="it${x.usuario===miNombre?" yo":""}">
@@ -1647,9 +1655,9 @@ function bloqueLigas(){
 
   if(!quienSoy())
     return `<h3 class="sec" id="torneos">Torneos de amigos</h3><div class="tarjeta">
-      <p class="vacio" style="text-align:left">Armá un torneo con tus amigos: cada
+      <p class="vacio" style="text-align:left">Arma un torneo con tus amigos: cada
       uno arma su equipo cada fecha y compiten en la misma tabla.${
-        ligaPendiente?` Tenés una invitación al código <b>${esc(ligaPendiente)}</b>
+        ligaPendiente?` Tienes una invitación al código <b>${esc(ligaPendiente)}</b>
         esperando.`:""}</p>
       <button class="boton" id="lcuenta">Entrar con mi mail</button>${aviso}</div>`;
 
@@ -1669,7 +1677,7 @@ function bloqueLigas(){
       ${tabla(l)}
       <button class="boton" data-lcomp="${esc(l.codigo)}">Invitar por WhatsApp</button>
     </div>`).join("") : `<p class="vacio" style="text-align:left">Todavía no estás en
-      ningún torneo. Creá uno y pasá el código, o entrá con el de un amigo.</p>`;
+      ningún torneo. Crea uno y pasa el código, o entra con el de un amigo.</p>`;
 
   return (ZONAS.length
       ? `<h3 class="sec">${ZONAS.length>1?"Tus zonas":"Tu zona"}</h3>` + bloqueZonas()
@@ -1894,11 +1902,11 @@ function listado(){
   const avisoClub = fClub
     ? `<p class="vacio" style="margin:6px 0 0">${
         delClub >= MAX_CLUB
-          ? `Ya tenés ${delClub} de ${fClub}: es el máximo por club.`
-          : `Tenés ${delClub} de ${fClub}. Podés sumar ${MAX_CLUB-delClub} más.`}</p>`
+          ? `Ya tienes ${delClub} de ${fClub}: es el máximo por club.`
+          : `Tienes ${delClub} de ${fClub}. Puedes sumar ${MAX_CLUB-delClub} más.`}</p>`
     : "";
 
-  return `<h3 class="sec">Elegí jugadores</h3>
+  return `<h3 class="sec">Elige jugadores</h3>
     <nav class="filtros">${chips}</nav>
     <div class="par" style="margin-bottom:10px">
       <input type="text" id="fbusca" placeholder="Buscar por nombre o club" value="${esc(fBusca)}"></div>
@@ -1960,7 +1968,7 @@ function engancharFantasy(){
   const co = $("fcompartir");
   if(co) co.onclick = async () => {
     const q = await compartir(textoDeMiEquipo(), dondeEstoy());
-    if(q === "copiado"){ fAviso = "Listo, lo copié: pegalo donde quieras."; pintar(); }
+    if(q === "copiado"){ fAviso = "Listo, lo copié: pégalo donde quieras."; pintar(); }
   };
 
   /* El botón parecía de adorno y lo era: abría el panel de la cuenta, que
@@ -2064,10 +2072,10 @@ function porQueNo(j){
   const pres  = FCH.presupuesto || 75;
   const resta = pres - gastoDe(F11);
   if(j.precio > resta + 0.0001)
-    return "te pasás por " + (j.precio - resta).toFixed(1);
+    return "te pasas por " + (j.precio - resta).toFixed(1);
   const puestos = [...F11.titulares, ...Object.values(F11.suplentes)].filter(Boolean);
   if(puestos.filter(x=>x.club===j.club).length >= MAX_CLUB)
-    return "ya tenés " + MAX_CLUB + " de " + j.club;
+    return "ya tienes " + MAX_CLUB + " de " + j.club;
   return "";
 }
 
@@ -2160,7 +2168,7 @@ async function guardarFantasy(){
     fAviso = "Falta configurar el backend."; return pintar();
   }
   if(!quienSoy()){
-    fAviso = "Entrá con tu mail primero, así el equipo queda guardado.";
+    fAviso = "Entra con tu mail primero, así el equipo queda guardado.";
     cuentaAbierta = true; pintarCuenta(); return pintar();
   }
   fGuardando = true; fAviso = ""; pintar();
@@ -2184,28 +2192,86 @@ const lista=(items,val,sub)=>`<div class="mini">${items.map((t,i)=>
    <span class="v">${val(t)}</span></div>`).join("")}</div>`;
 const caja=(titulo,cuerpo)=>`<h3 class="sec">${titulo}</h3><div class="tarjeta">${cuerpo}</div>`;
 
+/* ── LAS ONCE LIGAS EN NÚMEROS (8/10/2026) ───────────────────────────────
+   Argentina viene adentro de la página (stats-liga.js, con la tabla oficial
+   y el xG). Las otras diez se piden recién cuando alguien las elige en el
+   desplegable: `datos/stats-<liga>.json`, uno por liga, unos 20 kB. Es JSON
+   y se parsea, nunca se ejecuta: adentro de la app nativa se baja de
+   armael11.com por red, igual que hace datos-ios.js con los onces.
+
+   La liga que se abre primero es la que se está simulando: el que está
+   armando un Barcelona-Madrid quiere ver LaLiga, no la tabla argentina. */
+let numLiga = null, numCargando = "", numError = "";
+const NUM_LIGAS = {};
+const listaLigasNumeros = () => (window.STATS_LIGAS_LISTA || []).filter(l => l && l.slug);
+function statsDe(slug){
+  if(slug === "argentina" && ST) return ST;
+  return NUM_LIGAS[slug] || null;
+}
+/* De dónde se bajan: en la web, relativo a la página. Adentro de Mano a
+   mano (MAM_MARCO: la app de las tiendas o armael11.com/app/) la carpeta
+   datos/ empaquetada no los tiene, así que van derecho al sitio; lo mismo
+   si la página no vino por http (capacitor:, file:). */
+const urlStatsDe = slug => {
+  const adentro = !!window.MAM_MARCO || !/^https?:$/.test(location.protocol);
+  return (adentro ? "https://armael11.com/" : "") + "datos/stats-" + slug + ".json";
+};
+async function cargarNumeros(slug){
+  if(statsDe(slug) || numCargando === slug) return;
+  numCargando = slug; numError = "";
+  try{
+    const r = await fetch(urlStatsDe(slug), { cache: "no-cache" });
+    if(!r.ok) throw new Error("HTTP " + r.status);
+    const j = await r.json();
+    if(!j || !j.tablas || !j.promedios) throw new Error("archivo raro");
+    NUM_LIGAS[slug] = j;
+  }catch(e){ numError = "No se pudieron bajar los números de esta liga. Revisa la conexión y prueba de nuevo."; }
+  numCargando = "";
+  if(tab === "numeros") pintar();
+}
+
 function vistaNumeros(){
-  const yo=CLUB.apiId;
+  const ligas = listaLigasNumeros();
+  if(numLiga === null) numLiga = ligaAhora();
+  if(ligas.length && !ligas.some(l => l.slug === numLiga)) numLiga = ligas[0].slug;
+  const info = ligas.find(l => l.slug === numLiga) || { slug: numLiga, nombre: "Liga Profesional", pais: "Argentina", etiqueta: "2026" };
+  const selector = ligas.length > 1 ? `
+  <div class="par" style="margin-bottom:10px">
+    <label for="numliga">Liga</label>
+    <select id="numliga" aria-label="Elegir la liga">${ligas.map(l =>
+      `<option value="${esc(l.slug)}"${l.slug===numLiga?" selected":""}>${esc(l.nombre)} · ${esc(l.pais)}</option>`).join("")}</select>
+  </div>` : "";
+
+  const S = statsDe(numLiga);
+  if(!S){
+    if(!numCargando && !numError) cargarNumeros(numLiga);
+    return selector + (numError
+      ? `<div class="pendiente">${esc(numError)}<br><button class="chip" data-num-reintentar>Probar de nuevo</button></div>`
+      : `<p class="aviso">Bajando los números de ${esc(info.nombre)}…</p>`);
+  }
+  /* El resaltado de "tu equipo" solo tiene sentido en la liga de tu club. */
+  const yo = numLiga === "argentina" ? CLUB.apiId : null;
 
   /* La liga publica varias tablas —el torneo terminado, el que está en curso,
      cada zona— y todas son ciertas. Elegir una sola por nosotros fue el error:
      mostramos la del torneo YA TERMINADO. Ahora están todas y arranca en la
      que tiene a tu equipo, que es la que un hincha va a buscar.          */
-  const TS = ST.tablas?.length ? ST.tablas : [{nombre:"Tabla", filas:ST.tabla||[]}];
+  const TS = S.tablas?.length ? S.tablas : [{nombre:"Tabla", filas:S.tabla||[]}];
   if(tablaSel >= TS.length) tablaSel = 0;
   if(tablaSel === null)
     tablaSel = Math.max(0, TS.findIndex(t => t.filas.some(f => f.id === yo)));
   const T = TS[tablaSel].filas;
-  const P=ST.promedios;
+  const P=S.promedios;
   const tablaHTML=`<div class="wrap"><table>
     <tr><th class="l">#</th><th class="l">Equipo</th><th>PJ</th><th>Pts</th><th>DG</th><th>GF</th><th>GC</th><th class="l">Forma</th></tr>
     ${T.map(t=>`<tr class="${t.id===yo?"yo":""}"><td>${t.pos}</td><td class="l">${esc(t.nom)}</td>
       <td>${t.pj}</td><td><b>${t.pts}</b></td><td>${fmt(t.dg)}</td><td>${t.gf}</td><td>${t.gc}</td>
-      <td class="l">${formaHTML(t.forma)}</td></tr>`).join("")}
+      <td class="l">${formaHTML(t.forma||[])}</td></tr>`).join("")}
   </table></div>`;
 
   const part=m=>`${esc(m.hn)} ${m.gh}-${m.ga} ${esc(m.an)}`;
-  const R=ST.records, A=ST.avanzadas, J=ST.jugadores;
+  const R=S.records, A=S.avanzadas, J=S.jugadores;
+  const hay = arr => Array.isArray(arr) && arr.length > 0;
 
   /* Igual que la lista de equipos, pero para jugadores: el de tu club queda
      resaltado, que es lo primero que un hincha busca en un ranking.     */
@@ -2221,11 +2287,21 @@ function vistaNumeros(){
     return isNaN(d) ? "?" : d.toLocaleDateString("es-AR",{day:"numeric",month:"long"}); };
   const vieja = f => { const d=new Date(f);
     return !isNaN(d) && (Date.now()-d) > 3*864e5; };
+  const temporada = S.temporadaEtiqueta || S.temporada || "";
+  const tarjeta = (titulo, cuerpo) => `<div class="tarjeta"><div class="meta"><b>${titulo}</b></div>${cuerpo}</div>`;
 
-  return `
-  <h3 class="sec">La liga en 2026</h3>
+  const avanzadas = [
+    hay(A.sobreRinden) ? tarjeta("Definen mejor de lo que crean", lista(A.sobreRinden, t=>fmt(t.xgDifPP), t=>"goles sobre su xG por partido · "+t.pjXG+" pj")) : "",
+    hay(A.bajoRinden)  ? tarjeta("Crean más de lo que definen", lista(A.bajoRinden, t=>fmt(t.xgDifPP), t=>"goles bajo su xG por partido · "+t.pjXG+" pj")) : "",
+    hay(A.punteria)    ? tarjeta("Puntería", lista(A.punteria, t=>t.golPorTiro+"%", t=>t.gf+" goles en "+t.tiros+" tiros")) : "",
+    hay(A.fortaleza)   ? tarjeta("Fortaleza de local", lista(A.fortaleza, t=>t.pppLocal, t=>"pts por partido de local")) : "",
+    hay(A.viajeros)    ? tarjeta("Los que mejor viajan", lista(A.viajeros, t=>t.pppVis, t=>"pts por partido de visitante")) : "",
+  ].filter(Boolean).join("");
+
+  return `${selector}
+  <h3 class="sec">${esc(info.nombre)} ${esc(String(temporada))}</h3>
   <div class="kpi">
-    <div><b>${ST.partidosJugados}</b><span>partidos</span></div>
+    <div><b>${S.partidosJugados}</b><span>partidos</span></div>
     <div><b>${P.golesPorPartido}</b><span>goles/partido</span></div>
     <div><b>${P.local}%</b><span>gana local</span></div>
     <div><b>${P.empate}%</b><span>empate</span></div>
@@ -2237,20 +2313,16 @@ function vistaNumeros(){
       ).join("")}</span>`
     : (TS[0].oficial ? "Tabla de la liga" : "Tabla acumulada"),
     tablaHTML +
-    `<p class="aviso">${esc(ST.nota)}</p>
-     <p class="aviso">Datos al ${fechaCorta(ST.generado)}.${
-       vieja(ST.generado) ? " <b>Hace más de tres días que no se actualizan.</b>" : ""}</p>`)}
+    `<p class="aviso">${esc(S.nota||"")}</p>
+     <p class="aviso">Datos al ${fechaCorta(S.generado)}.${
+       vieja(S.generado) && numLiga === "argentina" ? " <b>Hace más de tres días que no se actualizan.</b>" : ""}</p>`)}
 
   <h3 class="sec">Rachas</h3>
   <div class="dosc">
-    <div class="tarjeta"><div class="meta"><b>Ganando en fila, hoy</b></div>
-      ${lista(ST.rachas.ganando.filter(t=>t.rachas.actual.tipo==="G"), t=>t.rachas.actual.n)}</div>
-    <div class="tarjeta"><div class="meta"><b>Invicto más largo del año</b></div>
-      ${lista(ST.rachas.invictos, t=>t.rachas.invicto)}</div>
-    <div class="tarjeta"><div class="meta"><b>Sin ganar, hoy</b></div>
-      ${lista(ST.rachas.sinGanar.filter(t=>t.rachas.actual.tipo!=="G"), t=>t.rachas.actual.n)}</div>
-    <div class="tarjeta"><div class="meta"><b>Valla invicta</b></div>
-      ${lista(R.vallaInvicta, t=>t.vallaInv, t=>"en "+t.pj+" partidos")}</div>
+    ${tarjeta("Ganando en fila, hoy", lista(S.rachas.ganando.filter(t=>t.rachas.actual.tipo==="G"), t=>t.rachas.actual.n))}
+    ${tarjeta("Invicto más largo del año", lista(S.rachas.invictos, t=>t.rachas.invicto))}
+    ${tarjeta("Sin ganar, hoy", lista(S.rachas.sinGanar.filter(t=>t.rachas.actual.tipo!=="G"), t=>t.rachas.actual.n))}
+    ${tarjeta("Valla invicta", lista(R.vallaInvicta, t=>t.vallaInv, t=>"en "+t.pj+" partidos"))}
   </div>
 
   <h3 class="sec">Récords</h3>
@@ -2263,45 +2335,27 @@ function vistaNumeros(){
       <div class="mini">${R.masGoles.map((m,i)=>`<div class="it"><span class="n">${i+1}</span>
         <span>${part(m)}<br><span class="sub">${m.fecha.slice(0,10)}</span></span>
         <span class="v">${m.total}</span></div>`).join("")}</div></div>
-    <div class="tarjeta"><div class="meta"><b>Más goleadores</b></div>
-      ${lista(R.masGoleador, t=>t.gf, t=>(t.gf/t.pj).toFixed(2)+" por partido")}</div>
-    <div class="tarjeta"><div class="meta"><b>Mejor defensa</b></div>
-      ${lista(R.mejorDefensa, t=>t.gc, t=>(t.gc/t.pj).toFixed(2)+" por partido")}</div>
+    ${tarjeta("Más goleadores", lista(R.masGoleador, t=>t.gf, t=>(t.gf/t.pj).toFixed(2)+" por partido"))}
+    ${tarjeta("Mejor defensa", lista(R.mejorDefensa, t=>t.gc, t=>(t.gc/t.pj).toFixed(2)+" por partido"))}
   </div>
 
-  <h3 class="sec">Avanzadas</h3>
-  <div class="dosc">
-    <div class="tarjeta"><div class="meta"><b>Definen mejor de lo que crean</b></div>
-      ${lista(A.sobreRinden, t=>fmt(t.xgDifPP), t=>"goles sobre su xG por partido · "+t.pjXG+" pj")}</div>
-    <div class="tarjeta"><div class="meta"><b>Crean más de lo que definen</b></div>
-      ${lista(A.bajoRinden, t=>fmt(t.xgDifPP), t=>"goles bajo su xG por partido · "+t.pjXG+" pj")}</div>
-    <div class="tarjeta"><div class="meta"><b>Puntería</b></div>
-      ${lista(A.punteria, t=>t.golPorTiro+"%", t=>t.gf+" goles en "+t.tiros+" tiros")}</div>
-    <div class="tarjeta"><div class="meta"><b>Fortaleza de local</b></div>
-      ${lista(A.fortaleza, t=>t.pppLocal, t=>"pts por partido de local")}</div>
-    <div class="tarjeta"><div class="meta"><b>Los que mejor viajan</b></div>
-      ${lista(A.viajeros, t=>t.pppVis, t=>"pts por partido de visitante")}</div>
-  </div>
-  <p class="aviso">${esc(ST.notaXG)}</p>
+  ${avanzadas ? `<h3 class="sec">Avanzadas</h3><div class="dosc">${avanzadas}</div>` : ""}
+  ${S.notaXG ? `<p class="aviso">${esc(S.notaXG)}</p>` : ""}
 
-  ${ST.jugadores ? `
+  ${S.jugadores ? `
   <h3 class="sec">Jugadores</h3>
   <div class="dosc">
-    <div class="tarjeta"><div class="meta"><b>Goleadores</b></div>
-      ${listaJ(J.goleadores, p=>p.goles, p=>p.equipo+" · "+p.pj+" partidos")}</div>
-    <div class="tarjeta"><div class="meta"><b>Asistencias</b></div>
-      ${listaJ(J.asistencias, p=>p.asist, p=>p.equipo)}</div>
-    <div class="tarjeta"><div class="meta"><b>Generan situaciones</b></div>
-      ${listaJ(J.generadores, p=>p.claves, p=>p.equipo+" · pases clave")}</div>
-    <div class="tarjeta"><div class="meta"><b>Mejores puntajes</b></div>
-      ${listaJ(J.puntajes, p=>p.nota, p=>p.equipo+" · "+Math.round(p.min/90)+" partidos completos")}</div>
+    ${tarjeta("Goleadores", listaJ(J.goleadores, p=>p.goles, p=>p.equipo+" · "+p.pj+" partidos"))}
+    ${tarjeta("Asistencias", listaJ(J.asistencias, p=>p.asist, p=>p.equipo))}
+    ${tarjeta("Generan situaciones", listaJ(J.generadores, p=>p.claves, p=>p.equipo+" · pases clave"))}
+    ${tarjeta("Mejores puntajes", listaJ(J.puntajes, p=>p.nota, p=>p.equipo+" · "+Math.round(p.min/90)+" partidos completos"))}
   </div>
-  <p class="aviso">${esc(J.nota)}</p>` : `
+  <p class="aviso">${esc(J.nota)}</p>` : S.faltan ? `
   <h3 class="sec">Lo que falta</h3>
   <div class="pendiente">
-    <b>${esc(ST.faltan?.jugadores || "Datos de jugador")}.</b><br>
-    ${esc(ST.faltan?.porque || "")}<br>${esc(ST.faltan?.comoSeArregla || "")}
-  </div>`}`;
+    <b>${esc(S.faltan.jugadores || "Datos de jugador")}.</b><br>
+    ${esc(S.faltan.porque || "")}<br>${esc(S.faltan.comoSeArregla || "")}
+  </div>` : ""}`;
 }
 
 /* ══════════════════ ARMÁ EL 11 ══════════════════ */
@@ -2928,7 +2982,7 @@ async function elegirPartido(i){
     J.K = { linea:0, presion:0, ancho:0, ritmo:0 }; J.KB = { linea:0, presion:0, ancho:0, ritmo:0 };
     J.IND = { ...INDICACIONES_POR_DEFECTO }; J.INDB = { ...INDICACIONES_POR_DEFECTO };
     if(J.pool.A.length<11||J.pool.B.length<11)
-      throw new Error("No hay suficientes partidos previos. Elegí uno más avanzado en la temporada.");
+      throw new Error("No hay suficientes partidos previos. Elige uno más avanzado en la temporada.");
     ponerOnces();
     J.msg=J.pool.A.length+" jugadores tuyos · "+J.pool.B.length+" del rival · "+J.reqs+" pedidos";
     J.paso="armar";
@@ -3068,7 +3122,7 @@ function bloqueAviso(chico){
   return `<button class="${AVISO_ON ? "gh" : "acc"} baviso${chico ? " chico" : ""}" data-aviso="1"
       ${avisoOcupado ? "disabled" : ""} aria-pressed="${AVISO_ON}">
       <span class="campana" aria-hidden="true">${AVISO_ON ? "🔔" : "🔕"}</span>${txt}${
-      AVISO_ON ? `<small>tocá para apagarlo</small>` : ""}</button>
+      AVISO_ON ? `<small>toca para apagarlo</small>` : ""}</button>
     ${avisoMsg ? `<p class="aviso">${esc(avisoMsg)}</p>` : ""}`;
 }
 async function tocarAviso(){
@@ -3156,7 +3210,7 @@ function avisoDeLaFoto(){
 function avisoDeFormaciones(){
   if(!J.fx) return "";
   const losArmoLaApp = "los armó la app con los que vienen jugando; " +
-    "los podés cambiar jugador por jugador.";
+    "los puedes cambiar jugador por jugador.";
   const dt = J.delDT || { A:false, B:false };
 
   /* Los dos reales: no hay nada que aclarar sobre cómo se armaron, porque
@@ -3165,7 +3219,7 @@ function avisoDeFormaciones(){
   if(dt.A && dt.B) return `<div class="pendiente salio" style="margin:12px 0 0">
       <b>Estos son los once que pusieron los DT.</b>
       Las dos formaciones están confirmadas y la cancha arranca con ellas.
-      Cambiá lo que vos cambiarías y simulá.</div>`;
+      Cambia lo que tú cambiarías y simula.</div>`;
 
   /* Uno sí y otro no es el caso incómodo: en la misma cancha conviven un
      once real y uno armado por la app. Decir cuál es cuál —con nombre y
@@ -3215,8 +3269,8 @@ function pieDelResultado(){
                              : "¡Salió el once del DT!"}</b>
       Todavía no se jugó${(J.delDT || {}).A
         ? ", pero la formación ya es la de verdad." : ", pero la formación ya está."}
-      ${tocaste ? "Compará tu versión contra la que puso él."
-                : "Cambiá lo que cambiarías y simulá."}</div>
+      ${tocaste ? "Compara tu versión contra la que puso él."
+                : "Cambia lo que cambiarías y simula."}</div>
     ${tocaste || !(J.delDT || {}).A
       ? `<button class="acc" id="brev" style="width:100%;margin-top:10px">Simular el once del DT</button>`
       : ""}
@@ -3323,7 +3377,7 @@ function comparacionConLoReal(){
      DT —si ya estaba publicado— y eso cambia lo que es honesto decir. */
   const conQueOnce = (J.delDT && J.delDT.A) ? "el once del DT" : "el once que armó la app";
   const tercera = cuantos
-    ? " Acordate de que el once y el planteo que pusiste mueven el marcador."
+    ? " Recuerda de que el once y el planteo que pusiste mueven el marcador."
     : " Se simuló con " + conQueOnce + " y el planteo en neutro: no tocar nada " +
       "también es un planteo, y mueve el marcador.";
 
@@ -3354,9 +3408,9 @@ async function simular11(flash){
   if(flash && J.sim && J.ultimaFirma === firma){
     J.err = "";
     J.msg = "No cambiaste nada desde la última simulación, así que el resultado es el mismo: " +
-            "con los mismos datos el modelo da los mismos números. Movés una perilla, un jugador " +
-            "o la formación y volvés a simular. Si querés ver cómo se juega uno de los 6.000 " +
-            "partidos posibles, elegí «Ver el partido».";
+            "con los mismos datos el modelo da los mismos números. Mueves una perilla, un jugador " +
+            "o la formación y vuelves a simular. Si quieres ver cómo se juega uno de los 6.000 " +
+            "partidos posibles, elige «Ver el partido».";
     pintar();
     setTimeout(()=>document.querySelector(".res")?.scrollIntoView({behavior:"smooth",block:"center"}),60);
     return;
@@ -3477,7 +3531,7 @@ async function revelar(){
     const mio=al.find(x=>x.team.id===J.id.A);
     if(!mio || !(mio.startXI||[]).length)
       throw new Error(J.jugado ? "Todavía no tengo la formación de este partido."
-        : "El once del DT todavía no salió. Suele aparecer una hora antes del partido; volvé a entrar un rato antes.");
+        : "El once del DT todavía no salió. Suele aparecer una hora antes del partido; vuelve a entrar un rato antes.");
     const rojas=(ev||[]).filter(e=>e.type==="Card"&&/Red/i.test(e.detail))
       .map(e=>({min:e.time?.elapsed||45, esMio:e.team.id===J.id.A, quien:e.player?.name}));
     const penales=(ev||[]).filter(e=>e.type==="Goal"&&/Missed Penalty/i.test(e.detail))
@@ -3781,6 +3835,9 @@ const CUPO_CFG = Object.assign({ gratis: 10, bloquea: false, cobrando: false },
    Simular no cuesta nada, así que cobrar por cantidad cobraba por algo que
    no existe y castigaba al que más usa la app. Ahora lo gratis son diez por
    mes EN UNA LIGA, y los planes abren una, tres o todas.
+   5/10/2026: los planes por liga CADUCARON. Se venden Fútbol (las once
+   ligas) y Todo; los que ya tenían "Tu liga" o "3 ligas" los conservan
+   hasta que venzan, y por eso la cuenta de ligas tomadas sigue acá.
 
    Cuál es "tu liga" no se elige en ninguna pantalla: es la primera que
    simulás en el período y queda tomada hasta que el período termina. Sin
@@ -3974,9 +4031,9 @@ function textoCupo(e, hasta, liga){
     const tuyas = listaDeNombres(e.tomadas);
     return e.topeLigas === 1
       ? "Tu plan cubre una liga y este mes es " + tuyas + ". Para simular " +
-        nombreDeLiga(liga) + " hace falta el plan de tres ligas o el de todas."
+        nombreDeLiga(liga) + " hace falta el plan Fútbol, que abre las once."
       : "Tu plan cubre " + e.topeLigas + " ligas y ya están tomadas (" + tuyas +
-        "). Para sumar " + nombreDeLiga(liga) + " hace falta el plan de todas.";
+        "). Para sumar " + nombreDeLiga(liga) + " hace falta el plan Fútbol, que abre las once.";
   }
   if(e.ilimitado){
     if(e.topeLigas >= 99) return "Simulaciones sin límite en todas las ligas.";
@@ -4025,7 +4082,7 @@ function bloqueCupo(){
       <p class="frenada-tit">${esc(fr.titulo)}</p>
       <p class="aviso">${esc(textoCupo(e, CUPO.hasta, liga))}</p>
     </div>${planes || `<p class="aviso" style="margin-top:10px">
-      No pude traer los planes en este momento. Probá de nuevo en un rato, o
+      No pude traer los planes en este momento. Prueba de nuevo en un rato, o
       abrilos desde el ícono de cuenta, arriba a la derecha.</p>`}`;
   }
 
@@ -4046,7 +4103,7 @@ function bloqueCupo(){
   return `<p class="aviso" id="cupo" style="margin-top:10px">
       <b>${esc(textoCupo(e, CUPO.hasta, liga))}</b>
       ${CUPO_CFG.cobrando
-        ? "Con un plan simulás sin límite y sin avisos."
+        ? "Con un plan simulas sin límite y sin avisos."
         : "Cuando se pase de diez va a hacer falta un plan; todavía no se cobra nada."}
     </p>${tarjetasDePlan()}`;
 }
@@ -4115,7 +4172,7 @@ function bloqueInstalar(){
   if(modo === "ios")
     return `<div class="pendiente" style="margin-top:12px">
       <b>Agregala a tu pantalla de inicio.</b><br>
-      Tocá el botón de Compartir de Safari y elegí <b>Agregar a inicio</b>.
+      Toca el botón de Compartir de Safari y elige <b>Agregar a inicio</b>.
       Queda con ícono propio, abre sin barra del navegador y es la única forma
       de que te llegue el aviso cuando sale el once del DT.</div>`;
 
@@ -4175,7 +4232,7 @@ function tarjetasDePlan(){
        Pago. El peor caso del iPhone es no poder comprar, nunca ofrecer
        otra caja. */
     return `<p class="aviso" style="margin-top:8px"><b>Lo básico es gratis.</b>
-      Tenés ${CUPO_CFG.gratis} simulaciones por mes en una liga, y se renuevan solas.</p>`;
+      Tienes ${CUPO_CFG.gratis} simulaciones por mes en una liga, y se renuevan solas.</p>`;
   }
 
   try{
@@ -4247,7 +4304,7 @@ function tarjetasDePlan(){
       : !playListo
         ? "<b>La compra desde la app todavía no está disponible.</b> " +
           (PLAY_POR_QUE ? esc(PLAY_POR_QUE) + " " : "") +
-          "Si ya tenés un plan, entrá con tu cuenta y lo vas a tener acá."
+          "Si ya tienes un plan, entra con tu cuenta y lo vas a tener acá."
         : porPlay
           ? "Se paga con Google Play. Se vence solo: no queda nada debitándose todos los meses."
           : "Se paga con Mercado Pago. Se vence solo: no queda nada debitándose todos los meses."}</p>`;
@@ -4861,7 +4918,7 @@ function tarjetaPlanteo(lado){
             no pasa nada ocupa un renglón fijo en todas las pantallas. Las
             otras sí cuentan algo y se muestran. */
         !elegido ? `<p class="aviso" style="margin:2px 0 8px"><b>Perillas a mano.</b>
-          Ninguno de los cinco planteos describe cómo están; tocá uno para
+          Ninguno de los cinco planteos describe cómo están; toca uno para
           volver a un armado.</p>`
         : elegido.id === "normal" ? ""
         : `<p class="aviso" style="margin:2px 0 8px">${esc(elegido.dice)}</p>`}
@@ -4922,10 +4979,10 @@ function vistaJuego(){
   if(J.paso==="key") return `
     <h3 class="sec">El 11 de la fecha</h3>
     <div class="tarjeta">
-      <p class="bajada" style="margin-top:0">Ponés tu once, el once del rival, tocás dos o tres ajustes
-      y simulás. Después revelás qué puso el DT y qué pasó de verdad.</p>
+      <p class="bajada" style="margin-top:0">Pones tu once, el once del rival, tocas dos o tres ajustes
+      y simulas. Después revelas qué puso el DT y qué pasó de verdad.</p>
       <label for="k">Tu API key de API-Football</label>
-      <input type="password" id="k" placeholder="pegala acá" autocomplete="off" spellcheck="false">
+      <input type="password" id="k" placeholder="pégala aquí" autocomplete="off" spellcheck="false">
       <p class="aviso">Queda solo en tu navegador y viaja únicamente a api-sports.io.
       No se guarda en ningún lado ni sale de tu teléfono.</p>
       <div class="fila2" style="margin-top:12px">
@@ -4972,11 +5029,11 @@ function vistaJuego(){
   const otrasLigas = () => {
     const ls = ligasParaSimular();
     if(!ls.length) return "";
-    return `<h3 class="sec">${PORTADA ? "Elegí la liga" : "Simulá cualquier liga del mundo"}</h3>
+    return `<h3 class="sec">${PORTADA ? "Elige la liga" : "Simula cualquier liga del mundo"}</h3>
       <div class="tarjeta">
         <p class="bajada" style="margin-top:0">${PORTADA
           ? "Cualquier partido de la próxima fecha. Cada liga corre con sus propios números: no se juegan los mismos goles en Argentina que en Inglaterra."
-          : "Elegí un país y simulá cualquier partido de su próxima fecha, con los planteles armados con lo que hicieron antes. Cada liga corre con SUS números: no se juegan los mismos goles en Argentina que en Inglaterra."}</p>
+          : "Elige un país y simula cualquier partido de su próxima fecha, con los planteles armados con lo que hicieron antes. Cada liga corre con SUS números: no se juegan los mismos goles en Argentina que en Inglaterra."}</p>
         ${listaDeLigas(ls)}
         <p class="aviso" style="margin:10px 0 0">${esc(QUE_ES_EL_PROMEDIO)}</p>
         ${J.liga && (window.LIGAS||{})[J.liga] ? (()=>{ const L=window.LIGAS[J.liga];
@@ -5038,9 +5095,9 @@ function vistaJuego(){
 
   if(J.paso==="liga"){
     if(!PORTADA) return otrasLigas() + cab;
-    const ligas = otrasLigas() || `<h3 class="sec">Elegí la liga</h3>
+    const ligas = otrasLigas() || `<h3 class="sec">Elige la liga</h3>
       <div class="tarjeta"><p class="bajada" style="margin-top:0">Las ligas se están cargando.
-        Mientras tanto, <a href="index.html?elegir">elegí tu club</a> y simulá su próximo partido.</p></div>`;
+        Mientras tanto, <a href="index.html?elegir">elige tu club</a> y simula su próximo partido.</p></div>`;
     /* ── EL CUPO Y LOS PLANES, EN LA PORTADA ──────────────────────────
        Fausto, 19/9: "la compra debería estar también en la portada, está
        todo muy en scroll infinito y si no bajo no me entero". Tenía razón:
@@ -5111,15 +5168,15 @@ function vistaJuego(){
     return `
     ${porVenir.length?`<h3 class="sec">Lo que viene</h3>
       <div class="tarjeta">
-        <p class="bajada" style="margin-top:0">Elegí el partido y armalo: el once, la
+        <p class="bajada" style="margin-top:0">Elige el partido y ármalo: el once, la
         formación y el planteo <b>cambian el resultado</b>. El planteo es un toque
-        —"se para atrás", "espera y sale de contra"— y ya movés las cuatro perillas.</p>
+        —"se para atrás", "espera y sale de contra"— y ya mueves las cuatro perillas.</p>
         ${porVenir.map(([f,i])=>proximoHTML(f,i)).join("")}
       </div>`:""}
     ${otrasLigas()}
     <h3 class="sec">Ya jugados</h3>
     <div class="tarjeta">
-      <p class="bajada" style="margin-top:0"><b>Armá tu once, simulá, y compará</b> con el once que
+      <p class="bajada" style="margin-top:0"><b>Arma tu once, simula y compara</b> con el once que
         puso el DT y con lo que pasó de verdad. Acá se revela enseguida.</p>
       ${jugados.map(([f,i])=>fila(f,i)).join("")}
       ${msg}${cab}
@@ -5129,7 +5186,7 @@ function vistaJuego(){
   if(J.paso==="armar"||J.paso==="resultado"||J.paso==="revelado"){
     const armado=`
       ${J.paso==="armar" ? avisoDeLaFoto() + avisoDeFormaciones() : ""}
-      <h3 class="sec">Tocá un jugador para cambiarlo</h3>
+      <h3 class="sec">Toca un jugador para cambiarlo</h3>
       ${campoHTML()}
       ${bloqueDePublicidad()}
       <div class="fila2" style="margin-top:11px">
@@ -5148,7 +5205,7 @@ function vistaJuego(){
 
       <h3 class="sec">¿El partido ya empezó?</h3>
       <div class="tarjeta">
-        <p class="bajada" style="margin-top:0">Poné cómo va y se simula lo que falta.</p>
+        <p class="bajada" style="margin-top:0">Pon cómo va y se simula lo que falta.</p>
         <div class="fila2">
           <div><label for="dmin">Minuto</label>
             <input type="number" id="dmin" min="0" max="89" step="1" value="${J.desde.minuto}"></div>
@@ -5156,7 +5213,7 @@ function vistaJuego(){
             <select id="drA">
               <option value="0-0"${J.desde.rojasA===0&&J.desde.rojasB===0?" selected":""}>Ninguno</option>
               <option value="0-1"${J.desde.rojasB===1?" selected":""}>${partidoPropio() ? "Al rival, uno menos" : esc(nombreCorto("B",12)) + ", uno menos"}</option>
-              <option value="1-0"${J.desde.rojasA===1?" selected":""}>${partidoPropio() ? "A vos, uno menos" : esc(nombreCorto("A",12)) + ", uno menos"}</option>
+              <option value="1-0"${J.desde.rojasA===1?" selected":""}>${partidoPropio() ? "A ti, uno menos" : esc(nombreCorto("A",12)) + ", uno menos"}</option>
             </select></div>
         </div>
         <div class="fila2" style="margin-top:8px">
@@ -5169,7 +5226,7 @@ function vistaJuego(){
         ${J.desde.minuto>0?`<p class="nota" style="margin-top:10px">Se simulan
           los ${90-J.desde.minuto} minutos que faltan y se le suma el
           ${J.desde.golesA}-${J.desde.golesB} que ya está. Cómo se juegan esos
-          minutos lo decidís vos, arriba.</p>`:""}
+          minutos lo decides tú, arriba.</p>`:""}
       </div>
 
       <div class="segm" role="group" aria-label="Cómo verlo" style="margin-top:14px">
@@ -5207,14 +5264,14 @@ function vistaJuego(){
       : "") + armado;
     if(J.sim){
       const s=J.sim, margen=s.win-s.loss;
-      const veredicto = margen>12?"Salís favorito" : margen<-12?"Salís de perdedor" : "Partido parejo";
+      const veredicto = margen>12?"Sales favorito" : margen<-12?"Sales de perdedor" : "Partido parejo";
       out+=`<h3 class="sec">Tu simulación</h3><div class="tarjeta">
         <div class="res">
           <div style="flex:${s.win};background:#12A150">${s.win.toFixed(0)}%</div>
           <div style="flex:${s.draw};background:#9AA3B0">${s.draw.toFixed(0)}%</div>
           <div style="flex:${s.loss};background:#D64550">${s.loss.toFixed(0)}%</div>
         </div>
-        <div class="meta"><b>${veredicto}</b><span>·</span><span>ganás / empatás / perdés</span></div>
+        <div class="meta"><b>${veredicto}</b><span>·</span><span>ganas / empatas / pierdes</span></div>
         ${/* ── POR QUÉ ACÁ NO ESTÁ "EL MARCADOR MÁS PROBABLE" ─────────────
              Fausto, 20/9: "por mera estadística el 1 a 1 se va a repetir más
              que la mayoría. Una victoria puede ser 1-0, 2-0, 2-1, etc., y
@@ -5261,7 +5318,7 @@ function vistaJuego(){
              el marcador, el xG y lo que ELEGISTE. Cómo funciona el motor se
              cuenta en otro lado, una vez.                                */ ''}
         <div class="meta" style="justify-content:center">${J.visto && s.estaVez
-          ? "el partido que acabás de ver · " : ""}xG ${
+          ? "el partido que acabas de ver · " : ""}xG ${
           s.xgA.toFixed(2)} a ${s.xgB.toFixed(2)}</div>
         <p class="conque res-conque">${esc(s.conQue || "")}</p>
         ${comparacionConLoReal()}
@@ -5290,7 +5347,7 @@ function vistaJuego(){
           : tanteador(R.misG, R.susG) + `<div class="meta" style="justify-content:center">lo que pasó de verdad</div>`}
 
         <!-- TU ONCE CONTRA EL DEL DT. Esto es la razón de ser de la
-             pestaña: elegís, después ves qué eligió el técnico, y después
+             pestaña: eliges, después ves qué eligió el técnico, y después
              el resultado le da la razón a uno, al otro o a ninguno. Era
              una lista de nombres y no se veía la comparación. -->
         <div class="vsdt">
@@ -5302,7 +5359,7 @@ function vistaJuego(){
             <span>Vos <b>${esc(J.formA)}</b></span><i>·</i>
             <span>El DT <b>${esc(R.formacion || "?")}</b></span>
           </div>
-          ${cmp.soloDT.length ? `<div class="vsdt-grupo"><span class="vsdt-t">El DT puso y vos no</span>
+          ${cmp.soloDT.length ? `<div class="vsdt-grupo"><span class="vsdt-t">El DT puso y tú no</span>
             <div class="vsdt-chips">${cmp.soloDT.map(p=>`<span class="vsdt-chip dt">${p.pos?`<b>${esc(p.pos)}</b>`:""}${nombre(p)}</span>`).join("")}</div></div>` : ""}
           ${cmp.soloVos.length ? `<div class="vsdt-grupo"><span class="vsdt-t">Vos pusiste y el DT no</span>
             <div class="vsdt-chips">${cmp.soloVos.map(p=>`<span class="vsdt-chip vos">${p.pos?`<b>${esc(p.pos)}</b>`:""}${nombre(p)}</span>`).join("")}</div></div>` : ""}
@@ -5333,14 +5390,14 @@ function vistaJuego(){
               <div class="wrap"><table class="tres-t">
                 <thead><tr><th class="l"></th><th>Tu once</th>${D ? "<th>El del DT</th>" : ""}</tr></thead>
                 <tbody>
-                  ${fila("Ganás", pct("win"))}${fila("Empatás", pct("draw"))}${fila("Perdés", pct("loss"))}
+                  ${fila("Ganas", pct("win"))}${fila("Empatas", pct("draw"))}${fila("Pierdes", pct("loss"))}
                   ${/* "Más probable" salió en y60: ver el comentario largo en
                        la tarjeta del resultado. Comparar dos modas entre sí es
                        todavía peor que mostrar una sola. */""}
                   ${fila("xG", s => s.xgA.toFixed(2) + " a " + s.xgB.toFixed(2))}
                 </tbody></table></div>
               <p class="nota" style="margin-top:8px">${frase}${J.liga ? "" : ` Cuando termine el partido, la tercera columna
-                dice quién leyó mejor: guardá el link y volvé.`}</p>
+                dice quién leyó mejor: guarda el link y vuelve.`}</p>
               ${J.liga ? "" : `<button class="acc" id="bguardar" style="width:100%;margin-top:10px">Copiar el link de mi pronóstico</button>
               <p class="aviso" id="avisoLink"></p>`}
             </div>`;
@@ -5359,9 +5416,9 @@ function vistaJuego(){
             <div class="wrap"><table class="tres-t">
               <thead><tr><th class="l"></th><th>Tu once</th>${D ? "<th>El del DT</th>" : ""}</tr></thead>
               <tbody>
-                ${fila("Ganás" + marca("win"), pct("win"))}
-                ${fila("Empatás" + marca("draw"), pct("draw"))}
-                ${fila("Perdés" + marca("loss"), pct("loss"))}
+                ${fila("Ganas" + marca("win"), pct("win"))}
+                ${fila("Empatas" + marca("draw"), pct("draw"))}
+                ${fila("Pierdes" + marca("loss"), pct("loss"))}
                 ${fila("xG", s => s.xgA.toFixed(2) + " a " + s.xgB.toFixed(2))}
               </tbody></table></div>
             <p class="nota" style="margin-top:8px">${esc(J.nom.A)} <b>${paso} ${R.misG}-${R.susG}</b>.
@@ -5447,6 +5504,7 @@ function pintar(){
   document.querySelectorAll("#barra button").forEach(b=>b.setAttribute("aria-pressed",b.dataset.tab===tab));
   if(tab==="juego") enganchar();
   if(tab==="fantasy") engancharFantasy();
+  if(tab==="numeros"){ const sl=$("numliga"); if(sl) sl.onchange=e=>{ numLiga=e.target.value; tablaSel=null; numError=""; pintar(); }; }
 }
 
 function enganchar(){
@@ -5489,7 +5547,7 @@ function enganchar(){
       const r = await ev.userChoice;
       /* Si dijo que no, el navegador no vuelve a ofrecerlo en esta visita:
          guardar el evento gastado sería dejar un botón que ya no hace nada. */
-      if(r && r.outcome !== "accepted") bi.textContent = "Lo podés instalar después, desde el menú del navegador";
+      if(r && r.outcome !== "accepted") bi.textContent = "Lo puedes instalar después, desde el menú del navegador";
       PROMPT_INSTALAR = null;
     }catch(e){ PROMPT_INSTALAR = null; }
     pintar();
@@ -5497,7 +5555,7 @@ function enganchar(){
   const k=$("k"); if(k) k.oninput=e=>J.key=e.target.value.trim();
   const t=$("temp"); if(t) t.onchange=e=>J.temporada=+e.target.value;
   const bc=$("bcargar"); if(bc) bc.onclick=()=>{
-    if(!J.key){ J.err="Pegá la API key primero."; pintar(); return; } cargarTemporada(); };
+    if(!J.key){ J.err="Pega la API key primero."; pintar(); return; } cargarTemporada(); };
   document.querySelectorAll(".fx, .fxp [data-fx]").forEach(el=>el.onclick=()=>{
     el.setAttribute("aria-selected","true"); elegirPartido(+el.dataset.fx); });
   const fa=$("fA"), fb=$("fB");
@@ -5625,7 +5683,7 @@ function enganchar(){
     const link=linkDelPronostico();
     location.hash = link.split("#")[1];
     const texto = "Armé mi once de " + CLUB.nom + " para " +
-      (J.nom.A||"") + " vs " + (J.nom.B||"") + ". A ver si le pegás mejor que yo:";
+      (J.nom.A||"") + " vs " + (J.nom.B||"") + ". A ver si lo haces mejor que yo:";
     const r = await compartir(texto, link);
     const dice = {
       compartido: "Listo. Cuando termine el partido, ese link te muestra la comparación.",
@@ -5640,7 +5698,7 @@ function enganchar(){
 $("mono").textContent=CLUB.ini;
 $("nombre").textContent=CLUB.nom;
 if(PORTADA){
-  $("resumen").textContent="El simulador donde el once lo armás vos";
+  $("resumen").textContent="El simulador donde el once lo armas tú";
   const bc=$("bcambiar"); if(bc) bc.hidden=true;
   const bf=document.querySelector('#barra [data-tab="feed"]');
   if(bf) bf.lastChild.textContent="Tu club";
@@ -5651,6 +5709,7 @@ if(PORTADA){
 $("vista").addEventListener("click",e=>{
   const b=e.target.closest(".chip"); if(!b)return;
   if(b.dataset.tabTabla!==undefined){ tablaSel=+b.dataset.tabTabla; pintar(); return; }
+  if(b.dataset.numReintentar!==undefined){ numError=""; pintar(); return; }
   if(b.dataset.f!==undefined){ filtro=b.dataset.f; pintar(); }});
 $("barra").addEventListener("click",e=>{
   const b=e.target.closest("button"); if(!b)return; tab=b.dataset.tab; pintar(); scrollTo(0,0);});
@@ -5915,15 +5974,15 @@ function pintarCuenta(aviso="", mal=false){
 
        La contraseña no sale de esta pantalla, así que no le puede pasar
        ninguna de las dos. El link queda para el que la olvidó.          */
-    c.innerHTML=`<h4>${creandoCuenta?"Creá tu cuenta":"Entrá a tu cuenta"}</h4>
+    c.innerHTML=`<h4>${creandoCuenta?"Crea tu cuenta":"Entra a tu cuenta"}</h4>
       <p>${creandoCuenta
         ? "Es para guardar tu equipo y jugar los torneos con tus amigos. Nada más."
         : "Con el mail y la contraseña que usaste al crearla."}</p>
       <div style="display:grid;gap:8px">
         <input type="email" id="cmail" placeholder="tu@mail.com"
                autocomplete="email" value="${esc(mailEscrito)}">
-        <input type="password" id="cclave" placeholder="contraseña"
-               autocomplete="${creandoCuenta?"new-password":"current-password"}">
+        <div class="clave"><input type="password" id="cclave" placeholder="contraseña"
+               autocomplete="${creandoCuenta?"new-password":"current-password"}"><button type="button" class="ojo" id="cojo" aria-label="Mostrar la contraseña" aria-pressed="false" title="Mostrar la contraseña"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="3"/><line class="tachado" x1="4" y1="4" x2="20" y2="20"/></svg></button></div>
         <button class="boton" id="centrar">${
           creandoCuenta?"Crear mi cuenta":"Entrar"}</button>
       </div>
@@ -5936,6 +5995,12 @@ function pintarCuenta(aviso="", mal=false){
       <p class="aviso" style="margin-top:2px">
         <a href="#" id="clink">Prefiero recibir un link por mail</a>
         ${creandoCuenta?"":" · sirve también si te olvidaste la contraseña"}</p>`;
+
+    /* El ojito (8/10/2026): ver lo que se escribe. Cambia el tipo del
+       campo y nada más; la contraseña sigue sin salir de esta pantalla. */
+    const ojo=$("cojo"); if(ojo) ojo.onclick=()=>{ const i=$("cclave"); if(!i) return;
+      const ver=i.type==="password"; i.type=ver?"text":"password";
+      ojo.setAttribute("aria-pressed",String(ver)); ojo.setAttribute("aria-label",ver?"Ocultar la contraseña":"Mostrar la contraseña"); i.focus(); };
 
     /* El mail escrito se guarda en memoria al cambiar de pantalla: hacer
        que alguien lo tipee dos veces porque se equivocó de botón es la
@@ -5953,8 +6018,8 @@ function pintarCuenta(aviso="", mal=false){
         if(creandoCuenta){
           const r=await crearCuenta(mail, clave);
           if(r.confirmar){
-            c.innerHTML=`<h4>Revisá tu correo</h4><p>Te mandamos un mail a
-              <b>${esc(mail)}</b> para confirmar la cuenta. Abrilo y volvés
+            c.innerHTML=`<h4>Revisa tu correo</h4><p>Te mandamos un mail a
+              <b>${esc(mail)}</b> para confirmar la cuenta. Ábrelo y vuelves
               a entrar con tu contraseña.</p>`;
             return;
           }
@@ -5981,7 +6046,7 @@ function pintarCuenta(aviso="", mal=false){
         try{ localStorage.setItem("armaEl11.volviendoDe", location.pathname); }catch(x){}
         const m=await pedirLink(mailEscrito, location.origin+location.pathname);
         c.innerHTML=`<h4>Listo</h4><p>Te mandamos un link a <b>${esc(m)}</b>.
-          <b>Abrilo en este mismo navegador.</b> Si lo abrís desde la app del
+          <b>Ábrelo en este mismo navegador.</b> Si lo abres desde la app del
           correo, algunos teléfonos lo abren en un navegador aparte y la
           sesión queda ahí adentro.</p>`;
       }catch(err){ pintarCuenta(err.message, true); }
@@ -5990,7 +6055,7 @@ function pintarCuenta(aviso="", mal=false){
   }
 
   if(!miNombre){
-    c.innerHTML=`<h4>Elegí tu nombre de usuario</h4>
+    c.innerHTML=`<h4>Elige tu nombre de usuario</h4>
       <p>Es el único nombre que van a ver los demás en las tablas. Nada de nombre
          real ni de club: solo usuarios y puntajes.</p>
       <div class="par"><input type="text" id="cuser" placeholder="tuusuario" maxlength="16">
@@ -6009,12 +6074,12 @@ function pintarCuenta(aviso="", mal=false){
      no hay deshacer. Dos toques con el aviso en el medio no es fricción por
      fricción — es la única barrera que hay antes de algo irreversible. */
   c.innerHTML=`<h4>Hola, ${esc(miNombre)}</h4>
-    <p>Tu cuenta está lista. En la pestaña <b>Fantasy</b> armás tu equipo de cada fecha y jugás torneos con tus amigos.</p>
+    <p>Tu cuenta está lista. En la pestaña <b>Fantasy</b> armas tu equipo de cada fecha y juegas torneos con tus amigos.</p>
     ${bloquePremium()}
     <button class="boton flaco" id="csalir">Salir de la cuenta</button>
     ${borrando
       ? `<div class="pendiente" style="margin-top:14px">
-           <b>¿Seguro que querés borrar tu cuenta?</b><br>
+           <b>¿Seguro que quieres borrar tu cuenta?</b><br>
            Se borran tu mail, tu usuario, tus equipos y tus puntajes, y no se
            pueden recuperar. Los torneos que hayas creado siguen para los demás.
          </div>
@@ -6053,7 +6118,9 @@ let PLANES=[], comprando=false;
    `arrancarCuenta`, y un `const` de acá abajo todavía "no nació" si eso
    corre antes (ver el OJO de `tarjetasDePlan`). */
 function soloPlanesDeLaApp(lista){
-  const deLaApp = ["liga", "tres", "todas"];
+  /* 5/10/2026: los planes por cantidad de ligas caducaron. En el sitio de fútbol se venden Fútbol (las once ligas) y
+     Todo (fútbol, tenis y NBA); tenis y NBA solos se compran en su sitio o en la app. */
+  const deLaApp = ["futbol", "todo"];
   return (Array.isArray(lista) ? lista : []).filter(p => p && deLaApp.includes(p.id));
 }
 
@@ -6080,7 +6147,7 @@ function bloquePremium(){
 
   if(PREMIUM.activo)
     return `<div class="pendiente" style="margin-top:14px">
-      <b>Tenés el pase</b> ${esc(cuantoFalta(PREMIUM.hasta))}. Simulás sin espera
+      <b>Tienes el pase</b> ${esc(cuantoFalta(PREMIUM.hasta))}. Simulas sin espera
       y sin avisos.</div>${contador}`;
 
   /* ── SIN PLANES DEL SERVIDOR NO HAY NADA QUE OFRECER… SALVO EN EL IPHONE
@@ -6109,9 +6176,9 @@ function bloquePremium(){
   return `<div class="pendiente" style="margin-top:14px">
       <b>Los planes</b><br>
       Diez simulaciones por mes son gratis, en una liga, y llevan un aviso.
-      Con un plan simulás sin límite —en una liga, en tres a elección o en
-      las once—, el partido se juega en seis segundos en vez de veinte y no
-      aparece ningún aviso.
+      Con el plan Fútbol simulas sin límite en las once ligas, el partido se
+      juega en seis segundos en vez de veinte y no aparece ningún aviso. Todo
+      suma tenis y NBA.
     </div>
     ${contador}
     ${tarjetasDePlan()}`;
@@ -6181,8 +6248,8 @@ async function mirarPlay(){
      más común y el más fácil de confundir con "los productos fallan". */
   if(!window.getDigitalGoodsService){
     PLAY_OK = false;
-    PLAY_POR_QUE = "La app que tenés instalada es de una versión anterior, sin la " +
-                   "facturación de Google Play. Actualizala desde Play y volvé a abrirla.";
+    PLAY_POR_QUE = "La app que tienes instalada es de una versión anterior, sin la " +
+                   "facturación de Google Play. Actualízala desde Play y vuelve a abrirla.";
     pintarCuenta(); pintar(); return;
   }
 
@@ -6220,7 +6287,7 @@ async function mirarPlay(){
 async function comprarEnPlay(idPlan){
   const svc = await servicioDePlay();
   if(!svc) throw new Error("La compra desde la app todavía no está disponible. " +
-                           "Si ya tenés un plan, entrá con tu cuenta y lo tenés acá.");
+                           "Si ya tienes un plan, entra con tu cuenta y lo tienes acá.");
   const detalles = await svc.getDetails([idPlan]);
   const d = detalles && detalles[0];
   if(!d) throw new Error("Ese plan todavía no está cargado en Google Play.");
@@ -6253,8 +6320,8 @@ function engancharPremium(){
          encontrar los mismos botones, en el mismo lugar. */
       if(conBackend && !quienSoy()){
         cuentaAbierta = true;
-        pintarCuenta("Para comprar un plan primero entrá con tu mail: el pase " +
-                     "queda atado a tu cuenta y así lo tenés en cualquier teléfono.", false);
+        pintarCuenta("Para comprar un plan primero entra con tu mail: el pase " +
+                     "queda atado a tu cuenta y así lo tienes en cualquier teléfono.", false);
         document.getElementById("cuenta")?.scrollIntoView({ behavior:"smooth", block:"center" });
         return;
       }
@@ -6273,12 +6340,12 @@ function engancharPremium(){
       if(typeof esNativaIos === "function" && esNativaIos()){
         try{
           if(typeof iosComprar !== "function")
-            throw new Error("La compra no está disponible en esta versión de la app. Actualizala desde la App Store.");
+            throw new Error("La compra no está disponible en esta versión de la app. Actualízala desde la App Store.");
           await iosComprar(b.dataset.plan);
           /* Apple ya cobró. Lo que da el pase NO es esto: es el servidor,
              que le pregunta a RevenueCat con la clave secreta. Al teléfono
              no se le cree nada, igual que con Play y con Mercado Pago. */
-          await confirmarConApple("Listo: ya tenés el pase.");
+          await confirmarConApple("Listo: ya tienes el pase.");
         }catch(e){
           comprando=false;
           /* Bajar la hoja de compra con el dedo no es un error y no se
@@ -6298,7 +6365,7 @@ function engancharPremium(){
                if(c) CUPO = { plan:c.plan||"gratis", usadas:c.usadas|0,
                               hasta:c.hasta||null, ligas:c.ligas||[], cobra:c.cobra }; }catch(x){}
           await refrescarPremium();
-          comprando=false; pintarCuenta("Listo: ya tenés el pase.", false);
+          comprando=false; pintarCuenta("Listo: ya tienes el pase.", false);
         }catch(e){ comprando=false; pintarCuenta(e.message, true); }
         return;
       }
@@ -6329,7 +6396,7 @@ function engancharPremium(){
     if(comprando) return;
     if(conBackend && !quienSoy()){
       cuentaAbierta = true;
-      pintarCuenta("Entrá con tu mail y ahí recupero tu plan: el pase está atado " +
+      pintarCuenta("Entra con tu mail y ahí recupero tu plan: el pase está atado " +
                    "a tu cuenta, no al teléfono.", false);
       document.getElementById("cuenta")?.scrollIntoView({ behavior:"smooth", block:"center" });
       return;

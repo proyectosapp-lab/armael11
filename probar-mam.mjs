@@ -358,6 +358,15 @@ console.log("\n── entrar con un código por mail (no un link) ──");
   await ctx4.close();
 }
 
+console.log("\n── el texto de la portada no viaja adentro ──");
+{
+  const { absolutizar } = await import("./empaquetar-mam.mjs");
+  const h = '<p>antes</p>\n<!-- portada:inicio -->\n<section class="portada-texto"><h2>Qué es</h2><p>quinientas palabras</p></section>\n<!-- portada:fin -->\n<p class="pie">después</p>';
+  const r = absolutizar(h, "https://armael11.com");
+  ok(!/portada-texto|quinientas/.test(r) && /antes/.test(r) && /después/.test(r), "el empaquetador saca el bloque de la portada (para los buscadores) y deja el resto");
+  ok(!/consulta-x/.test(absolutizar("a<!-- consulta:inicio -->consulta-x<!-- consulta:fin -->b", "https://armael11.com")), "y sigue sacando el de la consulta");
+}
+
 console.log("\n── sin desbordes a 390 ──");
 for (const p of ["partidos", "juga", "desafios", "cuenta"]) { await page.click(`#mam-barra [data-pestana="${p}"]`); await page.waitForTimeout(300); const ancho = await page.evaluate(() => document.documentElement.scrollWidth); ok(ancho <= 390, p + ": sin scroll horizontal (" + ancho + ")"); }
 
