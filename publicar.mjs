@@ -190,7 +190,7 @@ const IMPRESCINDIBLES = [
   "control.js", "probar-control.mjs", "control.tpl.html", "panel-de-control.sql",
   "paginas-medido.mjs", "probar-paginas-medido.mjs",
   "consulta-datos.mjs", "consulta.mjs", "estadisticas-api.mjs", "probar-consulta.mjs",
-  "stats-ligas.mjs", "portada-texto.mjs",
+  "stats-ligas.mjs", "portada-texto.mjs", "repaso-fecha.mjs",
 ];
 const faltan = IMPRESCINDIBLES.filter(f => !existsSync(aca("./" + f)));
 if (faltan.length) {

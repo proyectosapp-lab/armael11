@@ -1911,6 +1911,14 @@ srv.listen(8099, async () => {
          /href="\/terminos\.html"/.test(club.texto) && /href="\/contacto\.html"/.test(club.texto) && /href="\/quienes-somos\.html"/.test(club.texto));
     const mapa = await traer('/sitemap.xml');
     caso("el mapa del sitio lista las tres", /terminos\.html/.test(mapa.texto) && /contacto\.html/.test(mapa.texto) && /quienes-somos\.html/.test(mapa.texto));
+    /* los repasos de cada fecha (repaso-fecha.mjs) */
+    const indice = await traer('/repasos/');
+    caso("hay repasos de cada fecha, con índice", indice.estado === 200 && /Repasos de cada fecha/.test(indice.texto) && /fecha-\d+\.html/.test(indice.texto));
+    const m = indice.texto.match(/href="\/(repasos\/[a-z0-9-]+-fecha-\d+\.html)"/);
+    const rep = m ? await traer('/' + m[1]) : { estado: 0, texto: "" };
+    caso("un repaso tiene más de 400 palabras y se indexa", rep.estado === 200 && sinJs(rep.texto).split(" ").length > 400 && /content="index,follow"/.test(rep.texto), String(sinJs(rep.texto).split(" ").length));
+    caso("la portada enlaza el último repaso", /href="\/repasos\/[a-z0-9-]+-fecha-\d+\.html"/.test(bloque) && /href="\/repasos\/"/.test(bloque));
+    caso("y el mapa del sitio los lista", /repasos\/[a-z0-9-]+-fecha-\d+\.html/.test(mapa.texto));
   }
 
   const sw = await traer('/sw.js');

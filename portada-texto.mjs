@@ -61,7 +61,7 @@ export function proximaFecha(proximos = [], { liga = "argentina", max = 15 } = {
     id: p.id, nl: p.nl, nv: p.nv, fecha: p.fecha, ruta: "/" + urlPartido(liga, p) })) };
 }
 
-export function textoPortada({ proximos = [], tiendas = {}, statsArgentina = null, numeroDeLigas = 11, hoy = new Date() } = {}) {
+export function textoPortada({ proximos = [], tiendas = {}, statsArgentina = null, numeroDeLigas = 11, repaso = null, hoy = new Date() } = {}) {
   const fecha = proximaFecha(proximos);
   const st = statsArgentina && statsArgentina.promedios ? statsArgentina : null;
   const partidos = fecha ? fecha.partidos.map(p =>
@@ -87,7 +87,8 @@ export function textoPortada({ proximos = [], tiendas = {}, statsArgentina = nul
   <p>Con una cuenta puedes guardar tus equipos y desafiar a tus amigos: eliges unos partidos, les mandas el link y gana el que mejor lee los partidos. Los desafíos, los juegos y los resultados son gratis siempre; el simulador sin tope es del plan Fútbol.</p>
 
   <h2>Está medido</h2>
-  <p>Cada vez que el modelo da un número antes de un partido, ese número queda guardado y después se compara con lo que pasó. Esa comparación es pública: <a href="/como-funciona.html">cómo funciona</a>, <a href="/el-techo-del-futbol.html">el techo del fútbol</a> (cuánto se puede anticipar, como mucho, en este deporte), <a href="/es-suerte.html">¿es suerte?</a> y <a href="/ligas.html">qué pasa liga por liga</a>. En Argentina el modelo le gana poco a la vara; en Portugal, bastante. Las dos cosas se dicen.</p>${bloqueNumeros}
+  <p>Cada vez que el modelo da un número antes de un partido, ese número queda guardado y después se compara con lo que pasó. Esa comparación es pública: <a href="/como-funciona.html">cómo funciona</a>, <a href="/el-techo-del-futbol.html">el techo del fútbol</a> (cuánto se puede anticipar, como mucho, en este deporte), <a href="/es-suerte.html">¿es suerte?</a> y <a href="/ligas.html">qué pasa liga por liga</a>. En Argentina el modelo le gana poco a la vara; en Portugal, bastante. Las dos cosas se dicen.</p>${bloqueNumeros}${repaso ? `
+  <p>Cada fecha de la Liga Profesional tiene su repaso, escrito con los datos: los resultados, la estadística que movió la aguja de cada partido, lo que el modelo había dicho y la tabla después. El último: <a href="/${esc(repaso.ruta)}">${esc(repaso.titulo)}</a>. <a href="/repasos/">Todos los repasos</a>.</p>` : ""}
 ${bloqueFecha}
 
   <h2>La app: Mano a mano</h2>

@@ -11,6 +11,7 @@ import { compactar, caminar, faltan, unir, sumarAnticipados, anticipar, estadist
          puntoDe, aguja, numerosDeEquipos, esJugado, aSlug, urlPartido, PAREJO } from "./consulta-datos.mjs";
 import { paginasConsulta, leerLigaJs, proximosDe } from "./consulta.mjs";
 import { mapaDelSitio } from "./paginas-medido.mjs";
+import { paginasRepaso, ultimoRepaso, fechasCompletas, notasHTML } from "./repaso-fecha.mjs";
 import { readFileSync } from "node:fs";
 
 let ok = 0, mal = 0;
@@ -248,6 +249,31 @@ caso("sin datos no sale ninguna página",
 caso("sin la liga del día, los próximos salen de la semanal (y sin enlace directo)",
      proximosDe({ partidos: [{ id: 1, fecha: "2026-06-06T20:00:00Z", estado: "NS", local: 1, visita: 2, nl: "A", nv: "B" }] },
                 null, AHORA)[0].enApp === false);
+
+
+console.log("\n── los repasos de cada fecha (8/10/2026) ──");
+{
+  const mezcla = actual.slice(); mezcla[3] = { ...mezcla[3], estado: "NS", gl: null, gv: null };   /* la fecha 1 queda a medias */
+  const F = fechasCompletas(mezcla);
+  caso("solo las fechas enteras se repasan", F.length === 13 && !F.some(f => f.n === 1), F.map(f => f.n).join(","));
+  const notas = { "inventada-7": "La fecha del **cambio**.\n\nDos párrafos." };
+  const R = paginasRepaso({ datos: { temporada: 2026, partidos: actual }, info: LIGAS[0], RAIZ: "https://armael11.com", notasDe: k => notas[k] || "" });
+  caso("una página por fecha más el índice", R.length === 15 && R.some(p => p.esIndice) && R.every(p => p.indexar));
+  const f7 = R.find(p => p.ruta === "repasos/inventada-fecha-7.html");
+  caso("la ruta sin torneo cuando es 'Regular Season'", !!f7, R.map(p => p.ruta).slice(0, 3).join(","));
+  const t = texto(f7.html);
+  caso("tiene cuerpo: más de 250 palabras con solo cuatro partidos", t.split(" ").length > 250, t.split(" ").length + " palabras");
+  caso("las notas de Fausto van arriba, como 'La mirada', con negrita", /La mirada/.test(f7.html) && /<b>cambio<\/b>/.test(f7.html) && /Dos párrafos/.test(f7.html));
+  caso("sin notas no hay 'La mirada'", !/La mirada/.test(R.find(p => p.ruta === "repasos/inventada-fecha-8.html").html));
+  caso("cada partido enlaza a su página de consulta", actual.filter(p => p.ronda === "Regular Season - 7").every(p => f7.html.includes("/consulta/inventada/") && f7.html.includes("-" + p.id + ".html")));
+  caso("dice lo que el modelo dijo y que está medido, sin explicar la cuenta", /pasó lo que el modelo ponía arriba/.test(t) && /está medido/.test(t) && !/se calcula/.test(t));
+  caso("con la tabla después de la fecha", /La tabla después de la fecha/.test(f7.html) && /<table>/.test(f7.html));
+  caso("sin palabras prohibidas ni 'vos'", !prohibidas.some(w => new RegExp("\\b" + w + "\\b", "i").test(t)) && !/\bvos\b/.test(t));
+  caso("el último repaso es el de la fecha más nueva", ultimoRepaso(R).n === 14);
+  caso("el índice los lista del más nuevo al más viejo", (() => { const i = R.find(p => p.esIndice).html; return i.indexOf("fecha-14.html") < i.indexOf("fecha-13.html"); })());
+  caso("sin datos no hay repasos", paginasRepaso({ datos: null, info: LIGAS[0] }).length === 0 && paginasRepaso({ datos: { partidos: [] }, info: LIGAS[0] }).length === 0);
+  caso("el markdown chico: párrafos y negrita, escapado", notasHTML("a <b> **x**\n\nb") === "<p>a &lt;b&gt; <b>x</b></p>\n<p>b</p>");
+}
 
 console.log("\n── lo que viene de afuera ──");
 {

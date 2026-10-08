@@ -25,6 +25,7 @@ import { paginasConsulta, leerLigaJs } from "./consulta.mjs";
 import { escribirStatsLigas } from "./stats-ligas.mjs";
 import { textoPortada, CSS_PORTADA } from "./portada-texto.mjs";
 import { proximosDe } from "./consulta.mjs";
+import { paginasRepaso, ultimoRepaso } from "./repaso-fecha.mjs";
 
 const aca = p => new URL(p, import.meta.url);
 const CLUBES = JSON.parse(readFileSync(aca("./clubes.json")));
@@ -528,6 +529,22 @@ const cabezaPortada = [
   `<meta name="mobile-web-app-capable" content="yes">`,
 ].filter(Boolean).join("\n");
 
+/* ── LOS REPASOS DE CADA FECHA (repaso-fecha.mjs, 8/10/2026) ─────────────
+   Una página por fecha jugada de la Liga Profesional, con los datos de la
+   semanal, y el índice. Las notas de Fausto, si las hay, están en
+   repasos/notas/<liga>-<torneo>-<n>.md en el repo. Se arman acá, antes de
+   la portada, porque la portada enlaza el último. */
+const REPASOS = (() => {
+  const leer = f => { try { return JSON.parse(readFileSync(aca(f), "utf8")); } catch (e) { return null; } };
+  const info = LIGAS_CFG && LIGAS_CFG.ligas ? LIGAS_CFG.ligas.find(l => l.slug === "argentina") : null;
+  const notasDe = clave => { try { return readFileSync(aca("./repasos/notas/" + clave + ".md"), "utf8"); } catch (e) { return ""; } };
+  const paginas = paginasRepaso({ datos: leer("./estadisticas/argentina.json"), info, RAIZ, notasDe });
+  rmSync(new URL("repasos/", SITIO), { recursive: true, force: true });
+  for (const p of paginas) { const d = new URL(p.ruta, SITIO); mkdirSync(new URL("./", d), { recursive: true }); writeFileSync(d, p.html); }
+  if (paginas.length) console.log("  repasos: " + (paginas.length - 1) + " fechas");
+  return paginas;
+})();
+
 /* Lo que la portada dice sin JavaScript (portada-texto.mjs). La próxima
    fecha sale de la liga del día si está bajada, si no de la semanal. */
 const PORTADA_TEXTO = (() => {
@@ -545,6 +562,7 @@ const PORTADA_TEXTO = (() => {
                insignias },
     statsArgentina: leer("./stats-liga.json"),
     numeroDeLigas: LIGAS_CFG && LIGAS_CFG.ligas ? LIGAS_CFG.ligas.length : 11,
+    repaso: ultimoRepaso(REPASOS),
   });
 })();
 
@@ -845,7 +863,7 @@ ${CONTACTO ? `<p>Si no puedes entrar a tu cuenta, escríbenos a <a href="mailto:
   const indexables = consulta.filter(p => p.indexar !== false);
   if (consulta.length) console.log("  consulta: " + indexables.length + " en el sitemap, " +
                                    (consulta.length - indexables.length) + " con noindex");
-  const mapa = mapaDelSitio(RAIZ, undefined, indexables.map(p => p.ruta));
+  const mapa = mapaDelSitio(RAIZ, undefined, [...REPASOS.map(p => p.ruta), ...indexables.map(p => p.ruta)]);
   if (mapa) writeFileSync(new URL("sitemap.xml", SITIO), mapa);
   writeFileSync(new URL("robots.txt", SITIO), robots(RAIZ));
 }
