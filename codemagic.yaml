@@ -55,11 +55,14 @@ workflows:
         - manoamano
       vars:
         BUNDLE_ID: "com.armael11.app"
+      # FIRMA AUTOMÁTICA (9/10): Codemagic pide a Apple el certificado y el perfil
+      # con la integración `armael11` y los regenera si el App ID cambió (por
+      # ejemplo, al tildar Associated Domains). Antes se usaban los subidos a
+      # mano con nombre `armael11`; si vuelven a hacer falta, es:
+      #   ios_signing: { certificates: [armael11], provisioning_profiles: [armael11] }
       ios_signing:
-        certificates:
-          - armael11
-        provisioning_profiles:
-          - armael11
+        distribution_type: app_store
+        bundle_identifier: com.armael11.app
     integrations:
       app_store_connect: armael11
     triggering:
