@@ -131,6 +131,20 @@ workflows:
         script: |
           set -e
           if [ -z "${APPLE_TEAM_ID:-}" ]; then echo "sin APPLE_TEAM_ID: los links abren la web"; exit 0; fi
+          # El perfil que Codemagic bajó de Apple tiene que traer la capacidad Associated Domains (se tilda en el
+          # App ID, en developer.apple.com). Si no la trae, pedir la entitlement hace que el archivo falle con
+          # "doesn't support the Associated Domains capability" (exit 65). Se mira antes y, si falta, se compila
+          # sin links universales en vez de romper el build.
+          OK=0
+          for p in "$HOME"/Library/MobileDevice/Provisioning\ Profiles/*.mobileprovision; do
+            [ -f "$p" ] || continue
+            if security cms -D -i "$p" 2>/dev/null | grep -q "associated-domains"; then OK=1; fi
+          done
+          if [ "$OK" = "0" ]; then
+            echo "el perfil de Apple no trae Associated Domains: tilda esa capacidad en el App ID com.armael11.app"
+            echo "(developer.apple.com → Identifiers) y vuelve a compilar. Por ahora los links abren la web."
+            exit 0
+          fi
           E=ios/App/App/App.entitlements
           cat > "$E" <<'XML'
           <?xml version="1.0" encoding="UTF-8"?>
