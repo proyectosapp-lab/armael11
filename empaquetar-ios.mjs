@@ -158,7 +158,9 @@ export function viewportDeApp(html) {
   return { html: t.replace(re, '<meta name="viewport" content="' + VIEWPORT_APP + '">'), cambiado: true };
 }
 
-export const noSeLleva = ruta => /^consulta(\/|$)/.test(String(ruta || ""));
+/* Lo que es para el buscador, no para la app: la consulta (miles de páginas) y los repasos de cada fecha
+   (8/10/2026: la portada los enlaza y el empaquetador se cayó intentando escribir "repasos/" como archivo). */
+export const noSeLleva = ruta => /^(consulta|repasos)(\/|$)/.test(String(ruta || ""));
 
 export async function bajarSitio({ origen, semillas, traer, log = () => {} }) {
   const archivos = new Map();

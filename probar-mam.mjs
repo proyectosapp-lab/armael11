@@ -358,6 +358,23 @@ console.log("\n── entrar con un código por mail (no un link) ──");
   await ctx4.close();
 }
 
+console.log("\n── el texto de la portada no viaja adentro ──");
+{
+  const { absolutizar } = await import("./empaquetar-mam.mjs");
+  const h = '<p>antes</p>\n<!-- portada:inicio -->\n<section class="portada-texto"><h2>Qué es</h2><p>quinientas palabras</p></section>\n<!-- portada:fin -->\n<p class="pie">después</p>';
+  const r = absolutizar(h, "https://armael11.com");
+  ok(!/portada-texto|quinientas/.test(r) && /antes/.test(r) && /después/.test(r), "el empaquetador saca el bloque de la portada (para los buscadores) y deja el resto");
+  ok(!/consulta-x/.test(absolutizar("a<!-- consulta:inicio -->consulta-x<!-- consulta:fin -->b", "https://armael11.com")), "y sigue sacando el de la consulta");
+  /* 9/10: el build de Codemagic se cayó con EISDIR al escribir "repasos/": la portada enlaza /repasos/ y el
+     rastreador lo bajó como si fuera un archivo. Ni la consulta ni los repasos viajan; una carpeta, nunca. */
+  const { noSeLleva, enlacesDe } = await import("./empaquetar-ios.mjs");
+  ok(noSeLleva("repasos/") && noSeLleva("repasos/argentina-clausura-fecha-11.html") && noSeLleva("consulta/") && !noSeLleva("talleres-cba.html"), "el rastreador no sigue /repasos/ ni /consulta/");
+  const links = enlacesDe('<a href="/repasos/">x</a><a href="/contacto.html">c</a><a href="/talleres-cba.html">t</a>');
+  ok(links.every((l) => !noSeLleva(l) || /^(repasos|consulta)/.test(l)) && links.some((l) => /talleres-cba\.html$/.test(l)), "y los links de la portada se filtran por ese criterio");
+  const abs = absolutizar('<a href="contacto.html">c</a><a href="terminos.html">t</a><a href="quienes-somos.html">q</a><a href="talleres-cba.html">ok</a>', "https://armael11.com", { conservar: ["index.html", "talleres-cba.html"] });
+  ok(/href="https:\/\/armael11\.com\/contacto\.html"/.test(abs) && /href="https:\/\/armael11\.com\/terminos\.html"/.test(abs) && /href="https:\/\/armael11\.com\/quienes-somos\.html"/.test(abs) && /href="talleres-cba\.html"/.test(abs), "contacto, términos y quiénes somos abren en el navegador; las páginas de club viajan");
+}
+
 console.log("\n── sin desbordes a 390 ──");
 for (const p of ["partidos", "juga", "desafios", "cuenta"]) { await page.click(`#mam-barra [data-pestana="${p}"]`); await page.waitForTimeout(300); const ancho = await page.evaluate(() => document.documentElement.scrollWidth); ok(ancho <= 390, p + ": sin scroll horizontal (" + ancho + ")"); }
 

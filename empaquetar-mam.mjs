@@ -43,7 +43,7 @@ const SITIOS = {
   nba:    { origen: "https://armaelquinteto.com",  carpeta: "nba" },
 };
 /* páginas que no viajan en ningún sitio: son para el buscador o para la web */
-const NO_VIAJAN = /^(consulta(\/|$)|sitemap\.xml|robots\.txt|ads\.txt|CNAME|\.nojekyll|\.well-known\/|gracias\.html|como-funciona\.html|esta-medido\.html|el-saque\.html|superficies\.html|set-decisivo\.html|el-techo-del-futbol\.html|es-suerte\.html|ligas\.html|liga-argentina\.html|nba\.html|borrar-cuenta\.html|feed\.html|perfil\.html|manifest\.webmanifest|.*\.webmanifest|sw\.js|og\.png)$/i;
+const NO_VIAJAN = /^(consulta(\/|$)|repasos(\/|$)|contacto\.html|terminos\.html|quienes-somos\.html|sitemap\.xml|robots\.txt|ads\.txt|CNAME|\.nojekyll|\.well-known\/|gracias\.html|como-funciona\.html|esta-medido\.html|el-saque\.html|superficies\.html|set-decisivo\.html|el-techo-del-futbol\.html|es-suerte\.html|ligas\.html|liga-argentina\.html|nba\.html|borrar-cuenta\.html|feed\.html|perfil\.html|manifest\.webmanifest|.*\.webmanifest|sw\.js|og\.png)$/i;
 
 function todosLosArchivos(dir, base = dir, salida = []) {
   for (const n of readdirSync(dir)) {
@@ -136,7 +136,7 @@ if (ME_CORREN) {
     let paginas = 0, enchufadas = 0, sacadas = 0;
     const conservar = ["index.html", ...(dep === "futbol" ? CLUBES.map(c => c.id + ".html") : [])];
     for (const [ruta, dato] of archivos) {
-      if (NO_VIAJAN.test(ruta)) { sacadas++; continue; }
+      if (NO_VIAJAN.test(ruta) || /\/$/.test(ruta)) { sacadas++; continue; }   // una carpeta ("repasos/") no es un archivo
       const u = new URL(ruta, carpeta); mkdirSync(new URL(".", u), { recursive: true });
       if (!/\.html$/i.test(ruta)) { writeFileSync(u, dato); continue; }
       let html = sacarPublicidad(dato.toString("utf8")).html;
