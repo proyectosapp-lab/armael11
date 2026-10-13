@@ -631,12 +631,20 @@ const pagina = (titulo, cuerpo, { indexar = true } = {}) => `<!doctype html>
 <meta name="robots" content="${indexar ? "index,follow" : "noindex"}">
 <link rel="icon" href="${icono({color:"#0B4F3A", ini:"11"})}">
 <style>
-  :root{ --fondo:#F7F8FA; --papel:#FFFFFF; --texto:#101418; --suave:#57606E; --borde:#E3E6EC; }
+  /* Los neutros y la letra de la familia (12/10/2026): los mismos de la
+     app y de Sacá vos. Poppins viaja en /datos/, como en la portada. */
+  @font-face{font-family:"Poppins";font-weight:700;font-display:swap;src:url("/datos/poppins-bold.woff") format("woff")}
+  @font-face{font-family:"Poppins";font-weight:500;font-display:swap;src:url("/datos/poppins-medium.woff") format("woff")}
+  :root{ --fondo:#F6F1EA; --papel:#FFFFFF; --texto:#14110F; --suave:#5C554F; --borde:#E8E0D5; --verde:#1E8A4A; }
   @media (prefers-color-scheme: dark){
-    :root{ --fondo:#0D1013; --papel:#161A1F; --texto:#F2F4F7; --suave:#98A2B3; --borde:#242A31; } }
+    :root{ --fondo:#0D1117; --papel:#161C25; --texto:#F2EDE6; --suave:#A39B93; --borde:#242B36; --verde:#3DD17A; } }
+  .familia{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:0 0 18px;font-size:11.5px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--suave);line-height:1}
+  .familia a,.familia b{color:inherit;text-decoration:none;padding:8px 0;display:inline-flex;align-items:center;border-bottom:2px solid transparent}
+  .familia a:hover{color:var(--texto)} .familia b{color:var(--texto);font-weight:700;border-bottom-color:var(--verde)}
+  .familia .marca{font-weight:700} .familia .sep{width:1px;height:14px;background:var(--borde)}
   *{box-sizing:border-box}
   body{margin:0;background:var(--fondo);color:var(--texto);
-    font:16px/1.65 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    font:500 16px/1.65 "Poppins",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
     padding:32px 18px 70px;-webkit-font-smoothing:antialiased}
   .caja{max-width:660px;margin:0 auto}
   h1{font-size:26px;letter-spacing:-.02em;margin:0 0 6px}
@@ -650,7 +658,9 @@ const pagina = (titulo, cuerpo, { indexar = true } = {}) => `<!doctype html>
   a{color:inherit}
   footer{margin-top:36px;padding-top:16px;border-top:1px solid var(--borde);
     color:var(--suave);font-size:14px}
-</style></head><body><div class="caja">${cuerpo}
+</style></head><body><div class="caja">
+<nav class="familia" aria-label="Mano a mano"><a class="marca" href="/app/">Mano a mano</a><span class="sep" aria-hidden="true"></span><b aria-current="page">Fútbol</b><a href="https://sacavos.com/">Tenis</a><a href="https://armaelquinteto.com/">NBA</a></nav>
+${cuerpo}
 <footer><a href="/">Volver a Armá el 11</a></footer></div></body></html>
 `;
 

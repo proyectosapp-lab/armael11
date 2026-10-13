@@ -82,8 +82,12 @@ export function absolutizar(html, origen, { conservar = [] } = {}) {
   });
   // sin manifest ni "agregar a inicio": ya está instalada. Y sin el service worker, que en WKWebView no anda.
   t = t.replace(/<link rel="manifest"[^>]*>\n?/g, "").replace(/<meta name="(apple-)?mobile-web-app-capable"[^>]*>\n?/g, "");
-  // y el texto de la portada para los buscadores (portada-texto.mjs): adentro de la app es estorbo
-  t = t.replace(/<!-- (consulta|portada):inicio -->[\s\S]*?<!-- \1:fin -->\n?/g, "");
+  // y el texto de la portada para los buscadores (portada-texto.mjs): adentro de la app es estorbo.
+  // 12/10: también la franja de la familia (Fútbol · Tenis · NBA) y las hermanas del pie: en la web
+  // cruzan los tres sitios; adentro ya son pestañas, y un link a otro sitio que vende planes es lo
+  // que Apple rechaza (3.1.1 y 3.1.3). El CSS de cada web ya los esconde (body.mam-marco); esto
+  // los saca del todo, que es lo que un revisor con el inspector abierto tiene que encontrar.
+  t = t.replace(/<!-- (consulta|portada|familia):inicio -->[\s\S]*?<!-- \1:fin -->\n?/g, "");
   return t;
 }
 

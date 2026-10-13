@@ -105,14 +105,20 @@ export const PAGINAS = [
 
 /* El estilo de estas páginas, compartido con las de consulta
    (`consulta.mjs`) para que todo el sitio de texto se vea igual. */
-export const CSS = `  :root{ --fondo:#F7F8FA; --papel:#FFFFFF; --texto:#101418; --suave:#57606E;
-         --borde:#E3E6EC; --verde:#1E8A4A; }
+export const CSS = `  /* Los neutros y la letra de la familia (12/10/2026): los mismos de la
+     app y de Sacá vos. Poppins viaja en /datos/, como en la portada. */
+  @font-face{font-family:"Poppins";font-weight:700;font-display:swap;src:url("/datos/poppins-bold.woff") format("woff")}
+  @font-face{font-family:"Poppins";font-weight:500;font-display:swap;src:url("/datos/poppins-medium.woff") format("woff")}
+  :root{ --fondo:#F6F1EA; --papel:#FFFFFF; --texto:#14110F; --suave:#5C554F; --borde:#E8E0D5; --verde:#1E8A4A; }
   @media (prefers-color-scheme: dark){
-    :root{ --fondo:#0D1013; --papel:#161A1F; --texto:#F2F4F7; --suave:#98A2B3;
-           --borde:#242A31; --verde:#3DD17A; } }
+    :root{ --fondo:#0D1117; --papel:#161C25; --texto:#F2EDE6; --suave:#A39B93; --borde:#242B36; --verde:#3DD17A; } }
+  .familia{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:0 0 18px;font-size:11.5px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--suave);line-height:1}
+  .familia a,.familia b{color:inherit;text-decoration:none;padding:8px 0;display:inline-flex;align-items:center;border-bottom:2px solid transparent}
+  .familia a:hover{color:var(--texto)} .familia b{color:var(--texto);font-weight:700;border-bottom-color:var(--verde)}
+  .familia .marca{font-weight:700} .familia .sep{width:1px;height:14px;background:var(--borde)}
   *{box-sizing:border-box}
   body{margin:0;background:var(--fondo);color:var(--texto);
-    font:17px/1.7 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    font:500 17px/1.7 "Poppins",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
     padding:28px 18px 70px;-webkit-font-smoothing:antialiased}
   .caja{max-width:680px;margin:0 auto}
   .marca{font-size:14px;font-weight:700;color:var(--suave);text-decoration:none}
@@ -123,7 +129,8 @@ export const CSS = `  :root{ --fondo:#F7F8FA; --papel:#FFFFFF; --texto:#101418; 
   h2{font-size:21px;letter-spacing:-.01em;margin:38px 0 10px;line-height:1.3}
   p{margin:0 0 14px}
   ul,ol{margin:0 0 14px;padding-left:22px} li{margin:5px 0}
-  a{color:inherit}
+  a{color:inherit;text-decoration-color:color-mix(in srgb,currentColor 35%,transparent);text-underline-offset:3px}
+  a:hover{text-decoration-color:currentColor}
   .dato{background:var(--papel);border:1px solid var(--borde);border-radius:14px;
     padding:16px 18px;margin:20px 0}
   .dato p:last-child{margin:0}
@@ -159,6 +166,7 @@ ${canon ? `<link rel="canonical" href="${esc(canon)}">` : ""}
 ${canon ? `<meta property="og:url" content="${esc(canon)}">` : ""}
 <style>
 ${CSS}</style></head><body><div class="caja">
+<nav class="familia" aria-label="Mano a mano"><a class="marca" href="/app/">Mano a mano</a><span class="sep" aria-hidden="true"></span><b aria-current="page">Fútbol</b><a href="https://sacavos.com/">Tenis</a><a href="https://armaelquinteto.com/">NBA</a></nav>
 <a class="marca" href="/">Armá el 11</a>
 <nav>Está medido: ${nav}<br><a href="${esc(RAIZ)}/consulta/">Partidos y equipos de las once ligas</a></nav>
 ${cuerpo}

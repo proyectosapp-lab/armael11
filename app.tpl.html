@@ -8,7 +8,7 @@
 *{box-sizing:border-box}
 html{background:var(--fondo)}
 body{margin:0;background:transparent;color:var(--tinta);
-  font:16px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,sans-serif;
+  font:500 16px/1.5 "Poppins",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
   -webkit-font-smoothing:antialiased;padding-bottom:80px}
 #seña{position:fixed;inset:-12%;z-index:0;pointer-events:none;background:var(--seña);
   opacity:var(--seña-op);filter:blur(var(--seña-blur));transform:scale(1.15)}
@@ -861,8 +861,55 @@ th{font-family:var(--display);font-weight:500;letter-spacing:.8px}
 button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--acento);outline-offset:2px}
 button:disabled{opacity:.45;cursor:default}
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
+/* ══ LA FAMILIA Y EL ESCRITORIO (12/10/2026) ═══════════════════════════════
+   Dos cosas que las tres webs comparten desde hoy. La franja de arriba dice
+   que Mano a mano son tres deportes y lleva a los otros dos. Y en pantallas
+   anchas la página deja de ser un celular centrado: la barra pasa arriba,
+   la cabeza crece y, en la portada, el texto largo va al lado del simulador
+   en vez de debajo. Nada de esto toca el teléfono, que es lo que viaja a la
+   app: todo vive detrás de min-width: 980px, y fuera de body.mam-marco. */
+.familia{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:10px 2px 2px;
+  font-family:var(--display);font-weight:500;font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--tinta-3);line-height:1}
+.familia a,.familia b{color:inherit;text-decoration:none;padding:8px 0;min-height:32px;display:inline-flex;align-items:center;
+  border-bottom:2px solid transparent;transition:color .15s,border-color .15s}
+.familia a:hover{color:var(--tinta)}
+.familia b{color:var(--tinta);font-weight:700;border-bottom-color:var(--fuerte,var(--acento))}
+.familia-marca{font-weight:700;color:var(--tinta-2)}
+.familia-sep{width:1px;height:14px;background:var(--borde)}
+.pie .hermanas a{font-weight:600}
+@media (min-width:980px){
+  body:not(.mam-marco){padding-top:74px;padding-bottom:40px}
+  body:not(.mam-marco) .barra{top:0;bottom:auto;left:50%;right:auto;transform:translateX(-50%);width:min(100% - 32px,1120px);
+    border-radius:0 0 var(--r-l) var(--r-l);padding:6px 10px;gap:4px;justify-content:center;
+    box-shadow:0 1px 0 var(--borde),0 12px 30px -18px rgba(10,15,25,.25)}
+  body:not(.mam-marco) .barra button{flex:0 1 auto;display:flex;flex-direction:row;align-items:center;gap:9px;
+    padding:10px 16px;min-height:44px;font-size:13px;letter-spacing:.1px}
+  body:not(.mam-marco) .barra button span{width:20px;height:20px}
+  body:not(.mam-marco) .barra button svg{width:20px;height:20px}
+  body:not(.mam-marco) .barra button[aria-pressed="true"]{background:color-mix(in srgb,var(--fuerte,var(--acento)) 12%,transparent)}
+  body:not(.mam-marco) .barra button[aria-pressed="true"]::before{display:none}
+  body:not(.mam-marco) .barra button[aria-pressed="true"] svg{transform:none}
+  body:not(.mam-marco) .envase{max-width:720px;padding:0 20px}
+  body:not(.mam-marco) .cabeza{padding:22px 24px;margin:16px 0 18px}
+  body:not(.mam-marco) .mono{width:64px;height:64px;border-radius:20px;font-size:30px}
+  body:not(.mam-marco) .cabeza h1{font-size:28px}
+  body:not(.mam-marco) .cabeza > div:not(.mono){flex:1 1 auto;min-width:0}
+  body:not(.mam-marco) .cabeza .tema{margin-left:8px}
+  body:not(.mam-marco) .cabeza p{font-size:13px}
+  /* la portada: dos columnas, el simulador a la izquierda y el texto al lado */
+  body:not(.mam-marco) .envase:has(.portada-texto){max-width:1120px;display:grid;
+    grid-template-columns:minmax(0,600px) minmax(0,1fr);column-gap:44px;align-items:start}
+  body:not(.mam-marco) .envase:has(.portada-texto) > .familia,
+  body:not(.mam-marco) .envase:has(.portada-texto) > .cabeza,
+  body:not(.mam-marco) .envase:has(.portada-texto) > .pie{grid-column:1 / -1}
+  body:not(.mam-marco) .envase:has(.portada-texto) > #cuenta,
+  body:not(.mam-marco) .envase:has(.portada-texto) > #vista{grid-column:1;position:sticky;top:84px}
+  body:not(.mam-marco) .envase:has(.portada-texto) > .portada-texto{grid-column:2;grid-row:3 / span 2;margin-top:0;padding-top:6px}
+  body:not(.mam-marco) .envase:has(.portada-texto) > .pie{margin-top:18px}
+}
 /* ── adentro de Mano a mano (body.mam-marco): sin cabeza, sin pie, sin cuenta; la barra pasa arriba ── */
-body.mam-marco .cabeza,body.mam-marco .pie,body.mam-marco #cuenta,body.mam-marco #seña,body.mam-marco #filete,body.mam-marco #estrellas{display:none!important}
+body.mam-marco .cabeza,body.mam-marco .pie,body.mam-marco #cuenta,body.mam-marco #seña,body.mam-marco #filete,body.mam-marco #estrellas,body.mam-marco .familia,body.mam-marco .hermanas{display:none!important}
 body.mam-marco .barra{position:fixed;top:0;bottom:auto;border-top:0;border-bottom:1px solid var(--linea,rgba(0,0,0,.1));padding:6px 6px 6px}
 body.mam-marco .envase{padding-top:72px;padding-bottom:24px}
 body.mam-marco .barra .mam-club{margin-left:auto}
@@ -872,6 +919,22 @@ body.mam-marco .barra .mam-club{margin-left:auto}
 <div id="seña"></div>
 <div id="filete"></div><div id="estrellas"></div>
 <div class="envase">
+  <!-- LA FAMILIA (12/10/2026). Las tres webs son una sola app, Mano a mano,
+       y hasta hoy ninguna decía que las otras dos existían: el que entraba
+       por el tenis se quedaba en el tenis. Esta franja y el pie lo cruzan.
+       SOLO EN LA WEB: adentro de la app las tres ya son pestañas, y un link
+       a otro sitio que vende planes es lo que Apple rechaza (3.1.1 y 3.1.3).
+       body.mam-marco lo esconde, igual que a la cabeza y al pie, y el
+       empaquetador saca lo que hay entre familia:inicio y familia:fin. -->
+  <!-- familia:inicio -->
+  <nav class="familia" aria-label="Mano a mano">
+    <a class="familia-marca" href="/app/">Mano a mano</a>
+    <span class="familia-sep" aria-hidden="true"></span>
+    <b aria-current="page">Fútbol</b>
+    <a href="https://sacavos.com/">Tenis</a>
+    <a href="https://armaelquinteto.com/">NBA</a>
+  </nav>
+  <!-- familia:fin -->
   <div class="cabeza">
     <div class="mono" id="mono">T</div>
     <div><h1 id="nombre">Talleres</h1><p id="resumen">—</p></div>
@@ -914,7 +977,8 @@ body.mam-marco .barra .mam-club{margin-left:auto}
     <!-- Absoluto a propósito: en la web es el mismo sitio, y adentro del
          iPhone abre en el navegador interno con la versión del día (la
          consulta no viaja en el .ipa: ver `noSeLleva` en empaquetar-ios). -->
-    <a href="{{RAIZ}}/consulta/">Partidos y equipos de las once ligas</a></p>
+    <a href="{{RAIZ}}/consulta/">Partidos y equipos de las once ligas</a><br>
+    <!-- familia:inicio --><span class="hermanas">Mano a mano: <a href="https://sacavos.com/">Sacá vos</a> (tenis) · <a href="https://armaelquinteto.com/">Armá el Quinteto</a> (NBA) · <a href="/app/">la app</a></span><!-- familia:fin --></p>
 </div>
 <!-- EL ORDEN NO ES DECORATIVO. Primero lo que hicimos nosotros: el
      simulador, el fantasy y los números salen de nuestro código. El feed
@@ -1015,11 +1079,15 @@ function hojaMinima(lav,tin,pA,pB,min=4.5){
       for(const t of tin) peor=Math.min(peor,CT(t,eff));}
     if(peor>=min)return Math.min(1,b);} return 1;}
 
+/* LOS NEUTROS SON LOS DE LA FAMILIA (12/10/2026). Papel cálido de día y
+   noche fría, los mismos valores que Sacá vos y el Quinteto: las tres webs
+   son una sola app y tienen que leerse como hermanas. El color del club
+   sigue siendo el acento, que es lo propio de Armá el 11. */
 const TEMAS={
-  claro:{fondo:"#F4F6F9",papel:"#FFFFFF",tinta:"#0D1117",tinta2:"#39424F",tinta3:"#57606E",
-         borde:"#DDE3EC",barra:"rgba(255,255,255,.86)"},
-  oscuro:{fondo:"#08090C",papel:"#12161D",tinta:"#F2F5FA",tinta2:"#A4AEBE",tinta3:"#8B95A6",
-         borde:"#232A35",barra:"rgba(12,15,20,.86)"}};
+  claro:{fondo:"#F6F1EA",papel:"#FFFFFF",tinta:"#14110F",tinta2:"#3E3833",tinta3:"#5C554F",
+         borde:"#E8E0D5",barra:"rgba(246,241,234,.88)"},
+  oscuro:{fondo:"#0D1117",papel:"#161C25",tinta:"#F2EDE6",tinta2:"#BDB4AA",tinta3:"#A39B93",
+         borde:"#242B36",barra:"rgba(13,17,23,.88)"}};
 const CLUB=window.CLUB, OP=.78;
 
 /* EL CLUB SE ELIGE UNA VEZ. La app instalada arranca en la portada, y la

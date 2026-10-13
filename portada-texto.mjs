@@ -103,16 +103,23 @@ ${MARCA_FIN}
 /* El CSS del bloque, para pegar en la hoja de la app. Pensado para leerse,
    no para competir con el simulador: va debajo, en el ancho de la columna. */
 export const CSS_PORTADA = `
-.portada-texto{max-width:680px;margin:28px auto 8px;padding:0 4px;font-size:16px;line-height:1.65;color:var(--tinta,inherit)}
-.portada-texto h2{font-size:17px;letter-spacing:.02em;margin:26px 0 8px}
-.portada-texto p{margin:0 0 12px}
-.portada-texto a{color:inherit}
-.portada-texto ul.fecha{list-style:none;padding:0;margin:0 0 12px}
-.portada-texto ul.fecha li{padding:7px 0;border-bottom:1px solid var(--linea,rgba(0,0,0,.1));display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}
-.portada-texto .cuando{font-size:14px;opacity:.75}
-.portada-texto .chico{font-size:14px;opacity:.8}
-.tiendas{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0 10px}
-.tiendas .tienda{display:inline-flex;flex-direction:column;justify-content:center;min-height:44px;padding:6px 16px;border-radius:10px;background:#101418;color:#fff;text-decoration:none;line-height:1.15}
+.portada-texto{max-width:680px;margin:30px auto 8px;padding:0 4px;font-size:16px;line-height:1.65;color:var(--tinta,inherit)}
+.portada-texto h2{font-family:var(--display,inherit);font-weight:700;font-size:19px;line-height:1.25;letter-spacing:-.2px;margin:30px 0 8px}
+.portada-texto h2:first-child{margin-top:0}
+.portada-texto p{margin:0 0 12px;max-width:62ch}
+.portada-texto a{color:var(--acento-txt,var(--tinta,inherit));text-decoration:underline;text-decoration-color:color-mix(in srgb,currentColor 35%,transparent);text-underline-offset:3px;text-decoration-thickness:1.5px;transition:text-decoration-color .15s}
+.portada-texto a:hover{text-decoration-color:currentColor}
+.portada-texto ul.fecha{list-style:none;padding:0;margin:0 0 14px;background:var(--papel,#fff);border-radius:var(--r-l,16px);box-shadow:var(--sombra-1,0 1px 2px rgba(0,0,0,.06));overflow:hidden}
+.portada-texto ul.fecha li{padding:11px 14px;border-bottom:1px solid var(--borde,rgba(0,0,0,.08));display:flex;justify-content:space-between;gap:12px;align-items:baseline;font-size:15px}
+.portada-texto ul.fecha li:last-child{border-bottom:0}
+.portada-texto ul.fecha a{text-decoration:none;font-weight:600;color:var(--tinta,inherit);flex:1 1 auto;min-width:0}
+.portada-texto ul.fecha a:hover{color:var(--acento-txt,inherit)}
+.portada-texto .cuando{font-size:12.5px;color:var(--tinta-3,inherit);white-space:nowrap;flex:none;font-variant-numeric:tabular-nums}
+.portada-texto .chico{font-size:14px;color:var(--tinta-2,inherit)}
+@media (max-width:480px){.portada-texto ul.fecha li{flex-direction:column;align-items:flex-start;gap:2px}}
+.tiendas{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0 12px}
+.tiendas .tienda{display:inline-flex;flex-direction:column;justify-content:center;min-height:48px;padding:7px 18px;border-radius:12px;background:#14110F;color:#fff;border:1px solid var(--borde,transparent);text-decoration:none;line-height:1.15;transition:transform .15s,opacity .15s}
+.tiendas .tienda:hover{transform:translateY(-1px);opacity:.92}
 .tiendas .tienda small{font-size:11px;opacity:.85}.tiendas .tienda b{font-size:17px}
 .tiendas .tienda img{display:block;height:44px;width:auto}
 body.mam-marco .portada-texto{display:none!important}

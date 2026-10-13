@@ -134,7 +134,9 @@ console.log("\n── la liga argentina ──");
 
 console.log("\n── los links ──");
 {
-  const existen = new Set(["", ...PAGINAS.map(p => p.archivo), "privacidad.html", "terminos.html", "contacto.html", "quienes-somos.html", "consulta/"]);
+  /* "app/" es la app web de Mano a mano: la arma app-web.mjs en la misma
+     publicación (publicar.mjs), y la franja de la familia la enlaza. */
+  const existen = new Set(["", ...PAGINAS.map(p => p.archivo), "privacidad.html", "terminos.html", "contacto.html", "quienes-somos.html", "consulta/", "app/"]);
   const rotos = [];
   for (const p of P)
     for (const m of p.html.matchAll(/href="\/([^"#?]*)"/g))

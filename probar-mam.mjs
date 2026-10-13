@@ -365,6 +365,9 @@ console.log("\n── el texto de la portada no viaja adentro ──");
   const r = absolutizar(h, "https://armael11.com");
   ok(!/portada-texto|quinientas/.test(r) && /antes/.test(r) && /después/.test(r), "el empaquetador saca el bloque de la portada (para los buscadores) y deja el resto");
   ok(!/consulta-x/.test(absolutizar("a<!-- consulta:inicio -->consulta-x<!-- consulta:fin -->b", "https://armael11.com")), "y sigue sacando el de la consulta");
+  /* 12/10: la franja de la familia y las hermanas del pie son de la web; adentro no hay links a otros sitios */
+  const f = absolutizar('<div class="envase">\n  <!-- familia:inicio -->\n  <nav class="familia"><a href="https://sacavos.com/">Tenis</a></nav>\n  <!-- familia:fin -->\n  <div class="cabeza">x</div><p class="pie">v · <!-- familia:inicio --><span class="hermanas"><a href="https://armaelquinteto.com/">Q</a></span><!-- familia:fin --></p></div>', "https://armael11.com");
+  ok(!/sacavos\.com|armaelquinteto\.com|familia|hermanas/.test(f) && /cabeza/.test(f) && /v · <\/p>/.test(f), "el empaquetador saca la franja de la familia y las hermanas del pie, y deja el resto");
   /* 9/10: el build de Codemagic se cayó con EISDIR al escribir "repasos/": la portada enlaza /repasos/ y el
      rastreador lo bajó como si fuera un archivo. Ni la consulta ni los repasos viajan; una carpeta, nunca. */
   const { noSeLleva, enlacesDe } = await import("./empaquetar-ios.mjs");

@@ -172,6 +172,36 @@ const caso = (nom, ok) => casos.push([nom, ok]);
        river.color + " / " + river.color2);
 }
 
+/* ── 7b. LA FAMILIA Y EL ESCRITORIO (12/10/2026) ──────────────────────────
+   Las tres webs son una sola app. La plantilla lo dice (la franja de
+   arriba y las hermanas en el pie), pero SOLO en la web: adentro de Mano
+   a mano un link a otro sitio que vende planes es lo que Apple rechaza.
+   Y el escritorio deja de ser un celular centrado, sin tocar el teléfono. */
+{
+  const app = readFileSync(new URL("./app.tpl.html", import.meta.url), "utf8");
+  const pm  = readFileSync(new URL("./paginas-medido.mjs", import.meta.url), "utf8");
+  const cs  = readFileSync(new URL("./construir-sitio.mjs", import.meta.url), "utf8");
+  caso("la franja de la familia lleva a Sacá vos y al Quinteto",
+       /class="familia"[\s\S]*?href="https:\/\/sacavos\.com\/"[\s\S]*?href="https:\/\/armaelquinteto\.com\/"/.test(app));
+  caso("y el pie nombra a las hermanas",
+       /class="hermanas"[\s\S]*?sacavos\.com[\s\S]*?armaelquinteto\.com/.test(app));
+  caso("adentro de Mano a mano la franja y las hermanas no existen",
+       /body\.mam-marco \.familia[^{]*\{display:none!important\}/.test(app.replace(/,body\.mam-marco \.hermanas/, "")) &&
+       /body\.mam-marco \.hermanas\{display:none!important\}/.test(app.replace(/body\.mam-marco \.familia,/, "")));
+  caso("el escritorio vive detrás de 980 px y fuera de la app",
+       /@media \(min-width:980px\)\{\s*body:not\(\.mam-marco\)/.test(app) &&
+       !/@media \(min-width:980px\)[\s\S]*?\n\s{2}\.barra\{/.test(app.slice(app.indexOf("@media (min-width:980px)"))));
+  caso("los neutros son los de la familia: el papel cálido de Sacá vos",
+       /fondo:"#F6F1EA"/.test(app) && /fondo:"#0D1117"/.test(app) && /--fondo:#F6F1EA/.test(pm) && /--fondo:#F6F1EA/.test(cs));
+  caso("y la letra del cuerpo es Poppins, como en las hermanas",
+       /font:500 16px\/1\.5 "Poppins"/.test(app) && /"Poppins"/.test(pm) && /"Poppins"/.test(cs));
+  caso("la franja y las hermanas van entre marcas, para que el empaquetador las saque",
+       (app.match(/<!-- familia:inicio -->/g) || []).length === 2 && (app.match(/<!-- familia:fin -->/g) || []).length === 2 &&
+       /<!-- familia:inicio -->\s*<nav class="familia"/.test(app) && /<!-- familia:inicio --><span class="hermanas"/.test(app));
+  caso("las páginas de texto llevan la misma franja",
+       /class="familia"/.test(pm) && /class="familia"/.test(cs));
+}
+
 /* ── 8. LOS TRES QUE YA REVISÓ EL HINCHA ──────────────────────────────────
    Estos tres me hicieron ruido a mí: Huracán sin la banda, Central a
    bastones y no franja, Platense a franja y no bastones. Los tres están
