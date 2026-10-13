@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="es" data-mam-deporte="tenis">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Sacá vos — el simulador de tenis donde el saque lo pones tú</title>
+<meta name="description" content="Simulador de tenis: cada partido ATP de la semana con su número, una perilla de saque por jugador y la simulación punto a punto. Resultados con el saque de cada uno. App independiente.">
+<meta name="theme-color" content="#F6F1EA">
+<link rel="icon" href="icono.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icono-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Sacá vos">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="sacavos.css">
+<link rel="stylesheet" href="consulta.css">
+<link rel="canonical" href="https://sacavos.com/">
+<script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2032639837955609" crossorigin="anonymous"></script>
+</head>
+<body>
+<div id="sv-app" class="sv-app">
+  <!-- LA FAMILIA (12/10/2026). Las tres webs son una sola app, Mano a mano, y
+       hasta hoy ninguna decía que las otras dos existían: el que entraba por
+       el tenis se quedaba en el tenis. SOLO EN LA WEB: adentro de la app las
+       tres ya son pestañas, y un link a otro sitio que vende planes es lo que
+       Apple rechaza (3.1.1 y 3.1.3). Doble seguro: body.mam-marco lo esconde,
+       y el empaquetador saca lo que va entre familia:inicio y familia:fin. -->
+  <!-- familia:inicio -->
+  <nav class="sv-familia" aria-label="Mano a mano">
+    <a class="sv-familia-marca" href="https://armael11.com/app/">Mano a mano</a>
+    <span class="sv-familia-sep" aria-hidden="true"></span>
+    <a href="https://armael11.com/">Fútbol</a>
+    <b aria-current="page">Tenis</b>
+    <a href="https://armaelquinteto.com/">NBA</a>
+  </nav>
+  <!-- familia:fin -->
+  <header class="sv-cab">
+    <a class="sv-marca" href="./" aria-label="Sacá vos">
+      <span class="sv-loseta"><span class="sv-pelota"></span></span>
+      <span class="sv-nombre">Sacá vos</span>
+    </a>
+    <button id="sv-cuenta-boton" class="sv-cuenta-boton" type="button" hidden>Entrar</button>
+  </header>
+  <nav class="sv-pestanas" id="sv-pestanas" aria-label="Secciones">
+    <button type="button" data-pestana="partidos" aria-selected="true">Partidos</button>
+    <button type="button" data-pestana="juegos" aria-selected="false">Juegos</button>
+    <button type="button" data-pestana="resultados" aria-selected="false">Resultados</button>
+  </nav>
+    <!-- gancho:inicio -->
+    <section class="sv-gancho" id="sv-gancho">
+      <h1>Simulador de resultados</h1>
+      <p class="sv-gancho-sub">Tenis ATP. Cada partido con su número, antes de jugarse.</p>
+      <a class="sv-gancho-medido" href="/esta-medido.html">Medido en <b>5.459 partidos</b></a>
+    </section>
+    <!-- gancho:fin -->
+  <div id="sv-fecha" class="sv-fecha"></div>
+
+  <main id="sv-main">
+    <section id="sv-puerta" class="sv-puerta" hidden></section>
+    <section id="sv-simulacion" class="sv-sim" hidden></section>
+    <section id="sv-lista" class="sv-lista"></section>
+    <section id="sv-juga" class="sv-juga" hidden></section>
+    <section id="sv-medido" class="sv-medido" hidden></section>
+    <section id="sv-cuenta" class="sv-cuenta" hidden></section>
+  </main>
+
+    <!-- consulta:inicio -->
+    <section class="sv-doc-portada" id="sv-para-leer">
+      <h2 class="sv-titulo">Qué es Sacá vos</h2>
+      <p>Un simulador de tenis para los partidos del circuito ATP. Cada partido de la semana tiene su número: quién tiene más chances, con lo que cada jugador trae a esa superficie. Mueves el saque de cada uno con una perilla y ves cuánto cambia, y lo juegas punto a punto.</p>
+      <h2 class="sv-titulo">La app</h2>
+      <p>Sacá vos vive también en <strong>Mano a mano</strong>, la app para iPhone y Android con fútbol, tenis y NBA.</p>
+      <div class="sv-tiendas"><a href="https://apps.apple.com/app/id6813729689" rel="noopener"><small>Descargar en el</small><b>App Store</b></a><a href="https://play.google.com/store/apps/details?id=com.armael11.app" rel="noopener"><small>Disponible en</small><b>Google Play</b></a></div>
+      <h2 class="sv-titulo">Para leer</h2>
+      <p><a href="https://sacavos.com/como-funciona.html">Cómo funciona</a> · <a href="https://sacavos.com/esta-medido.html">Está medido</a> · <a href="https://sacavos.com/el-saque.html">El saque</a> · <a href="https://sacavos.com/superficies.html">Las superficies</a> · <a href="https://sacavos.com/set-decisivo.html">El set decisivo</a> · <a href="https://sacavos.com/consulta/">Resultados y partidos</a></p>
+    </section>
+    <!-- consulta:fin -->
+
+  <footer class="sv-pie">
+    <nav class="sv-doc-links"><a href="https://sacavos.com/como-funciona.html">Cómo funciona</a> · <a href="https://sacavos.com/esta-medido.html">Está medido</a> · <a href="https://sacavos.com/consulta/">Resultados y partidos</a> · <a href="privacidad.html">Privacidad</a> · <a href="https://sacavos.com/terminos.html">Términos y contacto</a></nav>
+    <p><strong>Sacá vos</strong> es una app independiente. No tiene relación con la ATP, los torneos ni los jugadores.</p>
+    <p>El pronóstico se calcula con los puntos que cada jugador gana con su saque y con sus resultados. Datos de partidos: api-tennis.com.</p>
+    <p><a href="https://www.instagram.com/sacavos.ok" rel="noopener">@sacavos.ok</a></p>
+    <!-- familia:inicio --><p class="sv-hermanas">Mano a mano: <a href="https://armael11.com/">Armá el 11</a> (fútbol) · <a href="https://armaelquinteto.com/">Armá el Quinteto</a> (NBA) · <a href="https://armael11.com/app/">la app</a></p><!-- familia:fin -->
+  </footer>
+</div>
+<script src="datos/tenis-hoy.js"></script>
+<script src="datos/tenis-medido.js"></script>
+<script src="sitio.js"></script>
+<script src="sacavos-cuentas.js"></script>
+<script src="sacavos-campana.js"></script>
+<script src="tenis-motor.js"></script>
+<script src="sacavos-juegos.js"></script>
+<script src="mam-marco.js"></script>
+<script src="sacavos.js"></script>
+</body>
+</html>

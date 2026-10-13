@@ -1,0 +1,371 @@
+/* Sacá vos — la pantalla. Papel de día, noche si el teléfono está en noche. */
+:root{
+  --papel:#F6F1EA; --tinta:#14110F; --gris:#5C554F; --linea:#E8E0D5; --pista:#DED5C9; --blanco:#FFFFFF;
+  --polvo:#C2542E; --polvo-texto:#9E3F20; --dura:#2A5FA8; --cesped:#1E8A4A;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --papel:#0D1117; --tinta:#F2EDE6; --gris:#A39B93; --linea:#242B36; --pista:#2A323E; --blanco:#161C25; --polvo-texto:#E6764F; }
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--papel);color:var(--tinta);font-family:Poppins,system-ui,-apple-system,sans-serif;font-weight:500;-webkit-text-size-adjust:100%}
+a{color:var(--polvo-texto);text-decoration:none}
+button{font-family:inherit;cursor:pointer}
+[hidden]{display:none !important}
+.sv-app{max-width:430px;margin:0 auto;min-height:100vh;display:flex;flex-direction:column;padding:0 16px 32px}
+.sv-cab{display:flex;align-items:center;justify-content:space-between;padding:20px 0 12px}
+.sv-marca{display:flex;align-items:center;gap:10px;color:var(--tinta)}
+.sv-loseta{width:34px;height:34px;border-radius:9px;background:#FFFFFF;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.sv-pelota{width:16px;height:16px;border-radius:50%;background:var(--polvo)}
+.sv-nombre{font-size:18px;font-weight:700;letter-spacing:-.3px}
+.sv-fecha{font-size:12px;color:var(--gris);margin:-6px 0 10px}
+.sv-cuenta-boton{height:36px;padding:0 14px;border:1px solid var(--linea);border-radius:999px;background:var(--blanco);color:var(--tinta);font-size:13px;font-weight:600;display:flex;align-items:center;gap:6px}
+.sv-cuenta-boton .sv-punto-pase{width:8px;height:8px;border-radius:50%;background:var(--cesped)}
+.sv-cuenta-boton .sv-punto-pase.sin{background:var(--pista)}
+main{display:flex;flex-direction:column;gap:22px}
+
+/* chips y tarjetas */
+.sv-chips{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--gris);flex-wrap:wrap}
+.sv-chip{display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;color:#fff;font-weight:600}
+.sv-chip-q{background:var(--pista);color:var(--tinta)}
+.sv-sup-clay{background:var(--polvo)} .sv-sup-hard{background:var(--dura)} .sv-sup-grass{background:var(--cesped)}
+.sv-tarjeta{background:var(--blanco);border-radius:14px;padding:14px}
+
+/* la puerta */
+.sv-puerta{display:flex;flex-direction:column;gap:14px}
+.sv-jugadores{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.sv-jugador{display:flex;flex-direction:column;gap:8px}
+.sv-jugador.b{align-items:flex-end;text-align:right}
+.sv-mono{width:44px;height:44px;border-radius:50%;background:var(--tinta);color:var(--papel);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700}
+.sv-jnombre{font-size:16px;font-weight:700;line-height:1.15}
+.sv-jdato{font-size:12px;color:var(--gris)}
+.sv-prob{display:flex;flex-direction:column;gap:6px}
+.sv-prob-fila{display:flex;justify-content:space-between;align-items:baseline}
+.sv-grande{font-size:34px;font-weight:700;letter-spacing:-1px;line-height:1;font-variant-numeric:tabular-nums}
+.sv-grande.b{color:var(--gris)}
+.sv-nota{font-size:12px;color:var(--gris)}
+.sv-barra{display:flex;height:12px;border-radius:6px;overflow:hidden;background:var(--pista)}
+.sv-barra>div{background:var(--polvo);transition:width .2s}
+.sv-prob-pie{display:flex;justify-content:space-between;font-size:12px;color:var(--gris)}
+
+/* la perilla */
+.sv-perilla h2{margin:0;font-size:13px;font-weight:600}
+.sv-perilla .sv-nota{margin-top:2px}
+.sv-p-fila{display:flex;justify-content:space-between;align-items:center;margin-top:8px}
+.sv-p-fila label{font-size:13px;font-weight:600}
+.sv-p-valor{font-size:15px;font-weight:700;color:var(--polvo-texto);font-variant-numeric:tabular-nums}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:44px;background:transparent;margin:0;display:block}
+input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:3px;background:var(--pista)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:28px;height:28px;border-radius:50%;background:var(--polvo);border:3px solid var(--papel);box-shadow:0 1px 3px rgba(0,0,0,.25);margin-top:-11px}
+input[type=range]::-moz-range-track{height:6px;border-radius:3px;background:var(--pista)}
+input[type=range]::-moz-range-thumb{width:28px;height:28px;border-radius:50%;background:var(--polvo);border:3px solid var(--papel)}
+.sv-p-pie{display:flex;justify-content:space-between;align-items:center;padding-top:4px}
+.sv-liso{height:44px;padding:0 12px;border:0;background:transparent;color:var(--polvo-texto);font-size:13px;font-weight:600}
+.sv-liso:disabled{opacity:.45;cursor:default}
+.sv-boton{display:flex;align-items:center;justify-content:center;width:100%;height:52px;border:0;border-radius:14px;background:var(--polvo);color:#fff;font-size:16px;font-weight:700}
+
+/* la simulación */
+.sv-sim{display:flex;flex-direction:column;gap:12px;background:#0D1117;color:#F2EDE6;border-radius:16px;padding:16px}
+.sv-sim h2{margin:0;font-size:13px;font-weight:600;color:#A39B93}
+.sv-marcador{display:grid;grid-template-columns:1fr auto;row-gap:8px;column-gap:12px;align-items:center}
+.sv-marcador .n{font-size:15px;font-weight:700}
+.sv-marcador .n.gano::after{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:#E6764F;margin-left:8px;vertical-align:middle}
+.sv-sets{display:flex;gap:10px;font-size:22px;font-weight:700;font-variant-numeric:tabular-nums;justify-content:flex-end}
+.sv-sets sup{font-size:11px;font-weight:600;color:#A39B93;margin-left:1px}
+.sv-sets .g{color:#F2EDE6} .sv-sets .p{color:#6B6660}
+.sv-sim-linea{font-size:13px;color:#F2EDE6}
+.sv-sim-resumen{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding-top:8px;border-top:1px solid #242B36}
+.sv-sim-resumen b{display:block;font-size:20px;font-weight:700;font-variant-numeric:tabular-nums}
+.sv-sim-resumen span{font-size:11px;color:#A39B93}
+.sv-sim-regla{font-size:11px;color:#A39B93;line-height:1.4}
+.sv-sim-acciones{display:flex;gap:8px}
+.sv-sim .sv-liso{color:#E6764F}
+
+/* la lista */
+.sv-lista{display:flex;flex-direction:column;gap:8px}
+.sv-dia{font-size:12px;font-weight:600;color:var(--gris);margin-top:8px}
+.sv-fila{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--blanco);border-radius:12px;color:var(--tinta);width:100%;border:0;text-align:left;font-size:13px}
+.sv-fila .punto{width:8px;height:8px;border-radius:50%;flex:none}
+.sv-fila .t{flex:1;min-width:0}
+.sv-fila .t b{display:block;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sv-fila .t span{font-size:11px;color:var(--gris)}
+.sv-fila .pct{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.sv-fila .pct.sin{font-weight:500;color:var(--gris);font-size:11px;text-align:right;max-width:110px;white-space:normal}
+.sv-vacio{padding:24px 0;color:var(--gris);font-size:13px;text-align:center}
+
+/* jugados */
+.sv-titulo{margin:0;font-size:16px;font-weight:700}
+.sv-jugado{cursor:default}
+.sv-jugado .res{display:flex;flex-direction:column;align-items:flex-end;gap:1px;white-space:nowrap}
+.sv-jugado .res b{font-weight:700;font-size:13px}
+.sv-jugado .res span{font-size:11px;color:var(--gris);font-variant-numeric:tabular-nums}
+.sv-jugado .res i{font-style:normal;font-size:10px;font-weight:600;padding:1px 6px;border-radius:999px;background:var(--pista);color:var(--tinta)}
+.sv-jugado .res i.no{background:var(--polvo);color:#fff}
+.sv-jugado .res i.par{background:transparent;border:1px solid var(--pista);color:var(--gris)}
+
+/* el candado, la cuenta */
+.sv-tapado{opacity:.35;filter:blur(3px);pointer-events:none;user-select:none}
+.sv-candado h2{margin:0 0 4px;font-size:16px;font-weight:700}
+.sv-precio{font-size:22px;font-weight:700;margin:12px 0 10px;letter-spacing:-.5px}
+.sv-precio span{display:block;font-size:12px;font-weight:500;color:var(--gris);letter-spacing:0;margin-top:2px}
+.sv-form{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.sv-form input{height:46px;border:1px solid var(--linea);border-radius:12px;padding:0 14px;font:inherit;font-size:16px;background:var(--papel);color:var(--tinta)}
+.sv-form-botones{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.sv-form-botones .sv-boton{width:auto;padding:0 20px;height:46px;font-size:14px}
+.sv-aviso{font-size:12px;color:var(--polvo-texto);min-height:16px;margin-top:6px}
+.sv-aviso.bien{color:var(--cesped)}
+.sv-cuenta .sv-tarjeta{margin-top:10px}
+.sv-jugado .res i u{display:inline-block;width:7px;height:7px;border-radius:50%;margin-right:5px;vertical-align:1px;background:var(--gris)}
+.sv-jugado .res i.pv u{background:var(--cesped)}
+.sv-jugado .res i.pn u{background:#fff}
+.sv-jugado .res i.pg u{background:var(--gris)}
+
+.sv-ios .sv-precio{margin-top:4px}
+body.sv-sin-red .sv-fecha::after{content:" · sin conexión";color:var(--polvo-texto)}
+
+.sv-saque{margin:-4px 0 4px;padding:0 12px 8px;font-size:11px;color:var(--gris);line-height:1.4;display:flex;flex-direction:column;gap:2px}
+.sv-saque b{font-weight:600;color:var(--tinta)}
+
+.sv-prueba{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 8px 8px 14px;border-radius:12px;background:var(--blanco);border:1px solid var(--cesped);font-size:13px}
+.sv-prueba b{font-weight:700}
+.sv-prueba .sv-liso{height:36px;padding:0 10px;white-space:nowrap;flex:none}
+
+/* está medido */
+.sv-medido h2{margin:0 0 4px;font-size:16px;font-weight:700}
+.sv-medido table{width:100%;border-collapse:collapse;margin-top:10px;font-size:13px}
+.sv-medido th{font-size:11px;font-weight:600;color:var(--gris);text-align:right;padding:4px 0;border-bottom:1px solid var(--linea)}
+.sv-medido th:first-child,.sv-medido td:first-child{text-align:left}
+.sv-medido td{text-align:right;padding:7px 0;border-bottom:1px solid var(--linea);font-variant-numeric:tabular-nums}
+.sv-medido td:nth-child(4){font-weight:700}
+.sv-medido .sv-nota{margin-top:10px;line-height:1.45}
+
+.sv-pie{margin-top:32px;font-size:11px;color:var(--gris);line-height:1.5}
+.sv-pie p{margin:0 0 8px}
+.sv-vivo{font-style:normal;font-weight:700;color:var(--cesped)}
+.sv-vivo::before{content:"";display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--cesped);margin-right:4px;vertical-align:1px;animation:sv-late 1.4s ease-in-out infinite}
+@keyframes sv-late{50%{opacity:.25}}
+
+/* la barra del pase: fija abajo, siempre que no tengas el pase */
+.sv-barra-pase{position:fixed;left:0;right:0;bottom:0;z-index:20;display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;max-width:430px;margin:0 auto;padding:10px 16px calc(10px + env(safe-area-inset-bottom));background:var(--papel);border-top:1px solid var(--linea);box-shadow:0 -4px 16px rgba(0,0,0,.06);font-size:13px}
+.sv-barra-texto{flex:1;min-width:0;line-height:1.3}
+.sv-barra-texto b{font-weight:700}
+.sv-barra-pase .sv-boton{width:auto;height:44px;padding:0 18px;font-size:14px;flex:none;flex-direction:column;line-height:1.1}
+.sv-barra-pase .sv-boton span{font-size:10px;font-weight:500;opacity:.9}
+.sv-barra-pase .sv-aviso{flex-basis:100%;margin:0;min-height:0}
+.sv-barra-pase .sv-aviso:empty{display:none}
+body.sv-con-barra .sv-app{padding-bottom:96px}
+
+/* el gancho de arriba: qué es, la cuenta del saque y los atajos */
+.sv-gancho{display:flex;flex-direction:column;gap:6px;padding:2px 0 16px}
+.sv-gancho h1{margin:0;font-size:30px;line-height:1.05;letter-spacing:-.9px}
+.sv-gancho-sub{margin:0;font-size:15px;color:var(--gris)}
+.sv-gancho-medido{display:inline-block;align-self:flex-start;margin-top:6px;padding:7px 12px;border-radius:999px;background:var(--blanco);border:1px solid var(--linea);font-size:12px;color:var(--gris)}
+.sv-gancho-medido b{color:var(--tinta)}
+.sv-gancho-medido::before{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--cesped);margin-right:7px;vertical-align:1px}
+
+/* la leyenda de los puntitos */
+.sv-leyenda{display:flex;flex-direction:column;gap:5px;background:var(--blanco);border-radius:12px;padding:10px 12px;font-size:12px;line-height:1.35;color:var(--gris)}
+.sv-leyenda div{display:flex;align-items:flex-start;gap:8px}
+.sv-leyenda b{color:var(--tinta);font-weight:700}
+.sv-leyenda p{margin:4px 0 0;padding-top:6px;border-top:1px solid var(--linea)}
+.sv-bola{flex:none;width:10px;height:10px;border-radius:50%;margin-top:3px;background:var(--gris)}
+.sv-bola.pv{background:var(--cesped)} .sv-bola.pg{background:var(--gris)} .sv-bola.pn{background:var(--polvo)}
+
+/* el porqué del color, en cada partido jugado */
+.sv-porque{display:flex;align-items:flex-start;gap:8px;margin:-2px 0 2px;padding:0 12px;font-size:12px;line-height:1.4;color:var(--gris)}
+.sv-porque b{color:var(--tinta);font-weight:700}
+.sv-porque .sv-bola{margin-top:3px}
+
+/* iPhone (lo que rechazó Apple en Armá el 11, 28/9): la página arranca debajo de la hora, y ningún campo baja de
+   16 px, porque iOS agranda la pantalla al tocar un campo más chico y no la vuelve a achicar. */
+.sv-app{padding-top:var(--sv-arriba, env(safe-area-inset-top))}
+html,body{overflow-x:hidden}
+input,select,textarea{font-size:16px}
+.sv-borrar{color:var(--gris)}
+.sv-grupo{display:flex;flex-direction:column;gap:6px}
+.sv-grupo-cab{display:flex;align-items:center;gap:10px;padding:11px 12px;background:var(--blanco);border-radius:12px;color:var(--tinta);width:100%;border:0;text-align:left;font-size:14px;cursor:pointer}
+.sv-grupo-cab .punto{width:10px;height:10px;border-radius:50%;flex:none}
+.sv-grupo-cab .t{flex:1;min-width:0}
+.sv-grupo-cab .t b{display:block;font-weight:700}
+.sv-grupo-cab .t span{font-size:11px;color:var(--gris);display:flex;align-items:center;gap:4px;flex-wrap:wrap}
+.sv-grupo-cab .t span .sv-bola{width:8px;height:8px;margin:0 1px 0 4px}
+.sv-flecha{width:8px;height:8px;border-right:2px solid var(--gris);border-bottom:2px solid var(--gris);transform:rotate(45deg);transition:transform .15s;flex:none;margin-right:4px}
+.sv-grupo.abierto .sv-grupo-cab{border-radius:12px 12px 4px 4px}
+.sv-grupo.abierto .sv-flecha{transform:rotate(-135deg)}
+.sv-grupo .sv-fila{margin-left:12px;width:calc(100% - 12px);border-radius:10px;padding:9px 12px}
+.sv-grupo .sv-porque,.sv-grupo .sv-saque{margin-left:12px}
+.sv-grupo>:last-child{margin-bottom:4px}
+
+/* ── la ficha del jugador ── */
+.sv-nombre-ficha{text-decoration:underline dotted;text-underline-offset:3px;cursor:pointer}
+.sv-jugador.tocable{border:0;font:inherit;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.sv-jugador.tocable:active{opacity:.8}
+.sv-jficha{font-size:11px;color:var(--polvo-texto);text-decoration:underline;text-underline-offset:2px}
+.sv-h2h{background:var(--blanco);border-radius:12px;padding:10px 12px;font-size:13px;display:flex;flex-direction:column;gap:3px}
+.sv-h2h small{font-size:11px;color:var(--gris)}
+.sv-ficha-capa{position:fixed;inset:0;background:rgba(20,24,28,.45);z-index:50;display:flex;align-items:flex-end;justify-content:center}
+.sv-ficha-capa[hidden]{display:none}
+.sv-ficha{background:var(--papel);width:100%;max-width:560px;max-height:88vh;overflow-y:auto;border-radius:18px 18px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:10px;font-size:14px}
+.sv-con-ficha{overflow:hidden}
+.sv-ficha-cab{display:flex;align-items:center;gap:10px}
+.sv-ficha-cab>div:nth-child(2){flex:1;min-width:0}
+.sv-ficha-cab h2{font-size:18px;margin:0;line-height:1.2}
+.sv-ficha-cerrar{flex:none;height:36px}
+.sv-ficha-resumen{margin:0}
+.sv-ficha-tabla{width:100%;border-collapse:collapse;font-size:13px;font-variant-numeric:tabular-nums}
+.sv-ficha-tabla th{font-size:11px;font-weight:600;color:var(--gris);text-align:right;padding:4px;border-bottom:1px solid var(--linea)}
+.sv-ficha-tabla td{text-align:right;padding:6px 4px;border-bottom:1px solid var(--linea)}
+.sv-ficha-tabla th:first-child,.sv-ficha-tabla td:first-child{text-align:left}
+.sv-ficha h3{font-size:13px;margin:6px 0 0;color:var(--gris);font-weight:600}
+.sv-ficha-lista{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.sv-ficha-lista li{display:flex;gap:8px;align-items:flex-start;background:var(--blanco);border-radius:10px;padding:8px 10px;font-size:13px}
+.sv-ficha-lista li b{font-weight:600}
+.sv-ficha-lista li small{color:var(--gris);font-size:11px}
+.sv-ficha-lista .sv-gp{flex:none;margin-top:1px;display:inline-block;min-width:18px;text-align:center;font-size:11px;font-weight:700;font-style:normal;border-radius:6px;padding:1px 5px;background:var(--pista);color:var(--tinta)}
+.sv-ficha-lista .sv-gp.g{background:var(--cesped);color:#fff}
+
+/* ── Jugá: el Prode y el saque ── */
+.sv-juga{display:flex;flex-direction:column;gap:10px}
+.sv-juego{display:flex;flex-direction:column;gap:8px}
+.sv-juego-cab{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.sv-juego-cab h3{font-size:18px;margin:0;letter-spacing:-.3px}
+.sv-juego-cab span{font-size:12px;color:var(--gris);white-space:nowrap}
+.sv-juego-marca{background:var(--pista);border-radius:10px;padding:8px 10px;font-size:13px}
+.sv-juego-marca.gano{background:var(--cesped);color:#fff}
+.sv-juego-marca em{font-style:normal;color:var(--polvo-texto)}
+.sv-juego-marca.gano em{color:#fff}
+.sv-juego-pie{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px;color:var(--gris);flex-wrap:wrap}
+.sv-prode-fila,.sv-saque-op{display:flex;flex-direction:column;gap:4px}
+.sv-prode-fila small,.sv-saque-op small{font-size:11px;color:var(--gris)}
+.sv-prode-par{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:6px}
+.sv-prode-par span{font-size:11px;color:var(--gris)}
+.sv-prode-par button{height:44px;border:1px solid var(--linea);border-radius:10px;background:var(--blanco);color:var(--tinta);font:inherit;font-size:14px;font-weight:600;padding:0 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sv-prode-par button.elegido{background:var(--tinta);color:var(--papel);border-color:var(--tinta)}
+.sv-prode-det{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;font-size:13px}
+.sv-prode-det li{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.sv-prode-det li i{width:9px;height:9px;border-radius:50%;background:var(--polvo);flex:none}
+.sv-prode-det li i.si{background:var(--cesped)}
+.sv-prode-det li small{color:var(--gris);font-size:11px}
+.sv-saque-marcador{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;text-align:center}
+.sv-saque-marcador small{display:block;font-size:11px;color:var(--gris)}
+.sv-saque-marcador b{font-size:34px;line-height:1;font-variant-numeric:tabular-nums}
+.sv-saque-vs{font-size:12px;color:var(--gris);font-weight:600}
+.sv-saque-pista{display:flex;flex-direction:column;gap:8px;align-items:stretch;border:0;background:var(--blanco);border-radius:14px;padding:16px 14px;font:inherit;color:var(--gris);font-size:12px;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation;user-select:none}
+.sv-saque-pista:active{background:var(--pista)}
+.sv-saque-barra{position:relative;height:22px;border-radius:11px;background:var(--pista);overflow:visible}
+.sv-saque-barra .zona{position:absolute;left:30%;width:40%;top:0;bottom:0;border-radius:11px;background:rgba(30,138,74,.25)}
+.sv-saque-barra .centro{position:absolute;left:calc(50% - 1px);width:2px;top:-4px;bottom:-4px;background:var(--cesped)}
+.sv-saque-barra b{position:absolute;top:-6px;width:6px;height:34px;margin-left:-3px;border-radius:3px;background:var(--polvo);box-shadow:0 0 0 2px var(--blanco)}
+.sv-saque-msj{min-height:20px;font-size:14px;font-weight:600}
+.sv-saque-msj.gano{color:var(--cesped)}
+.sv-saque-msj.perdio{color:var(--polvo-texto)}
+
+/* ── las pestañas de arriba: Partidos · Juegos · Resultados ── */
+.sv-pestanas{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px;padding:4px;background:var(--pista);border-radius:14px;margin-bottom:14px}
+.sv-pestanas button{height:40px;border:0;border-radius:11px;background:transparent;color:var(--gris);font:inherit;font-size:14px;font-weight:600;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.sv-pestanas button[aria-selected="true"]{background:var(--blanco);color:var(--tinta);box-shadow:0 1px 2px rgba(0,0,0,.08)}
+body.sv-pest-partidos #sv-juga,body.sv-pest-partidos #sv-jugados,body.sv-pest-partidos #sv-medido{display:none}
+body.sv-pest-juegos #sv-fecha,body.sv-pest-juegos #sv-gancho,body.sv-pest-juegos #sv-puerta,body.sv-pest-juegos #sv-simulacion,body.sv-pest-juegos #sv-lista,body.sv-pest-juegos #sv-jugados,body.sv-pest-juegos #sv-medido,body.sv-pest-juegos #sv-para-leer{display:none}
+body.sv-pest-resultados #sv-gancho,body.sv-pest-resultados #sv-puerta,body.sv-pest-resultados #sv-simulacion,body.sv-pest-resultados #sv-lista,body.sv-pest-resultados #sv-juga,body.sv-pest-resultados #sv-para-leer{display:none}
+/* la cancha del juego */
+.sv-saque-jugando{padding:12px}
+.sv-cancha{display:block;width:100%;border-radius:12px;touch-action:manipulation;user-select:none;-webkit-user-select:none;cursor:pointer;outline:none}
+.sv-saque-golpes{display:flex;gap:8px;margin-top:8px}.sv-saque-golpes button{flex:1;height:48px;border-radius:12px;border:1px solid var(--linea);background:var(--blanco);color:var(--tinta);font:inherit;font-size:15px;font-weight:700;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.1;transition:opacity .15s}.sv-saque-golpes button small{font-size:10px;font-weight:600;color:var(--gris)}.sv-saque-golpes button:disabled{opacity:.4}.sv-saque-golpes button:not(:disabled){border-color:var(--tinta);box-shadow:0 0 0 2px rgba(242,227,58,.45)}.sv-saque-golpes button:not(:disabled):active{background:var(--pista)}
+.sv-saque-tabla td:last-child{font-weight:700;white-space:nowrap}
+
+/* ── las secciones, marcadas: una etiqueta arriba de cada bloque ── */
+.sv-seccion{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin:26px 0 10px;padding-top:14px;border-top:2px solid var(--linea)}
+.sv-seccion span{font-size:12px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--polvo-texto)}
+.sv-seccion small{font-size:11px;color:var(--gris);text-align:right}
+.sv-puerta .sv-seccion{margin-top:4px;padding-top:0;border-top:0}
+.sv-puerta{background:var(--pista);border-radius:18px;padding:12px}
+.sv-lista .sv-seccion,.sv-juga .sv-seccion{margin-top:26px}
+.sv-leyenda{display:block;background:var(--blanco);border-radius:12px;padding:10px 12px;font-size:13px;margin:0 0 6px}
+.sv-leyenda summary{cursor:pointer;list-style:none;display:flex;align-items:center;gap:6px;font-weight:600;font-size:13px}
+.sv-leyenda summary::-webkit-details-marker{display:none}
+.sv-leyenda summary u{margin-left:auto;font-weight:500;color:var(--polvo-texto);text-decoration:underline dotted;text-underline-offset:3px;font-size:12px}
+.sv-leyenda summary .sv-bola{margin-top:0}
+.sv-leyenda>div{display:flex;gap:8px;margin-top:8px}
+.sv-leyenda>p{margin:8px 0 0;font-size:12px;color:var(--gris)}
+#sv-jugados .sv-seccion{margin-top:6px;padding-top:0;border-top:0}
+
+/* adentro de Mano a mano (body.mam-marco): sin cabecera, sin pestañas, sin gancho, sin pie, sin cuenta */
+body.mam-marco .sv-cab,body.mam-marco #sv-pestanas,body.mam-marco #sv-gancho,body.mam-marco #sv-para-leer,body.mam-marco .sv-pie,body.mam-marco #sv-cuenta{display:none!important}
+body.mam-marco .sv-app{padding-top:8px}
+body.mam-marco.sv-pest-ambas #sv-jugados,body.mam-marco.sv-pest-ambas #sv-medido{display:block}
+body.mam-marco .sv-barra-pase{position:static;box-shadow:none;border-top:0;max-width:none;padding:10px 16px}
+body.mam-marco.sv-con-barra .sv-app{padding-bottom:16px}
+
+/* ── pulido (lista de control de apps): objetivos de 44 px, respuesta al toque, foco visible, menos movimiento ── */
+.sv-pestanas button{height:44px}
+.sv-prueba .sv-liso{min-height:44px}
+.sv-eleccion button,.sv-prode button,.sv-saque-eleccion button{min-height:44px}
+button{transition:background-color .15s ease,color .15s ease,opacity .15s ease}
+button:active{opacity:.8}
+button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(--polvo);outline-offset:2px}
+button:disabled{opacity:.45;cursor:default}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
+
+/* el ojito de la contraseña (8/10/2026) y los botones de las tiendas */
+.sv-clave{position:relative}.sv-clave input{width:100%;padding-right:46px}
+.sv-ojo{position:absolute;right:3px;top:50%;transform:translateY(-50%);width:40px;height:40px;border:0;background:transparent;color:var(--gris,#6B635B);display:flex;align-items:center;justify-content:center;border-radius:10px;padding:0;cursor:pointer}
+.sv-ojo .tachado{display:none}.sv-ojo[aria-pressed="true"] .tachado{display:block}
+.sv-tiendas{display:flex;gap:10px;flex-wrap:wrap;margin:8px 0 4px}
+.sv-tiendas a{display:inline-flex;flex-direction:column;justify-content:center;min-height:44px;padding:6px 16px;border-radius:10px;background:var(--tinta,#14110F);color:var(--papel,#fff);text-decoration:none;line-height:1.15}
+.sv-tiendas a small{font-size:11px;opacity:.85}.sv-tiendas a b{font-size:16px}
+body.mam-marco .sv-tiendas{display:none}
+
+/* ══ LA FAMILIA Y EL ESCRITORIO (12/10/2026) ══════════════════════════════
+   La franja de arriba dice que Mano a mano son tres deportes y lleva a los
+   otros dos. Y de 980 px para arriba la página deja de ser un teléfono
+   centrado: el partido a la izquierda, la semana al lado. Nada de esto toca
+   el teléfono, que es lo que viaja a la app: todo vive detrás del @media, y
+   la franja además se esconde adentro de Mano a mano (y el empaquetador la
+   saca del HTML). */
+.sv-familia{display:flex;align-items:center;gap:14px;flex-wrap:wrap;padding:14px 0 0;
+  font-size:11.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--gris);line-height:1}
+.sv-familia a,.sv-familia b{color:inherit;text-decoration:none;padding:7px 0;min-height:30px;
+  display:inline-flex;align-items:center;border-bottom:2px solid transparent;transition:color .15s,border-color .15s}
+.sv-familia a:hover{color:var(--tinta)}
+.sv-familia b{color:var(--tinta);font-weight:700;border-bottom-color:var(--polvo)}
+.sv-familia-marca{font-weight:700;color:var(--tinta)}
+.sv-familia-sep{width:1px;height:14px;background:var(--linea)}
+.sv-hermanas a{color:var(--polvo-texto);font-weight:600}
+body.mam-marco .sv-familia,body.mam-marco .sv-hermanas{display:none!important}
+
+/* los dos planes: Tenis y Todo, uno debajo del otro */
+.sv-planes{display:grid;gap:8px;margin:12px 0 6px}
+.sv-plan{display:grid;grid-template-columns:1fr auto;align-items:center;gap:2px 12px;width:100%;
+  min-height:60px;padding:11px 14px;border:1px solid var(--linea);border-radius:14px;
+  background:var(--blanco);color:var(--tinta);text-align:left;transition:border-color .15s,transform .15s}
+.sv-plan:hover{border-color:var(--polvo);transform:translateY(-1px)}
+.sv-plan-n{font-size:15px;font-weight:700;grid-column:1}
+.sv-plan-d{font-size:12px;color:var(--gris);grid-column:1;font-weight:500}
+.sv-plan-p{grid-column:2;grid-row:1 / span 2;text-align:right;font-size:17px;font-weight:700;
+  color:var(--polvo-texto);letter-spacing:-.3px}
+.sv-plan-p small{display:block;font-size:11px;font-weight:500;color:var(--gris);letter-spacing:0}
+.sv-planes-pie{font-size:11.5px}
+
+@media (min-width:980px){
+  body:not(.mam-marco) .sv-app{max-width:1120px;padding:0 24px 48px}
+  body:not(.mam-marco) .sv-cab{padding:14px 0 10px}
+  body:not(.mam-marco) .sv-nombre{font-size:21px}
+  body:not(.mam-marco) .sv-loseta{width:40px;height:40px;border-radius:11px}
+  body:not(.mam-marco) .sv-pelota{width:19px;height:19px}
+  body:not(.mam-marco) .sv-gancho h1{font-size:34px}
+  /* la pestaña Partidos en dos columnas: el partido manda, la semana acompaña */
+  body:not(.mam-marco).sv-pest-partidos #sv-main{display:grid;
+    grid-template-columns:minmax(0,1fr) minmax(0,400px);column-gap:28px;align-items:start}
+  body:not(.mam-marco).sv-pest-partidos #sv-main > section{grid-column:1}
+  /* el #sv-main de más, a propósito: sin él la regla de arriba (que tiene un
+     selector de tipo más) le gana a esta y la semana cae en la columna 1. */
+  body:not(.mam-marco).sv-pest-partidos #sv-main > #sv-lista{grid-column:2;grid-row:1 / span 20;
+    position:sticky;top:18px;max-height:calc(100vh - 36px);overflow:auto;scrollbar-width:thin;
+    padding-right:4px}
+  body:not(.mam-marco).sv-pest-partidos #sv-main > #sv-cuenta{grid-column:1 / -1}
+  /* sin próximo partido no hay columna izquierda: la semana ocupa todo */
+  body:not(.mam-marco).sv-pest-partidos:has(#sv-puerta[hidden]):has(#sv-simulacion[hidden]) #sv-main > #sv-lista{
+    grid-column:1 / -1;grid-row:auto;position:static;max-height:none;overflow:visible}
+  /* el texto largo y el pie: ancho de lectura, no de pantalla */
+  body:not(.mam-marco) .sv-doc-portada,body:not(.mam-marco) .sv-pie{max-width:680px}
+  body:not(.mam-marco) .sv-doc-portada p{max-width:62ch}
+}
