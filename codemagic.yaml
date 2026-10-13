@@ -215,7 +215,13 @@ workflows:
           # @revenuecat/purchases-capacitor 11, que está en package.json). Se comprueba acá.
           V=android/variables.gradle
           sed -i 's/compileSdkVersion = [0-9]*/compileSdkVersion = 36/; s/targetSdkVersion = [0-9]*/targetSdkVersion = 36/' "$V"
+          # 13/10: la "protección automática" de Play exige minSdk 24 (Android 7.0). Capacitor 7
+          # genera 23 y Play rechaza el .aab al subirlo. Se fuerza acá, y si no quedó en 24 o más
+          # la compilación se corta: mejor un rojo en Codemagic que un rechazo en Play.
+          sed -i 's/minSdkVersion = [0-9]*/minSdkVersion = 24/' "$V"
           grep -E "SdkVersion" "$V"
+          MIN=$(sed -n 's/.*minSdkVersion = \([0-9]*\).*/\1/p' "$V")
+          if [ -z "$MIN" ] || [ "$MIN" -lt 24 ]; then echo "minSdkVersion quedó en '$MIN': Play pide 24 o más"; exit 1; fi
           echo "android.suppressUnsupportedCompileSdk=36" >> android/gradle.properties
           RC=$(node -p "require('@revenuecat/purchases-capacitor/package.json').version")
           echo "RevenueCat purchases-capacitor $RC"
