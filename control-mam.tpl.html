@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="es"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<!-- CONTROL DE MANO A MANO, el corto. Se arma desde control-mam.tpl.html en
+     construir-sitio.mjs (le pone la URL y la clave PUBLICA de Supabase).
+     Todo sale de `control_mam`, una función de la base que pide la clave del
+     panel grande (la misma). Sin clave no devuelve nada. Sin scripts de terceros. -->
+<title>Control · Mano a mano</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;700&display=swap">
+<style>
+  :root{ --fondo:#F6F1EA; --papel:#FFFFFF; --tinta:#14110F; --gris:#6B6359; --linea:#E8E0D5; --pelota:#DFF140;
+    --bien:#177A40; --mal:#C2542E; color-scheme:light; }
+  @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+    --fondo:#0D1117; --papel:#161C25; --tinta:#F2EDE6; --gris:#A39B93; --linea:#242B36; --bien:#3ED17A; --mal:#FF6B5B; color-scheme:dark; } }
+  :root[data-theme="dark"]{ --fondo:#0D1117; --papel:#161C25; --tinta:#F2EDE6; --gris:#A39B93; --linea:#242B36; --bien:#3ED17A; --mal:#FF6B5B; color-scheme:dark; }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--fondo);color:var(--tinta);font:500 15px/1.45 "Poppins",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    padding:18px 16px 60px;-webkit-font-smoothing:antialiased}
+  .envase{max-width:640px;margin:0 auto}
+  .cabeza{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+  .cabeza svg{width:44px;height:44px;flex:none}
+  h1{margin:0;font-size:20px;font-weight:700;letter-spacing:-.3px;line-height:1.1}
+  .cabeza p{margin:2px 0 0;font-size:12px;color:var(--gris)}
+  .tarjeta{background:var(--papel);border:1px solid var(--linea);border-radius:18px;padding:14px 16px;margin-top:12px}
+  h2{margin:0 0 8px;font-size:12px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--gris)}
+  .clave{display:flex;gap:8px}
+  input{flex:1;min-width:0;border:1px solid var(--linea);border-radius:12px;padding:10px 12px;font:inherit;background:var(--papel);color:var(--tinta)}
+  button{border:0;border-radius:12px;padding:10px 14px;font:700 14px "Poppins",sans-serif;background:var(--tinta);color:var(--fondo);cursor:pointer}
+  button:disabled{opacity:.5}
+  .estado{margin:8px 0 0;font-size:13px;color:var(--gris)} .estado.mal{color:var(--mal)}
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:8px 0;border-bottom:1px solid var(--linea);text-align:right;font-variant-numeric:tabular-nums}
+  th:first-child,td:first-child{text-align:left}
+  th:not(:first-child),td:not(:first-child){width:50px;padding-left:4px}
+  tr:last-child td{border-bottom:0}
+  th{font-size:10.5px;font-weight:700;color:var(--gris);letter-spacing:.3px;text-transform:uppercase;white-space:nowrap}
+  td:first-child{font-size:14px}
+  td b{font-size:17px}
+  .grande{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center}
+  @media (max-width:420px){ .grande{grid-template-columns:repeat(2,1fr)} }
+  .grande div{background:var(--fondo);border-radius:12px;padding:10px 6px}
+  .grande b{display:block;font-size:24px;font-weight:700;line-height:1.1}
+  .grande span{font-size:12px;color:var(--gris)}
+  .lista{list-style:none;margin:0;padding:0}
+  .lista li{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--linea)}
+  .lista li:last-child{border-bottom:0}
+  .lista small{color:var(--gris)}
+  .chip{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:99px;background:var(--fondo)}
+  .si{color:var(--bien)} .no{color:var(--mal)}
+  .nota{font-size:12px;color:var(--gris);margin:10px 4px 0;line-height:1.5}
+  .vacio{color:var(--gris);font-size:13px;margin:0}
+</style>
+</head>
+<body>
+<div class="envase">
+  <div class="cabeza">
+    <svg viewBox="0 0 100 100" aria-hidden="true"><rect width="100" height="100" rx="22" fill="#14110F"/>
+      <rect x="15" y="24" width="14" height="56" fill="#fff"/><polygon points="15,24 33,24 50,58 50,80" fill="#fff"/>
+      <rect x="71" y="24" width="14" height="56" fill="#DFF140"/><polygon points="85,24 67,24 50,58 50,80" fill="#DFF140"/>
+      <circle cx="50" cy="65" r="15" fill="#14110F"/><circle cx="50" cy="65" r="12" fill="#E8731C"/></svg>
+    <div><h1>Mano a mano</h1><p id="fecha">el control corto</p></div>
+  </div>
+
+  <div class="tarjeta" id="caja-clave">
+    <div class="clave"><input type="password" id="clave" placeholder="la clave del panel" autocomplete="current-password"><button id="traer">Ver</button></div>
+    <p class="estado" id="estado">La misma clave que el panel grande. Queda guardada en este navegador.</p>
+  </div>
+
+  <div id="panel"></div>
+</div>
+<script>
+(function(){
+  var URL_BASE = "{{SUPABASE_URL}}", ANON = "{{SUPABASE_ANON}}";
+  var $ = function(id){ return document.getElementById(id); };
+  var leer = function(k){ try { return localStorage.getItem(k) || ""; } catch(e){ return ""; } };
+  var guardar = function(k, v){ try { localStorage.setItem(k, v); } catch(e){} };
+  var n = function(x){ return x == null ? "—" : Number(x).toLocaleString("es-AR"); };
+  var esc = function(s){ return String(s == null ? "" : s).replace(/[&<>"]/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); };
+  var dia = function(iso){ try { return new Date(iso).toLocaleDateString("es-AR", { day:"numeric", month:"short", timeZone:"America/Argentina/Buenos_Aires" }); } catch(e){ return ""; } };
+
+  function estado(t, mal){ $("estado").textContent = t; $("estado").className = "estado" + (mal ? " mal" : ""); }
+
+  async function traer(){
+    var clave = $("clave").value.trim();
+    if (clave.length < 8) { estado("Falta la clave.", true); return; }
+    guardar("control.clave", clave);
+    $("traer").disabled = true; estado("Trayendo…");
+    try {
+      var r = await fetch(URL_BASE + "/rest/v1/rpc/control_mam", { method:"POST",
+        headers:{ "apikey":ANON, "Authorization":"Bearer " + ANON, "Content-Type":"application/json" },
+        body: JSON.stringify({ p_clave: clave }) });
+      var j = await r.json();
+      if (!r.ok) throw new Error((j && (j.message || j.hint)) || ("no contestó (" + r.status + ")"));
+      pintar(j); $("caja-clave").hidden = true;
+    } catch(e){ estado(String(e.message || e), true); $("panel").innerHTML = ""; }
+    $("traer").disabled = false;
+  }
+
+  function pintar(d){
+    var P = d.periodos || {}, A = d.ahora || {}, C = A.cobra || {};
+    $("fecha").textContent = "al " + new Date().toLocaleString("es-AR", { day:"numeric", month:"long", hour:"2-digit", minute:"2-digit" }) + " · tocá para actualizar";
+    $("fecha").onclick = traer; $("fecha").style.cursor = "pointer";
+    var fila = function(nombre, k){ return "<tr><td>" + nombre + "</td><td><b>" + n((P.hoy||{})[k]) + "</b></td><td>" + n((P.d7||{})[k]) + "</td><td>" + n((P.d30||{})[k]) + "</td></tr>"; };
+    var cobra = function(v){ return v === "si" ? '<span class="si">cobra</span>' : '<span class="no">abierto</span>'; };
+    var h = "";
+    h += '<div class="tarjeta"><h2>Cuánto se usa</h2><table><tr><th></th><th>Hoy</th><th>7 días</th><th>30 días</th></tr>' +
+      fila("Cuentas nuevas", "cuentas") + fila("Desafíos creados", "desafios") + fila("Amigos que se sumaron", "amigos") +
+      fila("Aperturas en la app", "app") + fila("Visitas en la web", "web") + fila("Instalaron la app", "instalaron") +
+      fila("Personas que pagaron", "pagaron") + "</table></div>";
+    h += '<div class="tarjeta"><h2>Ahora</h2><div class="grande">' +
+      "<div><b>" + n(A.cuentas) + "</b><span>cuentas</span></div>" +
+      "<div><b>" + n(A.futbol) + "</b><span>plan Fútbol<br>" + cobra(C.futbol) + "</span></div>" +
+      "<div><b>" + n(A.tenis) + "</b><span>plan Tenis<br>" + cobra(C.tenis) + "</span></div>" +
+      "<div><b>" + n(A.nba) + "</b><span>plan NBA<br>" + cobra(C.nba) + "</span></div></div></div>";
+    var D = d.desafios || [];
+    h += '<div class="tarjeta"><h2>Últimos desafíos</h2>' + (D.length ? '<ul class="lista">' + D.map(function(x){
+      return "<li><span>" + esc(x.nombre) + "<br><small>" + dia(x.creado) + " · " + x.partidos + (x.partidos === 1 ? " partido" : " partidos") + "</small></span>" +
+        '<span style="text-align:right"><b>' + x.jugadores + "</b> " + (x.jugadores === 1 ? "jugador" : "jugadores") + '<br><span class="chip">' + esc(x.estado) + "</span></span></li>";
+    }).join("") + "</ul>" : '<p class="vacio">Todavía no hay desafíos.</p>') + "</div>";
+    var K = d.campanas || [];
+    h += '<div class="tarjeta"><h2>Campañas · 7 días</h2>' + (K.length ? '<table><tr><th>código</th><th>llegaron</th><th>simularon</th></tr>' + K.map(function(c){
+      return "<tr><td>" + esc(c.codigo) + "</td><td><b>" + n(c.llego) + "</b></td><td>" + n(c.simulo) + "</td></tr>"; }).join("") + "</table>"
+      : '<p class="vacio">Ninguna campaña trajo gente esta semana.</p>') + "</div>";
+    h += '<p class="nota">Aperturas y visitas: una por teléfono y por día, de fútbol y tenis (NBA todavía no cuenta). ' +
+      'Los planes de Todo cuentan en los tres. "Pagaron" incluye las renovaciones de prueba de Apple. ' +
+      'El detalle completo está en <a href="control.html" style="color:inherit">el panel grande</a>.</p>';
+    $("panel").innerHTML = h;
+  }
+
+  $("traer").onclick = traer;
+  $("clave").addEventListener("keydown", function(e){ if (e.key === "Enter") traer(); });
+  var guardada = leer("control.clave");
+  if (guardada) { $("clave").value = guardada; traer(); }
+})();
+</script>
+</body></html>

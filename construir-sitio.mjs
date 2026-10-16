@@ -611,6 +611,13 @@ if (HAY_BACKEND && existsSync(aca("./control.tpl.html"))) {
   writeFileSync(new URL("control.js", SITIO),
     readFileSync(aca("./control.js"), "utf8").replace(/^export\s+/gm, ""));
 }
+/* El control corto de Mano a mano (15/10/2026): una sola pantalla, con la
+   misma clave que el panel grande. Lee `control_mam` (control-mam.sql). */
+if (HAY_BACKEND && existsSync(aca("./control-mam.tpl.html")))
+  writeFileSync(new URL("control-mam.html", SITIO),
+    readFileSync(aca("./control-mam.tpl.html"), "utf8")
+      .replaceAll("{{SUPABASE_URL}}", CFG.supabase.url)
+      .replaceAll("{{SUPABASE_ANON}}", CFG.supabase.anon));
 
 writeFileSync(new URL(".nojekyll", SITIO), "");
 
