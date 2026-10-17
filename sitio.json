@@ -38,7 +38,7 @@
  },
  "_android": "El paquete y las huellas SHA-256 que autorizan a la app de Android a abrir armael11.com a pantalla completa, sin la barra del navegador. Con esto se escribe sitio/.well-known/assetlinks.json. Van DOS huellas y las dos son públicas (son certificados, no llaves). La primera es la de CARGA: la generó PWABuilder y es con la que se firma el .aab que se sube. La segunda es la de FIRMA DE LA APP: Google reemplaza la firma al distribuir, así que es la que de verdad tiene la app instalada desde Play, y se saca de Play Console → Protegido con Play → Firma de apps, columna 'Clave clásica' (la poscuántica NO sirve para esto: Android todavía no la usa acá). Con las dos puestas la app abre a pantalla completa; con una sola abre igual, pero con la barra del navegador arriba. Si el bloque 'android' se saca, el archivo se borra del sitio.",
  "apple": {
-  "team": "",
+  "team": "XF8T8LWL3Q",
   "_team": "El Team ID de Apple Developer (10 letras y numeros, arriba a la derecha en developer.apple.com/account). Con esto construir-sitio escribe /.well-known/apple-app-site-association y los links de armael11.com/desafio.html abren Mano a mano en el iPhone (ver LEEME de la 1.1.1). Vacio = los links abren la web. No es secreto.",
   "revenuecat": "appl_dQnGEbXpKWceFceVepoLEHQGWNn",
   "tienda": "https://apps.apple.com/app/id6813729689"

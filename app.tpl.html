@@ -4171,7 +4171,7 @@ function bloqueCupo(){
   return `<p class="aviso" id="cupo" style="margin-top:10px">
       <b>${esc(textoCupo(e, CUPO.hasta, liga))}</b>
       ${CUPO_CFG.cobrando
-        ? "Con un plan simulas sin límite y sin avisos."
+        ? ((window.mamMarco && window.mamMarco.adentro()) ? "Con el plan Fútbol simulas sin límite en las once ligas." : "Con un plan simulas sin límite y sin avisos.")
         : "Cuando se pase de diez va a hacer falta un plan; todavía no se cobra nada."}
     </p>${tarjetasDePlan()}`;
 }
@@ -6215,8 +6215,7 @@ function bloquePremium(){
 
   if(PREMIUM.activo)
     return `<div class="pendiente" style="margin-top:14px">
-      <b>Tienes el pase</b> ${esc(cuantoFalta(PREMIUM.hasta))}. Simulas sin espera
-      y sin avisos.</div>${contador}`;
+      <b>Tienes el pase</b> ${esc(cuantoFalta(PREMIUM.hasta))}. Simulas sin espera${(window.mamMarco && window.mamMarco.adentro()) ? "" : " y sin avisos"}.</div>${contador}`;
 
   /* ── SIN PLANES DEL SERVIDOR NO HAY NADA QUE OFRECER… SALVO EN EL IPHONE
      En la web y en Play los precios los pone el servidor, así que si no

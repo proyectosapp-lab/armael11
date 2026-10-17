@@ -24,6 +24,15 @@
    Es el único hilo que une el pago con la persona, y por eso lo escribe el
    servidor de los dos lados.
 
+   ─── v3, 5/10/2026: UNA SOLA FUNCIÓN PARA TODOS LOS PRODUCTOS ───────
+   Los cuatro planes de Mano a mano (la app, en armael11.com/app: Fútbol,
+   Tenis, NBA, Todo), el pase de Sacá vos, el pase del Quinteto (nuevo acá:
+   la web de NBA pedía `quinteto` y esta función no lo conocía). Los tres
+   de Armá el 11 por cantidad de ligas ya no se venden. Cada plan sabe a qué sitio vuelve la persona y
+   qué dice el resumen de la tarjeta. `registrar_pago` v3 (2-pagos.sql)
+   entiende todos estos nombres; `pago-avisado` tiene que tenerlos en su
+   lista (PLANES_VALIDOS), si no acredita el premium de fútbol por defecto.
+
    ─── QUÉ CONFIGURAR ──────────────────────────────────────────────────────
    El mismo secreto MP_ACCESS_TOKEN que la otra función. Al desplegar, esta
    SÍ puede quedar con "Verify JWT" tildado: la llama la app con la sesión
@@ -45,30 +54,70 @@ const SITIO = Deno.env.get("SITIO_URL") || "https://armael11.com";
    desplegar cambia el precio en todos lados: la app pide esta misma lista
    para dibujar los botones, así que no hay dos precios que puedan quedar
    distintos.                                                             */
-/* ── 18/9/2026: SE DEJA DE VENDER CANTIDAD Y SE VENDEN LIGAS ─────────────
-   Antes eran 40, 100 y sin límite de simulaciones. Simular no cuesta nada
-   —corre en el teléfono—, así que cobrar por cantidad cobraba por algo que
-   no existe y castigaba al que más usa la app. Lo que vale para el hincha
-   es cuántas ligas puede tocar. Diez gratis por mes en UNA liga; de ahí,
-   libre en una, en tres o en todas.
-
-   ⚠ LOS TRES NÚMEROS DE ABAJO SON PESOS ARGENTINOS y salen de US$ 2, 5 y 8
-   tomando el dólar a $1.500. Si el dólar está en otro lado, se cambian esos
-   tres números, se vuelve a desplegar la función, y la app los muestra
-   solos: no hay ningún precio escrito en la app.                         */
+/* Historia: hasta el 18/9 se vendía cantidad de simulaciones; del 18/9 al
+   5/10, cantidad de ligas (Tu liga, 3 ligas, Todas). Desde el 5/10 se vende
+   un plan por deporte y Todo, en la web y en las tiendas por igual.      */
 const PLANES: Record<string, {
   meses: number; precio: number; ligas: number; titulo: string; nombre: string; detalle: string;
+  sitio?: string; descriptor?: string;
 }> = {
-  liga:  { meses: 1, precio: 3000,  ligas: 1,
-           nombre: "Tu liga",   detalle: "sin límite en una liga",
-           titulo: "Armá el 11 · sin límite en tu liga" },
-  tres:  { meses: 1, precio: 7500,  ligas: 3,
-           nombre: "3 ligas",   detalle: "sin límite en tres ligas a elección",
-           titulo: "Armá el 11 · sin límite en tres ligas" },
-  todas: { meses: 1, precio: 12000, ligas: 99,
-           nombre: "Todas",     detalle: "sin límite en las once ligas",
-           titulo: "Armá el 11 · sin límite en todas las ligas" },
+  /* ── LOS CUATRO PLANES, Y NADA MÁS (definido el 2/10, cerrado el 5/10) ──
+     Un plan por deporte y Todo. Son los mismos que en las tiendas (US$ 1,99
+     por deporte, US$ 3,99 Todo); en pesos, $2.990 y $5.990 al dólar de hoy.
+     Los planes por cantidad de ligas (liga/tres/todas) CADUCARON: no se
+     venden más en ningún lado. `registrar_pago` los sigue entendiendo para
+     los pagos ya hechos, y `pago-avisado` también, pero acá no están: un
+     POST con uno de esos nombres recibe "Ese plan no existe".
+     Vuelven a la página de gracias de la app web (armael11.com/app); los
+     sitios de tenis y NBA piden por su nombre viejo (abajo) y vuelven a su
+     propia página.                                                       */
+  futbol: { meses: 1, precio: 2990, ligas: 99,
+            nombre: "Fútbol", detalle: "el simulador en las once ligas, sin tope",
+            titulo: "Mano a mano · Fútbol, un mes",
+            sitio: "https://armael11.com/app", descriptor: "MANOAMANO" },
+  tenis:  { meses: 1, precio: 2990, ligas: 0,
+            nombre: "Tenis", detalle: "el número, la perilla y la simulación de cada partido ATP",
+            titulo: "Mano a mano · Tenis, un mes",
+            sitio: "https://armael11.com/app", descriptor: "MANOAMANO" },
+  nba:    { meses: 1, precio: 2990, ligas: 0,
+            nombre: "NBA", detalle: "el número y la rotación de cada partido",
+            titulo: "Mano a mano · NBA, un mes",
+            sitio: "https://armael11.com/app", descriptor: "MANOAMANO" },
+  todo:   { meses: 1, precio: 5990, ligas: 99,
+            nombre: "Todo", detalle: "fútbol, tenis y NBA",
+            titulo: "Mano a mano · Todo, un mes",
+            sitio: "https://armael11.com/app", descriptor: "MANOAMANO" },
 };
+/* ── LOS NOMBRES VIEJOS DE LOS SITIOS DE TENIS Y NBA ─────────────────────
+   sacavos.com pide `sacavos` y armaelquinteto.com pide `quinteto`: es el
+   mismo pase que Tenis y NBA (la misma fila de `pase`), al mismo precio.
+   Se les contesta con su nombre, se cobra el plan de verdad, y la persona
+   vuelve a su sitio con el resumen de tarjeta de su sitio.               */
+const NOMBRES_VIEJOS: Record<string, { plan: string; sitio: string; descriptor: string }> = {
+  sacavos:  { plan: "tenis", sitio: "https://sacavos.com",         descriptor: "SACAVOS" },
+  quinteto: { plan: "nba",   sitio: "https://armaelquinteto.com",  descriptor: "QUINTETO" },
+};
+/* lo que se ofrece: los cuatro, y los dos nombres viejos con el precio del plan que son */
+function ofrecidos() {
+  const lista = Object.entries(PLANES).map(([id, p]) => ({ id, plan: id, meses: p.meses, precio: p.precio, ligas: p.ligas, nombre: p.nombre, detalle: p.detalle, moneda: "ARS" }));
+  for (const [id, v] of Object.entries(NOMBRES_VIEJOS)) { const p = PLANES[v.plan]; lista.push({ id, plan: v.plan, meses: p.meses, precio: p.precio, ligas: p.ligas, nombre: p.nombre, detalle: p.detalle, moneda: "ARS" }); }
+  return lista;
+}
+/* el plan que se cobra, a partir de lo que pidió el sitio */
+function planDe(pedido: string) {
+  const viejo = NOMBRES_VIEJOS[pedido];
+  const id = viejo ? viejo.plan : pedido;
+  const p = PLANES[id];
+  if (!p) return null;
+  return { id, ...p, sitio: viejo ? viejo.sitio : p.sitio, descriptor: viejo ? viejo.descriptor : p.descriptor };
+}
+/* a dónde puede volver la persona si el sitio lo pide (`vuelta`): solo a nuestros dominios */
+const VUELTAS = ["https://armael11.com", "https://sacavos.com", "https://armaelquinteto.com"];
+function vueltaDe(pedida: unknown, plan: { sitio?: string }): string {
+  const v = String(pedida || "");
+  if (VUELTAS.some((d) => v === d + "/gracias.html" || v.startsWith(d + "/") && v.endsWith("/gracias.html"))) return v;
+  return (plan.sitio || SITIO) + "/gracias.html";
+}
 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
@@ -85,10 +134,10 @@ Deno.serve(async (req) => {
   /* La app pide la lista para dibujar los botones con el precio de verdad.
      Sin sesión, porque los precios no son un secreto: lo que no se puede es
      elegirlos. */
-  if (req.method === "GET")
-    return json({ planes: Object.entries(PLANES).map(([id, p]) =>
-      ({ id, meses: p.meses, precio: p.precio, ligas: p.ligas,
-         nombre: p.nombre, detalle: p.detalle, moneda: "ARS" })) });
+  if (req.method === "GET") {
+    const pedido = new URL(req.url).searchParams.get("plan") || "";   // ?plan=quinteto → solo ese
+    return json({ planes: ofrecidos().filter((p) => !pedido || p.id === pedido) });
+  }
 
   if (req.method !== "POST") return json({ error: "método" }, 405);
   if (!MP) return json({ error: "falta configurar el cobro" }, 500);
@@ -107,9 +156,9 @@ Deno.serve(async (req) => {
   /* ─── 2. QUÉ PLAN ────────────────────────────────────────────────────── */
   let pedido: any = {};
   try { pedido = await req.json(); } catch (_e) { pedido = {}; }
-  const idPlan = String(pedido?.plan || "liga");
-  const plan = PLANES[idPlan];
+  const plan = planDe(String(pedido?.plan || ""));
   if (!plan) return json({ error: "Ese plan no existe." }, 400);
+  const idPlan = plan.id;   // el nombre de verdad (tenis, no sacavos): es lo que lee pago-avisado
 
   /* ─── 3. LA PREFERENCIA ──────────────────────────────────────────────
      `notification_url` va acá y no solo en el panel de Mercado Pago a
@@ -117,7 +166,7 @@ Deno.serve(async (req) => {
      haya dejado bien configurada una pantalla que nadie vuelve a mirar. */
   const pref = {
     items: [{
-      id: "premium", title: plan.titulo, quantity: 1,
+      id: idPlan, title: plan.titulo, quantity: 1,
       unit_price: plan.precio, currency_id: "ARS",
     }],
     /* "<uuid>:<meses>:<plan>". El tercer campo es nuevo: sin el, el webhook
@@ -127,12 +176,12 @@ Deno.serve(async (req) => {
     external_reference: perfil + ":" + plan.meses + ":" + idPlan,
     notification_url: SB_URL + "/functions/v1/pago-avisado",
     back_urls: {
-      success: SITIO + "/gracias.html",
-      pending: SITIO + "/gracias.html?estado=pendiente",
-      failure: SITIO + "/gracias.html?estado=falló",
+      success: vueltaDe(pedido?.vuelta, plan),
+      pending: vueltaDe(pedido?.vuelta, plan) + "?estado=pendiente",
+      failure: vueltaDe(pedido?.vuelta, plan) + "?estado=falló",
     },
     auto_return: "approved",
-    statement_descriptor: "ARMAEL11",
+    statement_descriptor: plan.descriptor || "ARMAEL11",
     /* Sin `payer`: no le mandamos a Mercado Pago el mail de nadie. Se lo
        pide él, que ya lo tiene. */
   };
@@ -146,7 +195,7 @@ Deno.serve(async (req) => {
   if (!r.ok) {
     const detalle = (await r.text()).slice(0, 400);
     console.error("mercadopago rechazó la preferencia: " + r.status + " " + detalle);
-    return json({ error: "No pude armar el pago. Probá de nuevo en un rato." }, 502);
+    return json({ error: "No se pudo armar el pago. Prueba de nuevo en un rato." }, 502);
   }
 
   const p = await r.json();
