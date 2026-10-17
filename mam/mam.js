@@ -24,7 +24,7 @@
   // ── el estado ──
   let deportes = leer('mam.deportes', null);          // los que sigue (orden de las solapas)
   let deporte = leer('mam.deporte', null);            // el que está mirando
-  let pestana = leer('mam.pestana', 'partidos');       // partidos | juga | desafios | cuenta
+  let pestana = leer('mam.pestana', 'desafios');   // 17/10: la app abre en Desafíos (el modelo hoy + el desafío de la semana)       // partidos | juga | desafios | cuenta
   const marcos = {};                                   // deporte → { el, cargado, listo }
   let desafioPendiente = null;                         // un #desafio=CODIGO que llegó antes de estar listos
   let planPendiente = null;                            // el deporte cuyo plan hay que resaltar en Cuenta
@@ -214,9 +214,38 @@
     } catch (e) {}
     return null;
   }
+  // ── los destacados del modelo (17/10): lo que se muestra gratis cada día ──
+  // Uno de fútbol, dos de tenis y dos de NBA, de los próximos tres días, con la elección del modelo y su número. Cambian
+  // cada día y son los mismos para todos (salen de un sorteo con la fecha como semilla, sin azar). El resto, con el plan.
+  const CUPO = { futbol: 1, tenis: 2, nba: 2 };
+  const LIGAS_PRIMERO = ['argentina', 'inglaterra', 'espana', 'italia', 'alemania', 'francia', 'brasil'];
+  const hashDe = (s) => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; };
+  const diaAR = (ms) => { try { return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Argentina/Buenos_Aires', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(ms)); } catch (e) { return new Date(ms).toISOString().slice(0, 10); } };
+  function elegirDestacados(lista, hoy) {
+    const base = Date.parse(hoy + 'T00:00:00Z');
+    const offset = (p) => Math.round((Date.parse(diaAR(p.empieza) + 'T00:00:00Z') - base) / 86400000);
+    const out = [];
+    for (const dep of ['futbol', 'tenis', 'nba']) {
+      const cand = lista.filter((p) => p.deporte === dep && offset(p) >= 0 && offset(p) <= 2 && (dep === 'futbol' || p.p != null));
+      const liga = (p) => { const i = LIGAS_PRIMERO.indexOf(p.fuente); return i < 0 ? 99 : i; };
+      cand.sort((a, b) => offset(a) - offset(b) || (dep === 'futbol' ? liga(a) - liga(b) : 0) || hashDe(hoy + a.partido) - hashDe(hoy + b.partido));
+      out.push(...cand.slice(0, CUPO[dep]));
+    }
+    return out.sort((a, b) => a.empieza - b.empieza);
+  }
+  async function destacados() {
+    const hoy = diaAR(Date.now()), tope = Date.now() + 3 * 86400000;
+    const lista = partidos().filter((p) => p.empieza <= tope);
+    const out = []; let faltan = 0;
+    for (const p of elegirDestacados(lista, hoy)) { const m = await modelo(p); if (m) out.push(Object.assign({}, p, { m })); else faltan++; }
+    const total = { futbol: 0, tenis: 0, nba: 0 };
+    for (const p of lista) if (p.deporte === 'futbol' || p.p != null) total[p.deporte]++;
+    const w = (d) => ventana(d) || {};
+    return { lista: out, total, faltan, listos: !!(w('futbol').LIGAS && w('tenis').SV_HOY && w('nba').NBA_HOY) };
+  }
   function contexto() {
     const codigo = desafioPendiente; desafioPendiente = null;
-    return { partidos, modelo, ir: (p) => ir(p), alCambiarCuenta: () => { recargarTodos(); D().refrescarGlobo(); }, codigo, momento };
+    return { partidos, modelo, destacados, ir: (p, d) => ir(p, d), alCambiarCuenta: () => { recargarTodos(); D().refrescarGlobo(); }, codigo, momento };
   }
 
   // ── la cuenta ──
@@ -409,5 +438,5 @@
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', arrancar); else arrancar();
 
-  raiz.mam = { ir, partidos, modelo, abrirDesafio, recargarTodos, momento, estado: () => ({ deportes, deporte, pestana }), _marcos: marcos };
+  raiz.mam = { ir, partidos, modelo, destacados, elegirDestacados, abrirDesafio, recargarTodos, momento, estado: () => ({ deportes, deporte, pestana }), _marcos: marcos };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -44,6 +44,11 @@ const UID = "11111111-1111-1111-1111-111111111111";
 const TOKEN = "x." + Buffer.from(JSON.stringify({ sub: UID, exp: 9999999999, is_anonymous: true })).toString("base64url") + ".y";
 const SESION = { access_token: TOKEN, refresh_token: "r", user: { id: UID, is_anonymous: true } };
 let DESAFIO = null; const LLAMADAS = []; let PAGADO = false; const COBRA = { futbol: "si", tenis: "si", nba: "si" };   // los ajustes cobra / cobra_sacavos / cobra_quinteto   // PAGADO: la tienda simulada ya cobró (ver "la compra adentro del teléfono")
+const EN = (h) => new Date(Date.now() + h * 36e5).toISOString();
+const OFICIAL = { codigo: "OFI777", nombre: "El desafío del finde", estado: "abierto", creador: "manoamano", oficial: true, total: 312, soy: false, modelo_puntos: 0, modelo_juega: 3,
+  partidos: [["futbol", "901", "Racing", "Independiente", 20], ["tenis", "t9", "Sinner", "Alcaraz", 26], ["nba", "n9", "Lakers", "Celtics", 30]].map(([deporte, partido, local, visita, h]) =>
+    ({ deporte, partido, local, visita, empieza: EN(h), rotulo: null, opciones: deporte === "futbol" ? 3 : 2, resultado: null, empezo: false, modelo: null, modelo_p: null, mia: null, elecciones: null })),
+  jugadores: [{ apodo: "lucho", puntos: 0, creador: false, yo: false, elegidos: 3 }] };
 async function simularBackend(page) {
   await page.route(/supabase\.co/, async (route) => {
     const req = route.request(); const url = req.url(); const metodo = req.method();
@@ -57,6 +62,7 @@ async function simularBackend(page) {
     if (/\/rest\/v1\/perfil/.test(url)) return ok([{ id: SESION.user.id, usuario: "fausto", plan: "gratis", premium_hasta: null }]);
     if (/\/rest\/v1\/pase/.test(url)) return ok(PAGADO ? [{ producto: "sacavos", hasta: new Date(Date.now() + 30 * 864e5).toISOString() }] : []);
     if (/functions\/v1\/pago-apple/.test(url)) { PAGADO = true; LLAMADAS.push("AUTH " + (req.headers()["authorization"] || "")); return ok({ ok: true, plan: "tenis", planes: ["tenis"] }); }
+    if (/\/rest\/v1\/ajuste.*desafio_oficial/.test(url)) return ok([{ clave: "desafio_oficial", valor: "OFI777" }]);
     if (/\/rest\/v1\/ajuste/.test(url)) return ok([{ clave: "cobra", valor: COBRA.futbol }, { clave: "cobra_sacavos", valor: COBRA.tenis }, { clave: "cobra_quinteto", valor: COBRA.nba }]);
     if (/\/rest\/v1\/prueba/.test(url)) return ok([]);
     if (/rpc\/ponerme_apodo/.test(url)) return ok("fausto");
@@ -68,7 +74,7 @@ async function simularBackend(page) {
       DESAFIO._guardado = b.p_partidos;
       return ok("ABC123");
     }
-    if (/rpc\/ver_desafio/.test(url)) return ok(DESAFIO);
+    if (/rpc\/ver_desafio/.test(url)) return ok((req.postDataJSON() || {}).p_codigo === "OFI777" ? OFICIAL : DESAFIO);
     if (/rpc\/unirse_desafio/.test(url)) return ok(null);
     if (/rpc\/elegir_desafio/.test(url)) { const b = req.postDataJSON(); const p = DESAFIO.partidos.find((x) => x.deporte === b.p_deporte && x.partido === b.p_partido); if (p) p.mia = b.p_eleccion; return ok(null); }
     if (/rpc\/registrar_dispositivo/.test(url)) return ok(null);
@@ -102,7 +108,28 @@ ok(await page.isHidden("#mam-bienvenida"), "la bienvenida se va al tocar Empezar
 const deportesVisibles = await page.$$eval("#mam-deportes [data-deporte]:not([hidden])", (b) => b.map((x) => x.dataset.deporte));
 ok(JSON.stringify(deportesVisibles) === JSON.stringify(["futbol", "tenis"]), "arriba quedan los deportes elegidos: " + deportesVisibles.join(", "));
 ok((await page.evaluate(() => localStorage.getItem("mam.deportes"))) === '["futbol","tenis"]', "la elección queda guardada");
-ok(await page.isVisible("#mam-futbol"), "el marco de fútbol se ve (es el primero elegido)");
+ok(await page.isVisible("#mam-desafios"), "después de Empezar abre en Desafíos");
+await page.waitForSelector("#mam-desafios .mam-oficial", { timeout: 8000 }).catch(() => {});
+ok(await page.isVisible("#mam-desafios .mam-oficial"), "arriba de todo, el desafío de la semana");
+const txtOf = await page.textContent("#mam-desafios .mam-oficial");
+ok(txtOf.includes("El desafío del finde") && txtOf.includes("312 juegan"), "…con el nombre y cuántos juegan (" + txtOf.replace(/\s+/g, " ").slice(0, 90) + ")");
+ok((await page.textContent("#mam-desafios [data-oficial-jugar]")).trim() === "Jugar", "…y el botón Jugar");
+await page.waitForSelector("#mam-desafios .mam-destacado", { timeout: 20000 }).catch(() => {});
+const dest = await page.$$eval("#mam-desafios .mam-destacado", (b) => b.map((x) => x.className.replace("mam-destacado ", "") + ": " + x.textContent.replace(/\s+/g, " ").trim()));
+console.log("    " + dest.join("\n    "));
+ok(dest.length >= 1 && dest.length <= 5, "el modelo, hoy: entre 1 y 5 partidos destacados (" + dest.length + ")");
+ok(dest.filter((x) => x.startsWith("futbol")).length <= 1 && dest.filter((x) => x.startsWith("tenis")).length <= 2 && dest.filter((x) => x.startsWith("nba")).length <= 2, "a lo sumo 1 de fútbol, 2 de tenis y 2 de NBA");
+ok(dest.every((x) => /va con\s*.+\d+%/.test(x)), "cada uno dice con quién va el modelo y su número");
+const txtHoy = await page.textContent("#mam-desafios .mam-destacados");
+ok(!/cuota|apuest|pick|fija|value|acert|ganá|prode|quiniela|premio|plata/i.test(txtHoy + txtOf), "sin palabras de apuestas en Hoy");
+await page.screenshot({ path: aca("./app/captura-0-hoy.png") });
+const hayPlanes = await page.isVisible("#mam-desafios [data-planes]");
+console.log("    (botón Ver los planes: " + (hayPlanes ? "sí" : "no, no hay otros partidos con número en el fixture de prueba") + ")");
+const elegidos1 = await page.evaluate(() => { const l = window.mam.partidos(); return window.mam.elegirDestacados(l.map((p) => ({ ...p, m: { eleccion: 1, p: .5 } })), new Date().toISOString().slice(0, 10)).map((p) => p.deporte + ":" + p.partido).join(","); });
+const elegidos2 = await page.evaluate(() => { const l = window.mam.partidos(); return window.mam.elegirDestacados(l.map((p) => ({ ...p, m: { eleccion: 1, p: .5 } })), new Date().toISOString().slice(0, 10)).map((p) => p.deporte + ":" + p.partido).join(","); });
+ok(elegidos1 === elegidos2, "el mismo día elige los mismos (" + elegidos1 + ")");
+await page.click('#mam-barra [data-pestana="partidos"]'); await page.waitForTimeout(500);
+ok(await page.isVisible("#mam-futbol"), "en Partidos se ve el marco de fútbol (el primero elegido)");
 await page.screenshot({ path: aca("./app/captura-1-partidos.png") });
 
 console.log("\n── los marcos en modo app ──");

@@ -160,3 +160,26 @@ button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(-
 button:disabled{opacity:.45;cursor:default}
 .mam-globo{color:#14110F}
 @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
+
+/* ── Hoy: el desafío de la semana y el modelo, hoy ───────────────────────── */
+.mam-oficial{border:2px solid var(--tinta)}
+.mam-etiqueta{align-self:flex-start;font-size:11px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;padding:3px 9px;border-radius:999px;background:var(--tinta);color:var(--papel)}
+.mam-oficial .mam-boton{margin-top:2px}
+.mam-mini{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;font-size:13px}
+.mam-mini li{display:flex;align-items:center;gap:8px;color:var(--tinta)}
+.mam-mini li:not([class]){color:var(--gris);padding-left:16px}
+.mam-mini i,.mam-destacado i{flex:none;width:8px;height:8px;border-radius:50%;background:var(--gris)}
+.mam-mini .futbol i,.mam-destacado.futbol i{background:var(--futbol)}
+.mam-mini .tenis i,.mam-destacado.tenis i{background:var(--tenis)}
+.mam-mini .nba i,.mam-destacado.nba i{background:var(--nba)}
+.mam-destacados .mam-fila{align-items:baseline}
+.mam-destacados .mam-fila small{white-space:nowrap}
+.mam-destacado{width:100%;display:flex;align-items:center;gap:10px;text-align:left;padding:10px 12px;border-radius:12px;border:1px solid var(--linea);background:var(--papel);color:var(--tinta);font:inherit;cursor:pointer}
+.mam-destacado .crece{flex:1;min-width:0;display:flex;flex-direction:column}
+.mam-destacado .crece b{font-size:14px;line-height:1.25;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mam-destacado .crece small{font-size:11.5px;color:var(--gris);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mam-va{flex:none;display:flex;flex-direction:column;align-items:flex-end;line-height:1.15;max-width:42%}
+.mam-va small{font-size:10px;color:var(--gris);text-transform:uppercase;letter-spacing:.5px}
+.mam-va b{font-size:13px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mam-va em{font-style:normal;font-size:18px;font-weight:700;font-variant-numeric:tabular-nums}
+.mam-destacados .mam-boton{margin-top:0}

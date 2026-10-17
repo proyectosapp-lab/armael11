@@ -1,0 +1,21 @@
+MANO A MANO · HOY Y EL DESAFÍO DE LA SEMANA (17/10/2026)
+
+Dónde va: en el repo armael11, en la raíz. Se reemplazan los archivos que ya están
+(la carpeta mam/ y los sueltos). Nada más.
+
+Qué cambia:
+· La app abre en Desafíos.
+· Arriba de todo, "El desafío de la semana" (hoy: El desafío del finde, código 7543E6).
+· Debajo, "El modelo, hoy": 1 partido de fútbol, hasta 2 de tenis y 2 de NBA,
+  gratis, con a quién va el modelo y su número. Cambian cada día y son los mismos
+  para todos. Abajo, cuántos partidos más hay y el botón "Ver los planes".
+· En cada desafío, "Compartir mis elecciones": arma una imagen para historias.
+· La página del link (desafio.html) ahora tiene "Jugar ahora", que abre el desafío
+  en armael11.com/app sin bajar nada (Android todavía no tiene tienda).
+
+Cuándo se ve:
+· En armael11.com/app, apenas se sube (el sitio se publica solo).
+· En el iPhone, con la próxima versión de la app (1.1.2). La app actualiza datos,
+  no pantallas.
+
+La base: desafio-oficial.sql YA está aplicado. Queda acá como registro.

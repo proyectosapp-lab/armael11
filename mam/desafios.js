@@ -1,7 +1,7 @@
 // desafios.js — los desafíos de Mano a mano. Script clásico, expone window.mamDesafios.
 // Elegís partidos (de uno o varios días, de los tres deportes), le ponés nombre, mandás el link. Los que entran
 // eligen quién gana. Todos a ciegas: nadie ve la elección de otro ni la del modelo hasta que el partido empieza
-// (eso lo decide el servidor, en ver_desafio; acá solo se dibuja). Un punto por cada partido que elegís bien. Tabla. Sin plata, sin premios.
+// (eso lo decide el servidor, en ver_desafio; acá solo se dibuja). Un punto por cada partido que elegís bien. Tabla.
 (function (raiz) {
   'use strict';
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -48,13 +48,14 @@
   // ── la lista ──
   async function pintarLista() {
     vista = { que: 'lista' };
-    if (necesitaApodo()) { raizEl.innerHTML = `<div class="mam-seccion"><span>Desafíos</span><small>contra tus amigos y contra el modelo</small></div>${apodoHTML()}${comoFuncionaHTML()}`; engancharApodo(pintarLista); return; }
-    raizEl.innerHTML = `<div class="mam-seccion"><span>Desafíos</span><small>contra tus amigos y contra el modelo</small></div>
+    if (necesitaApodo()) { raizEl.innerHTML = `${HOY_HTML}<div class="mam-seccion"><span>Tus desafíos</span><small>contra tus amigos y contra el modelo</small></div>${apodoHTML()}${comoFuncionaHTML()}`; engancharApodo(pintarLista); pintarHoy(); return; }
+    raizEl.innerHTML = `${HOY_HTML}<div class="mam-seccion"><span>Tus desafíos</span><small>contra tus amigos y contra el modelo</small></div>
       <div class="mam-fila"><button type="button" class="mam-boton" data-crear style="margin:0">Crear un desafío</button><button type="button" class="mam-boton secundario" data-unirme style="margin:0">Tengo un código</button></div>
       <div class="mam-aviso" data-aviso></div>
       <ul class="mam-lista" data-lista><li class="mam-vacio">Cargando…</li></ul>`;
     $('[data-crear]').addEventListener('click', pintarCrear);
     $('[data-unirme]').addEventListener('click', pintarUnirme);
+    pintarHoy();
     let mios = [];
     try { mios = (await CU().rpc('mis_desafios')) || []; } catch (e) { aviso(e.message); }
     const ul = $('[data-lista]'); if (!ul) return;
@@ -64,6 +65,84 @@
       <small>${d.jugadores} ${d.jugadores === 1 ? 'jugador' : 'jugadores'} · ${d.partidos} ${d.partidos === 1 ? 'partido' : 'partidos'} · <span class="mam-estado ${esc(d.estado.replace(' ', '-'))}">${esc(d.estado)}</span>${d.proximo ? ' · próximo ' + esc(diaTexto(diaDe(Date.parse(d.proximo)))) + ' ' + esc(horaDe(Date.parse(d.proximo))) : ''}</small></button></li>`).join('');
     ul.querySelectorAll('[data-abrir]').forEach((b) => b.addEventListener('click', () => abrir(b.dataset.abrir)));
     actualizarGlobo(mios);
+  }
+
+  // ── HOY (17/10): lo primero que se ve al abrir la app ──
+  // 1. El desafío de la semana: lo arma Mano a mano (ajuste 'desafio_oficial'), cualquiera se suma con un toque.
+  // 2. El modelo, hoy: cinco partidos con la elección del modelo y su número, gratis. Cambian cada día. El resto, con un plan.
+  const HOY_HTML = `<div data-oficial></div><div data-destacados><div class="mam-tarjeta mam-destacados"><b>El modelo, hoy</b><p class="mam-nota" style="margin:6px 0 0">Mirando los partidos…</p></div></div>`;
+  const PLAN_NOMBRE = { futbol: 'Fútbol', tenis: 'Tenis', nba: 'NBA' };
+  function vaCon(p) {
+    const e = p.m.eleccion; const nombre = p.opciones === 3 ? (e === 1 ? p.local : e === 2 ? 'el empate' : p.visita) : (e === 1 ? p.local : p.visita);
+    return { nombre, pct: Math.round(p.m.p * 100) };
+  }
+  async function traerOficial() {
+    try {
+      const f = await CU().pedir('/rest/v1/ajuste?select=clave,valor&clave=eq.desafio_oficial', { sinToken: true });
+      const x = (f || []).find((r) => r.clave === 'desafio_oficial'); if (!x || !x.valor) return null;
+      const d = await CU().rpc('ver_desafio', { p_codigo: x.valor });
+      return d && d.codigo ? d : null;
+    } catch (e) { return null; }
+  }
+  function oficialHTML(d) {
+    const quedan = d.partidos.filter((p) => !p.empezo);
+    const prox = quedan.length ? Date.parse(quedan[0].empieza) : null;
+    const total = d.total != null ? d.total : (d.jugadores || []).length;
+    const mias = d.partidos.filter((p) => p.mia != null).length;
+    const boton = d.soy ? (quedan.some((p) => p.mia == null) ? 'Completar mis elecciones' : 'Ver la tabla') : (quedan.length ? 'Jugar' : 'Ver la tabla');
+    return `<div class="mam-tarjeta mam-oficial">
+      <span class="mam-etiqueta">El desafío de la semana</span>
+      <h2 class="mam-titulo">${esc(d.nombre)}</h2>
+      <p class="mam-nota">${d.partidos.length} ${d.partidos.length === 1 ? 'partido' : 'partidos'} · ${total} ${total === 1 ? 'juega' : 'juegan'}${d.modelo_juega ? ' · y el modelo' : ''}${prox ? ' · el próximo cierra ' + esc(diaTexto(diaDe(prox))) + ' ' + esc(horaDe(prox)) : ''}${d.soy ? ' · elegiste ' + mias + ' de ' + d.partidos.length : ''}</p>
+      <ul class="mam-mini">${d.partidos.slice(0, 5).map((p) => `<li class="${esc(p.deporte)}"><i></i>${esc(p.local)} – ${esc(p.visita)}</li>`).join('')}${d.partidos.length > 5 ? `<li>y ${d.partidos.length - 5} más</li>` : ''}</ul>
+      <button type="button" class="mam-boton" data-oficial-jugar>${boton}</button></div>`;
+  }
+  let hoyVuelta = 0;
+  async function pintarHoy() {
+    const vuelta = ++hoyVuelta;
+    const sigue = () => vuelta === hoyVuelta && vista.que === 'lista' && raizEl && raizEl.querySelector('[data-destacados]');
+    traerOficial().then((d) => {
+      const el = sigue() && raizEl.querySelector('[data-oficial]'); if (!el) return;
+      if (!d) { el.innerHTML = ''; return; }
+      el.innerHTML = oficialHTML(d);
+      el.querySelector('[data-oficial-jugar]').addEventListener('click', () => abrir(d.codigo));
+    });
+    if (!ctx.destacados) return;
+    let falta = null, mostrados = -1;
+    for (let i = 0; i < 10; i++) {
+      let r = null;
+      try { r = await ctx.destacados(); } catch (e) { r = null; }
+      if (!sigue()) return;
+      if (r && r.lista.length > mostrados) {
+        if (falta === null) {
+          try { const [pases, cobra] = await Promise.all([CU().misPases(), CU().cobra()]); falta = ['futbol', 'tenis', 'nba'].filter((dep) => cobra[dep] && !pases[dep]); } catch (e) { falta = ['futbol', 'tenis', 'nba']; }
+          if (!sigue()) return;
+        }
+        if (r.lista.length || (r.listos && i >= 2)) { pintarDestacados(r, falta); mostrados = r.lista.length; }
+      }
+      if (r && ((r.listos && !r.faltan) || r.lista.length >= 5)) break;
+      await new Promise((ok) => setTimeout(ok, 1500));
+    }
+    if (mostrados < 0) { const el = sigue() && raizEl.querySelector('[data-destacados]'); if (el) el.innerHTML = ''; }
+  }
+  function pintarDestacados(r, falta) {
+    const el = raizEl && raizEl.querySelector('[data-destacados]'); if (!el) return;
+    if (!r.lista.length) { el.innerHTML = ''; return; }
+    const mostrados = { futbol: 0, tenis: 0, nba: 0 }; for (const p of r.lista) mostrados[p.deporte]++;
+    const otros = falta.map((dep) => ({ dep, n: Math.max(0, r.total[dep] - mostrados[dep]) })).filter((x) => x.n > 0);
+    const nOtros = otros.reduce((a, x) => a + x.n, 0);
+    const lista = r.lista.map((p) => { const v = vaCon(p); return `<li><button type="button" class="mam-destacado ${esc(p.deporte)}" data-ver="${esc(p.deporte)}"><i></i>
+        <span class="crece"><b>${esc(p.local)} – ${esc(p.visita)}</b><small>${esc((p.rotulo || PLAN_NOMBRE[p.deporte]).split(' · ')[0])} · ${esc(diaTexto(diaDe(p.empieza)))} ${esc(horaDe(p.empieza))}</small></span>
+        <span class="mam-va"><small>va con</small><b>${esc(v.nombre)}</b><em>${v.pct}%</em></span></button></li>`; }).join('');
+    const y = (xs) => xs.length > 1 ? xs.slice(0, -1).join(', ') + ' y ' + xs[xs.length - 1] : xs.join('');
+    el.innerHTML = `<div class="mam-tarjeta mam-destacados">
+      <div class="mam-fila"><b class="crece">El modelo, hoy</b><small class="mam-nota">gratis · cambian cada día</small></div>
+      <ul class="mam-lista">${lista}</ul>
+      ${nOtros ? `<p class="mam-nota">${nOtros === 1 ? 'Hay 1 partido más' : 'Hay ' + nOtros + ' partidos más'} con su número en los próximos tres días: ${y(otros.map((x) => x.n + ' de ' + (x.dep === 'futbol' ? 'fútbol' : x.dep === 'tenis' ? 'tenis' : 'NBA')))}. Con un plan los ves todos, con la perilla y la simulación sin tope.</p>
+      <button type="button" class="mam-boton" data-planes>Ver los planes</button>` : ''}
+    </div>`;
+    el.querySelectorAll('[data-ver]').forEach((b) => b.addEventListener('click', () => ctx.ir('partidos', b.dataset.ver)));
+    const pl = el.querySelector('[data-planes]'); if (pl) pl.addEventListener('click', () => ctx.ir('cuenta'));
   }
   function comoFuncionaHTML() {
     return `<div class="mam-tarjeta" style="margin-top:6px"><b>Cómo es</b><p class="mam-nota" style="margin:0">Eliges partidos de fútbol, tenis o NBA, de hoy o de la semana, y mandas el link. Cada uno elige quién gana, a ciegas: las elecciones se ven recién cuando empieza el partido. Un punto por cada partido bien elegido. El modelo también juega, y pierde seguido.</p></div>`;
@@ -197,6 +276,7 @@
         <h2 class="mam-titulo">${esc(d.nombre)}</h2>
         <div class="mam-codigo"><span class="mam-nota">Código del desafío</span><b>${esc(d.codigo)}</b></div>
         <div class="mam-fila"><button type="button" class="mam-boton chico crece" data-compartir>Mandar el link</button>${d.estado !== 'abierto' ? '<button type="button" class="mam-boton secundario chico crece" data-imagen>Imagen de la tabla</button>' : ''}</div>
+        ${d.partidos.some((p) => p.mia != null) ? '<button type="button" class="mam-boton secundario chico" data-mis-elecciones style="width:100%">Compartir mis elecciones</button>' : ''}
         ${recienCreado ? '<p class="mam-nota">Listo. Mándales el link a tus amigos y elige tus ganadores abajo.</p>' : ''}
         ${pendientes ? `<p class="mam-nota">Te faltan ${pendientes} ${pendientes === 1 ? 'partido' : 'partidos'} por elegir.</p>` : ''}
       </div>
@@ -207,7 +287,7 @@
       if (dd !== dia) { dia = dd; html += `<div class="mam-dia">${esc(diaTexto(dd))}</div>`; }
       html += partidoHTML(d, p);
     }
-    html += `<div class="mam-seccion"><span>Tabla</span><small>un punto por cada partido bien elegido</small></div>
+    html += `<div class="mam-seccion"><span>Tabla</span><small>${d.oficial ? (d.total || 0) + ' juegan · se ven los 20 primeros' : 'un punto por cada partido bien elegido'}</small></div>
       <div class="mam-tarjeta"><table class="mam-tabla"><thead><tr><th>#</th><th>jugador</th><th>elegidos</th><th>puntos</th></tr></thead><tbody>
       ${jugadores.map((j, i) => `<tr class="${j.yo ? 'yo' : ''}${j.modelo ? ' modelo' : ''}"><td>${i + 1}</td><td>${esc(j.apodo)}${j.creador ? ' <small class="mam-nota">(lo armó)</small>' : ''}</td><td>${j.elegidos}/${d.partidos.length}</td><td>${j.puntos}</td></tr>`).join('')}
       </tbody></table>
@@ -218,6 +298,7 @@
     $('[data-volver]').addEventListener('click', pintarLista);
     $('[data-compartir]').addEventListener('click', () => compartir(d));
     const im = $('[data-imagen]'); if (im) im.addEventListener('click', () => imagen(d));
+    const me = $('[data-mis-elecciones]'); if (me) me.addEventListener('click', () => imagenElecciones(d));
     /* un desafío terminado en el que jugué, visto por primera vez: un momento para la reseña (una vez por desafío) */
     if (d.estado === 'terminado' && (d.jugadores || []).some((j) => j.yo) && ctx.momento) { const v = leer('mam.vistos', []); if (!v.includes(d.codigo)) { v.push(d.codigo); guardar('mam.vistos', v.slice(-50)); try { ctx.momento('desafio'); } catch (e) {} } }
     const rv = $('[data-revancha]'); if (rv) rv.addEventListener('click', () => pintarCrear({ nombre: 'Revancha: ' + d.nombre.replace(/^Revancha: /, '').slice(0, 50) }));
@@ -287,6 +368,37 @@
     const t = $('.mam-tarjeta'); if (t) t.appendChild(im);
   }
 
+
+  // mis elecciones, para historias: 1080×1920, dibujada acá. Lo que elegí en cada partido (lo de los demás no: es a ciegas).
+  function imagenElecciones(d) {
+    const W = 1080, H = 1920, cv = document.createElement('canvas'); cv.width = W; cv.height = H; const c = cv.getContext('2d');
+    const F = (peso, t) => `${peso} ${t}px Poppins, system-ui, sans-serif`;
+    c.fillStyle = '#14110F'; c.fillRect(0, 0, W, H);
+    c.textAlign = 'center';
+    c.fillStyle = '#DFF140'; c.font = F(700, 34); c.fillText('MANO A MANO', W / 2, 190);
+    c.fillStyle = '#FFFFFF'; c.font = F(800, 76); c.fillText('Mis elecciones', W / 2, 290);
+    c.fillStyle = '#A39B93'; c.font = F(500, 36); c.fillText(d.nombre.slice(0, 38), W / 2, 350);
+    const ps = d.partidos.filter((p) => p.mia != null).slice(0, 7);
+    const alto = 150, gap = 18; let y = Math.max(430, (H - (ps.length * (alto + gap))) / 2 - 80);
+    const COLOR = { futbol: '#177A40', tenis: '#C2542E', nba: '#E8731C' };
+    for (const p of ps) {
+      c.fillStyle = '#221D1A'; c.beginPath(); c.roundRect(80, y, W - 160, alto, 28); c.fill();
+      c.fillStyle = COLOR[p.deporte] || '#A39B93'; c.beginPath(); c.arc(126, y + alto / 2, 12, 0, Math.PI * 2); c.fill();
+      c.textAlign = 'left'; c.fillStyle = '#A39B93'; c.font = F(500, 28); c.fillText((p.local + ' – ' + p.visita).slice(0, 34), 160, y + 58);
+      c.fillStyle = '#FFFFFF'; c.font = F(800, 46); c.fillText(NOMBRE_OP(p, p.mia).slice(0, 22), 160, y + 116);
+      y += alto + gap;
+    }
+    c.textAlign = 'center';
+    c.fillStyle = '#DFF140'; c.font = F(800, 60); c.fillText('¿Te animas?', W / 2, H - 330);
+    c.fillStyle = '#F3EEE6'; c.font = F(600, 38); c.fillText('Entra con el código ' + d.codigo, W / 2, H - 260);
+    c.fillStyle = '#A39B93'; c.font = F(500, 30); c.fillText('Fútbol, tenis y NBA · gratis, con un apodo', W / 2, H - 200);
+    c.fillStyle = '#6B6359'; c.font = F(500, 26); c.fillText('Mano a mano · app independiente', W / 2, H - 140);
+    const data = cv.toDataURL('image/png'); const n = N();
+    const texto = `Mis elecciones en "${d.nombre}". ¿Te animas? Código ${d.codigo}: ${link(d.codigo)}`;
+    if (n) n.compartirImagen(data, 'mis-elecciones-' + d.codigo + '.png', texto);
+    const im = document.createElement('img'); im.className = 'mam-imagen'; im.src = data; im.alt = 'Mis elecciones';
+    const t = $('.mam-tarjeta'); if (t) { t.querySelectorAll('.mam-imagen').forEach((x) => x.remove()); t.appendChild(im); }
+  }
   // ── entrada ──
   function pintar(contexto) {
     ctx = contexto; raizEl = document.getElementById('mam-desafios');
@@ -295,5 +407,5 @@
     return pintarLista();
   }
   async function refrescarGlobo() { try { if (!necesitaApodo()) actualizarGlobo((await CU().rpc('mis_desafios')) || []); } catch (e) {} }
-  raiz.mamDesafios = { pintar, abrir, pintarLista, pintarCrear, pintarUnirme, refrescarGlobo, _vista: () => vista };
+  raiz.mamDesafios = { pintar, abrir, pintarLista, pintarCrear, pintarUnirme, refrescarGlobo, imagenElecciones, _vista: () => vista };
 })(typeof window !== 'undefined' ? window : globalThis);

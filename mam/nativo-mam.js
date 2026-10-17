@@ -31,6 +31,13 @@
         return true;
       } catch (e) { if (/cancel/i.test(String((e && e.message) || ''))) return true; }
     }
+    try {
+      if (navigator.canShare && navigator.share) {
+        const blob = await (await fetch(dataUrl)).blob();
+        const archivo = new File([blob], nombre, { type: blob.type || 'image/png' });
+        if (navigator.canShare({ files: [archivo] })) { await navigator.share({ files: [archivo], text: texto }); return true; }
+      }
+    } catch (e) { if (e && e.name === 'AbortError') return true; }
     try { const a = document.createElement('a'); a.href = dataUrl; a.download = nombre; document.body.appendChild(a); a.click(); a.remove(); return true; } catch (e) { return false; }
   }
   async function abrir(url) {
