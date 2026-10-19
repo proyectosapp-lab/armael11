@@ -1,4 +1,4 @@
-# Textos para las fichas — Mano a mano 1.1.1
+# Textos para las fichas — Mano a mano 1.3
 
 La 1.1 está aprobada (5/10, id6813729689) con sus cuatro suscripciones. La 1.1.1 va como actualización: se crea
 la versión en App Store Connect, se elige el build de Codemagic y se pegan las Novedades de abajo. La ficha se
@@ -31,20 +31,17 @@ Además:
 
 Los desafíos, los juegos, los resultados y las fichas son gratis, siempre, sin cuenta ni mail: alcanza con un apodo. Los planes (Fútbol, Tenis, NBA o Todo) abren el número, la perilla y la simulación sin tope de cada deporte, con 3 días gratis la primera vez.
 
-Sin premios: se juega por el orgullo. Mano a mano es una app independiente, sin relación con ligas, torneos, equipos ni jugadores.
+Se juega por el orgullo. Mano a mano es una app independiente, sin relación con ligas, torneos, equipos ni jugadores.
 
-**Novedades (1.1.1):**
-• El desafío de la semana: uno abierto para todos, arriba de Desafíos.
+**Novedades (1.3):**
+• La app abre en Desafíos.
+• El desafío de la semana: uno abierto para todos, arriba de todo. Esta semana, el arranque de la NBA.
 • El modelo, hoy: algunos partidos de fútbol, tenis y NBA con su número, gratis, distintos cada día.
 • Comparte tus elecciones de un desafío como imagen para historias.
-• Estadísticas de las once ligas de fútbol: elige una y mira solo esa.
-• NBA: plantillas, tabla, los números de la temporada pasada y la NBA Cup.
-• Los planes se prueban 3 días gratis.
 • Los links de los desafíos abren la app.
-• Una sola pantalla para entrar, con el ojito para ver la contraseña.
 
 **Notas para el revisor (App Review Information):**
-Maintenance update of 1.1 (approved Oct 5). New in 1.1.1: the app now opens on "Desafíos", with a weekly challenge open to everyone at the top (code 7543E6) and a small free card that shows, for a few upcoming matches, which side the in-app simulation favors. Players can share their own choices as an image. Also: league statistics for all eleven football leagues, an NBA "Liga" tab (rosters, standings, last season, NBA Cup), the free trial shown on the plans, universal links, a single sign-in screen with a password toggle, and neutral Spanish wording. No account is needed: in "Desafíos" enter any nickname (anonymous sign-in). To see a finished challenge with its table, tap "Tengo un código" and enter M6NG59. The four subscriptions (Fútbol, Tenis, NBA, Todo) are unchanged and optional; they unlock the per-match number, the slider and unlimited simulations. Everything else is free. Challenges are played for points only, with no entry fee and no rewards of any kind. The app bundles its own content and refreshes data (not code) from our sites.
+Update of 1.2. New in 1.3: the app now opens on "Desafíos". At the top there is a weekly challenge open to everyone and a small free card that shows, for a few upcoming matches, which side the in-app simulation favors. Players can also share their own choices as an image, and challenge links open the app. No account is needed: in "Desafíos" enter any nickname (anonymous sign-in). To see a finished challenge with its table, tap "Tengo un código" and enter M6NG59. The four subscriptions (Fútbol, Tenis, NBA, Todo) are unchanged and optional; they unlock the per-match number, the slider and unlimited simulations. Everything else is free. Challenges are played for points only, with no entry fee and no rewards of any kind. The app bundles its own content and refreshes data (not code) from our sites.
 
 **Acuerdo de licencia (opcional):** `https://armael11.com/terminos.html` en vez del EULA estándar.
 
@@ -53,7 +50,7 @@ Maintenance update of 1.1 (approved Oct 5). New in 1.1.1: the app now opens on "
 **Nombre (30):** Mano a mano
 **Descripción breve (80):** Desafía a tus amigos a quién gana: fútbol, tenis y NBA. Contra el modelo. Gratis.
 **Descripción completa:** la misma de la App Store (la frase de los 3 días solo si la prueba está configurada en Play).
-**Novedades:** las mismas ocho líneas.
+**Novedades:** las mismas cinco líneas.
 **Gráfico de funciones:** `marca/play-feature-1024x500.png` · **Ícono:** `marca/play-icono-512.png`
 
 ## Instagram (una sola cuenta)

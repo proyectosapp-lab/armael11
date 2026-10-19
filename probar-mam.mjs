@@ -114,6 +114,14 @@ ok(await page.isVisible("#mam-desafios .mam-oficial"), "arriba de todo, el desaf
 const txtOf = await page.textContent("#mam-desafios .mam-oficial");
 ok(txtOf.includes("El desafío del finde") && txtOf.includes("312 juegan"), "…con el nombre y cuántos juegan (" + txtOf.replace(/\s+/g, " ").slice(0, 90) + ")");
 ok((await page.textContent("#mam-desafios [data-oficial-jugar]")).trim() === "Jugar", "…y el botón Jugar");
+OFICIAL.total = 4; await page.evaluate(() => window.mamDesafios.pintarLista()); await page.waitForSelector("#mam-desafios .mam-oficial", { timeout: 8000 }).catch(() => {});
+const txtPocos = await page.textContent("#mam-desafios .mam-oficial");
+ok(txtPocos.includes("abierto para todos") && !/\b4 juegan/.test(txtPocos), "con menos de 10 no muestra el número: 'abierto para todos'");
+OFICIAL.partidos[0].resultado = 1; OFICIAL.partidos[0].empezo = true; OFICIAL.jugadores = [{ apodo: "lucho", puntos: 1, creador: false, yo: false, elegidos: 3 }];
+await page.evaluate(() => window.mamDesafios.pintarLista()); await page.waitForSelector("#mam-desafios .mam-oficial .mam-ganador", { timeout: 8000 }).catch(() => {});
+ok(/Va primero\s*lucho/.test(await page.textContent("#mam-desafios .mam-oficial")), "la tarjeta del desafío de la semana dice quién va primero");
+OFICIAL.partidos[0].resultado = null; OFICIAL.partidos[0].empezo = false;
+OFICIAL.total = 312; await page.evaluate(() => window.mamDesafios.pintarLista());
 await page.waitForSelector("#mam-desafios .mam-destacado", { timeout: 20000 }).catch(() => {});
 const dest = await page.$$eval("#mam-desafios .mam-destacado", (b) => b.map((x) => x.className.replace("mam-destacado ", "") + ": " + x.textContent.replace(/\s+/g, " ").trim()));
 console.log("    " + dest.join("\n    "));
@@ -128,6 +136,10 @@ console.log("    (botón Ver los planes: " + (hayPlanes ? "sí" : "no, no hay ot
 const elegidos1 = await page.evaluate(() => { const l = window.mam.partidos(); return window.mam.elegirDestacados(l.map((p) => ({ ...p, m: { eleccion: 1, p: .5 } })), new Date().toISOString().slice(0, 10)).map((p) => p.deporte + ":" + p.partido).join(","); });
 const elegidos2 = await page.evaluate(() => { const l = window.mam.partidos(); return window.mam.elegirDestacados(l.map((p) => ({ ...p, m: { eleccion: 1, p: .5 } })), new Date().toISOString().slice(0, 10)).map((p) => p.deporte + ":" + p.partido).join(","); });
 ok(elegidos1 === elegidos2, "el mismo día elige los mismos (" + elegidos1 + ")");
+const tenisOrden = await page.evaluate(() => { const hoy = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Argentina/Buenos_Aires" }).format(new Date()); const base = Date.parse(hoy + "T15:00:00-03:00");
+  const t = (partido, qualy, rk, arg, dias) => ({ deporte: "tenis", partido, empieza: base + dias * 864e5, p: .6, qualy, rk, arg, local: partido, visita: "x" });
+  return window.mam.elegirDestacados([t("qualyHoy", true, 300, false, 0), t("cuadroLunes", false, 120, false, 2), t("argLunes", false, 400, true, 2)], hoy).map((p) => p.partido).join(","); });
+ok(tenisOrden === "argLunes,cuadroLunes" || tenisOrden === "cuadroLunes,argLunes", "tenis: el cuadro principal antes que la qualy, con el argentino adentro (" + tenisOrden + ")");
 await page.click('#mam-barra [data-pestana="partidos"]'); await page.waitForTimeout(500);
 ok(await page.isVisible("#mam-futbol"), "en Partidos se ve el marco de fútbol (el primero elegido)");
 await page.screenshot({ path: aca("./app/captura-1-partidos.png") });
@@ -228,6 +240,24 @@ ok(/el modelo/i.test(await page.textContent("#mam-desafios")), "el modelo aparec
 await page.click("#mam-desafios [data-imagen]"); await page.waitForTimeout(800);
 ok(await page.isVisible("#mam-desafios img.mam-imagen"), "la imagen de la tabla se genera");
 await page.screenshot({ path: aca("./app/captura-4b-tabla.png") });
+ok((await page.$("#mam-desafios .mam-ganador")) === null, "sin resultados todavía, no hay 'va primero'");
+// terminó: el primer partido con resultado, fausto y nico empatan arriba; después gana fausto solo
+DESAFIO.partidos.forEach((p) => { p.empezo = true; p.resultado = 1; p.modelo = 2; });
+DESAFIO.jugadores = [{ apodo: "fausto", puntos: 3, creador: true, yo: true, elegidos: 3 }, { apodo: "nico", puntos: 3, creador: false, yo: false, elegidos: 3 }]; DESAFIO.modelo_puntos = 0;
+DESAFIO.estado = "terminado";
+await page.goto(BASE + "/index.html#desafio=ABC123"); await page.waitForTimeout(1500);
+let gan = (await page.textContent("#mam-desafios .mam-ganador") || "").replace(/\s+/g, " ");
+ok(/Empate arriba/.test(gan) && /tú y nico/.test(gan), "terminado y empatados: 'Empate arriba · tú y nico' (" + gan.trim() + ")");
+DESAFIO.jugadores[1].puntos = 1;
+await page.goto(BASE + "/index.html#desafio=ABC123"); await page.waitForTimeout(1500);
+gan = (await page.textContent("#mam-desafios .mam-ganador") || "").replace(/\s+/g, " ");
+ok(/¡Ganaste!/.test(gan), "terminado y primero solo: '¡Ganaste!' (" + gan.trim() + ")");
+DESAFIO.jugadores = [{ apodo: "fausto", puntos: 1, creador: true, yo: true, elegidos: 3 }, { apodo: "nico", puntos: 2, creador: false, yo: false, elegidos: 3 }]; DESAFIO.estado = "en juego";
+await page.goto(BASE + "/index.html#desafio=ABC123"); await page.waitForTimeout(1500);
+gan = (await page.textContent("#mam-desafios .mam-ganador") || "").replace(/\s+/g, " ");
+ok(/Va primero/.test(gan) && /nico/.test(gan), "en juego: 'Va primero nico' (" + gan.trim() + ")");
+await page.screenshot({ path: aca("./app/captura-4c-ganador.png") });
+DESAFIO.estado = "abierto"; DESAFIO.partidos.forEach((p) => { p.empezo = false; p.resultado = null; p.modelo = null; });
 
 console.log("\n── cuenta ──");
 await page.click('#mam-barra [data-pestana="cuenta"]'); await page.waitForTimeout(900);

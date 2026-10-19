@@ -153,7 +153,9 @@
       // la fuente lleva las claves de los dos jugadores: el servidor resuelve el partido buscándolos en `jugados`
       // (ahí el partido tiene otra clave), con la fecha
       out.push({ deporte: 'tenis', partido: String(p.k), fuente: 'tenis:' + (p.a.k || '') + ':' + (p.b.k || '') + ':' + p.fecha, empieza, local: p.a.nombre || '', visita: p.b.nombre || '',
-        rotulo: [p.torneo, p.ronda].filter(Boolean).join(' · '), opciones: 2, p: typeof p.p === 'number' ? p.p : null });
+        rotulo: [p.torneo, p.ronda].filter(Boolean).join(' · '), opciones: 2, p: typeof p.p === 'number' ? p.p : null,
+        // para elegir los destacados (17/10): cuadro principal antes que la qualy, un argentino adelante, y el ranking
+        qualy: !!p.qualy || /qualy/i.test(String(p.ronda || '')), rk: (+p.a.rk || 999) + (+p.b.rk || 999), arg: p.a.pais === 'ARG' || p.b.pais === 'ARG' });
     }
     return out;
   }
@@ -218,7 +220,7 @@
   // Uno de fútbol, dos de tenis y dos de NBA, de los próximos tres días, con la elección del modelo y su número. Cambian
   // cada día y son los mismos para todos (salen de un sorteo con la fecha como semilla, sin azar). El resto, con el plan.
   const CUPO = { futbol: 1, tenis: 2, nba: 2 };
-  const LIGAS_PRIMERO = ['argentina', 'inglaterra', 'espana', 'italia', 'alemania', 'francia', 'brasil'];
+  const LIGAS_PRIMERO = ['champions', 'argentina', 'inglaterra', 'espana', 'italia', 'alemania', 'francia', 'brasil', 'europa-league'];
   const hashDe = (s) => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; };
   const diaAR = (ms) => { try { return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Argentina/Buenos_Aires', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(ms)); } catch (e) { return new Date(ms).toISOString().slice(0, 10); } };
   function elegirDestacados(lista, hoy) {
@@ -228,7 +230,9 @@
     for (const dep of ['futbol', 'tenis', 'nba']) {
       const cand = lista.filter((p) => p.deporte === dep && offset(p) >= 0 && offset(p) <= 2 && (dep === 'futbol' || p.p != null));
       const liga = (p) => { const i = LIGAS_PRIMERO.indexOf(p.fuente); return i < 0 ? 99 : i; };
-      cand.sort((a, b) => offset(a) - offset(b) || (dep === 'futbol' ? liga(a) - liga(b) : 0) || hashDe(hoy + a.partido) - hashDe(hoy + b.partido));
+      // tenis: lo que la gente reconoce primero. La qualy solo entra si no hay cuadro principal en los tres días.
+      const tenis = (a, b) => dep !== 'tenis' ? 0 : (a.qualy - b.qualy) || (offset(a) - offset(b)) || (b.arg - a.arg) || (a.rk - b.rk);
+      cand.sort((a, b) => tenis(a, b) || offset(a) - offset(b) || (dep === 'futbol' ? liga(a) - liga(b) : 0) || hashDe(hoy + a.partido) - hashDe(hoy + b.partido));
       out.push(...cand.slice(0, CUPO[dep]));
     }
     return out.sort((a, b) => a.empieza - b.empieza);

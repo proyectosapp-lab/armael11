@@ -61,7 +61,7 @@
     const ul = $('[data-lista]'); if (!ul) return;
     if (!mios.length) { ul.innerHTML = `<li class="mam-vacio">Todavía no hay desafíos. Crea uno y mándale el link a un amigo.</li>${comoFuncionaHTML()}`; return; }
     ul.innerHTML = mios.map((d) => `<li><button type="button" class="mam-desafio-item" data-abrir="${esc(d.codigo)}">
-      <b>${esc(d.nombre)}</b><span class="puesto">${d.estado === 'abierto' ? '' : (d.puesto || '') + 'º'}</span>
+      <b>${esc(d.nombre)}</b><span class="puesto">${d.estado === 'abierto' ? '' : d.estado === 'terminado' && d.puesto === 1 ? 'ganaste' : (d.puesto || '') + 'º'}</span>
       <small>${d.jugadores} ${d.jugadores === 1 ? 'jugador' : 'jugadores'} · ${d.partidos} ${d.partidos === 1 ? 'partido' : 'partidos'} · <span class="mam-estado ${esc(d.estado.replace(' ', '-'))}">${esc(d.estado)}</span>${d.proximo ? ' · próximo ' + esc(diaTexto(diaDe(Date.parse(d.proximo)))) + ' ' + esc(horaDe(Date.parse(d.proximo))) : ''}</small></button></li>`).join('');
     ul.querySelectorAll('[data-abrir]').forEach((b) => b.addEventListener('click', () => abrir(b.dataset.abrir)));
     actualizarGlobo(mios);
@@ -93,7 +93,8 @@
     return `<div class="mam-tarjeta mam-oficial">
       <span class="mam-etiqueta">El desafío de la semana</span>
       <h2 class="mam-titulo">${esc(d.nombre)}</h2>
-      <p class="mam-nota">${d.partidos.length} ${d.partidos.length === 1 ? 'partido' : 'partidos'} · ${total} ${total === 1 ? 'juega' : 'juegan'}${d.modelo_juega ? ' · y el modelo' : ''}${prox ? ' · el próximo cierra ' + esc(diaTexto(diaDe(prox))) + ' ' + esc(horaDe(prox)) : ''}${d.soy ? ' · elegiste ' + mias + ' de ' + d.partidos.length : ''}</p>
+      <p class="mam-nota">${d.partidos.length} ${d.partidos.length === 1 ? 'partido' : 'partidos'} · ${total >= 10 ? total + ' juegan' : 'abierto para todos'}${d.modelo_juega ? ' · juega el modelo' : ''}${prox ? ' · el próximo cierra ' + esc(diaTexto(diaDe(prox))) + ' ' + esc(horaDe(prox)) : ''}${d.soy ? ' · elegiste ' + mias + ' de ' + d.partidos.length : ''}</p>
+      ${(() => { const js = (d.jugadores || []).slice(); if (d.modelo_juega > 0) js.push({ apodo: 'el modelo', puntos: d.modelo_puntos || 0, modelo: true }); return ganadorHTML(d, js); })()}
       <ul class="mam-mini">${d.partidos.slice(0, 5).map((p) => `<li class="${esc(p.deporte)}"><i></i>${esc(p.local)} – ${esc(p.visita)}</li>`).join('')}${d.partidos.length > 5 ? `<li>y ${d.partidos.length - 5} más</li>` : ''}</ul>
       <button type="button" class="mam-boton" data-oficial-jugar>${boton}</button></div>`;
   }
@@ -265,6 +266,21 @@
     return `<div class="mam-tarjeta"><h2 class="mam-titulo">${esc(d.nombre)}</h2><p class="mam-nota" style="margin:0">${d.creador ? 'Lo armó ' + esc(d.creador) + '. ' : ''}${d.partidos.length} ${d.partidos.length === 1 ? 'partido' : 'partidos'} · ${d.jugadores.length} ${d.jugadores.length === 1 ? 'jugador' : 'jugadores'}.</p>
       <ul class="mam-lista">${d.partidos.slice(0, 6).map((p) => `<li class="mam-nota">${esc(p.local)} – ${esc(p.visita)} · ${esc(p.rotulo || DEPORTE[p.deporte])}</li>`).join('')}${d.partidos.length > 6 ? `<li class="mam-nota">y ${d.partidos.length - 6} más</li>` : ''}</ul></div>`;
   }
+  // ── quién gana (18/10): arriba del desafío, apenas hay un resultado; "ganó" cuando terminó ──
+  function ganadorHTML(d, jugadores) {
+    const jugados = d.partidos.filter((p) => p.resultado != null && p.resultado !== 0).length;
+    if (!jugados || !jugadores.length) return '';
+    const max = Math.max(...jugadores.map((j) => j.puntos || 0));
+    const fin = d.estado === 'terminado';
+    if (max <= 0) return `<div class="mam-ganador"><small>${fin ? 'Terminó' : 'Va'}</small><b>${fin ? 'Nadie sumó' : 'Nadie suma todavía'}</b><span>${jugados} de ${d.partidos.length} partidos jugados</span></div>`;
+    const arriba = jugadores.filter((j) => (j.puntos || 0) === max);
+    const nombre = (j) => j.yo ? 'tú' : j.apodo;
+    const y = (xs) => xs.length > 1 ? xs.slice(0, -1).join(', ') + ' y ' + xs[xs.length - 1] : xs[0];
+    const soyYo = arriba.length === 1 && arriba[0].yo;
+    const titulo = fin ? (soyYo ? '¡Ganaste!' : arriba.length > 1 ? 'Empate arriba' : 'Ganó') : (soyYo ? 'Vas primero' : arriba.length > 1 ? 'Van primeros' : 'Va primero');
+    const quien = soyYo ? (fin ? 'Le ganaste a todos' : 'Tú') : y(arriba.map(nombre));
+    return `<div class="mam-ganador${fin ? ' fin' : ''}${soyYo ? ' yo' : ''}"><small>${esc(titulo)}</small><b>${esc(quien)}</b><span>${max} ${max === 1 ? 'punto' : 'puntos'} · ${jugados} de ${d.partidos.length} partidos jugados</span></div>`;
+  }
   const NOMBRE_OP = (p, i) => (p.opciones === 3 ? [p.local, 'Empate', p.visita] : [p.local, p.visita])[i - 1] || '';
   function pintarDesafio(d, recienCreado) {
     const pendientes = d.partidos.filter((p) => !p.empezo && p.mia == null).length;
@@ -274,6 +290,7 @@
     let html = `<div class="mam-seccion"><span>${esc(d.estado)}</span><button type="button" class="mam-boton secundario chico" data-volver>Mis desafíos</button></div>
       <div class="mam-tarjeta">
         <h2 class="mam-titulo">${esc(d.nombre)}</h2>
+        ${ganadorHTML(d, jugadores)}
         <div class="mam-codigo"><span class="mam-nota">Código del desafío</span><b>${esc(d.codigo)}</b></div>
         <div class="mam-fila"><button type="button" class="mam-boton chico crece" data-compartir>Mandar el link</button>${d.estado !== 'abierto' ? '<button type="button" class="mam-boton secundario chico crece" data-imagen>Imagen de la tabla</button>' : ''}</div>
         ${d.partidos.some((p) => p.mia != null) ? '<button type="button" class="mam-boton secundario chico" data-mis-elecciones style="width:100%">Compartir mis elecciones</button>' : ''}
@@ -287,7 +304,7 @@
       if (dd !== dia) { dia = dd; html += `<div class="mam-dia">${esc(diaTexto(dd))}</div>`; }
       html += partidoHTML(d, p);
     }
-    html += `<div class="mam-seccion"><span>Tabla</span><small>${d.oficial ? (d.total || 0) + ' juegan · se ven los 20 primeros' : 'un punto por cada partido bien elegido'}</small></div>
+    html += `<div class="mam-seccion"><span>Tabla</span><small>${d.oficial ? ((d.total || 0) >= 10 ? d.total + ' juegan · se ven los 20 primeros' : 'abierto para todos · se ven los 20 primeros') : 'un punto por cada partido bien elegido'}</small></div>
       <div class="mam-tarjeta"><table class="mam-tabla"><thead><tr><th>#</th><th>jugador</th><th>elegidos</th><th>puntos</th></tr></thead><tbody>
       ${jugadores.map((j, i) => `<tr class="${j.yo ? 'yo' : ''}${j.modelo ? ' modelo' : ''}"><td>${i + 1}</td><td>${esc(j.apodo)}${j.creador ? ' <small class="mam-nota">(lo armó)</small>' : ''}</td><td>${j.elegidos}/${d.partidos.length}</td><td>${j.puntos}</td></tr>`).join('')}
       </tbody></table>

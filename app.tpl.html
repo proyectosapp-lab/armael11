@@ -977,7 +977,7 @@ body.mam-marco .barra .mam-club{margin-left:auto}
     <!-- Absoluto a propósito: en la web es el mismo sitio, y adentro del
          iPhone abre en el navegador interno con la versión del día (la
          consulta no viaja en el .ipa: ver `noSeLleva` en empaquetar-ios). -->
-    <a href="{{RAIZ}}/consulta/">Partidos y equipos de las once ligas</a><br>
+    <a href="{{RAIZ}}/consulta/">Partidos y equipos de todas las ligas</a><br>
     <!-- familia:inicio --><span class="hermanas">Mano a mano: <a href="https://sacavos.com/">Sacá vos</a> (tenis) · <a href="https://armaelquinteto.com/">Armá el Quinteto</a> (NBA) · <a href="/app/">la app</a></span><!-- familia:fin --></p>
 </div>
 <!-- EL ORDEN NO ES DECORATIVO. Primero lo que hicimos nosotros: el
@@ -2766,6 +2766,9 @@ const QUE_ES_EL_PROMEDIO = "El modelo se probó contra más de 13.000 partidos y
    se ve y solo agrega bytes. Lo que tiene que leerse al instante son los
    colores y su disposición, y eso está exacto.                          */
 const BANDERAS = {
+  /* las copas (19/10): sin escudos ni logos de nadie, una pelota sobre el color de cada noche */
+  champions: '<rect width="30" height="20" fill="#0B1F4D"/><circle cx="15" cy="10" r="5.2" fill="#fff"/><circle cx="15" cy="10" r="2" fill="#0B1F4D"/>',
+  "europa-league": '<rect width="30" height="20" fill="#F26B1D"/><circle cx="15" cy="10" r="5.2" fill="#fff"/><circle cx="15" cy="10" r="2" fill="#F26B1D"/>',
   argentina: '<rect width="30" height="20" fill="#74ACDF"/><rect y="6.67" width="30" height="6.66" fill="#fff"/><circle cx="15" cy="10" r="2.1" fill="#F6B40E"/>',
   portugal:  '<rect width="30" height="20" fill="#FF0000"/><rect width="12" height="20" fill="#006600"/><circle cx="12" cy="10" r="3.6" fill="none" stroke="#FFD700" stroke-width="1.1"/><circle cx="12" cy="10" r="1.7" fill="#fff"/>',
   italia:    '<rect width="30" height="20" fill="#fff"/><rect width="10" height="20" fill="#009246"/><rect x="20" width="10" height="20" fill="#CE2B37"/>',
@@ -5069,12 +5072,12 @@ function vistaJuego(){
      Las que no traen zona —una liga bajada por una corrida anterior a este
      cambio— no se pierden: caen al final, sin título si son las únicas. Una
      pantalla nunca puede esconder una liga que la app sí tiene.         */
-  const ZONAS = [["america", "América"], ["europa", "Europa"]];
+  const ZONAS = [["america", "América"], ["europa", "Europa"], ["copas", "Copas europeas"]];
   const botonDeLiga = L => {
     const m = medidaDe(L);
     return `<button class="lg" data-liga="${esc(L.slug)}" aria-pressed="${L.slug===J.liga}">
       ${bandera(L.slug)}
-      <span class="lg-t"><b>${esc(L.pais)}</b><small>${esc(L.nombre)}</small></span>
+      <span class="lg-t">${L.zona === "copas" ? `<b>${esc(L.nombre)}</b><small>Copa europea</small>` : `<b>${esc(L.pais)}</b><small>${esc(L.nombre)}</small>`}</span>
       ${m ? `<span class="lg-m">${esc(m.corto)}</span>` : ""}
     </button>`;
   };
@@ -5156,7 +5159,7 @@ function vistaJuego(){
             <p class="aviso" style="margin-top:8px">${L.calibrada
               ? "Calibrada con " + L.calibrada.partidos + " partidos de " + L.calibrada.temporada + "."
               : "Todavía sin calibrar: la temporada recién arranca y uso los números de respaldo."}
-              ${(m=>m?esc(m.largo):"")(medidaDe(L))}</p>`;
+              ${(m=>m?esc(L.zona === "copas" && m.desde < 0.015 ? "Una de las más impredecibles: los equipos llegan de ligas distintas y se cruzan pocas veces, y eso hace que simular sea más interesante, no menos." : m.largo):"")(medidaDe(L))}</p>`;
           })() : ""}
       </div>`;
   };

@@ -64,7 +64,7 @@ h1{font-size:26px;line-height:1.15;margin:0 0 6px;font-weight:800}h1 small{displ
       if (!d || !d.codigo) { $("sub").textContent = "No encontramos ese desafío. Revisa el código."; $("partidos").innerHTML = ""; return; }
       $("titulo").firstChild.textContent = d.nombre || "Te desafiaron";
       var n = d.total != null ? d.total : (d.jugadores || []).length;
-      $("sub").textContent = (d.oficial ? "El desafío de la semana · " : d.creador ? d.creador + " te desafía · " : "") + (d.partidos || []).length + " partidos · " + n + (n === 1 ? " juega" : " juegan") + (d.modelo_juega ? " · y el modelo" : "");
+      $("sub").textContent = (d.oficial ? "El desafío de la semana · " : d.creador ? d.creador + " te desafía · " : "") + (d.partidos || []).length + " partidos · " + (d.oficial && n < 10 ? "abierto para todos" : n + (n === 1 ? " juega" : " juegan")) + (d.modelo_juega ? " · juega el modelo" : "");
       if (d.oficial) $("titulo").firstChild.textContent = d.nombre || "El desafío de la semana";
       $("partidos").innerHTML = (d.partidos || []).map(function (p) {
         return '<div class="partido ' + esc(p.deporte) + '"><i></i><div><b>' + esc(p.local) + " – " + esc(p.visita) + "</b><small>" + esc(p.rotulo || DEP[p.deporte] || "") + " · " + esc(hora(p.empieza)) + (p.resultado ? " · jugado" : "") + "</small></div></div>";
