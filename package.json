@@ -1,6 +1,6 @@
 {
   "name": "manoamano",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "private": true,
   "description": "Mano a mano — el envoltorio nativo (iPhone y Android) de las tres webs. Los sitios no usan nada de esto.",
   "scripts": {

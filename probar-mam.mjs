@@ -76,6 +76,7 @@ async function simularBackend(page) {
     }
     if (/rpc\/ver_desafio/.test(url)) return ok((req.postDataJSON() || {}).p_codigo === "OFI777" ? OFICIAL : DESAFIO);
     if (/rpc\/unirse_desafio/.test(url)) return ok(null);
+    if (/rpc\/guardar_elecciones/.test(url)) { const b = req.postDataJSON(); let n = 0; for (const x of b.p_elecciones) { const p = DESAFIO.partidos.find((q) => q.deporte === x.deporte && q.partido === x.partido); if (p && p.mia == null) { p.mia = x.eleccion; n++; } } return ok({ guardadas: n, ya: [], empezados: [] }); }
     if (/rpc\/elegir_desafio/.test(url)) { const b = req.postDataJSON(); const p = DESAFIO.partidos.find((x) => x.deporte === b.p_deporte && x.partido === b.p_partido); if (p) p.mia = b.p_eleccion; return ok(null); }
     if (/rpc\/registrar_dispositivo/.test(url)) return ok(null);
     if (/rpc\/mi_prueba|rpc\/mi_pase/.test(url)) return ok([]);
@@ -224,10 +225,33 @@ ok((await page.$$("#mam-desafios [data-elegir]")).length === 7, "cada partido ti
 const textoDesafio = await page.textContent("#mam-desafios");
 ok(!/\d{2}\s?%/.test(textoDesafio.replace(/\d+ partidos/g, "")), "antes de que empiece no se ve ningún número del modelo");
 await page.click('#mam-desafios [data-elegir="2"][data-partido="t1"]');
-await page.waitForTimeout(500);
-ok(LLAMADAS.some((l) => /elegir_desafio/.test(l)), "elegir manda elegir_desafio");
+await page.waitForTimeout(400);
+ok(!LLAMADAS.some((l) => /elegir_desafio|guardar_elecciones/.test(l)), "tocar una opción no guarda nada todavía");
+ok(await page.isVisible("#mam-desafios [data-guardar]"), "aparece el botón Guardar");
+ok(/1 elección sin guardar/.test(await page.textContent("#mam-desafios [data-barra-guardar]")), "…con cuántas faltan guardar");
+ok((await page.getAttribute('#mam-desafios [data-elegir="2"][data-partido="t1"]', "class") || "").includes("borrador"), "la opción elegida se ve como borrador");
+await page.click('#mam-desafios [data-elegir="1"][data-partido="n1"]'); await page.waitForTimeout(300);
+await page.click('#mam-desafios [data-elegir="1"][data-partido="n1"]'); await page.waitForTimeout(300);
+await page.evaluate(() => document.querySelector("#mam-desafios [data-barra-guardar]").scrollIntoView({block:"end"})); await page.screenshot({ path: aca("./app/captura-4e-borrador.png") });
+ok(/1 elección sin guardar/.test(await page.textContent("#mam-desafios [data-barra-guardar]")), "tocar dos veces la misma opción la saca del borrador");
+await page.click("#mam-desafios [data-guardar]"); await page.waitForTimeout(300);
+ok(!LLAMADAS.some((l) => /guardar_elecciones/.test(l)) && /no se pueden cambiar/.test(await page.textContent("#mam-desafios [data-barra-guardar]")), "el primer toque pide confirmar: 'después no se pueden cambiar'");
+await page.click("#mam-desafios [data-guardar]"); await page.waitForTimeout(700);
+ok(LLAMADAS.some((l) => /guardar_elecciones/.test(l)), "el segundo toque manda guardar_elecciones");
+ok(await page.isDisabled('#mam-desafios [data-elegir="1"][data-partido="t1"]') && await page.isDisabled('#mam-desafios [data-elegir="2"][data-partido="t1"]'), "guardada, la elección ya no se puede cambiar");
+ok(/guardado/.test(await page.textContent("#mam-desafios .mam-partido-juego:has([data-partido='t1'])")), "…y el partido dice 'guardado'");
+ok((await page.$("#mam-desafios [data-guardar]")) === null, "sin borrador, no hay botón Guardar");
+ok(!(await page.isDisabled('#mam-desafios [data-elegir="1"][data-partido="n1"]')), "los partidos no guardados se siguen pudiendo elegir");
 await page.screenshot({ path: aca("./app/captura-4-desafio.png") });
 
+console.log("\n── links de los anuncios del modelo (#tenis, #planes) ──");
+await page.goto(BASE + "/index.html#tenis"); await page.waitForTimeout(1500);
+let estL = await page.evaluate(() => window.mam.estado());
+ok(estL.pestana === "partidos" && estL.deporte === "tenis", "#tenis abre los partidos de tenis (" + estL.pestana + "/" + estL.deporte + ")");
+ok(!(await page.evaluate(() => location.hash)), "(el hash se consume)");
+await page.goto(BASE + "/index.html#planes"); await page.waitForTimeout(1500);
+estL = await page.evaluate(() => window.mam.estado());
+ok(estL.pestana === "cuenta", "#planes abre la cuenta, donde están los planes");
 console.log("\n── el link de un desafío ──");
 await page.goto(BASE + "/index.html#desafio=ABC123"); await page.waitForTimeout(1500);
 ok((await page.textContent("#mam-desafios")).includes("Finde con los pibes"), "abrir #desafio=CODIGO cae en ese desafío");

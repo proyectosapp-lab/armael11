@@ -294,9 +294,17 @@
     return `<div class="mam-ganador${r.fin ? ' fin' : ''}${r.soyYo ? ' yo' : ''}"><small>${esc(titulo)}</small><b>${esc(quien)}</b><span>${puntosTxt(r.max)} · ${r.jugados} de ${d.partidos.length} partidos jugados</span>${boton}</div>`;
   }
   const conModelo = (d) => { const js = (d.jugadores || []).map((j) => Object.assign({}, j)); if (d.modelo_juega > 0) js.push({ apodo: 'el modelo', puntos: d.modelo_puntos || 0, modelo: true, elegidos: d.modelo_juega }); return js; };
+  // ── el borrador (19/10): tocar una opción no guarda nada; "Guardar" manda todas juntas y ya no se cambian ──
+  const BORR = {};
+  const borrador = (codigo) => { if (!BORR[codigo]) { const g = leer('mam.borrador.' + codigo, {}); BORR[codigo] = new Map(Object.entries(g || {})); } return BORR[codigo]; };
+  const guardarBorrador = (codigo) => { const m = borrador(codigo); if (m.size) guardar('mam.borrador.' + codigo, Object.fromEntries(m)); else { try { localStorage.removeItem('mam.borrador.' + codigo); } catch (e) {} } };
+  const clavePartido = (p) => p.deporte + ':' + p.partido;
   const NOMBRE_OP = (p, i) => (p.opciones === 3 ? [p.local, 'Empate', p.visita] : [p.local, p.visita])[i - 1] || '';
   function pintarDesafio(d, recienCreado) {
-    const pendientes = d.partidos.filter((p) => !p.empezo && p.mia == null).length;
+    const bo = borrador(d.codigo);
+    for (const p of d.partidos) { const k = clavePartido(p); if (bo.has(k) && (p.mia != null || p.empezo)) bo.delete(k); }
+    guardarBorrador(d.codigo);
+    const pendientes = d.partidos.filter((p) => !p.empezo && p.mia == null && !bo.has(clavePartido(p))).length;
     const jugadores = conModelo(d);
     jugadores.sort((a, b) => b.puntos - a.puntos);
     let html = `<div class="mam-seccion"><span>${esc(d.estado)}</span><button type="button" class="mam-boton secundario chico" data-volver>Mis desafíos</button></div>
@@ -312,6 +320,7 @@
         ${pendientes ? `<p class="mam-nota">Te faltan ${pendientes} ${pendientes === 1 ? 'partido' : 'partidos'} por elegir.</p>` : ''}
       </div>
       <div class="mam-aviso" data-aviso></div>`;
+    if (d.partidos.some((p) => !p.empezo && p.mia == null)) html += `<p class="mam-nota mam-regla">Elige y toca <b>Guardar</b>. Una vez guardadas, tus elecciones no se pueden cambiar.</p>`;
     let dia = '';
     for (const p of d.partidos) {
       const dd = diaDe(Date.parse(p.empieza));
@@ -325,6 +334,7 @@
       ${d.modelo_juega > 0 ? '<p class="mam-nota">El modelo elige antes de que empiece cada partido y se revela cuando empieza, igual que todos.</p>' : ''}
       ${d.estado === 'terminado' ? '<button type="button" class="mam-boton" data-revancha>Revancha</button>' : ''}
       </div>`;
+    if (bo.size) html += `<div class="mam-pegajoso mam-guardar" data-barra-guardar><span class="crece mam-nota" data-guardar-texto>${bo.size} ${bo.size === 1 ? 'elección' : 'elecciones'} sin guardar</span><button type="button" class="mam-boton chico" data-guardar>Guardar</button></div>`;
     raizEl.innerHTML = html;
     $('[data-volver]').addEventListener('click', pintarLista);
     $('[data-compartir]').addEventListener('click', () => compartir(d));
@@ -334,18 +344,23 @@
     if (d.estado === 'terminado' && (d.jugadores || []).some((j) => j.yo) && ctx.momento) { const v = leer('mam.vistos', []); if (!v.includes(d.codigo)) { v.push(d.codigo); guardar('mam.vistos', v.slice(-50)); try { ctx.momento('desafio'); } catch (e) {} } }
     const rv = $('[data-revancha]'); if (rv) rv.addEventListener('click', () => pintarCrear({ nombre: 'Revancha: ' + d.nombre.replace(/^Revancha: /, '').slice(0, 50) }));
     raizEl.querySelectorAll('[data-elegir]').forEach((b) => b.addEventListener('click', () => elegir(d, b.dataset.deporte, b.dataset.partido, Number(b.dataset.elegir))));
+    const gu = $('[data-guardar]'); if (gu) gu.addEventListener('click', () => confirmarGuardar(d));
   }
   function partidoHTML(d, p) {
     const op = p.opciones === 3 ? [1, 2, 3] : [1, 2];
-    const bloqueado = p.empezo;
+    const guardada = p.mia != null;
+    const bloqueado = p.empezo || guardada;
+    const enBorrador = !bloqueado ? borrador(d.codigo).get(clavePartido(p)) : undefined;
+    const marcada = guardada ? p.mia : (enBorrador != null ? Number(enBorrador) : null);
     const botones = op.map((i) => {
       const nombre = i === 2 && p.opciones === 3 ? 'Empate' : NOMBRE_OP(p, i);
       let cls = '';
       if (p.resultado) cls = p.resultado === i ? ' acierto' : ' error';
-      return `<button type="button" class="${cls}" data-elegir="${i}" data-deporte="${esc(p.deporte)}" data-partido="${esc(p.partido)}" aria-pressed="${p.mia === i ? 'true' : 'false'}" ${bloqueado ? 'disabled' : ''}>${esc(nombre)}</button>`;
+      if (!guardada && marcada === i) cls += ' borrador';
+      return `<button type="button" class="${cls.trim()}" data-elegir="${i}" data-deporte="${esc(p.deporte)}" data-partido="${esc(p.partido)}" aria-pressed="${marcada === i ? 'true' : 'false'}" ${bloqueado ? 'disabled' : ''}>${esc(nombre)}</button>`;
     });
     const estado = p.resultado ? (p.mia == null ? 'no elegiste' : p.mia === p.resultado ? '✓ la tuya' : 'no fue')
-      : bloqueado ? 'empezó: cerrado' : (p.mia == null ? 'elegir' : 'elegido');
+      : p.empezo ? (guardada ? 'guardado · empezó' : 'empezó: cerrado') : guardada ? '🔒 guardado' : (marcada != null ? 'sin guardar' : 'elegir');
     let revelado = '';
     if (p.empezo) {
       const otros = Object.entries(p.elecciones || {}).map(([a, e]) => `<span><b>${esc(a)}</b> ${esc(NOMBRE_OP(p, e))}</span>`);
@@ -357,14 +372,39 @@
       <div class="mam-eleccion${p.opciones === 3 ? ' tres' : ''}">${botones.length === 2 ? botones[0] + '<span>o</span>' + botones[1] : botones.join('')}</div>
       ${revelado}</div>`;
   }
-  async function elegir(d, deporte, partido, eleccion) {
+  function elegir(d, deporte, partido, eleccion) {
+    const p = d.partidos.find((x) => x.deporte === deporte && x.partido === partido);
+    if (!p || p.empezo || p.mia != null) return;
+    const bo = borrador(d.codigo), k = clavePartido(p);
+    if (Number(bo.get(k)) === eleccion) bo.delete(k); else bo.set(k, eleccion);
+    guardarBorrador(d.codigo);
+    N() && N().vibrar('toque');
+    const y = (raizEl.closest('.mam-pantalla') || document.scrollingElement || {}).scrollTop;
+    pintarDesafio(d);
+    const c = raizEl.closest('.mam-pantalla') || document.scrollingElement; if (c && y != null) c.scrollTop = y;
+  }
+  // dos toques: "Guardar" → "Sí, guardar" (avisa que después no se cambian)
+  function confirmarGuardar(d) {
+    const b = $('[data-guardar]'), t = $('[data-guardar-texto]'); if (!b) return;
+    if (b.dataset.confirmar) return guardarElecciones(d);
+    b.dataset.confirmar = '1'; b.textContent = 'Sí, guardar';
+    if (t) t.innerHTML = '<b>¿Seguro?</b> Después no se pueden cambiar.';
+  }
+  async function guardarElecciones(d) {
+    const bo = borrador(d.codigo); if (!bo.size) return;
+    const b = $('[data-guardar]'); if (b) { b.disabled = true; b.textContent = 'Guardando…'; }
+    const lista = [...bo.entries()].map(([k, e]) => { const i = k.indexOf(':'); return { deporte: k.slice(0, i), partido: k.slice(i + 1), eleccion: Number(e) }; });
     try {
-      await CU().rpc('elegir_desafio', { p_codigo: d.codigo, p_deporte: deporte, p_partido: partido, p_eleccion: eleccion });
-      N() && N().vibrar('toque');
-      const p = d.partidos.find((x) => x.deporte === deporte && x.partido === partido); if (p) p.mia = eleccion;
+      const r = (await CU().rpc('guardar_elecciones', { p_codigo: d.codigo, p_elecciones: lista })) || {};
+      const empezados = new Set(r.empezados || []);
+      for (const x of lista) { const p = d.partidos.find((q) => q.deporte === x.deporte && q.partido === x.partido); if (p && !empezados.has(clavePartido(p)) && p.mia == null) p.mia = x.eleccion; }
+      bo.clear(); guardarBorrador(d.codigo);
       const yo = d.jugadores.find((j) => j.yo); if (yo) yo.elegidos = d.partidos.filter((x) => x.mia != null).length;
+      N() && N().vibrar('set');
       pintarDesafio(d);
-    } catch (e) { aviso(e.message); if (/empezó/.test(e.message)) abrir(d.codigo); }
+      aviso(empezados.size ? `Guardado. ${empezados.size === 1 ? 'Un partido ya había empezado y quedó afuera' : empezados.size + ' partidos ya habían empezado y quedaron afuera'}.` : 'Guardado. Ya no se cambian. ¡Suerte!', true);
+      if ((r.ya || []).length) abrir(d.codigo);
+    } catch (e) { aviso(e.message); if (b) { b.disabled = false; b.textContent = 'Guardar'; delete b.dataset.confirmar; } }
   }
   async function compartir(d) {
     const texto = `Te desafío en Mano a mano: "${d.nombre}", ${d.partidos.length} ${d.partidos.length === 1 ? 'partido' : 'partidos'}. Elige quién gana y vemos quién sabe más. Código ${d.codigo}.`;

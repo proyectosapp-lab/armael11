@@ -26,6 +26,8 @@
   let deporte = leer('mam.deporte', null);            // el que está mirando
   let pestana = leer('mam.pestana', 'desafios');   // 17/10: la app abre en Desafíos (el modelo hoy + el desafío de la semana)       // partidos | juga | desafios | cuenta
   const marcos = {};                                   // deporte → { el, cargado, listo }
+  let deportePendiente = null;                        // un #futbol / #tenis / #nba (los anuncios del modelo llevan acá)
+  const deporteDe = (h) => (/^#(futbol|tenis|nba)\b/.exec(h || '') || [])[1] || null;
   let desafioPendiente = null;                         // un #desafio=CODIGO que llegó antes de estar listos
   let planPendiente = null;                            // el deporte cuyo plan hay que resaltar en Cuenta
 
@@ -125,7 +127,8 @@
   // ── la primera vez ──
   function bienvenida() {
     const sec = $('mam-bienvenida'); sec.hidden = false;
-    const elegidos = new Set(['futbol']);
+    const elegidos = new Set(['futbol', deportePendiente].filter(Boolean));
+    sec.querySelectorAll('#mam-elegir [data-deporte]').forEach((b) => b.setAttribute('aria-pressed', elegidos.has(b.dataset.deporte) ? 'true' : 'false'));
     sec.querySelectorAll('#mam-elegir [data-deporte]').forEach((b) => b.addEventListener('click', () => {
       const d = b.dataset.deporte;
       if (elegidos.has(d)) { if (elegidos.size === 1) return; elegidos.delete(d); } else elegidos.add(d);
@@ -135,7 +138,7 @@
       deportes = DEPORTES.filter((d) => elegidos.has(d)); deporte = deportes[0];
       guardar('mam.deportes', deportes); guardar('mam.deporte', deporte);
       sec.hidden = true; cargarTodos();
-      if (desafioPendiente) ir('desafios'); else mostrar();
+      if (desafioPendiente) ir('desafios'); else if (deportePendiente && deportes.includes(deportePendiente)) { const dp = deportePendiente; deportePendiente = null; ir('partidos', dp); } else mostrar();
       D().refrescarGlobo();
     });
   }
@@ -412,6 +415,14 @@
     if (/^#desafios/.test(h)) { history.replaceState(null, '', location.pathname); ir('desafios'); }
     // la vuelta de Mercado Pago (gracias.html → index.html#cuenta): se vuelve a leer qué tiene la persona
     if (/^#cuenta/.test(h)) { history.replaceState(null, '', location.pathname); CU_ESTADO.pases = null; ir('cuenta'); }
+    if (/^#planes/.test(h)) { history.replaceState(null, '', location.pathname); ir('cuenta'); }
+    const dh = deporteDe(h); if (dh) { history.replaceState(null, '', location.pathname); irADeporte(dh); }
+  }
+  // un link a un deporte (#futbol, #tenis, #nba): la pantalla de partidos de ese deporte, con el número del modelo
+  function irADeporte(dh) {
+    if (!deportes || !deportes.length) { deportePendiente = dh; return; }
+    if (!deportes.includes(dh)) { deportes = deportes.concat(dh); guardar('mam.deportes', deportes); if (typeof pintarDeportes === 'function') pintarDeportes(); }
+    ir('partidos', dh);
   }
 
   // ── la red ──
@@ -429,11 +440,13 @@
     window.addEventListener('hashchange', leerHash);
     window.addEventListener('mam-aviso', (ev) => { const d = ev.detail || {}; if (d.desafio) abrirDesafio(String(d.desafio)); });
     document.body.classList.remove('mam-cargando');
-    if (!deportes || !deportes.length) { bienvenida(); const cd = codigoDe(location.hash); if (cd) desafioPendiente = cd; return; }
+    const dhInicio = deporteDe(location.hash), planesInicio = /^#planes/.test(location.hash);
+    if (dhInicio || planesInicio) { try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {} }
+    if (!deportes || !deportes.length) { deportePendiente = dhInicio; const cd = codigoDe(location.hash); if (cd) desafioPendiente = cd; bienvenida(); return; }
     if (!deporte || !deportes.includes(deporte)) deporte = deportes[0];
     cargarTodos();
     const cd = codigoDe(location.hash);
-    if (cd) abrirDesafio(cd); else { if (/^#juegos/.test(location.hash)) pestana = 'juga'; mostrar(); }
+    if (cd) abrirDesafio(cd); else if (dhInicio) irADeporte(dhInicio); else if (planesInicio) ir('cuenta'); else { if (/^#juegos/.test(location.hash)) pestana = 'juga'; mostrar(); }
     D().refrescarGlobo();
     setInterval(() => { if (document.visibilityState === 'visible') D().refrescarGlobo(); }, 5 * 60000);
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { CU().asegurarSesion(); D().refrescarGlobo(); } });

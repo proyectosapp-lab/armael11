@@ -1,2 +1,4 @@
-Subir a la raíz del repo armael11 (Add file → Upload files, arrastrar el contenido).
-Compartir el resultado + quién gana en la página del link.
+Subir TODO a la raíz del repo armael11 (Add file → Upload files, arrastrar el contenido, no la carpeta).
+- Botón Guardar en el desafío: las elecciones guardadas no se cambian.
+- Links para los anuncios del modelo: armael11.com/app/#futbol, #tenis, #nba y #planes.
+- Versión 1.4 (codemagic.yaml y package.json). Novedades y notas al revisor en textos-tiendas.md.

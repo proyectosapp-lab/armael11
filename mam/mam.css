@@ -195,3 +195,12 @@ button:disabled{opacity:.45;cursor:default}
 .mam-ganador.fin.yo small,.mam-ganador.fin.yo span{color:var(--papel);opacity:.8}
 .mam-ganador [data-compartir-resultado]{margin-top:8px;align-self:stretch}
 .mam-ganador.fin.yo [data-compartir-resultado]{background:var(--papel);color:var(--tinta)}
+.mam-eleccion button.borrador{background:var(--blanco);color:var(--tinta);border:2px dashed var(--tinta)}
+.mam-guardar{border-top:1px solid var(--linea);z-index:5;margin-top:8px}
+.mam-regla{margin:8px 2px}
+.mam-eleccion button:disabled:not([aria-pressed=true]):not(.acierto){opacity:.5}
+.mam-eleccion button[aria-pressed=true]:disabled{opacity:1;background:var(--tinta);color:var(--papel);border-color:var(--tinta)}
+.mam-eleccion button[aria-pressed=true].acierto:disabled{background:var(--ok);border-color:var(--ok);color:#fff}
+.mam-guardar{bottom:8px;background:var(--tinta);color:var(--papel);border:0;border-radius:16px;padding:10px 10px 10px 16px;box-shadow:0 6px 20px rgba(0,0,0,.18)}
+.mam-guardar .mam-nota{color:var(--papel);opacity:.9;flex:1}
+.mam-guardar .mam-boton{flex:none;min-width:130px;margin:0;background:#DFF140;color:#14110F}
