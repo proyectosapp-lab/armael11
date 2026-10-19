@@ -26,12 +26,18 @@ h1{font-size:26px;line-height:1.15;margin:0 0 6px;font-weight:800}h1 small{displ
 .codigo{font-family:ui-monospace,Menlo,monospace;letter-spacing:.2em;font-weight:800;font-size:22px}
 .tabla{width:100%;border-collapse:collapse;font-size:14px}.tabla td{padding:7px 4px;border-top:1px solid var(--linea)}.tabla td:last-child{text-align:right;font-weight:800}
 .vacio{color:var(--gris);text-align:center;padding:18px 0}
+.ganador{border-radius:16px;padding:14px 16px;margin:14px 0;background:var(--blanco);border:1px solid var(--linea);border-left:6px solid var(--tenis)}
+.ganador.fin{background:#DFF140;color:#14110F;border-color:#DFF140}
+.ganador small{display:block;font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;opacity:.75}
+.ganador b{display:block;font-size:24px;line-height:1.15;margin:2px 0}.ganador span{font-size:12.5px;opacity:.8}
+.tabla tr.modelo td{color:var(--gris);font-style:italic}
 @media (prefers-color-scheme:dark){:root{--tinta:#F3EEE6;--papel:#14110F;--blanco:#1E1A17;--linea:#2E2824;--gris:#A69D92}}
 </style>
 </head><body>
 <div class="caja">
   <div class="marca"><img src="{{RAIZ}}/mano-a-mano-192.png" alt=""> Mano a mano</div>
   <h1 id="titulo">Te desafiaron<small id="sub">cargando el desafío…</small></h1>
+  <div class="ganador" id="ganador" hidden></div>
   <div class="tarjeta" id="partidos"><div class="vacio">…</div></div>
   <div class="tarjeta" id="tabla" hidden></div>
   <a class="boton" id="jugar" href="{{RAIZ}}/app/">Jugar ahora</a>
@@ -69,11 +75,26 @@ h1{font-size:26px;line-height:1.15;margin:0 0 6px;font-weight:800}h1 small{displ
       $("partidos").innerHTML = (d.partidos || []).map(function (p) {
         return '<div class="partido ' + esc(p.deporte) + '"><i></i><div><b>' + esc(p.local) + " – " + esc(p.visita) + "</b><small>" + esc(p.rotulo || DEP[p.deporte] || "") + " · " + esc(hora(p.empieza)) + (p.resultado ? " · jugado" : "") + "</small></div></div>";
       }).join("") || '<div class="vacio">Sin partidos.</div>';
-      if (d.estado !== "abierto" && (d.jugadores || []).length) {
-        var filas = d.jugadores.map(function (j, i) { return "<tr><td>" + (i + 1) + "º " + esc(j.apodo) + "</td><td>" + esc(j.puntos) + "</td></tr>"; });
-        if (d.modelo_juega) filas.push("<tr><td>el modelo</td><td>" + esc(d.modelo_puntos) + "</td></tr>");
+      // quién gana: apenas hay un resultado. Empates, mismo puesto. El modelo entra en la tabla en su lugar.
+      var js = (d.jugadores || []).slice();
+      if (d.modelo_juega) js.push({ apodo: "el modelo", puntos: d.modelo_puntos || 0, modelo: true });
+      js.sort(function (a, b) { return (b.puntos || 0) - (a.puntos || 0); });
+      var jugados = (d.partidos || []).filter(function (p) { return p.resultado; }).length;
+      var fin = d.estado === "terminado";
+      var max = js.length ? (js[0].puntos || 0) : 0;
+      if (jugados && js.length) {
+        var arriba = js.filter(function (j) { return (j.puntos || 0) === max; }).map(function (j) { return j.apodo; });
+        var y = arriba.length > 1 ? arriba.slice(0, -1).join(", ") + " y " + arriba[arriba.length - 1] : arriba[0];
+        var tit = max <= 0 ? (fin ? "Terminó" : "Va") : fin ? (arriba.length > 1 ? "Empate arriba" : "Ganó") : (arriba.length > 1 ? "Van primeros" : "Va primero");
+        $("ganador").innerHTML = "<small>" + tit + "</small><b>" + esc(max <= 0 ? "Nadie sumó" : y) + "</b><span>" + (max > 0 ? max + (max === 1 ? " punto · " : " puntos · ") : "") + jugados + " de " + (d.partidos || []).length + " partidos jugados</span>";
+        $("ganador").className = "ganador" + (fin ? " fin" : ""); $("ganador").hidden = false;
+      }
+      if (d.estado !== "abierto" && js.length) {
+        var filas = js.map(function (j) { var puesto = 1 + js.filter(function (x) { return (x.puntos || 0) > (j.puntos || 0); }).length; return '<tr class="' + (j.modelo ? "modelo" : "") + '"><td>' + puesto + "º " + esc(j.apodo) + "</td><td>" + esc(j.puntos || 0) + "</td></tr>"; });
         $("tabla").innerHTML = '<table class="tabla">' + filas.join("") + "</table>"; $("tabla").hidden = false;
       }
+      // terminado: ya no se puede entrar a este; la invitación es a armar el propio (la revancha)
+      if (fin) { $("jugar").textContent = "Armar mi propio desafío"; $("jugar").href = "{{RAIZ}}/app/"; $("sub").textContent = "Terminó · " + (d.partidos || []).length + " partidos" + (d.modelo_juega ? " · jugó el modelo" : ""); }
     }).catch(function () { $("sub").textContent = "No se pudo cargar el desafío. Prueba de nuevo."; });
 })();
 </script>

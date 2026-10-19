@@ -193,3 +193,5 @@ button:disabled{opacity:.45;cursor:default}
 .mam-ganador.yo{border-left-color:var(--futbol)}
 .mam-ganador.fin.yo{background:var(--tinta);color:var(--papel)}
 .mam-ganador.fin.yo small,.mam-ganador.fin.yo span{color:var(--papel);opacity:.8}
+.mam-ganador [data-compartir-resultado]{margin-top:8px;align-self:stretch}
+.mam-ganador.fin.yo [data-compartir-resultado]{background:var(--papel);color:var(--tinta)}

@@ -1,3 +1,2 @@
-Subir TODO a la raíz del repo armael11 (Add file → Upload files → arrastrar el contenido, no la carpeta del zip).
-Reemplaza a los dos zips anteriores (subir-hoy-armael11 y subir-copas-y-quien-gana): con este alcanza.
-Después del commit, "Traer y publicar" corre solo (unos minutos) y la web ya muestra quién gana, las copas y "abierto para todos".
+Subir a la raíz del repo armael11 (Add file → Upload files, arrastrar el contenido).
+Compartir el resultado + quién gana en la página del link.

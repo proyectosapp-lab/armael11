@@ -28,7 +28,7 @@
   function necesitaApodo() { const c = CU(); return !(c && c.quienSoy() && c.perfil()); }
   function apodoHTML(porque) {
     return `<div class="mam-tarjeta">
-      <h2 class="mam-titulo">¿Cómo te llamás?</h2>
+      <h2 class="mam-titulo">¿Cómo te llamas?</h2>
       <p class="mam-nota">${esc(porque || 'Un apodo alcanza para jugar. Sin mail, sin contraseña. Es el nombre que van a ver tus amigos en la tabla.')}</p>
       <form data-form-apodo class="mam-fila"><input class="mam-campo crece" name="apodo" placeholder="tu apodo" maxlength="16" autocomplete="nickname" required><button class="mam-boton chico" type="submit">Listo</button></form>
       <div class="mam-aviso" data-aviso></div>
@@ -94,7 +94,7 @@
       <span class="mam-etiqueta">El desafío de la semana</span>
       <h2 class="mam-titulo">${esc(d.nombre)}</h2>
       <p class="mam-nota">${d.partidos.length} ${d.partidos.length === 1 ? 'partido' : 'partidos'} · ${total >= 10 ? total + ' juegan' : 'abierto para todos'}${d.modelo_juega ? ' · juega el modelo' : ''}${prox ? ' · el próximo cierra ' + esc(diaTexto(diaDe(prox))) + ' ' + esc(horaDe(prox)) : ''}${d.soy ? ' · elegiste ' + mias + ' de ' + d.partidos.length : ''}</p>
-      ${(() => { const js = (d.jugadores || []).slice(); if (d.modelo_juega > 0) js.push({ apodo: 'el modelo', puntos: d.modelo_puntos || 0, modelo: true }); return ganadorHTML(d, js); })()}
+      ${(() => { const js = (d.jugadores || []).slice(); if (d.modelo_juega > 0) js.push({ apodo: 'el modelo', puntos: d.modelo_puntos || 0, modelo: true }); return ganadorHTML(d, js, true); })()}
       <ul class="mam-mini">${d.partidos.slice(0, 5).map((p) => `<li class="${esc(p.deporte)}"><i></i>${esc(p.local)} – ${esc(p.visita)}</li>`).join('')}${d.partidos.length > 5 ? `<li>y ${d.partidos.length - 5} más</li>` : ''}</ul>
       <button type="button" class="mam-boton" data-oficial-jugar>${boton}</button></div>`;
   }
@@ -107,6 +107,7 @@
       if (!d) { el.innerHTML = ''; return; }
       el.innerHTML = oficialHTML(d);
       el.querySelector('[data-oficial-jugar]').addEventListener('click', () => abrir(d.codigo));
+      const cr = el.querySelector('[data-compartir-resultado]'); if (cr) cr.addEventListener('click', () => imagenResultado(d, el.querySelector('.mam-oficial')));
     });
     if (!ctx.destacados) return;
     let falta = null, mostrados = -1;
@@ -264,35 +265,48 @@
   }
   function resumenHTML(d) {
     return `<div class="mam-tarjeta"><h2 class="mam-titulo">${esc(d.nombre)}</h2><p class="mam-nota" style="margin:0">${d.creador ? 'Lo armó ' + esc(d.creador) + '. ' : ''}${d.partidos.length} ${d.partidos.length === 1 ? 'partido' : 'partidos'} · ${d.jugadores.length} ${d.jugadores.length === 1 ? 'jugador' : 'jugadores'}.</p>
+      ${ganadorHTML(d, conModelo(d))}
       <ul class="mam-lista">${d.partidos.slice(0, 6).map((p) => `<li class="mam-nota">${esc(p.local)} – ${esc(p.visita)} · ${esc(p.rotulo || DEPORTE[p.deporte])}</li>`).join('')}${d.partidos.length > 6 ? `<li class="mam-nota">y ${d.partidos.length - 6} más</li>` : ''}</ul></div>`;
   }
   // ── quién gana (18/10): arriba del desafío, apenas hay un resultado; "ganó" cuando terminó ──
-  function ganadorHTML(d, jugadores) {
+  // El cálculo es uno solo (lo usan el cartel, la imagen para compartir y el texto que la acompaña). Empates: mismo puesto.
+  function resultado(d, jugadores) {
     const jugados = d.partidos.filter((p) => p.resultado != null && p.resultado !== 0).length;
-    if (!jugados || !jugadores.length) return '';
-    const max = Math.max(...jugadores.map((j) => j.puntos || 0));
+    const tabla = (jugadores || []).slice().sort((a, b) => (b.puntos || 0) - (a.puntos || 0));
+    tabla.forEach((j) => { j.puesto = 1 + tabla.filter((x) => (x.puntos || 0) > (j.puntos || 0)).length; });
+    const max = tabla.length ? (tabla[0].puntos || 0) : 0;
+    const arriba = max > 0 ? tabla.filter((j) => (j.puntos || 0) === max) : [];
     const fin = d.estado === 'terminado';
-    if (max <= 0) return `<div class="mam-ganador"><small>${fin ? 'Terminó' : 'Va'}</small><b>${fin ? 'Nadie sumó' : 'Nadie suma todavía'}</b><span>${jugados} de ${d.partidos.length} partidos jugados</span></div>`;
-    const arriba = jugadores.filter((j) => (j.puntos || 0) === max);
-    const nombre = (j) => j.yo ? 'tú' : j.apodo;
-    const y = (xs) => xs.length > 1 ? xs.slice(0, -1).join(', ') + ' y ' + xs[xs.length - 1] : xs[0];
-    const soyYo = arriba.length === 1 && arriba[0].yo;
-    const titulo = fin ? (soyYo ? '¡Ganaste!' : arriba.length > 1 ? 'Empate arriba' : 'Ganó') : (soyYo ? 'Vas primero' : arriba.length > 1 ? 'Van primeros' : 'Va primero');
-    const quien = soyYo ? (fin ? 'Le ganaste a todos' : 'Tú') : y(arriba.map(nombre));
-    return `<div class="mam-ganador${fin ? ' fin' : ''}${soyYo ? ' yo' : ''}"><small>${esc(titulo)}</small><b>${esc(quien)}</b><span>${max} ${max === 1 ? 'punto' : 'puntos'} · ${jugados} de ${d.partidos.length} partidos jugados</span></div>`;
+    const soyYo = arriba.length === 1 && !!arriba[0].yo;
+    const quedan = d.partidos.filter((p) => !p.empezo).length;
+    return { jugados, tabla, max, arriba, fin, soyYo, quedan, yo: tabla.find((j) => j.yo) || null, modelo: tabla.find((j) => j.modelo) || null };
   }
+  const yLista = (xs) => xs.length > 1 ? xs.slice(0, -1).join(', ') + ' y ' + xs[xs.length - 1] : (xs[0] || '');
+  const puntosTxt = (n) => n + ' ' + (n === 1 ? 'punto' : 'puntos');
+  function ganadorHTML(d, jugadores, conBoton) {
+    const r = resultado(d, jugadores);
+    if (!r.jugados || !r.tabla.length) return '';
+    const boton = conBoton ? `<button type="button" class="mam-boton chico" data-compartir-resultado>${r.fin ? 'Compartir el resultado' : 'Compartir cómo va'}</button>` : '';
+    if (r.max <= 0) return `<div class="mam-ganador"><small>${r.fin ? 'Terminó' : 'Va'}</small><b>${r.fin ? 'Nadie sumó' : 'Nadie suma todavía'}</b><span>${r.jugados} de ${d.partidos.length} partidos jugados</span></div>`;
+    const nombre = (j) => j.yo ? 'tú' : j.apodo;
+    const titulo = r.fin ? (r.soyYo ? '¡Ganaste!' : r.arriba.length > 1 ? 'Empate arriba' : 'Ganó') : (r.soyYo ? 'Vas primero' : r.arriba.length > 1 ? 'Van primeros' : 'Va primero');
+    const quien = r.soyYo ? (r.fin ? 'Le ganaste a todos' : 'Tú') : yLista(r.arriba.map(nombre));
+    return `<div class="mam-ganador${r.fin ? ' fin' : ''}${r.soyYo ? ' yo' : ''}"><small>${esc(titulo)}</small><b>${esc(quien)}</b><span>${puntosTxt(r.max)} · ${r.jugados} de ${d.partidos.length} partidos jugados</span>${boton}</div>`;
+  }
+  const conModelo = (d) => { const js = (d.jugadores || []).map((j) => Object.assign({}, j)); if (d.modelo_juega > 0) js.push({ apodo: 'el modelo', puntos: d.modelo_puntos || 0, modelo: true, elegidos: d.modelo_juega }); return js; };
   const NOMBRE_OP = (p, i) => (p.opciones === 3 ? [p.local, 'Empate', p.visita] : [p.local, p.visita])[i - 1] || '';
   function pintarDesafio(d, recienCreado) {
     const pendientes = d.partidos.filter((p) => !p.empezo && p.mia == null).length;
-    const jugadores = d.jugadores.slice();
-    if (d.modelo_juega > 0) jugadores.push({ apodo: 'el modelo', puntos: d.modelo_puntos, modelo: true, elegidos: d.modelo_juega });
+    const jugadores = conModelo(d);
     jugadores.sort((a, b) => b.puntos - a.puntos);
     let html = `<div class="mam-seccion"><span>${esc(d.estado)}</span><button type="button" class="mam-boton secundario chico" data-volver>Mis desafíos</button></div>
       <div class="mam-tarjeta">
         <h2 class="mam-titulo">${esc(d.nombre)}</h2>
         ${ganadorHTML(d, jugadores)}
         <div class="mam-codigo"><span class="mam-nota">Código del desafío</span><b>${esc(d.codigo)}</b></div>
-        <div class="mam-fila"><button type="button" class="mam-boton chico crece" data-compartir>Mandar el link</button>${d.estado !== 'abierto' ? '<button type="button" class="mam-boton secundario chico crece" data-imagen>Imagen de la tabla</button>' : ''}</div>
+        ${d.estado === 'terminado'
+          ? '<div class="mam-fila"><button type="button" class="mam-boton chico crece" data-imagen>Compartir el resultado</button><button type="button" class="mam-boton secundario chico crece" data-compartir>Mandar el link</button></div>'
+          : `<div class="mam-fila"><button type="button" class="mam-boton chico crece" data-compartir>Mandar el link</button>${d.estado !== 'abierto' ? '<button type="button" class="mam-boton secundario chico crece" data-imagen>Compartir cómo va</button>' : ''}</div>`}
         ${d.partidos.some((p) => p.mia != null) ? '<button type="button" class="mam-boton secundario chico" data-mis-elecciones style="width:100%">Compartir mis elecciones</button>' : ''}
         ${recienCreado ? '<p class="mam-nota">Listo. Mándales el link a tus amigos y elige tus ganadores abajo.</p>' : ''}
         ${pendientes ? `<p class="mam-nota">Te faltan ${pendientes} ${pendientes === 1 ? 'partido' : 'partidos'} por elegir.</p>` : ''}
@@ -314,7 +328,7 @@
     raizEl.innerHTML = html;
     $('[data-volver]').addEventListener('click', pintarLista);
     $('[data-compartir]').addEventListener('click', () => compartir(d));
-    const im = $('[data-imagen]'); if (im) im.addEventListener('click', () => imagen(d));
+    const im = $('[data-imagen]'); if (im) im.addEventListener('click', () => imagenResultado(d));
     const me = $('[data-mis-elecciones]'); if (me) me.addEventListener('click', () => imagenElecciones(d));
     /* un desafío terminado en el que jugué, visto por primera vez: un momento para la reseña (una vez por desafío) */
     if (d.estado === 'terminado' && (d.jugadores || []).some((j) => j.yo) && ctx.momento) { const v = leer('mam.vistos', []); if (!v.includes(d.codigo)) { v.push(d.codigo); guardar('mam.vistos', v.slice(-50)); try { ctx.momento('desafio'); } catch (e) {} } }
@@ -358,33 +372,73 @@
     if (n && await n.compartir(texto, link(d.codigo), 'Mandar el desafío')) return;
     try { await navigator.clipboard.writeText(texto + ' ' + link(d.codigo)); aviso('Link copiado. Pégalo donde quieras.', true); } catch (e) { aviso('El link: ' + link(d.codigo), true); }
   }
-  // la imagen de la tabla: 1080×1350, dibujada acá, sin fotos ni logos
-  function imagen(d) {
-    const W = 1080, H = 1350, cv = document.createElement('canvas'); cv.width = W; cv.height = H; const c = cv.getContext('2d');
+  // ── compartir el resultado (19/10): 1080×1920, para historias y para WhatsApp. Dibujada acá, sin fotos ni logos.
+  // Habla en primera persona (la comparte el que la genera): "Gané", "Voy primero". El ganador grande, la tabla corta
+  // (yo y el modelo siempre aparecen) y la invitación: al próximo si terminó, a entrar si todavía quedan partidos.
+  function imagenResultado(d, donde) {
+    const r = resultado(d, conModelo(d));
+    const W = 1080, H = 1920, cv = document.createElement('canvas'); cv.width = W; cv.height = H; const c = cv.getContext('2d');
+    const F = (peso, t) => `${peso} ${t}px Poppins, system-ui, sans-serif`;
+    const PELOTA = '#DFF140', CREMA = '#F3EEE6', GRIS = '#A39B93', CAJA = '#221D1A';
+    const corta = (t, peso, tam, ancho) => { c.font = F(peso, tam); let x = String(t); while (c.measureText(x).width > ancho && x.length > 2) x = x.slice(0, -2) + '…'; return x; };
+    const ajusta = (t, peso, tam, min, ancho) => { while (tam > min) { c.font = F(peso, tam); if (c.measureText(t).width <= ancho) break; tam -= 4; } return tam; };
     c.fillStyle = '#14110F'; c.fillRect(0, 0, W, H);
-    c.fillStyle = '#F6F1EA'; c.font = '800 54px Poppins, system-ui, sans-serif'; c.textAlign = 'left';
-    c.fillText('Mano a mano', 80, 130);
-    c.font = '500 34px Poppins, system-ui, sans-serif'; c.fillStyle = '#A39B93'; c.fillText(d.nombre.slice(0, 40), 80, 185);
-    const js = d.jugadores.slice(); if (d.modelo_juega > 0) js.push({ apodo: 'el modelo', puntos: d.modelo_puntos, modelo: true }); js.sort((a, b) => b.puntos - a.puntos);
-    const top = js.slice(0, 8); let y = 300;
-    for (let i = 0; i < top.length; i++) {
-      const j = top[i]; const alto = i === 0 ? 120 : 90;
-      c.fillStyle = i === 0 ? '#C2542E' : (j.modelo ? '#2A323E' : '#242B36'); c.beginPath(); c.roundRect(80, y, W - 160, alto, 22); c.fill();
-      c.fillStyle = '#F6F1EA'; c.font = `800 ${i === 0 ? 56 : 42}px Poppins, system-ui, sans-serif`; c.textAlign = 'left'; c.fillText((i + 1) + 'º  ' + j.apodo.slice(0, 16), 110, y + alto / 2 + (i === 0 ? 20 : 15));
-      c.textAlign = 'right'; c.fillText(String(j.puntos), W - 110, y + alto / 2 + (i === 0 ? 20 : 15));
-      y += alto + 16;
+    c.textAlign = 'center';
+    c.fillStyle = PELOTA; c.font = F(700, 34); c.fillText('MANO A MANO', W / 2, 150);
+    c.fillStyle = GRIS; c.font = F(600, 30); c.fillText(d.oficial ? 'EL DESAFÍO DE LA SEMANA' : 'DESAFÍO', W / 2, 215);
+    c.fillStyle = '#FFFFFF'; c.fillText(corta(d.nombre, 800, 54, 920), W / 2, 285);
+    // el cartel del ganador
+    const yo = r.yo ? r.yo.apodo : '';
+    let titulo, quien;
+    if (!r.jugados) { titulo = 'Arrancó'; quien = 'Todo por jugarse'; }
+    else if (r.max <= 0) { titulo = r.fin ? 'Terminó' : 'Va'; quien = 'Nadie sumó'; }
+    else if (r.soyYo) { titulo = r.fin ? 'Gané' : 'Voy primero'; quien = yo; }
+    else { titulo = r.fin ? (r.arriba.length > 1 ? 'Empate arriba' : 'Ganó') : (r.arriba.length > 1 ? 'Van primeros' : 'Va primero'); quien = yLista(r.arriba.map((j) => j.apodo)); }
+    c.fillStyle = r.fin ? PELOTA : CAJA; c.beginPath(); c.roundRect(80, 350, W - 160, 330, 40); c.fill();
+    const tinta = r.fin ? '#14110F' : '#FFFFFF';
+    c.fillStyle = r.fin ? '#14110F' : PELOTA; c.font = F(700, 40); c.fillText(titulo.toUpperCase(), W / 2, 440);
+    const tq = ajusta(quien, 800, 104, 48, 840); c.fillStyle = tinta; c.font = F(800, tq); c.fillText(corta(quien, 800, tq, 860), W / 2, 560);
+    c.fillStyle = r.fin ? '#3A332C' : GRIS; c.font = F(600, 34);
+    c.fillText(r.max > 0 ? `${puntosTxt(r.max)} · ${r.jugados} de ${d.partidos.length} partidos jugados` : `${r.jugados} de ${d.partidos.length} partidos jugados`, W / 2, 630);
+    // la tabla corta: los 5 primeros, y siempre yo y el modelo
+    let filas = r.tabla.slice(0, 5);
+    for (const j of [r.yo, r.modelo]) if (j && !filas.includes(j)) filas.push(j);
+    filas = filas.slice(0, 7).sort((a, b) => a.puesto - b.puesto);
+    let y = 740; const alto = 92, gap = 14;
+    for (const j of filas) {
+      c.fillStyle = CAJA; c.beginPath(); c.roundRect(80, y, W - 160, alto, 24); c.fill();
+      if (j.yo) { c.strokeStyle = PELOTA; c.lineWidth = 5; c.beginPath(); c.roundRect(82, y + 2, W - 164, alto - 4, 22); c.stroke(); }
+      c.textAlign = 'left'; c.fillStyle = GRIS; c.font = F(700, 38); c.fillText(j.puesto + 'º', 120, y + 60);
+      c.fillStyle = j.modelo ? GRIS : '#FFFFFF'; c.fillText(corta(j.apodo + (j.yo ? ' (yo)' : ''), j.modelo ? 600 : 700, 38, 640), 220, y + 60);
+      c.textAlign = 'right'; c.fillStyle = j.yo ? PELOTA : '#FFFFFF'; c.font = F(800, 42); c.fillText(String(j.puntos || 0), W - 120, y + 62);
+      y += alto + gap;
     }
-    c.fillStyle = '#A39B93'; c.font = '500 30px Poppins, system-ui, sans-serif'; c.textAlign = 'left';
-    const term = d.partidos.filter((p) => p.resultado).length;
-    c.fillText(`${term} de ${d.partidos.length} partidos jugados · ${d.estado}`, 80, y + 50);
-    c.fillStyle = '#F6F1EA'; c.font = '700 34px Poppins, system-ui, sans-serif'; c.fillText('¿Te animás? Código ' + d.codigo, 80, H - 120);
-    c.fillStyle = '#A39B93'; c.font = '500 26px Poppins, system-ui, sans-serif'; c.fillText('Mano a mano · fútbol, tenis y NBA · app independiente', 80, H - 70);
-    const n = N(); const data = cv.toDataURL('image/png');
-    if (n) n.compartirImagen(data, 'mano-a-mano-' + d.codigo + '.png', `"${d.nombre}" en Mano a mano. Código ${d.codigo}.`);
-    const im = document.createElement('img'); im.className = 'mam-imagen'; im.src = data; im.alt = 'La tabla del desafío';
-    const t = $('.mam-tarjeta'); if (t) t.appendChild(im);
+    c.textAlign = 'center';
+    if (d.oficial && (d.total || 0) >= 10) { c.fillStyle = GRIS; c.font = F(500, 28); c.fillText(`${d.total} juegan`, W / 2, y + 36); }
+    // la invitación
+    const sitio = String((S().desafios || {}).dominio || 'https://armael11.com').replace(/^https?:\/\//, '').replace(/\/$/, '') + '/app';
+    const [inv1, inv2] = r.fin ? ['¿Te animas al próximo?', 'Arma tu desafío en ' + sitio]
+      : r.quedan ? ['Todavía estás a tiempo', 'Entra con el código ' + d.codigo] : ['¿Te animas al próximo?', sitio];
+    c.fillStyle = PELOTA; c.font = F(800, 60); c.fillText(inv1, W / 2, H - 330);
+    c.fillStyle = CREMA; c.font = F(600, 38); c.fillText(inv2, W / 2, H - 262);
+    c.fillStyle = GRIS; c.font = F(500, 30); c.fillText('Fútbol, tenis y NBA · gratis, con un apodo', W / 2, H - 200);
+    c.fillStyle = '#6B6359'; c.font = F(500, 26); c.fillText('Mano a mano · app independiente', W / 2, H - 140);
+    const data = cv.toDataURL('image/png'); const n = N();
+    if (n) n.compartirImagen(data, 'resultado-' + d.codigo + '.png', textoResultado(d, r));
+    const im = document.createElement('img'); im.className = 'mam-imagen'; im.src = data; im.alt = 'El resultado del desafío';
+    const t = donde || $('.mam-tarjeta'); if (t) { t.querySelectorAll('.mam-imagen').forEach((x) => x.remove()); t.appendChild(im); }
+    return data;
   }
-
+  function textoResultado(d, r) {
+    const l = link(d.codigo), n = `"${d.nombre}"`;
+    if (!r.jugados || r.max <= 0) return `${n} en Mano a mano: ${r.fin ? 'terminó sin puntos para nadie' : 'todavía nadie suma'}. ¿Te animas? ${l}`;
+    if (r.fin && r.soyYo) return `Gané ${n} en Mano a mano, con ${puntosTxt(r.max)}. ¿Te animas a la revancha? ${l}`;
+    if (r.soyYo) return `Voy primero en ${n}, en Mano a mano. ${r.quedan ? 'Todavía estás a tiempo de entrar: ' : '¿Quién me alcanza? '}${l}`;
+    const quien = yLista(r.arriba.map((j) => j.apodo));
+    const lider = r.arriba.length > 1 ? `empatan arriba ${quien}` : `${r.fin ? 'ganó' : 'va primero'} ${quien}`;
+    const mio = r.yo ? ` Yo salí ${r.yo.puesto}º.` : '';
+    return `${r.fin ? 'Terminó' : 'Así va'} ${n} en Mano a mano: ${lider} con ${puntosTxt(r.max)}.${r.fin ? mio : ''} ${r.quedan ? 'Todavía estás a tiempo: ' : '¿Quién sabe más? '}${l}`;
+  }
 
   // mis elecciones, para historias: 1080×1920, dibujada acá. Lo que elegí en cada partido (lo de los demás no: es a ciegas).
   function imagenElecciones(d) {
@@ -424,5 +478,5 @@
     return pintarLista();
   }
   async function refrescarGlobo() { try { if (!necesitaApodo()) actualizarGlobo((await CU().rpc('mis_desafios')) || []); } catch (e) {} }
-  raiz.mamDesafios = { pintar, abrir, pintarLista, pintarCrear, pintarUnirme, refrescarGlobo, imagenElecciones, _vista: () => vista };
+  raiz.mamDesafios = { pintar, abrir, pintarLista, pintarCrear, pintarUnirme, refrescarGlobo, imagenElecciones, imagenResultado, _resultado: (d) => { const r = resultado(d, conModelo(d)); return Object.assign(r, { texto: textoResultado(d, r) }); }, _vista: () => vista };
 })(typeof window !== 'undefined' ? window : globalThis);
