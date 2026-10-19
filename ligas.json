@@ -3,7 +3,7 @@
  "_nombres": "El nombre y el país se escriben como los lee un hincha, en castellano. Los que llegan del backtest vienen de la API en inglés (Brazil, Peru, Mexico) y se corrigen acá.",
  "temporada": 2026,
  "porLiga": {
-  "partidosPorFecha": 15,
+  "partidosPorFecha": 18,
   "minimoPorFecha": 4,
   "partidosParaRatings": 5
  },
@@ -96,6 +96,23 @@
    "pais": "Portugal",
    "zona": "europa",
    "ventajaBacktest": 0.0979
+  },
+  {
+   "id": 2,
+   "slug": "champions",
+   "nombre": "Champions League",
+   "pais": "Europa",
+   "zona": "copas",
+   "ventajaBacktest": 0.013
+  },
+  {
+   "id": 3,
+   "slug": "europa-league",
+   "nombre": "Europa League",
+   "pais": "Europa",
+   "zona": "copas",
+   "ventajaBacktest": 0.003
   }
- ]
+ ],
+ "_copas": "Champions y Europa League (19/10/2026): sumadas a pedido de Fausto. El backtest (2024-2025) dio ventaja +0,013 (t 0,9) y +0,003 (t 0,2): llevan la misma etiqueta que Argentina. partidosPorFecha pasó de 15 a 18 porque una fecha de la Champions tiene 18 partidos."
 }
