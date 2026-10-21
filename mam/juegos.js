@@ -103,6 +103,12 @@
         const d = Math.max(0.3, dz * cp - dy * sp), yv = dy * cp + dz * sp;
         return { x: W / 2 + (dx * C.foco) / d, y: C.cy - (yv * C.foco) / d, k: C.foco / d, d };
       },
+      // de la pantalla al mundo: qué punto del plano z = zPlano cae bajo el píxel (sx, sy). Para apuntar con el dedo.
+      inv: (sx, sy, zPlano) => {
+        const dz = C.dir * (zPlano - C.z0), a = (C.cy - sy) / C.foco;
+        const dy = dz * (a * cp - sp) / (cp + a * sp); const d = Math.max(0.3, dz * cp - dy * sp);
+        return { x: C.x0 + C.dir * (sx - W / 2) * d / C.foco, y: C.alt + dy, z: zPlano };
+      },
       // la misma cámara, un poco más cerca: el "empujón" mientras la pelota vuela
       cerca: (push) => camara(Object.assign({}, C, { foco: C.foco * (1 + push) })),
     };
@@ -186,12 +192,14 @@
     ctx.lineWidth = 6; ctx.lineJoin = 'round'; ctx.strokeStyle = 'rgba(0,0,0,.55)'; ctx.font = '800 ' + tam + 'px Poppins, system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.strokeText(t, 0, 0);
     texto(ctx, t, 0, 0, tam, color, 800); ctx.shadowBlur = 0; if (sub) texto(ctx, sub, 0, 44, 16, '#fff', 600); ctx.restore();
   }
-  function flechaGuia(ctx, x, y, k, vertical) {
-    // la insinuación del gesto: un dedo que desliza, en bucle
-    const a = (k % 1.6) / 1.6; const al = a < 0.75 ? 1 : 1 - (a - 0.75) * 4; const d = easeOut(a / 0.75) * 90;
+  function flechaGuia(ctx, x, y, k, tx, ty) {
+    // la insinuación del gesto: un dedo que desliza, en bucle; hacia arriba o hacia un destino (el ángulo del arco)
+    const a = (k % 1.8) / 1.8; const al = a < 0.75 ? 1 : 1 - (a - 0.75) * 4; const e = easeOut(a / 0.75);
+    const ex = tx == null ? x : lerp(x, tx, e), ey = ty == null ? y - e * 90 : lerp(y, ty, e);
     ctx.save(); ctx.globalAlpha = 0.85 * al;
-    ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.setLineDash([6, 6]); ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y - d); ctx.stroke(); ctx.setLineDash([]);
-    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x, y - d, 11, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.beginPath(); ctx.arc(x, y - d, 18, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 3; ctx.setLineDash([6, 6]); ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(ex, ey); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(ex, ey, 11, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = 'rgba(255,255,255,.35)'; ctx.beginPath(); ctx.arc(ex, ey, 18, 0, Math.PI * 2); ctx.fill();
+    if (tx != null) { const q = { x: tx, y: ty }; ctx.strokeStyle = 'rgba(232,227,55,.9)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(q.x, q.y, 12, 0, Math.PI * 2); ctx.stroke(); }
     ctx.restore();
   }
   // el marcador de arriba: vidrio oscuro con dos lados y, abajo, la consigna
@@ -230,6 +238,14 @@
     for (let i = 0; i < lista.length; i++) { const q = cam.p(lista[i].x, lista[i].y, lista[i].z); const k = (i + 1) / lista.length; ctx.globalAlpha = (fuego ? 0.55 : 0.3) * k; ctx.fillStyle = fuego ? (i % 2 ? '#FFD23F' : '#FF7A1A') : '#fff'; ctx.beginPath(); ctx.arc(q.x, q.y, Math.max(1.2, rw * q.k * (0.4 + 0.5 * k)), 0, Math.PI * 2); ctx.fill(); }
     ctx.restore();
   }
+  // la viñeta: los bordes un poco más oscuros, la mirada va al centro
+  function vineta(ctx, fuerza) {
+    ctx.save(); const g = ctx.createRadialGradient(W / 2, H * 0.45, H * 0.25, W / 2, H * 0.45, H * 0.85); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,' + (fuerza == null ? 0.38 : fuerza) + ')'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H); ctx.restore();
+  }
+  // la bruma de la noche sobre lo que está lejos: la tribuna se apaga y el arco queda adelante
+  function velo(ctx, y0, y1, color, a0, a1) {
+    ctx.save(); const g = ctx.createLinearGradient(0, y0, 0, y1); g.addColorStop(0, color.replace('A', String(a0))); g.addColorStop(1, color.replace('A', String(a1))); ctx.fillStyle = g; ctx.fillRect(0, Math.min(y0, y1) - 1, W, Math.abs(y1 - y0) + 2); ctx.restore();
+  }
   // la marca personal de cada juego, en el teléfono
   const marcaDe = (juego) => leer('mam.marca.' + juego, null);
   function anotarMarca(juego, fin, mejor) { const vieja = marcaDe(juego); const nueva = !vieja || mejor(fin, vieja); if (nueva) guardar('mam.marca.' + juego, fin); if (nueva && vieja && O.momento) { try { O.momento('marca'); } catch (e) {} } return nueva; }
@@ -243,7 +259,7 @@
     const ctx = CTX; const dirF = haciaCamara ? -1 : 1;     // las filas suben alejándose de la cámara
     const O2 = Object.assign({ FILAS: 16, SUBE: 0.75, ATRAS: 0.85, X0: -34, X1: 34, valla: '#1F2440', fila: ['#2A2E4A', '#262A44'], escalon: '#1C1F36', techo: '#4A5078' }, opc || {});
     const FILAS = O2.FILAS, SUBE = O2.SUBE, ATRAS = O2.ATRAS, X0 = O2.X0, X1 = O2.X1;
-    const eu = F.euforia || 0; const paleta = ['#4A4F6B', '#5B5F7A', '#E8E337', '#3C415C', '#DADADA', '#C2542E', '#4A4F6B', '#7D9BD9', '#3A9A62', '#2F3350', '#F0EFEA', '#6B4A3A'];
+    const eu = F.euforia || 0; const paleta = O2.paleta || ['#3E4360', '#4A4E6A', '#8C8A3A', '#353A55', '#8A8C96', '#7A4A3A', '#3E4360', '#4F6494', '#3A6A52', '#2F3350', '#9A978F', '#4A3A32'];
     // el muro del frente (la valla) y el fondo oscuro de la tribuna
     { const a = cam.p(X0, 0, zPie), b = cam.p(X1, 0, zPie), c = cam.p(X1, 1.1, zPie), d = cam.p(X0, 1.1, zPie); ctx.fillStyle = O2.valla; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.lineTo(c.x, c.y); ctx.lineTo(d.x, d.y); ctx.closePath(); ctx.fill(); }
     // primero todos los escalones (de adelante hacia atrás), después toda la gente (de atrás hacia adelante):
@@ -257,7 +273,7 @@
     for (let f = FILAS - 1; f >= 0; f--) {
       const z0 = zPie + dirF * f * ATRAS, y0 = 1.1 + f * SUBE;
       const n = 92; const zp = z0 + dirF * ATRAS * 0.5;
-      for (let i = 0; i < n; i++) { const h = hash(f * 131 + i * 7); if (h < 0.07) continue; const x = X0 + 1 + (i + 0.5) * ((X1 - X0 - 2) / n) + (hash(f * 17 + i) - 0.5) * 0.35; const salto = eu > 0 ? Math.max(0, Math.sin(t * 9 + i * 1.7 + f)) * 0.45 * eu : 0; const q = cam.p(x, y0 + 0.5 + salto, zp); if (q.x < -6 || q.x > W + 6) continue; const s = Math.max(1, 0.36 * q.k); ctx.fillStyle = paleta[Math.floor(hash(f * 53 + i * 11) * paleta.length)]; ctx.globalAlpha = 0.75 + 0.25 * hash(f * 7 + i * 13); ctx.beginPath(); ctx.roundRect(q.x - s / 2, q.y - s * 1.1, s, s * 1.7, s * 0.3); ctx.fill(); ctx.fillStyle = ['#C68642', '#8D5524', '#E0B08A', '#5C3A21'][(i + f) % 4]; ctx.beginPath(); ctx.arc(q.x, q.y - s * 1.3, s * 0.36, 0, Math.PI * 2); ctx.fill(); }
+      for (let i = 0; i < n; i++) { const h = hash(f * 131 + i * 7); if (h < 0.07) continue; const x = X0 + 1 + (i + 0.5) * ((X1 - X0 - 2) / n) + (hash(f * 17 + i) - 0.5) * 0.35; const salto = eu > 0 ? Math.max(0, Math.sin(t * 9 + i * 1.7 + f)) * 0.45 * eu : 0; const q = cam.p(x, y0 + 0.5 + salto, zp); if (q.x < -6 || q.x > W + 6) continue; const s = Math.max(1, 0.36 * q.k); ctx.fillStyle = paleta[Math.floor(hash(f * 53 + i * 11) * paleta.length)]; ctx.globalAlpha = 0.55 + 0.3 * hash(f * 7 + i * 13); ctx.beginPath(); ctx.roundRect(q.x - s / 2, q.y - s * 1.1, s, s * 1.7, s * 0.3); ctx.fill(); ctx.fillStyle = ['#9A6A3A', '#6D4320', '#B08A6A', '#4C3021'][(i + f) % 4]; ctx.beginPath(); ctx.arc(q.x, q.y - s * 1.3, s * 0.34, 0, Math.PI * 2); ctx.fill(); }
       ctx.globalAlpha = 1;
     }
     // flashes de las cámaras cuando hay gol
@@ -273,15 +289,30 @@
     ctx.save(); for (let i = 0; i < 28; i++) { const sx = hash(i) * W, sy = hash(i + 50) * Math.max(10, hz - 20); ctx.globalAlpha = 0.25 + 0.5 * (0.5 + 0.5 * Math.sin(t * 1.7 + i * 2.1)); ctx.fillStyle = '#fff'; ctx.fillRect(sx, sy, 1.6, 1.6); } ctx.restore();
     // las luces: halos arriba de la tribuna
     for (const lx of [W * 0.12, W * 0.5, W * 0.88]) { const g = ctx.createRadialGradient(lx, 14, 0, lx, 14, 120); g.addColorStop(0, 'rgba(255,246,205,.45)'); g.addColorStop(0.3, 'rgba(255,246,205,.1)'); g.addColorStop(1, 'rgba(255,246,205,0)'); ctx.fillStyle = g; ctx.fillRect(lx - 120, -100, 240, 240); ctx.fillStyle = '#FFF4C8'; ctx.beginPath(); ctx.roundRect(lx - 16, 6, 32, 9, 3); ctx.fill(); }
-    // césped en perspectiva, con franjas
+    // césped en perspectiva, con franjas, y la luz de los reflectores que lo baña cerca del arco
     const suelo0 = cam.p(0, 0, cam.z0 + cam.dir * 400).y;
-    const sueloG = ctx.createLinearGradient(0, suelo0, 0, H); sueloG.addColorStop(0, '#2A8A48'); sueloG.addColorStop(1, '#1E7A3E'); ctx.fillStyle = sueloG; ctx.fillRect(0, suelo0, W, H - suelo0);
-    ctx.fillStyle = 'rgba(255,255,255,.06)';
+    const sueloG = ctx.createLinearGradient(0, suelo0, 0, H); sueloG.addColorStop(0, '#1F6B3A'); sueloG.addColorStop(0.45, '#2E9A52'); sueloG.addColorStop(1, '#237A42'); ctx.fillStyle = sueloG; ctx.fillRect(0, suelo0, W, H - suelo0);
+    ctx.fillStyle = 'rgba(255,255,255,.075)';
     for (let i = 2; i < 80; i += 4) { const z = cam.z0 + cam.dir * i, z2 = cam.z0 + cam.dir * (i + 2); const a = cam.p(-60, 0, z), b = cam.p(60, 0, z), c = cam.p(60, 0, z2), d = cam.p(-60, 0, z2); ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.lineTo(c.x, c.y); ctx.lineTo(d.x, d.y); ctx.closePath(); ctx.fill(); }
-    // la tribuna de fondo: detrás del arco (vista del pateador) o detrás del pateador (vista del arquero)
-    if (cam.dir > 0) tribuna3D(cam, t, F, zArco + 6.5, false); else tribuna3D(cam, t, F, -9, true);
+    // el césped no es liso: manchas más oscuras y más claras, siempre en el mismo lugar (salen de `hash`)
+    ctx.save(); for (let i = 0; i < 46; i++) { const x = (hash(i * 3 + 1) - 0.5) * 70, z = cam.z0 + cam.dir * (1 + hash(i * 3 + 2) * 40); const q = cam.p(x, 0, z); if (q.y < 0 || q.y > H) continue; const rw = (2 + hash(i * 3 + 3) * 4) * q.k, rh = rw * 0.28; ctx.globalAlpha = 0.07 + 0.05 * hash(i + 77); ctx.fillStyle = hash(i + 99) < 0.5 ? '#0A3A1C' : '#8CE09A'; ctx.beginPath(); ctx.ellipse(q.x, q.y, rw, rh, 0, 0, Math.PI * 2); ctx.fill(); } ctx.restore();
+    // la tribuna de fondo, más atrás que antes: detrás del arco (vista del pateador) o detrás del pateador (vista del arquero)
+    const zTrib = cam.dir > 0 ? zArco + 9.5 : -11;
+    const FILAS = 13; tribuna3D(cam, t, F, zTrib, cam.dir < 0, { FILAS, X0: -40, X1: 40 });
+    // la bruma: la tribuna se apaga hacia arriba y hacia el fondo; el arco queda adelante, nítido
+    { const pie = cam.p(0, 1.1, zTrib).y, techo = cam.p(0, 1.1 + FILAS * 0.75, zTrib + cam.dir * FILAS * 0.85).y; velo(ctx, pie, Math.min(pie, techo) - 20, 'rgba(8,12,30,A)', 0.22, 0.62);
+      // el techo de la tribuna: una visera oscura con el borde iluminado, y arriba queda el cielo
+      const zt = zTrib + cam.dir * FILAS * 0.85, yt = 1.1 + FILAS * 0.75; const a = cam.p(-40, yt, zt), b = cam.p(40, yt, zt), c = cam.p(40, yt + 1.6, zt - cam.dir * 2.5), d = cam.p(-40, yt + 1.6, zt - cam.dir * 2.5);
+      ctx.fillStyle = '#0B0F24'; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.lineTo(c.x, c.y); ctx.lineTo(d.x, d.y); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,246,205,.35)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(d.x, d.y); ctx.lineTo(c.x, c.y); ctx.stroke();
+      // las torres de luz, en el mundo: dos mástiles detrás de la tribuna con la cabeza encendida y su halo
+      for (const tx of [-26, 26]) { const base = cam.p(tx, yt + 1.6, zt - cam.dir * 2.5), top = cam.p(tx, yt + 12, zt - cam.dir * 2.5); if (top.x < -40 || top.x > W + 40) continue; ctx.strokeStyle = '#1A2040'; ctx.lineWidth = Math.max(2, 0.25 * top.k); ctx.beginPath(); ctx.moveTo(base.x, base.y); ctx.lineTo(top.x, top.y); ctx.stroke(); const g = ctx.createRadialGradient(top.x, top.y, 0, top.x, top.y, 2.2 * top.k + 40); g.addColorStop(0, 'rgba(255,246,205,.5)'); g.addColorStop(0.35, 'rgba(255,246,205,.12)'); g.addColorStop(1, 'rgba(255,246,205,0)'); ctx.fillStyle = g; ctx.fillRect(top.x - 2.2 * top.k - 40, top.y - 2.2 * top.k - 40, 4.4 * top.k + 80, 4.4 * top.k + 80); ctx.fillStyle = '#FFF4C8'; ctx.beginPath(); ctx.roundRect(top.x - 0.9 * top.k, top.y - 0.35 * top.k, 1.8 * top.k, 0.7 * top.k, 0.15 * top.k); ctx.fill(); } }
     // el cartel del perímetro, al pie de la tribuna: la marca propia, nada ajeno
-    { const zc = cam.dir > 0 ? zArco + 6.3 : -8.8; for (let x = -32; x < 32; x += 8) { const a = cam.p(x, 0, zc), b = cam.p(x + 8, 0, zc), c = cam.p(x + 8, 0.9, zc), d = cam.p(x, 0.9, zc); ctx.fillStyle = '#14110F'; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.lineTo(c.x, c.y); ctx.lineTo(d.x, d.y); ctx.closePath(); ctx.fill(); const m = cam.p(x + 4, 0.45, zc); if (m.x > -40 && m.x < W + 40) texto(ctx, 'MANO A MANO', m.x, m.y, Math.max(3, 0.33 * m.k), '#E8731C', 800); } }
+    { const zc = zTrib - cam.dir * 0.2; for (let x = -32; x < 32; x += 8) { const a = cam.p(x, 0, zc), b = cam.p(x + 8, 0, zc), c = cam.p(x + 8, 0.9, zc), d = cam.p(x, 0.9, zc); ctx.fillStyle = '#14110F'; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.lineTo(c.x, c.y); ctx.lineTo(d.x, d.y); ctx.closePath(); ctx.fill(); const m = cam.p(x + 4, 0.45, zc); if (m.x > -40 && m.x < W + 40) texto(ctx, 'MANO A MANO', m.x, m.y, Math.max(3, 0.33 * m.k), 'rgba(232,115,28,.8)', 800); } }
+    // los charcos de luz de los reflectores sobre el césped, y la sombra de la noche en los bordes
+    { const q = cam.p(gx, 0, zArco - 4); const rad = Math.max(60, 9 * q.k); const g = ctx.createRadialGradient(q.x, q.y, 0, q.x, q.y, rad * 2.4); g.addColorStop(0, 'rgba(255,250,210,.20)'); g.addColorStop(0.45, 'rgba(255,250,210,.08)'); g.addColorStop(1, 'rgba(255,250,210,0)'); ctx.save(); ctx.beginPath(); ctx.rect(0, suelo0, W, H - suelo0); ctx.clip(); ctx.fillStyle = g; ctx.fillRect(0, suelo0, W, H - suelo0); ctx.restore(); }
+    // el fondo del arco, en sombra: así los postes y la red se recortan contra la tribuna
+    if (cam.dir > 0) { const w = ARCO.ancho * 0.95, h = ARCO.alto * 1.9; const a = cam.p(gx - w, 0, zArco + 2.5), b = cam.p(gx + w, 0, zArco + 2.5), c = cam.p(gx + w, h, zArco + 2.5), d = cam.p(gx - w, h, zArco + 2.5); const g = ctx.createRadialGradient((a.x + b.x) / 2, (a.y + c.y) / 2, 0, (a.x + b.x) / 2, (a.y + c.y) / 2, (b.x - a.x) * 0.62); g.addColorStop(0, 'rgba(5,8,22,.55)'); g.addColorStop(0.7, 'rgba(5,8,22,.35)'); g.addColorStop(1, 'rgba(5,8,22,0)'); ctx.save(); ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(a.x - 40, a.y); ctx.lineTo(b.x + 40, b.y); ctx.lineTo(c.x + 40, c.y - 10); ctx.lineTo(d.x - 40, d.y - 10); ctx.closePath(); ctx.fill(); ctx.restore(); }
     // líneas del área (corridas con el arco)
     ctx.strokeStyle = 'rgba(255,255,255,.85)'; ctx.lineWidth = 2; ctx.lineJoin = 'round';
     const linea = (pts) => { ctx.beginPath(); pts.forEach((p, i) => { const q = cam.p(p[0] + gx, 0, p[1]); if (i) ctx.lineTo(q.x, q.y); else ctx.moveTo(q.x, q.y); }); ctx.stroke(); };
@@ -341,8 +372,10 @@
       const m = seg(r.x, r.y, ang + rod, lP * 0.42); trazo(m.x, m.y, f.x, f.y, 0.072 * A, medias);
       ctx.fillStyle = colores.botin || '#15151a'; ctx.beginPath(); ctx.ellipse(f.x + Math.cos(ang + rod) * 0.02 * A, f.y + 0.02 * A, 0.055 * A, 0.032 * A, (ang + rod) - Math.PI / 2, 0, Math.PI * 2); ctx.fill();
     }
-    // el short
-    ctx.fillStyle = colores.pantalon; ctx.beginPath(); ctx.moveTo(-cx * 1.15, -0.03 * A); ctx.lineTo(cx * 1.15, -0.03 * A); ctx.lineTo(cx * 1.35, 0.17 * A); ctx.lineTo(cx * 0.2, 0.19 * A); ctx.lineTo(0, 0.14 * A); ctx.lineTo(-cx * 0.2, 0.19 * A); ctx.lineTo(-cx * 1.35, 0.17 * A); ctx.closePath(); ctx.fill();
+    // el short: dos perneras rectas hasta medio muslo, con la cintura marcada (no un triángulo)
+    ctx.fillStyle = colores.pantalon; ctx.beginPath(); ctx.moveTo(-cx * 1.2, -0.04 * A); ctx.lineTo(cx * 1.2, -0.04 * A); ctx.lineTo(cx * 1.5, 0.2 * A); ctx.lineTo(cx * 0.12, 0.21 * A); ctx.lineTo(0, 0.17 * A); ctx.lineTo(-cx * 0.12, 0.21 * A); ctx.lineTo(-cx * 1.5, 0.2 * A); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = borde; ctx.lineWidth = 1; ctx.stroke();
+    ctx.fillStyle = 'rgba(255,255,255,.18)'; ctx.fillRect(-cx * 1.2, -0.04 * A, cx * 2.4, 0.03 * A);
     // el torso: hombros anchos, cintura fina, con un poco de luz de arriba
     const g = ctx.createLinearGradient(0, hombroY, 0, 0); g.addColorStop(0, colores.camisetaLuz || colores.camiseta); g.addColorStop(1, colores.camiseta);
     ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(-hx, hombroY); ctx.quadraticCurveTo(0, hombroY - 0.03 * A, hx, hombroY); ctx.quadraticCurveTo(hx * 1.05, hombroY * 0.4, cx * 1.15, 0); ctx.lineTo(-cx * 1.15, 0); ctx.quadraticCurveTo(-hx * 1.05, hombroY * 0.4, -hx, hombroY); ctx.closePath(); ctx.fill();
@@ -361,8 +394,16 @@
     const cabY = hombroY - 0.035 * A - cabezaR;
     trazo(0, hombroY, 0, cabY + cabezaR * 0.6, 0.05 * A, piel);
     ctx.fillStyle = piel; ctx.beginPath(); ctx.arc(0, cabY, cabezaR, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = colores.pelo || '#2b1d12'; ctx.beginPath(); ctx.arc(0, cabY - cabezaR * 0.12, cabezaR * 0.98, Math.PI * 1.02, Math.PI * 1.98); ctx.quadraticCurveTo(cabezaR * 0.3, cabY - cabezaR * 0.35, -cabezaR * 0.98, cabY - cabezaR * 0.1); ctx.closePath(); ctx.fill();
-    if (A > 60) { ctx.fillStyle = '#1b1b1f'; ctx.beginPath(); ctx.arc(-cabezaR * 0.35, cabY + cabezaR * 0.1, cabezaR * 0.1, 0, Math.PI * 2); ctx.arc(cabezaR * 0.35, cabY + cabezaR * 0.1, cabezaR * 0.1, 0, Math.PI * 2); ctx.fill(); }
+    // el pelo: un casquete arriba, con el flequillo de un lado; la cara queda a la vista
+    ctx.fillStyle = colores.pelo || '#2b1d12'; ctx.beginPath(); ctx.arc(0, cabY, cabezaR * 1.02, Math.PI * 1.0, Math.PI * 2.0); ctx.quadraticCurveTo(cabezaR * 0.55, cabY - cabezaR * 0.45, cabezaR * 0.1, cabY - cabezaR * 0.3); ctx.quadraticCurveTo(-cabezaR * 0.6, cabY - cabezaR * 0.2, -cabezaR * 1.02, cabY); ctx.closePath(); ctx.fill();
+    // la cara, de frente: ojos, cejas y boca (cuando la figura es grande como para verlos)
+    if (A > 40 && !colores.deEspaldas) {
+      const ojo = cabezaR * 0.13, oy = cabY + cabezaR * 0.12;
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(-cabezaR * 0.36, oy, ojo * 1.35, ojo, 0, 0, Math.PI * 2); ctx.ellipse(cabezaR * 0.36, oy, ojo * 1.35, ojo, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#1b1b1f'; ctx.beginPath(); ctx.arc(-cabezaR * 0.33, oy, ojo * 0.75, 0, Math.PI * 2); ctx.arc(cabezaR * 0.39, oy, ojo * 0.75, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = colores.pelo || '#2b1d12'; ctx.lineWidth = Math.max(1, cabezaR * 0.1); ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(-cabezaR * 0.55, oy - cabezaR * 0.3); ctx.lineTo(-cabezaR * 0.18, oy - cabezaR * 0.34); ctx.moveTo(cabezaR * 0.18, oy - cabezaR * 0.34); ctx.lineTo(cabezaR * 0.55, oy - cabezaR * 0.3); ctx.stroke();
+      ctx.strokeStyle = 'rgba(60,30,20,.7)'; ctx.lineWidth = Math.max(1, cabezaR * 0.08); ctx.beginPath(); ctx.arc(0, cabY + cabezaR * 0.35, cabezaR * 0.28, 0.25, Math.PI - 0.25); ctx.stroke();
+    }
     ctx.restore();
   }
   // las poses del arquero: quieto (se mece en puntas de pie) y en vuelo (los brazos adelante, las piernas atrás)
@@ -405,6 +446,26 @@
     let lo = -5, hi = 30; for (let i = 0; i < 18; i++) { const m = (lo + hi) / 2; if (prueba(m) < altura) lo = m; else hi = m; }
     return (lo + hi) / 2;
   }
+  // la trayectoria prevista: los puntos por los que va a pasar la pelota hasta el plano zFin (o hasta que pique)
+  function trayectoria(p, zFin) {
+    const b = { x: p.x, y: p.y, z: p.z, vx: p.vx, vy: p.vy, vz: p.vz, r: p.r, rot: 0, freno: p.freno, comba: p.comba }; const pts = []; let k = 0;
+    while (b.z < zFin && k++ < 600) { volar(b, 1 / 120); if (b.piques) break; if (k % 5 === 0) pts.push({ x: b.x, y: b.y, z: b.z }); }
+    return { pts, fin: { x: b.x, y: b.y, z: b.z } };
+  }
+  // la mira: dónde va a entrar la pelota, con la potencia como anillo; roja si queda afuera
+  function mira(ctx, cam, ap, zPlano, adentro) {
+    const q = cam.p(ap.x, Math.max(0.1, ap.y), zPlano); const r = Math.max(7, 0.42 * q.k); const col = adentro ? '#E8E337' : '#FF6B5B';
+    ctx.save();
+    if (ap.pts) { ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 1.5; ctx.setLineDash([3, 5]); ctx.beginPath(); ap.pts.forEach((w, i) => { const v = cam.p(w.x, w.y, w.z); if (i) ctx.lineTo(v.x, v.y); else ctx.moveTo(v.x, v.y); }); ctx.stroke(); ctx.setLineDash([]); }
+    ctx.globalAlpha = 0.95; ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(q.x, q.y, r, 0, Math.PI * 2); ctx.stroke();
+    ctx.lineWidth = 4; ctx.beginPath(); ctx.arc(q.x, q.y, r + 4, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * clamp(ap.pot || 0, 0, 1)); ctx.stroke();
+    ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(q.x - r * 0.5, q.y); ctx.lineTo(q.x + r * 0.5, q.y); ctx.moveTo(q.x, q.y - r * 0.5); ctx.lineTo(q.x, q.y + r * 0.5); ctx.stroke();
+    if (ap.rotulo) texto(ctx, ap.rotulo, q.x, q.y - r - 12, 11, col, 800);
+    ctx.restore();
+  }
+  // la cámara lenta: el juego avanza con los mismos pasos de física, pero menos seguido (`factor` 0.4 = al 40 %).
+  // Así el simulador sin pantalla juega exactamente lo mismo: solo cambia cuántas veces se llama a avanzar.
+  function conLenta(S, factor, paso) { S.lentaAcum = (S.lentaAcum || 0) + factor; const n = Math.floor(S.lentaAcum); S.lentaAcum -= n; for (let i = 0; i < n; i++) paso(); }
   // la pantalla final compartida: fondo, título, número grande, detalle, la marca personal y la invitación
   function pantallaFinal(ctx, F) {
     ctx.save(); ctx.fillStyle = F.fondo || 'rgba(11,16,38,.86)'; ctx.fillRect(0, 0, W, H);
@@ -421,10 +482,10 @@
   /* ═══════════════════════════════ PENALES ═══════════════════════════════ */
   function Penales() {
     const Z_ARCO = 14, Z_PELOTA = 3, DIST = Z_ARCO - Z_PELOTA;
-    const camPateo = camara({ alt: 2.8, z0: -0.6, pitch: 0.244, foco: 430, cy: 250 });                         // detrás y por encima de la pelota, mirando al arco
-    const camArco = camara({ alt: 3.4, z0: Z_ARCO + 5.2, dir: -1, pitch: 0.3, foco: 250, cy: 190 });           // detrás y por encima del arco, mirando al pateador: cuando el arquero soy yo
+    const camPateo = camara({ alt: 2.6, z0: -0.4, pitch: 0.235, foco: 480, cy: 255 });                         // detrás y por encima de la pelota, mirando al arco
+    const camArco = camara({ alt: 3.2, z0: Z_ARCO + 4.6, dir: -1, pitch: 0.3, foco: 265, cy: 196 });           // detrás y por encima del arco, mirando al pateador: cuando el arquero soy yo
     const vistaArco = () => S.tanda === 'el' && S.fase !== 'final';
-    const S = { fase: 'guia', t: 0, serie: [], serieRival: [], turno: 0, tanda: 'yo', pelota: null, arquero: null, mensaje: null, red: null, sacudida: 0, fin: null, racha: 0, amago: null, estela: [], euforia: 0, confeti: null, lectura: null, muerteSubita: false };
+    const S = { fase: 'guia', t: 0, serie: [], serieRival: [], turno: 0, tanda: 'yo', pelota: null, arquero: null, mensaje: null, red: null, sacudida: 0, fin: null, racha: 0, amago: null, estela: [], euforia: 0, confeti: null, lectura: null, muerteSubita: false, apunte: null, lenta: 1 };
     const COL_YO = { camiseta: '#E8E337', camisetaLuz: '#F4F07A', pantalon: '#1b1b1f', medias: '#E8E337', piel: '#C68642', guantes: '#E8731C', numero: '1' };
     const COL_RIVAL = { camiseta: '#C2542E', camisetaLuz: '#DD7A5A', pantalon: '#1b1b1f', medias: '#C2542E', piel: '#8D5524', numero: '1', numeroColor: 'rgba(255,255,255,.6)' };
     const COL_PATEADOR = { camiseta: '#F3EEE6', camisetaLuz: '#FFFFFF', pantalon: '#14110F', medias: '#F3EEE6', piel: '#8D5524', numero: '9', numeroColor: 'rgba(0,0,0,.45)' };
@@ -435,16 +496,36 @@
     function amagar() { S.amago = { dir: azar() < 0.5 ? -1 : 1, engano: azar() < 0.65, k: 0 }; }
     reiniciarPelota(); reiniciarArquero(); amagar();
 
-    // ── mi patada: el gesto dice a dónde y con cuánta fuerza ──
-    function patear(g) {
-      if (g.toque || g.largo < 25 || g.dy > -10) return;
-      const p = S.pelota; const pot = clamp(g.vel / 2.2, 0.35, 1);          // potencia por velocidad del dedo
-      const ang = clamp(g.angulo, -0.8, 0.8);                                 // izquierda / derecha: a 0.5 rad (≈30°) llega al palo
-      const alturaDeseada = clamp(g.largo / 170, 0.08, 1.35) * ARCO.alto;    // más largo = más alto (pasado el travesaño, se va)
+    // ── mi patada: arrastrás la pelota hasta el punto del arco donde querés que entre y soltás. El dedo rápido es
+    //    potencia (llega antes, el arquero la lee menos); el dedo lento es puntería. La curva del gesto le da comba. ──
+    function objetivo(g) {
+      const p = S.pelota; const pot = clamp(g.vel / 2.2, 0.35, 1);
+      const o = camPateo.inv(clamp(g.x + g.dx, -60, W + 60), g.y + g.dy, Z_ARCO);     // el punto del plano del arco bajo el dedo
+      const tx = clamp(o.x, -7, 7), ty = clamp(o.y, 0.1, 4.2);
       const tVuelo = lerp(0.95, 0.45, pot);
-      p.vz = DIST / tVuelo; p.vx = ((ang / 0.5) * 3.2) / tVuelo; p.comba = g.comba * 5;
-      p.vy = (alturaDeseada - p.y + 0.5 * 9.81 * tVuelo * tVuelo) / tVuelo;
-      p.quieta = false; S.fase = 'vuelo-mio'; S.t = 0; S.estela = []; S.lectura = { fuerza: pot, altura: alturaDeseada / ARCO.alto / 1.35 };
+      const v = { x: p.x, y: p.y, z: p.z, r: p.r, vz: DIST / tVuelo, vx: (tx - p.x) / tVuelo, vy: (ty - p.y + 0.5 * 9.81 * tVuelo * tVuelo) / tVuelo, comba: g.comba * 5, freno: 0 };
+      const tr = trayectoria(v, Z_ARCO);
+      return { v, pot, tVuelo, tx, ty, pts: tr.pts, x: tr.fin.x, y: tr.fin.y, adentro: Math.abs(tr.fin.x) < ARCO.ancho / 2 && tr.fin.y < ARCO.alto && tr.fin.y > 0 };
+    }
+    const gestoValido = (g) => !g.toque && g.largo >= 25 && g.dy < -10;
+    function mover(g) {
+      if (!(S.fase === 'listo' && S.tanda === 'yo')) { S.apunte = null; return; }
+      if (!gestoValido(g)) { S.apunte = null; return; }
+      const o = objetivo(g); S.apunte = { x: o.x, y: o.y, pot: o.pot, pts: o.pts, adentro: o.adentro, rotulo: o.adentro ? '' : 'afuera' };
+    }
+    // para el simulador y las pruebas: el gesto que apunta a (tx, ty) del arco con esa velocidad de dedo y esa comba
+    function gestoHacia(tx, ty, vel, comba) {
+      const p = S.pelota; const a = camPateo.p(p.x, p.y, p.z), b = camPateo.p(tx, ty, Z_ARCO);
+      const dx = b.x - a.x, dy = b.y - a.y; return { toque: false, x: a.x, y: a.y, dx, dy, largo: Math.hypot(dx, dy), vel: vel == null ? 1.6 : vel, comba: comba || 0, angulo: Math.atan2(dx, -dy) };
+    }
+    function patear(g) {
+      if (!gestoValido(g)) return;
+      S.apunte = null;
+      const p = S.pelota; const o = objetivo(g); const pot = o.pot, tVuelo = o.tVuelo;
+      const ang = clamp(Math.atan2(o.tx - p.x, DIST) * 1.8, -0.8, 0.8);     // lo que antes era el ángulo del gesto: centro vs. palo, para el arquero
+      const alturaDeseada = o.ty;
+      Object.assign(p, { vx: o.v.vx, vy: o.v.vy, vz: o.v.vz, comba: o.v.comba });
+      p.quieta = false; S.fase = 'vuelo-mio'; S.t = 0; S.estela = []; S.lectura = null;
       vibrar('toque'); son('patada');
       // el arquero del modelo: lee la patada con una probabilidad que baja con la potencia y sube con lo central.
       // Cuando no la lee, va a donde dijo el amago (o al revés, si el amago era engaño).
@@ -452,10 +533,14 @@
       const centro = Math.abs(ang) < 0.18;
       const pLee = clamp(0.62 - pot * 0.3 + (centro ? 0.15 : 0) - S.racha * 0.03, 0.2, 0.8);
       const a = S.amago || { dir: 1, engano: true };
-      let dir = azar() < pLee ? dirReal : (a.engano ? -a.dir : a.dir);
+      const lee = azar() < pLee;
+      let dir = lee ? dirReal : (a.engano ? -a.dir : a.dir);
       if (dir === 0 && !centro && azar() < 0.5) dir = azar() < 0.5 ? 1 : -1;
       const alto = alturaDeseada > ARCO.alto * 0.55 ? 1 : 0;
-      S.arquero.vuelo = { dir, alto: azar() < 0.65 ? alto : 1 - alto, t0: S.t + lerp(0.25, 0.08, pot), dur: 0.55 };
+      // hasta dónde vuela: si la leyó, hasta donde va la pelota (con un poco de error); si adivina, a cualquier parte de ese lado.
+      // Así el ángulo vale: al palo se le gana al arquero que se quedó a mitad de camino, y al medio se le gana al que voló al palo.
+      const dist = lee ? clamp(Math.abs(o.x) - 0.5 + (azar() - 0.5) * 0.7, 0.5, 3.0) : 0.9 + azar() * 2.1;
+      S.arquero.vuelo = { dir, alto: azar() < 0.65 ? alto : 1 - alto, dist, t0: S.t + lerp(0.25, 0.08, pot), dur: 0.55 };
     }
     // ── su patada: el rival patea y yo me tiro con el gesto (o un toque a un lado) ──
     function rivalPatea() {
@@ -486,24 +571,25 @@
       const poste = (Math.abs(Math.abs(p.x) - ARCO.ancho / 2) < 0.16 && p.y < ARCO.alto + 0.1) || (Math.abs(p.y - ARCO.alto) < 0.16 && Math.abs(p.x) < ARCO.ancho / 2 + 0.1);
       // las manos: una elipse alrededor del arquero (más ancha cuando se tira). El arquero que manejo yo llega un poco más.
       const ax = A.x + (S.arquero.vuelo ? S.arquero.vuelo.dir * 0.6 : 0), dx = Math.abs(p.x - ax), dy = Math.abs(p.y - A.y);
-      const ancho = (A.alcance ? 1.15 : 0.7) * (A.mio ? 1.35 : 1), alto = (A.alcance ? 1.4 : 1.0) * (A.mio ? 1.3 : 1);
+      const ancho = (A.alcance ? 0.98 : 0.7) * (A.mio ? 1.5 : 1), alto = (A.alcance ? 1.05 : 1.0) * (A.mio ? 1.5 : 1);
       const manos = (dx * dx) / (ancho * ancho) + (dy * dy) / (alto * alto) < 1;
       if (poste) return 'poste';
       if (enArco && manos) return 'atajada';
       if (enArco) return 'gol';
-      return 'afuera';
+      const fueraX = Math.max(0, Math.abs(p.x) - ARCO.ancho / 2), fueraY = Math.max(0, p.y - ARCO.alto);
+      return p.y > 0 && Math.hypot(fueraX, fueraY) < 0.45 ? 'casi' : 'afuera';
     }
     function cerrarTiro(res, mio) {
       const p = S.pelota;
       if (res === 'gol') { S.red = { k: 0, x: (p.x / ARCO.ancho) + 0.5, y: p.y / ARCO.alto }; p.vz *= 0.15; p.vx *= 0.2; p.vy *= 0.2; S.sacudida = reducido() ? 0 : 0.5; vibrar(mio ? 'partido' : 'set'); son('red'); if (mio) { son('gol'); S.euforia = 1; S.confeti = 0; } else son('ohh'); }
       if (res === 'atajada') { p.vz = -1.5; p.vx = (azar() - 0.5) * 3; p.vy = 2; vibrar('set'); son('atajada'); if (!mio) { son('gol'); S.euforia = 0.7; } }
       if (res === 'poste') { p.vz = -4; p.vx = -Math.sign(p.x) * 2; vibrar('set'); son('poste'); }
-      if (res === 'afuera') son('ohh');
+      if (res === 'afuera' || res === 'casi') son('ohh');
       const gol = res === 'gol' ? 1 : 0;
       (mio ? S.serie : S.serieRival).push(gol);
       if (mio) S.racha = gol ? S.racha + 1 : 0;
-      S.mensaje = { t: mio ? (gol ? '¡GOL!' : res === 'atajada' ? 'ATAJÓ' : res === 'poste' ? 'PALO' : 'AFUERA') : (gol ? 'GOL DE ÉL' : res === 'atajada' ? '¡LA SACASTE!' : res === 'poste' ? 'PALO' : 'LA TIRÓ AFUERA'),
-        sub: mio ? (gol ? (S.racha >= 3 ? S.racha + ' seguidos' : '') : res === 'atajada' ? 'más fuerte o más al ángulo' : res === 'afuera' ? 'un poco menos de dedo' : '') : '', color: (gol === 1) === mio ? '#3ED17A' : '#FF6B5B', k: 0 };
+      S.mensaje = { t: mio ? (gol ? '¡GOL!' : res === 'atajada' ? 'ATAJÓ' : res === 'poste' ? '¡AL PALO!' : res === 'casi' ? '¡CASI!' : 'AFUERA') : (gol ? 'GOL DE ÉL' : res === 'atajada' ? '¡LA SACASTE!' : res === 'poste' ? 'PALO' : 'LA TIRÓ AFUERA'),
+        sub: mio ? (gol ? (S.racha >= 3 ? S.racha + ' seguidos' : '') : res === 'atajada' ? 'más rápido el dedo, o más al ángulo' : res === 'casi' ? 'por centímetros' : res === 'afuera' ? 'suelta con la mira adentro del arco' : '') : '', color: (gol === 1) === mio ? '#3ED17A' : '#FF6B5B', k: 0 };
       // el reloj vuelve a cero: el vuelo del arquero sigue desde donde estaba (si no, volvía a tirarse después del gol)
       if (S.arquero.vuelo) S.arquero.vuelo.t0 -= S.t;
       S.fase = 'fin-tiro'; S.t = 0;
@@ -536,8 +622,16 @@
       if (S.fase === 'vuelo-rival') return atajar(g);
       if (S.fase === 'final') { if (g.toque) reiniciar(); }
     }
+    // la cámara lenta: cuando la pelota llega al arco y en el primer instante del resultado
+    function factorLenta() {
+      const p = S.pelota;
+      if ((S.fase === 'vuelo-mio' || S.fase === 'vuelo-rival') && p.z > Z_ARCO - 2.4) return 0.38;
+      if (S.fase === 'fin-tiro') return S.t < 0.22 ? 0.38 : S.t < 0.5 ? lerp(0.38, 1, (S.t - 0.22) / 0.28) : 1;
+      return 1;
+    }
     function reiniciar() { S.serie = []; S.serieRival = []; S.fin = null; S.racha = 0; S.tanda = 'yo'; S.fase = 'listo'; S.mensaje = null; S.red = null; S.confeti = null; S.muerteSubita = false; S.lectura = null; reiniciarPelota(); reiniciarArquero(); amagar(); }
-    function avanzar(dt) {
+    function avanzar(dt) { S.lenta = factorLenta(); conLenta(S, S.lenta, () => avanzarPaso(dt)); }
+    function avanzarPaso(dt) {
       S.t += dt; S.sacudida = Math.max(0, S.sacudida - dt); S.euforia = Math.max(0, S.euforia - dt * 0.5);
       if (S.amago) S.amago.k = Math.min(1, S.amago.k + dt * 2.2);
       if (S.red) S.red.k = Math.min(1, S.red.k + dt * 1.6);
@@ -565,18 +659,20 @@
         // desde atrás del arco: lejos el pateador y la pelota, después yo, y la red por delante de todo
         dibujarPateador();
         if (S.pista && S.fase === 'vuelo-rival' && S.t < S.pista.hasta) { const q = cam.p(S.pista.dir * 2.2, 1.6, Z_ARCO - 2); ctx.save(); ctx.globalAlpha = 0.9; texto(ctx, S.pista.dir * cam.dir < 0 ? '◀' : '▶', q.x, q.y, 26, '#E8E337', 800); ctx.restore(); }
-        if (S.fase === 'rival-prepara' || (S.fase === 'vuelo-rival' && !S.arquero.vuelo)) { ctx.save(); ctx.globalAlpha = 0.25 + 0.1 * Math.sin(S.t * 8); ctx.strokeStyle = '#E8E337'; ctx.lineWidth = 1.5; ctx.setLineDash([5, 6]); for (const [x0, x1] of [[-3.5, -1.2], [1.2, 3.5]]) for (const [y0, y1] of [[0.05, 1.2], [1.25, 2.4]]) { const a = cam.p(x0, y0, Z_ARCO), b = cam.p(x1, y1, Z_ARCO); ctx.strokeRect(Math.min(a.x, b.x), b.y, Math.abs(b.x - a.x), a.y - b.y); } ctx.restore(); }
+        if (S.fase === 'rival-prepara' || (S.fase === 'vuelo-rival' && !S.arquero.vuelo)) { ctx.save(); const al = 0.5 + 0.2 * Math.sin(S.t * 8); ctx.strokeStyle = 'rgba(232,227,55,' + al + ')'; ctx.fillStyle = 'rgba(232,227,55,' + (al * 0.18) + ')'; ctx.lineWidth = 2; ctx.setLineDash([6, 6]); for (const [x0, x1] of [[-3.5, -1.2], [1.2, 3.5]]) for (const [y0, y1] of [[0.05, 1.2], [1.25, 2.4]]) { const a = cam.p(x0, y0, Z_ARCO), b = cam.p(x1, y1, Z_ARCO); const rx = Math.min(a.x, b.x), ry = b.y, rw = Math.abs(b.x - a.x), rh = a.y - b.y; ctx.beginPath(); ctx.roundRect(rx, ry, rw, rh, 6); ctx.fill(); ctx.stroke(); } ctx.restore(); }
         if (p.z < Z_ARCO - 0.3) dibujarPelota();
         dibujarArquero();
         if (p.z >= Z_ARCO - 0.3) dibujarPelota();
         arco(cam, Z_ARCO, S.red);
       } else {
         arco(cam, Z_ARCO, S.red); dibujarArquero(); dibujarPateador(); dibujarPelota();
-        if (S.fase === 'guia' || (S.fase === 'listo' && S.tanda === 'yo' && S.serie.length === 0)) flechaGuia(ctx, pp.x, pp.y - r - 6, S.t);
+        if (S.apunte && S.fase === 'listo') mira(ctx, cam, S.apunte, Z_ARCO, S.apunte.adentro);
+        else if (S.fase === 'guia' || (S.fase === 'listo' && S.tanda === 'yo' && S.serie.length === 0)) { const q = cam.p(-2.7, 1.9, Z_ARCO); flechaGuia(ctx, pp.x, pp.y - r - 6, S.t, q.x, q.y); }
       }
+      vineta(ctx);
       // HUD
       const yo = S.serie.reduce((a, b) => a + b, 0), el = S.serieRival.reduce((a, b) => a + b, 0);
-      hud(ctx, 'TÚ ' + yo, el + ' ' + nombreRival.toUpperCase(), S.fase === 'guia' ? 'Desliza para patear' : S.tanda === 'yo' && S.fase === 'listo' ? (S.muerteSubita ? 'Muerte súbita: tu penal' : 'Tu penal: desliza hacia el arco') : S.fase === 'rival-prepara' ? 'Patea él: toca hacia dónde te tiras' : S.fase === 'vuelo-rival' ? '¡Tírate!' : '', '#177A40');
+      hud(ctx, 'TÚ ' + yo, el + ' ' + nombreRival.toUpperCase(), S.fase === 'guia' ? 'Arrastra la pelota hasta el arco y suelta' : S.tanda === 'yo' && S.fase === 'listo' ? (S.apunte ? (S.apunte.adentro ? 'Suelta para patear' : 'Así se va afuera') : S.muerteSubita ? 'Muerte súbita: tu penal' : 'Tu penal: arrastra hasta donde quieres que entre') : S.fase === 'rival-prepara' ? 'Patea él: toca hacia dónde te tiras' : S.fase === 'vuelo-rival' ? '¡Tírate!' : '', '#177A40');
       const nPips = Math.max(5, S.serie.length, S.serieRival.length);
       ctx.save(); tandas(ctx, S.serie.concat(Array(Math.max(0, nPips - S.serie.length)).fill(null)), 24, 62); tandas(ctx, S.serieRival.concat(Array(Math.max(0, nPips - S.serieRival.length)).fill(null)), W - 24, 62, true); ctx.restore();
       if (S.racha >= 2 && S.tanda === 'yo' && S.fase === 'listo') texto(ctx, '🔥 ' + S.racha + ' seguidos', 24, 80, 11, '#FFB36B', 800, 'left');
@@ -587,14 +683,14 @@
       if (S.fase === 'final') { const f = S.fin, gane = f.yo > f.el; const m = marcaDe('penales'); pantallaFinal(ctx, { k: S.t, titulo: gane ? '¡GANASTE!' : 'PERDISTE', color: gane ? '#3ED17A' : '#FF6B5B', grande: f.yo + ' – ' + f.el, detalle: 'tú · ' + nombreRival + (f.muerteSubita ? ' · muerte súbita' : ''), marca: m ? m.yo + ' – ' + m.el : null, nueva: f.nueva }); }
       ctx.restore();
     }
-    return { avanzar, dibujar, soltar, mover: null, estado: S, reiniciar };
+    return { avanzar, dibujar, soltar, mover, gestoHacia, estado: S, reiniciar };
   }
 
   /* ═══════════════════════════════ TIRO LIBRE ═══════════════════════════════ */
   function TiroLibre() {
-    const cam0 = camara({ alt: 3.2, z0: -1, pitch: 0.21, foco: 430, cy: 240 });
+    const cam0 = camara({ alt: 3.6, z0: -1.8, pitch: 0.23, foco: 540, cy: 240 });
     const Z_PELOTA = 3.2; let Z_ARCO = 24, DIST = Z_ARCO - Z_PELOTA; const Z_BARRERA = Z_PELOTA + 9.15;
-    const S = { fase: 'guia', t: 0, serie: [], pelota: null, arquero: null, barrera: null, mensaje: null, red: null, sacudida: 0, fin: null, racha: 0, salto: 0, gx: 0, escuadras: 0, estela: [], euforia: 0, confeti: null, lectura: null, rival: 0 };
+    const S = { fase: 'guia', t: 0, serie: [], pelota: null, arquero: null, barrera: null, mensaje: null, red: null, sacudida: 0, fin: null, racha: 0, salto: 0, gx: 0, escuadras: 0, estela: [], euforia: 0, confeti: null, lectura: null, rival: 0, apunte: null, lenta: 1 };
     // lo que mete el modelo en su tanda de cinco: entre 2 y 4, para tener a quién ganarle
     const rivalMete = () => 2 + (azar() < 0.55 ? 1 : 0) + (azar() < 0.3 ? 1 : 0);
     const COL_RIVAL = { camiseta: '#C2542E', camisetaLuz: '#DD7A5A', pantalon: '#1b1b1f', medias: '#C2542E', piel: '#8D5524', numeroColor: 'rgba(255,255,255,.6)' }, COL_ARQ = { camiseta: '#E8E337', camisetaLuz: '#F4F07A', pantalon: '#1b1b1f', medias: '#E8E337', piel: '#C68642', guantes: '#E8731C', numero: '1' };
@@ -610,14 +706,39 @@
       S.arquero = { x: S.gx - lado * 1.2, vuelo: null }; S.salto = 0; S.dist = DIST;
     }
     armar(); S.rival = rivalMete();
+    // ── el gesto: arrastrás la pelota hasta donde querés que entre; la curva del dedo es la comba (la pelota dobla
+    //    por el costado de la barrera); el dedo rápido es potencia. La mira muestra por dónde va a pasar. ──
+    const gestoValido = (g) => !g.toque && g.largo >= 25 && g.dy < -10;
+    function objetivo(g) {
+      const p = S.pelota; const pot = clamp(g.vel / 2.0, 0.35, 1);
+      const o = cam0.inv(clamp(g.x + g.dx, -60, W + 60), g.y + g.dy, Z_ARCO);
+      const tx = clamp(o.x, S.gx - 8, S.gx + 8), ty = clamp(o.y, 0.1, 4.5);
+      const tVuelo = lerp(1.25, 0.95, pot) * (DIST / 20.8);
+      const v = { x: p.x, y: p.y, z: p.z, r: p.r, vz: DIST / tVuelo, vx: 0, vy: 0, comba: g.comba * 6, freno: 0.22 };
+      v.vy = vyPara(v, ty, Z_ARCO);
+      // el tiempo real de vuelo (con el freno del aire) y la comba acumulada: la velocidad lateral que hace falta para caer en tx
+      const sinComba = trayectoria(Object.assign({}, v, { comba: 0 }), Z_ARCO); const tReal = Math.max(0.3, sinComba.pts.length * 5 / 120);
+      v.vx = (tx - p.x) / tReal - 0.5 * v.comba * tReal;
+      const tr = trayectoria(v, Z_ARCO);
+      // ¿pega en la barrera? (misma regla que en el vuelo, con la barrera quieta)
+      const B = S.barrera; let barrera = false; for (const w of tr.pts) { if (w.z >= Z_BARRERA - 0.25 && w.z <= Z_BARRERA + 0.25 && w.y < 1.8 && Math.abs(w.x - B.x) < B.n * 0.26) { barrera = true; break; } }
+      const rx = tr.fin.x - S.gx; const adentro = !barrera && Math.abs(rx) < ARCO.ancho / 2 && tr.fin.y < ARCO.alto && tr.fin.y > 0;
+      return { v, pot, tx, ty, pts: tr.pts, x: tr.fin.x, y: tr.fin.y, adentro, barrera };
+    }
+    function mover(g) {
+      if (S.fase !== 'listo' || !gestoValido(g)) { S.apunte = null; return; }
+      const o = objetivo(g); S.apunte = { x: o.x, y: o.y, pot: o.pot, pts: o.pts, adentro: o.adentro, rotulo: o.barrera ? 'barrera' : o.adentro ? '' : 'afuera' };
+    }
+    function gestoHacia(tx, ty, vel, comba) {
+      const p = S.pelota; const a = cam0.p(p.x, p.y, p.z), b = cam0.p(tx, ty, Z_ARCO);
+      const dx = b.x - a.x, dy = b.y - a.y; return { toque: false, x: a.x, y: a.y, dx, dy, largo: Math.hypot(dx, dy), vel: vel == null ? 1.6 : vel, comba: comba || 0, angulo: Math.atan2(dx, -dy) };
+    }
     function patear(g) {
-      if (g.toque || g.largo < 25 || g.dy > -10) return;
-      const p = S.pelota; const pot = clamp(g.vel / 2.0, 0.35, 1); const ang = clamp(g.angulo, -0.7, 0.7);
-      const altura = clamp(g.largo / 150, 0.1, 1.5) * ARCO.alto; const tVuelo = lerp(1.25, 0.95, pot) * (DIST / 20.8);
-      p.vz = DIST / tVuelo; p.vx = ((ang / 0.5) * 3.2) / tVuelo; p.comba = g.comba * 6; p.freno = 0.22;
-      // el tiro libre pica: sale alto, el aire lo frena y cae. La altura de llegada es la que pide el gesto (150 px = el travesaño).
-      p.vy = vyPara(p, altura, Z_ARCO);
-      S.fase = 'vuelo'; S.t = 0; S.estela = []; S.lectura = { fuerza: pot, altura: altura / ARCO.alto / 1.5 }; vibrar('toque'); son('patada');
+      if (!gestoValido(g)) return;
+      S.apunte = null;
+      const p = S.pelota; const o = objetivo(g); const pot = o.pot; const altura = o.ty;
+      Object.assign(p, { vx: o.v.vx, vy: o.v.vy, vz: o.v.vz, comba: o.v.comba, freno: 0.22 });
+      S.fase = 'vuelo'; S.t = 0; S.estela = []; S.lectura = null; vibrar('toque'); son('patada');
       S.barrera.saltoT = S.t + 0.12;
       // el arquero: si "lee" el tiro, vuela a donde va la pelota (x final estimado); si no, al otro lado
       const xFinal = clamp(destinoReal(p, Z_ARCO).x, S.gx - 3.3, S.gx + 3.3);
@@ -639,9 +760,9 @@
       if (res === 'barrera') { p.vz = -3; p.vy = 2.5; p.vx = (azar() - 0.5) * 3; vibrar('set'); son('atajada'); }
       if (res === 'atajada') { p.vz = -1.5; p.vy = 2; vibrar('set'); son('atajada'); son('ohh'); }
       if (res === 'poste') { p.vz = -4; p.vx = -Math.sign(p.x - S.gx) * 2; vibrar('set'); son('poste'); }
-      if (res === 'afuera') son('ohh');
+      if (res === 'afuera' || res === 'casi') son('ohh');
       const gol = res === 'gol' ? 1 : 0; S.serie.push(gol); S.racha = gol ? S.racha + 1 : 0;
-      S.mensaje = { t: gol ? (escuadra ? '¡A LA ESCUADRA!' : '¡GOLAZO!') : res === 'barrera' ? 'BARRERA' : res === 'atajada' ? 'ATAJÓ' : res === 'poste' ? 'PALO' : 'AFUERA', sub: gol ? (S.racha >= 2 ? S.racha + ' seguidos' : '') : res === 'barrera' ? 'por arriba, o con comba por el costado' : res === 'afuera' ? 'apunta al arco: está corrido' : res === 'atajada' ? 'más lejos del arquero' : '', color: gol ? '#3ED17A' : '#FF6B5B', k: 0 };
+      S.mensaje = { t: gol ? (escuadra ? '¡A LA ESCUADRA!' : '¡GOLAZO!') : res === 'barrera' ? 'BARRERA' : res === 'atajada' ? 'ATAJÓ' : res === 'poste' ? '¡AL PALO!' : res === 'casi' ? '¡CASI!' : 'AFUERA', sub: gol ? (S.racha >= 2 ? S.racha + ' seguidos' : '') : res === 'barrera' ? 'curva el dedo: la pelota dobla por el costado' : res === 'casi' ? 'por centímetros' : res === 'afuera' ? 'suelta con la mira adentro del arco' : res === 'atajada' ? 'más lejos del arquero, o más rápido' : '', color: gol ? '#3ED17A' : '#FF6B5B', k: 0 };
       if (S.arquero.vuelo) S.arquero.vuelo.t0 -= S.t;
       S.fase = 'fin-tiro'; S.t = 0;
     }
@@ -652,7 +773,9 @@
     }
     function reiniciar() { S.serie = []; S.fin = null; S.racha = 0; S.escuadras = 0; S.fase = 'listo'; S.mensaje = null; S.red = null; S.confeti = null; S.lectura = null; armar(); S.rival = rivalMete(); }
     function soltar(g) { if (S.fase === 'guia') S.fase = 'listo'; if (S.fase === 'listo') return patear(g); if (S.fase === 'final' && g.toque) reiniciar(); }
-    function avanzar(dt) {
+    function factorLenta() { const p = S.pelota; if (S.fase === 'vuelo' && p.z > Z_ARCO - 3.2) return 0.38; if (S.fase === 'fin-tiro') return S.t < 0.22 ? 0.38 : S.t < 0.5 ? lerp(0.38, 1, (S.t - 0.22) / 0.28) : 1; return 1; }
+    function avanzar(dt) { S.lenta = factorLenta(); conLenta(S, S.lenta, () => avanzarPaso(dt)); }
+    function avanzarPaso(dt) {
       S.t += dt; S.sacudida = Math.max(0, S.sacudida - dt); S.euforia = Math.max(0, S.euforia - dt * 0.5);
       if (S.red) S.red.k = Math.min(1, S.red.k + dt * 1.6);
       if (S.mensaje) S.mensaje.k = Math.min(1, S.mensaje.k + dt * 0.55);
@@ -666,7 +789,8 @@
           const poste = (Math.abs(Math.abs(rx) - ARCO.ancho / 2) < 0.16 && p.y < ARCO.alto + 0.1) || (Math.abs(p.y - ARCO.alto) < 0.16 && Math.abs(rx) < ARCO.ancho / 2 + 0.1);
           const manos = (Math.abs(p.x - A.x) < (A.alcance ? 1.0 : 0.7)) && (Math.abs(p.y - A.y) < (A.alcance ? 1.25 : 1.0));
           const escuadra = enArco && p.y > ARCO.alto - 0.75 && Math.abs(rx) > ARCO.ancho / 2 - 1.0;
-          cerrar(poste ? 'poste' : enArco && manos ? 'atajada' : enArco ? 'gol' : 'afuera', escuadra);
+          const fueraX = Math.max(0, Math.abs(rx) - ARCO.ancho / 2), fueraY = Math.max(0, p.y - ARCO.alto); const casi = p.y > 0 && Math.hypot(fueraX, fueraY) < 0.45;
+          cerrar(poste ? 'poste' : enArco && manos ? 'atajada' : enArco ? 'gol' : casi ? 'casi' : 'afuera', escuadra);
         } else if (p.piques > 0 && p.z < Z_ARCO) cerrar('afuera');
       }
       if (S.fase === 'fin-tiro') { const p = S.pelota; p.pico = false; volar(p, dt); if (p.pico) son('pique'); if (S.t > 1.6) siguiente(); }
@@ -683,8 +807,10 @@
       const p = S.pelota; const sp = cam.p(p.x, 0, p.z); const pp = cam.p(p.x, p.y, p.z); const r = Math.max(2.5, p.r * pp.k * 1.25);
       if (S.fase === 'vuelo') estela(ctx, cam, S.estela, p.r * 1.25, false);
       sombra(ctx, sp, r * (1 - clamp(p.y / 4, 0, 0.6)), 0.35 * (1 - clamp(p.y / 5, 0, 0.7))); pelotaFutbol(ctx, pp.x, pp.y, r, p.rot);
-      if (S.fase === 'guia' || (S.fase === 'listo' && S.serie.length === 0)) flechaGuia(ctx, pp.x, pp.y - r - 6, S.t);
-      hud(ctx, 'TÚ ' + S.serie.reduce((a, b) => a + b, 0), S.rival + ' ' + nombreRival.toUpperCase(), S.fase === 'guia' ? 'Desliza curvo para darle comba' : S.fase === 'listo' ? (Math.round(DIST) + ' m · ' + (S.gx > 1 ? 'el arco está a la derecha' : S.gx < -1 ? 'el arco está a la izquierda' : 'de frente')) : '', '#177A40');
+      if (S.apunte && S.fase === 'listo') mira(ctx, cam, S.apunte, Z_ARCO, S.apunte.adentro);
+      else if (S.fase === 'guia' || (S.fase === 'listo' && S.serie.length === 0)) { const q = cam.p(S.gx - (S.barrera.lado) * 2.6, 1.9, Z_ARCO); flechaGuia(ctx, pp.x, pp.y - r - 6, S.t, q.x, q.y); }
+      vineta(ctx);
+      hud(ctx, 'TÚ ' + S.serie.reduce((a, b) => a + b, 0), S.rival + ' ' + nombreRival.toUpperCase(), S.fase === 'guia' ? 'Arrastra hasta el arco; curva el dedo para la comba' : S.fase === 'listo' ? (S.apunte ? (S.apunte.rotulo === 'barrera' ? 'Así pega en la barrera' : S.apunte.adentro ? 'Suelta para patear' : 'Así se va afuera') : Math.round(DIST) + ' m · ' + (S.gx > 1 ? 'el arco está a la derecha' : S.gx < -1 ? 'el arco está a la izquierda' : 'de frente')) : '', '#177A40');
       ctx.save(); tandas(ctx, S.serie.concat(Array(Math.max(0, 5 - S.serie.length)).fill(null)), 24, 62); ctx.restore();
       texto(ctx, 'tiro ' + Math.min(5, S.serie.length + 1) + ' de 5' + (S.escuadras ? ' · ◥ ' + S.escuadras : ''), W - 24, 62, 11, S.escuadras ? '#FFB36B' : 'rgba(255,255,255,.8)', 800, 'right');
       lecturaGesto(ctx, S.lectura, S.fase === 'vuelo' ? S.t : S.fase === 'fin-tiro' && S.lectura ? S.t + 1 : 9);
@@ -693,37 +819,54 @@
       if (S.fase === 'final') { const g = S.fin.goles, rv = S.fin.rival; const m = marcaDe('libre'); pantallaFinal(ctx, { k: S.t, titulo: g > rv ? '¡LE GANASTE!' : g === rv ? 'EMPATE' : 'GANÓ EL MODELO', color: g > rv ? '#3ED17A' : g === rv ? '#E8E337' : '#FF6B5B', grande: g + ' – ' + rv, detalle: 'tú · ' + nombreRival + ', de 5 cada uno' + (S.escuadras ? ' · ' + S.escuadras + ' a la escuadra' : ''), marca: m ? m.goles + ' de 5' : null, nueva: S.fin.nueva }); }
       ctx.restore();
     }
-    return { avanzar, dibujar, soltar, estado: S, reiniciar };
+    return { avanzar, dibujar, soltar, mover, gestoHacia, estado: S, reiniciar };
   }
 
   /* ═══════════════════════════════ TRIPLES ═══════════════════════════════ */
   function Triples() {
-    const cam0 = camara({ alt: 2.2, z0: -1, pitch: 0.105, foco: 390, cy: 322 });   // un paso atrás de la pelota: el arco del tiro entra entero en pantalla
+    const CAM = { alt: 2.0, z0: -0.6, pitch: 0.02, foco: 520, cy: 300 };           // cerca de la pelota, el aro grande; la cámara sigue a la pelota hacia arriba
+    const camDe = (p, push) => camara(Object.assign({}, CAM, { pitch: CAM.pitch - 0.075 * clamp((p.y - 1.8) / 3, 0, 1), foco: CAM.foco * (1 + (push || 0)) }));
     const ARO = { z: 7.6, y: 3.05, r: 0.225, tablero: { ancho: 1.8, alto: 1.05, abajo: 2.9 } };
     const PUESTOS = [{ n: 'esquina izquierda', ang: -0.55 }, { n: 'ala izquierda', ang: -0.28 }, { n: 'frente', ang: 0 }, { n: 'ala derecha', ang: 0.28 }, { n: 'esquina derecha', ang: 0.55 }];
     const POR_PUESTO = 5;                                                     // cinco pelotas por puesto; la última es la dorada y vale doble
-    const S = { fase: 'guia', t: 0, tiempo: 60, puntos: 0, tiros: 0, racha: 0, mejorRacha: 0, puesto: 0, enPuesto: 0, pelota: null, mensaje: null, red: null, fin: null, sacudida: 0, ultimo: null, estela: [], confeti: null, ticAnt: 99, flash: 0, rival: 0 };
+    const S = { fase: 'guia', t: 0, tiempo: 60, puntos: 0, tiros: 0, racha: 0, mejorRacha: 0, puesto: 0, enPuesto: 0, pelota: null, mensaje: null, red: null, fin: null, sacudida: 0, ultimo: null, estela: [], confeti: null, ticAnt: 99, flash: 0, rival: 0, apunte: null, lenta: 1 };
     // lo que hace el modelo en su minuto: entre 27 y 51 puntos, de a tres
     const rivalHace = () => 27 + 3 * Math.floor(azar() * 9);
     function armar() { S.pelota = { x: 0, y: 1.8, z: 1.5, vx: 0, vy: 0, vz: 0, r: 0.12, rot: 0, comba: 0, toco: false, tablero: false }; S.estela = []; }
     armar(); S.rival = rivalHace();
     const nombreRival = (O.rival && O.rival.nombre) || 'el modelo';
     const dorada = () => S.enPuesto === POR_PUESTO - 1;
-    function lanzar(g) {
-      if (g.toque || g.largo < 25 || g.dy > -10) return;
+    // la franja "justa" del medidor: con qué fuerzas la pelota cae adentro del aro (se calcula una vez, tirando de frente)
+    const FRANJA = (() => { let lo = null, hi = null, lo2 = null, hi2 = null; for (let f = 0.5; f <= 1.3; f += 0.005) { const b = { x: 0, y: 1.8, z: 1.5, vx: 0, vy: ((ARO.y + 0.9 - 1.8) + 0.5 * 9.81 * 1.25 * 1.25) / 1.25 * (0.85 + f * 0.15), vz: ((ARO.z - 1.5) / 1.25) * f, r: 0.12, rot: 0 }; let k = 0, d = 9; while (k++ < 600) { const yA = b.y; volar(b, 1 / 120); if (yA > ARO.y && b.y <= ARO.y && b.vy < 0) { d = Math.hypot(b.x, b.z - ARO.z); break; } if (b.y < 0.3) break; } if (d < ARO.r) { if (lo == null) lo = f; hi = f; } if (d < ARO.r + 0.12) { if (lo2 == null) lo2 = f; hi2 = f; } } return { lo: lo == null ? 0.95 : lo, hi: hi == null ? 1.05 : hi, lo2: lo2 == null ? 0.9 : lo2, hi2: hi2 == null ? 1.1 : hi2 }; })();
+    const gestoValido = (g) => !g.toque && g.largo >= 25 && g.dy < -10;
+    function velocidades(g) {
       const p = S.pelota; const fuerza = clamp(0.5 + (g.largo / 238) * 0.5, 0.5, 1.3);   // el largo del gesto es la fuerza; la justa ronda los 190 px
       const ang = clamp(g.angulo, -0.45, 0.45);
       const tVuelo = 1.25; const dz = ARO.z - p.z;
       const vz = (dz / tVuelo) * fuerza; const vx = Math.tan(ang) * vz * 0.32 + g.comba * 0.4;
       const vy = ((ARO.y + 0.9 - p.y) + 0.5 * 9.81 * tVuelo * tVuelo) / tVuelo * (0.85 + fuerza * 0.15);
-      Object.assign(p, { vx, vy, vz, toco: false, tablero: false, rot: 0, dorada: dorada() });
+      return { vx, vy, vz, fuerza };
+    }
+    // la mira: por dónde va a pasar la pelota y dónde cae a la altura del aro (corto, justo o largo)
+    function mover(g) {
+      if (S.fase !== 'listo' || !gestoValido(g)) { S.apunte = null; return; }
+      const p = S.pelota; const v = velocidades(g); const b = { x: p.x, y: p.y, z: p.z, vx: v.vx, vy: v.vy, vz: v.vz, r: p.r, rot: 0 }; const pts = []; let k = 0, cae = null;
+      while (k++ < 600) { const yA = b.y; volar(b, 1 / 120); if (k % 5 === 0) pts.push({ x: b.x, y: b.y, z: b.z }); if (yA > ARO.y && b.y <= ARO.y && b.vy < 0) { cae = { x: b.x, z: b.z }; break; } if (b.y < 0.3) break; }
+      const d = cae ? Math.hypot(cae.x, cae.z - ARO.z) : 9; const dz = cae ? cae.z - ARO.z : -9;
+      S.apunte = { pts, cae, justo: d < ARO.r, rotulo: d < ARO.r ? '' : Math.abs(cae ? cae.x : 0) > 0.5 ? 'desviado' : dz < 0 ? 'corto' : 'largo', fuerza: v.fuerza };
+    }
+    function lanzar(g) {
+      if (!gestoValido(g)) return;
+      S.apunte = null;
+      const p = S.pelota; const v = velocidades(g);
+      Object.assign(p, { vx: v.vx, vy: v.vy, vz: v.vz, toco: false, tablero: false, rot: 0, dorada: dorada() });
       S.fase = 'vuelo'; S.t = 0; S.estela = []; S.tiros++; vibrar('toque'); son('pique');
     }
     function encesto() {
       const vale = S.pelota.dorada ? 6 : 3; S.puntos += vale; S.racha++; S.mejorRacha = Math.max(S.mejorRacha, S.racha); S.red = { k: 0 }; S.sacudida = reducido() ? 0 : 0.3; S.flash = 1;
       S.mensaje = { t: S.pelota.dorada ? '¡DORADA! +6' : S.pelota.toco ? '¡ADENTRO!' : '¡SWISH!', sub: S.racha >= 3 ? 'en llamas · racha de ' + S.racha : '', color: S.pelota.dorada ? '#FFD23F' : '#3ED17A', k: 0 }; vibrar('set'); son(S.pelota.toco ? 'aro' : 'swish'); if (S.pelota.dorada) { son('gol'); S.confeti = 0; } S.ultimo = 'adentro';
     }
-    function fallo(por) { S.racha = 0; S.mensaje = { t: por === 'corto' ? 'CORTO' : por === 'largo' ? 'LARGO' : 'AFUERA', sub: por === 'corto' ? 'más largo el gesto' : por === 'largo' ? 'más corto el gesto' : '', color: '#FF6B5B', k: 0 }; vibrar('toque'); S.ultimo = por; }
+    function fallo(por) { S.racha = 0; const casi = S.pelota.toco && !S.pelota.tablero; S.mensaje = { t: casi ? '¡CASI!' : por === 'corto' ? 'CORTO' : por === 'largo' ? 'LARGO' : 'AFUERA', sub: casi ? 'se fue del aro' : por === 'corto' ? 'más largo el gesto' : por === 'largo' ? 'más corto el gesto' : 'más derecho', color: '#FF6B5B', k: 0 }; vibrar('toque'); S.ultimo = por; }
     function terminarTiro() { S.fase = 'fin-tiro'; S.t = 0; }
     function siguiente() {
       S.mensaje = null; S.red = null; S.confeti = null;
@@ -734,7 +877,10 @@
     }
     function reiniciar() { Object.assign(S, { tiempo: 60, puntos: 0, tiros: 0, racha: 0, mejorRacha: 0, puesto: 0, enPuesto: 0, fin: null, mensaje: null, red: null, confeti: null, fase: 'listo', ticAnt: 99, rival: rivalHace() }); armar(); }
     function soltar(g) { if (S.fase === 'guia') S.fase = 'listo'; if (S.fase === 'listo') return lanzar(g); if (S.fase === 'final' && g.toque) reiniciar(); }
-    function avanzar(dt) {
+    // la cámara lenta: cuando la pelota baja sobre el aro
+    function factorLenta() { const p = S.pelota; if (S.fase === 'vuelo' && p.vy < 0 && p.y < ARO.y + 0.9 && p.y > ARO.y - 0.3 && Math.abs(p.z - ARO.z) < 1.2) return 0.4; if (S.fase === 'fin-tiro' && S.t < 0.18) return 0.45; return 1; }
+    function avanzar(dt) { S.lenta = factorLenta(); conLenta(S, S.lenta, () => avanzarPaso(dt)); }
+    function avanzarPaso(dt) {
       S.t += dt; S.sacudida = Math.max(0, S.sacudida - dt); S.flash = Math.max(0, S.flash - dt * 2);
       if (S.fase !== 'guia' && S.fase !== 'final') { S.tiempo = Math.max(0, S.tiempo - dt); const seg = Math.ceil(S.tiempo); if (seg <= 5 && seg !== S.ticAnt && seg > 0) { son('tic'); S.ticAnt = seg; } }
       if (S.red) S.red.k = Math.min(1, S.red.k + dt * 1.8);
@@ -763,8 +909,8 @@
     function dibujar() {
       const ctx = CTX; ctx.setTransform(CV.width / W, 0, 0, CV.height / H, 0, 0); ctx.save();
       if (S.sacudida > 0) ctx.translate(Math.sin(S.t * 91) * 3 * S.sacudida, Math.cos(S.t * 73) * 3 * S.sacudida);
-      const push = S.fase === 'vuelo' ? 0.06 * easeOut(S.t / 0.6) : S.fase === 'fin-tiro' ? 0.06 * (1 - easeOut(S.t / 0.5)) : 0;
-      const cam = cam0.cerca(push);
+      const push = S.fase === 'vuelo' ? 0.05 * easeOut(S.t / 0.6) : S.fase === 'fin-tiro' ? 0.05 * (1 - easeOut(S.t / 0.5)) : 0;
+      const cam = camDe(S.pelota, push);
       // el estadio: la cancha en sombra, luces altas, banderines, y la tribuna de verdad detrás del tablero
       const hz = cam.hz;
       const cielo = ctx.createLinearGradient(0, 0, 0, Math.max(40, hz)); cielo.addColorStop(0, '#07060F'); cielo.addColorStop(0.6, '#1B1428'); cielo.addColorStop(1, '#2A1F35'); ctx.fillStyle = cielo; ctx.fillRect(0, 0, W, H);
@@ -775,12 +921,16 @@
       { const s0 = cam.p(0, 0, 400).y; const piso = ctx.createLinearGradient(0, s0, 0, H); piso.addColorStop(0, '#D4A066'); piso.addColorStop(1, '#A6713B'); ctx.fillStyle = piso; ctx.fillRect(0, s0, W, H - s0); }
       { const zb = ARO.z + 1.2; const a = cam.p(-40, 0, zb), b = cam.p(40, 0, zb), c = cam.p(40, 0, zb + 60), d = cam.p(-40, 0, zb + 60); ctx.fillStyle = '#3A2E30'; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.lineTo(c.x, c.y); ctx.lineTo(d.x, d.y); ctx.closePath(); ctx.fill(); }
       // la tribuna detrás del aro (la referencia de "corto" o "largo"), con flashes si hay racha
-      tribuna3D(cam, S.t, { euforia: S.racha >= 3 ? 0.35 : 0 }, ARO.z + 3.2, false, { FILAS: 14, SUBE: 0.62, ATRAS: 0.72, X0: -24, X1: 24, valla: '#2A2436', fila: ['#2E2838', '#2A2434'], escalon: '#1E1A26', techo: '#5A4E6A' });
+      const Z_TRIB = ARO.z + 6.2;
+      tribuna3D(cam, S.t, { euforia: S.racha >= 3 ? 0.35 : 0 }, Z_TRIB, false, { FILAS: 13, SUBE: 0.62, ATRAS: 0.72, X0: -30, X1: 30, valla: '#241F2E', fila: ['#2A2434', '#262030'], escalon: '#1A1622', techo: '#4A405A', paleta: ['#3A3448', '#443C52', '#6A5A3A', '#302A3E', '#6E6878', '#5A3A32', '#3A3448', '#3C4A6A', '#2E4A3E', '#2A2438', '#78726A', '#3E3028'] });
+      { const pie = cam.p(0, 1.1, Z_TRIB).y, techo = cam.p(0, 1.1 + 13 * 0.62, Z_TRIB + 13 * 0.72).y; velo(ctx, pie, techo - 20, 'rgba(10,8,18,A)', 0.3, 0.7); }
       // el cartel al pie de la tribuna
-      { const zc = ARO.z + 3.1; for (let x = -24; x < 24; x += 6) { const a = cam.p(x, 0, zc), b = cam.p(x + 6, 0, zc), c = cam.p(x + 6, 0.8, zc), d = cam.p(x, 0.8, zc); ctx.fillStyle = (x / 6) % 2 ? '#14110F' : '#E8731C'; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.lineTo(c.x, c.y); ctx.lineTo(d.x, d.y); ctx.closePath(); ctx.fill(); const m = cam.p(x + 3, 0.4, zc); if (m.x > -40 && m.x < W + 40) texto(ctx, 'MANO A MANO', m.x, m.y, Math.max(3, 0.3 * m.k), (x / 6) % 2 ? '#E8731C' : '#14110F', 800); } }
+      { const zc = Z_TRIB - 0.1; for (let x = -24; x < 24; x += 6) { const a = cam.p(x, 0, zc), b = cam.p(x + 6, 0, zc), c = cam.p(x + 6, 0.8, zc), d = cam.p(x, 0.8, zc); ctx.fillStyle = (x / 6) % 2 ? '#14110F' : '#E8731C'; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.lineTo(c.x, c.y); ctx.lineTo(d.x, d.y); ctx.closePath(); ctx.fill(); const m = cam.p(x + 3, 0.4, zc); if (m.x > -40 && m.x < W + 40) texto(ctx, 'MANO A MANO', m.x, m.y, Math.max(3, 0.3 * m.k), (x / 6) % 2 ? '#E8731C' : '#14110F', 800); } }
       // el parquet: tablas con vetas
       const piso = ctx.createLinearGradient(0, hz, 0, H); piso.addColorStop(0, '#D4A066'); piso.addColorStop(1, '#A6713B'); ctx.fillStyle = piso; ctx.fillRect(0, hz, W, H - hz);
       ctx.save(); { const zb = ARO.z + 1.2; for (let x = -14; x <= 14; x += 1) { const a = cam.p(x, 0, cam.z0 + 0.4), b = cam.p(x, 0, zb); ctx.strokeStyle = 'rgba(80,40,10,.22)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); if (hash(x + 40) < 0.5) { const c = cam.p(x + 1, 0, cam.z0 + 0.4), d = cam.p(x + 1, 0, zb); ctx.fillStyle = 'rgba(255,230,190,.07)'; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.lineTo(d.x, d.y); ctx.lineTo(c.x, c.y); ctx.closePath(); ctx.fill(); } } } ctx.restore();
+      // el reflejo de las luces en el parquet: una franja de brillo que cruza la cancha
+      { const a = cam.p(-9, 0, ARO.z - 3.6), b = cam.p(9, 0, ARO.z - 3.6); const g = ctx.createLinearGradient(0, a.y - 26, 0, a.y + 30); g.addColorStop(0, 'rgba(255,240,200,0)'); g.addColorStop(0.5, 'rgba(255,240,200,.16)'); g.addColorStop(1, 'rgba(255,240,200,0)'); ctx.fillStyle = g; ctx.fillRect(0, a.y - 26, W, 56); }
       // las líneas de la cancha, giradas alrededor del aro según el puesto (la cámara siempre mira al aro)
       const giro = PUESTOS[S.puesto].ang;
       const gira = (x, z) => { const dz = z - ARO.z; return { x: x * Math.cos(giro) - dz * Math.sin(giro), z: ARO.z + x * Math.sin(giro) + dz * Math.cos(giro) }; };
@@ -795,6 +945,8 @@
       ctx.restore();
       // el logo del centro: la marca propia
       { const g = gira(0, ARO.z - 2.6); const q = cam.p(g.x, 0, g.z); texto(ctx, 'MANO A MANO', q.x, q.y, Math.max(5, q.k * 0.16), 'rgba(255,255,255,.35)', 800); }
+      // detrás del tablero, la sombra: el aro se recorta contra el fondo
+      { const q = cam.p(0, ARO.y, ARO.z + 0.6); const rad = Math.max(60, 2.6 * q.k); const g = ctx.createRadialGradient(q.x, q.y - rad * 0.1, 0, q.x, q.y - rad * 0.1, rad); g.addColorStop(0, 'rgba(6,5,12,.62)'); g.addColorStop(0.6, 'rgba(6,5,12,.4)'); g.addColorStop(1, 'rgba(6,5,12,0)'); ctx.fillStyle = g; ctx.fillRect(q.x - rad, q.y - rad * 1.1, rad * 2, rad * 2.2); }
       // el tablero con su vidrio, el cuadrado y el poste
       const zT = ARO.z + 0.4, tw = ARO.tablero.ancho / 2 * Math.cos(giro), tz = ARO.tablero.ancho / 2 * Math.sin(giro);
       const T1 = cam.p(-tw, ARO.tablero.abajo, zT + tz), T2 = cam.p(tw, ARO.tablero.abajo, zT - tz), T3 = cam.p(tw, ARO.tablero.abajo + ARO.tablero.alto, zT - tz), T4 = cam.p(-tw, ARO.tablero.abajo + ARO.tablero.alto, zT + tz);
@@ -819,9 +971,23 @@
       ctx.strokeStyle = '#F0862E'; ctx.lineWidth = Math.max(2, ar * 0.16); ctx.beginPath(); ctx.ellipse(ac.x, ac.y, ar, ar * 0.35, 0, 0, Math.PI * 2); ctx.stroke(); ctx.restore();
       if (!detras) dibujarPelota();
       if (S.flash > 0) { ctx.save(); ctx.globalAlpha = 0.25 * S.flash; ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H); ctx.restore(); }
-      if (S.fase === 'guia' || (S.fase === 'listo' && S.tiros === 0)) flechaGuia(ctx, pp.x, pp.y - r - 6, S.t);
+      // la mira: la marca donde cae a la altura del aro, y el medidor de fuerza con la franja justa
+      if (S.apunte && S.fase === 'listo') {
+        const ap = S.apunte; const col = ap.justo ? '#3ED17A' : '#FF6B5B'; ctx.save();
+        if (ap.cae) { const q = cam.p(ap.cae.x, ARO.y, ap.cae.z); ctx.strokeStyle = col; ctx.lineWidth = 3; ctx.shadowColor = col; ctx.shadowBlur = 10; ctx.beginPath(); ctx.ellipse(q.x, q.y, Math.max(7, 0.24 * q.k), Math.max(3, 0.09 * q.k), 0, 0, Math.PI * 2); ctx.stroke(); ctx.shadowBlur = 0; if (ap.rotulo) texto(ctx, ap.rotulo, q.x, q.y - 16, 12, col, 800); }
+        // el medidor, a la derecha: corto abajo, largo arriba, la franja verde en el medio
+        const x = W - 30, y0 = 420, y1 = 200; const yDe = (f) => lerp(y0, y1, (f - 0.5) / 0.8);
+        ctx.fillStyle = 'rgba(10,12,28,.55)'; ctx.beginPath(); ctx.roundRect(x - 9, y1 - 10, 18, y0 - y1 + 20, 9); ctx.fill();
+        ctx.fillStyle = 'rgba(62,209,122,.28)'; ctx.beginPath(); ctx.roundRect(x - 5, yDe(FRANJA.hi2), 10, yDe(FRANJA.lo2) - yDe(FRANJA.hi2), 4); ctx.fill();
+        ctx.fillStyle = 'rgba(62,209,122,.75)'; ctx.beginPath(); ctx.roundRect(x - 5, yDe(FRANJA.hi), 10, Math.max(3, yDe(FRANJA.lo) - yDe(FRANJA.hi)), 3); ctx.fill();
+        const yn = yDe(clamp(ap.fuerza, 0.5, 1.3)); ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(x - 14, yn); ctx.lineTo(x - 4, yn - 5); ctx.lineTo(x - 4, yn + 5); ctx.closePath(); ctx.fill(); ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.roundRect(x - 7, yn - 1.5, 14, 3, 1.5); ctx.fill();
+        texto(ctx, 'largo', x, y1 - 20, 9, 'rgba(255,255,255,.7)', 700); texto(ctx, 'corto', x, y0 + 20, 9, 'rgba(255,255,255,.7)', 700);
+        ctx.restore();
+      }
+      vineta(ctx, 0.3);
+      if (!S.apunte && (S.fase === 'guia' || (S.fase === 'listo' && S.tiros === 0))) flechaGuia(ctx, pp.x, pp.y - r - 6, S.t);
       const seg = Math.ceil(S.tiempo);
-      hud(ctx, 'TÚ ' + S.puntos, seg + ' s', S.fase === 'guia' ? 'Desliza hacia arriba para tirar' : S.fase === 'listo' ? PUESTOS[S.puesto].n + (dorada() ? ' · la dorada vale doble' : '') : '', seg <= 10 ? '#FF6B5B' : '#E8731C');
+      hud(ctx, 'TÚ ' + S.puntos, seg + ' s', S.fase === 'guia' ? 'Desliza hacia arriba para tirar' : S.fase === 'listo' ? (S.apunte ? (S.apunte.justo ? 'Suelta: va adentro' : S.apunte.rotulo === 'corto' ? 'Más largo el gesto' : S.apunte.rotulo === 'largo' ? 'Más corto el gesto' : 'Más derecho') : PUESTOS[S.puesto].n + (dorada() ? ' · la dorada vale doble' : '')) : '', seg <= 10 ? '#FF6B5B' : '#E8731C');
       if (S.fase !== 'final') texto(ctx, nombreRival + ' hizo ' + S.rival, W / 2, 29, 10.5, 'rgba(255,255,255,.7)', 700);
       // las cinco pelotas del puesto: las tiradas, la que viene, y la dorada al final
       ctx.save(); for (let i = 0; i < POR_PUESTO; i++) { const cx = 24 + i * 15; ctx.beginPath(); ctx.arc(cx, 62, 5.5, 0, Math.PI * 2); ctx.fillStyle = i < S.enPuesto ? 'rgba(255,255,255,.3)' : i === POR_PUESTO - 1 ? '#FFD23F' : '#F0862E'; ctx.fill(); if (i === S.enPuesto) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 1.5; ctx.stroke(); } } ctx.restore();
@@ -832,15 +998,15 @@
       if (S.fase === 'final') { const f = S.fin; const m = marcaDe('triples'); pantallaFinal(ctx, { k: S.t, fondo: 'rgba(11,10,20,.88)', titulo: f.puntos > f.rival ? (f.puntos >= 45 ? '¡EN LLAMAS!' : '¡LE GANASTE!') : f.puntos === f.rival ? 'EMPATE' : 'GANÓ EL MODELO', color: f.puntos > f.rival ? (f.puntos >= 45 ? '#FFD23F' : '#3ED17A') : f.puntos === f.rival ? '#E8E337' : '#FF6B5B', grande: f.puntos + ' – ' + f.rival, detalle: 'tú · ' + nombreRival + ' · ' + f.tiros + ' tiros · mejor racha ' + f.racha, marca: m ? m.puntos + ' pts' : null, nueva: f.nueva }); }
       ctx.restore();
     }
-    return { avanzar, dibujar, soltar, estado: S, reiniciar };
+    return { avanzar, dibujar, soltar, mover, estado: S, reiniciar };
   }
 
   /* ═══════════════════════════════ montar / desmontar ═══════════════════════════════ */
   const JUEGOS = { penales: Penales, libre: TiroLibre, triples: Triples };
   const FICHA = {
-    penales: { titulo: 'Penales', sub: 'Cinco y cinco contra el arquero del modelo, y muerte súbita si empatan. Desliza hacia el arco: la velocidad del dedo es la fuerza, el largo es la altura. Ojo al amago del arquero. Cuando patea él, toca hacia dónde te tiras.' },
-    libre: { titulo: 'Tiro libre', sub: 'Cinco tiros contra los cinco del modelo, cada uno desde un lugar distinto: el arco queda corrido y la barrera tapa el palo cercano. Desliza curvo y la pelota toma comba: por arriba de la barrera o por el costado, lejos del arquero. A la escuadra vale el aplauso.' },
-    triples: { titulo: 'Triples', sub: 'Sesenta segundos contra el minuto del modelo, cinco pelotas por puesto alrededor del arco. Desliza hacia arriba: el largo del gesto es la fuerza. Tres puntos cada uno; la dorada de cada puesto vale seis, y con tres seguidos la pelota se prende fuego.' },
+    penales: { titulo: 'Penales', sub: 'Cinco y cinco contra el arquero del modelo, y muerte súbita si empatan. Arrastra la pelota hasta donde quieres que entre y suelta: la mira te muestra el punto. Rápido es fuerte; lento es puntería. Ojo al amago del arquero. Cuando patea él, toca hacia dónde te tiras.' },
+    libre: { titulo: 'Tiro libre', sub: 'Cinco tiros contra los cinco del modelo, cada uno desde un lugar distinto: el arco queda corrido y la barrera tapa el palo cercano. Arrastra hasta el arco y curva el dedo: la pelota dobla por el costado de la barrera. La mira te muestra por dónde pasa. A la escuadra vale el aplauso.' },
+    triples: { titulo: 'Triples', sub: 'Sesenta segundos contra el minuto del modelo, cinco pelotas por puesto alrededor del aro. Desliza hacia arriba: el largo del gesto es la fuerza, y la mira te dice si va corto o largo. Tres puntos cada uno; la dorada de cada puesto vale seis, y con tres seguidos la pelota se prende fuego.' },
   };
   function montar(el, juego, opciones) {
     desmontar(); O = opciones || {}; RAIZ = el;
@@ -851,7 +1017,7 @@
       <div class="mam-fila" style="justify-content:space-between"><button type="button" class="mam-boton secundario chico" data-juego-otra>Otra vez</button><button type="button" class="mam-boton secundario chico" data-juego-sonido aria-pressed="${Sonido.activo() ? 'true' : 'false'}">${Sonido.activo() ? 'Sonido: sí' : 'Sonido: no'}</button><button type="button" class="mam-boton secundario chico" data-juego-compartir>Compartir</button></div></div>`;
     CV = el.querySelector('canvas'); CTX = prepararLienzo(CV);
     G = JUEGOS[juego] ? JUEGOS[juego]() : Penales(); G.nombre = juego;
-    gesto = Gesto(CV, (g) => { if (G) G.soltar(g); }, null);
+    gesto = Gesto(CV, (g) => { if (G) G.soltar(g); }, (g) => { if (G && G.mover) G.mover(g); });
     CV.tabIndex = 0;
     CV.addEventListener('keydown', (ev) => { if (!G) return; if (ev.key === ' ' || ev.key === 'Enter') { ev.preventDefault(); G.soltar({ toque: true, x: W / 2, y: H / 2, largo: 0, dx: 0, dy: 0, vel: 0, comba: 0, angulo: 0 }); } });
     el.querySelector('[data-juego-otra]').addEventListener('click', () => { if (G) G.reiniciar(); });

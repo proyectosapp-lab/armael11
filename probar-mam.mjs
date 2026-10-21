@@ -335,7 +335,7 @@ await page.mouse.click(200, 560); await page.waitForTimeout(200);
 await deslizar(180, 430, 130, 250, 150); await page.waitForTimeout(300);
 let est = await page.evaluate(() => window.mamJuegos._estado().estado.fase);
 ok(est === "vuelo-mio" || est === "fin-tiro", "deslizar patea el penal (fase " + est + ")");
-await page.waitForTimeout(2500); est = await page.evaluate(() => { const s = window.mamJuegos._estado().estado; return { serie: s.serie.length, tanda: s.tanda, fase: s.fase }; });
+await page.waitForTimeout(3600); est = await page.evaluate(() => { const s = window.mamJuegos._estado().estado; return { serie: s.serie.length, tanda: s.tanda, fase: s.fase }; });   // (con la cámara lenta del final, el tiro tarda un poco más)
 ok(est.serie === 1 && est.tanda === "el", "después de mi penal patea él (" + JSON.stringify(est) + ")");
 await page.click('#mam-juga [data-j="libre"]'); await page.waitForTimeout(400);
 ok((await page.evaluate(() => window.mamJuegos._estado().nombre)) === "libre", "la ficha Tiro libre monta el otro juego");

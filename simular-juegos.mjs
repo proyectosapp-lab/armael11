@@ -9,7 +9,7 @@ function jugar(juego, perfil, partidas) {
     let t = 0; const G = mamJuegos._crear(juego, { ahora: () => t, azar });
     const S = G.estado; let seguridad = 0;
     while (S.fase !== "final" && seguridad++ < 20000) {
-      if (S.fase === "guia" || S.fase === "listo") G.soltar(perfil.gesto(S));
+      if (S.fase === "guia" || S.fase === "listo") G.soltar(perfil.gesto(S, G));
       if (S.fase === "vuelo-rival" && !S.arquero.vuelo && S.t > 0.12) G.soltar(perfil.atajar(S));
       G.avanzar(1 / 60); t += 1000 / 60;
     }
@@ -17,12 +17,14 @@ function jugar(juego, perfil, partidas) {
   }
   return res;
 }
+// Desde el 21/10 el gesto de fútbol es "arrastrar hasta donde quiero que entre": el perfil elige un punto del arco
+// (x, y en metros) y G.gestoHacia lo convierte en el gesto de pantalla; la velocidad del dedo es la potencia.
 const PERFILES = {
-  bueno: { gesto: () => ({ toque: false, largo: 110 + gauss() * 18, vel: 1.7 + gauss() * 0.3, dy: -100, dx: 0, comba: gauss() * 0.15, angulo: (azar() < 0.5 ? -1 : 1) * (0.4 + gauss() * 0.08), x: 180, y: 420 }), atajar: (S) => { const real = Math.sign(S.pelota.vx) || 1; const lejos = Math.abs(S.pelota.vx) > 2.5 ? 130 : Math.abs(S.pelota.vx) > 1 ? 70 : 10; return { toque: true, x: 180 - (S.pista ? S.pista.dir : real) * lejos, y: S.pelota.vy > 5 ? 200 : 400, dx: 0, dy: 0, largo: 0 }; } },   // la pantalla está espejada: miro desde atrás del arco
-  novato: { gesto: () => ({ toque: false, largo: 90 + gauss() * 45, vel: 1.2 + gauss() * 0.5, dy: -100, dx: 0, comba: gauss() * 0.3, angulo: gauss() * 0.5, x: 180, y: 420 }), atajar: () => ({ toque: true, x: 180 + (azar() < 0.5 ? -1 : 1) * 100, y: 400, dx: 0, dy: 0, largo: 0 }) },
-  // el bueno mira dónde quedó el arco (gx) y de qué lado está la barrera: apunta al palo lejano y le pone comba hacia afuera
-  libreBueno: { gesto: (S) => { const l = S.barrera.lado, gx = S.gx; const comba = -l * (0.5 + gauss() * 0.15); const tv = 0.98 * (S.dist / 20.8); const objetivo = gx - l * (2.9 + gauss() * 0.3); const ang = (objetivo - 0.5 * comba * 6 * tv * tv * 1.3) / (6.4 * 1.17); return { toque: false, largo: 115 + gauss() * 12, vel: 1.8 + gauss() * 0.3, dy: -100, dx: 0, comba, angulo: ang + gauss() * 0.04, x: 180, y: 420 }; } },
-  libreNovato: { gesto: (S) => ({ toque: false, largo: 110 + gauss() * 40, vel: 1.3 + gauss() * 0.5, dy: -100, dx: 0, comba: gauss() * 0.4, angulo: S.gx / 6.4 + gauss() * 0.4, x: 180, y: 420 }) },
+  bueno: { gesto: (S, G) => G.gestoHacia((azar() < 0.5 ? -1 : 1) * (2.9 + gauss() * 0.2), azar() < 0.7 ? 2.0 + gauss() * 0.16 : 0.35 + gauss() * 0.12, 1.9 + gauss() * 0.25, gauss() * 0.08), atajar: (S) => { const real = Math.sign(S.pelota.vx) || 1; const lejos = Math.abs(S.pelota.vx) > 2.5 ? 130 : Math.abs(S.pelota.vx) > 1 ? 70 : 10; return { toque: true, x: 180 - (S.pista ? S.pista.dir : real) * lejos, y: S.pelota.vy > 5 ? 200 : 400, dx: 0, dy: 0, largo: 0 }; } },   // la pantalla está espejada: miro desde atrás del arco
+  novato: { gesto: (S, G) => G.gestoHacia(gauss() * 2.4, 1.1 + gauss() * 0.9, 1.3 + gauss() * 0.5, gauss() * 0.3), atajar: () => ({ toque: true, x: 180 + (azar() < 0.5 ? -1 : 1) * 100, y: 400, dx: 0, dy: 0, largo: 0 }) },
+  // el bueno mira dónde quedó el arco (gx) y de qué lado está la barrera: apunta al palo lejano, alto, con un poco de comba hacia afuera
+  libreBueno: { gesto: (S, G) => { const l = S.barrera.lado; return G.gestoHacia(S.gx - l * (2.9 + gauss() * 0.3), 1.85 + gauss() * 0.28, 1.8 + gauss() * 0.3, -l * (0.45 + gauss() * 0.15)); } },
+  libreNovato: { gesto: (S, G) => G.gestoHacia(S.gx + gauss() * 2.6, 1.2 + gauss() * 0.9, 1.3 + gauss() * 0.5, gauss() * 0.4) },
   triplesBueno: { gesto: () => ({ toque: false, largo: 190 + gauss() * 14, vel: 1.5, dy: -100, dx: 0, comba: 0, angulo: gauss() * 0.04, x: 180, y: 450 }) },
   triplesNovato: { gesto: () => ({ toque: false, largo: 190 + gauss() * 40, vel: 1.5, dy: -100, dx: 0, comba: 0, angulo: gauss() * 0.12, x: 180, y: 450 }) },
 };
