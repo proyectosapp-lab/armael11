@@ -204,3 +204,9 @@ button:disabled{opacity:.45;cursor:default}
 .mam-guardar{bottom:8px;background:var(--tinta);color:var(--papel);border:0;border-radius:16px;padding:10px 10px 10px 16px;box-shadow:0 6px 20px rgba(0,0,0,.18)}
 .mam-guardar .mam-nota{color:var(--papel);opacity:.9;flex:1}
 .mam-guardar .mam-boton{flex:none;min-width:130px;margin:0;background:#DFF140;color:#14110F}
+/* en vivo (22/10): el marcador de la NBA mientras se juega */
+.mam-vivo{display:flex;flex-direction:column;gap:1px;margin:2px 0 6px;padding:8px 10px;border-radius:10px;background:var(--papel);border-left:4px solid var(--nba)}
+.mam-vivo b{font-size:16px;font-variant-numeric:tabular-nums}
+.mam-vivo small{font-size:11px;font-weight:700;letter-spacing:.4px;color:var(--nba)}
+.mam-vivo.final{border-left-color:var(--gris)}.mam-vivo.final small{color:var(--gris)}
+.mam-partido-juego.envivo{border-color:var(--nba)}

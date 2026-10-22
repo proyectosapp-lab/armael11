@@ -50,6 +50,8 @@ const OFICIAL = { codigo: "OFI777", nombre: "El desafío del finde", estado: "ab
     ({ deporte, partido, local, visita, empieza: EN(h), rotulo: null, opciones: deporte === "futbol" ? 3 : 2, resultado: null, empezo: false, modelo: null, modelo_p: null, mia: null, elecciones: null })),
   jugadores: [{ apodo: "lucho", puntos: 0, creador: false, yo: false, elegidos: 3 }] };
 async function simularBackend(page) {
+  // los marcadores en vivo de la NBA (armaelquinteto.com/datos/nba-vivo.json): el partido n1 se está jugando
+  await page.route(/armaelquinteto\.com\/datos\/nba-vivo\.json/, (route) => route.fulfill({ status: 200, contentType: "application/json", headers: { "access-control-allow-origin": "*" }, body: JSON.stringify({ generado: new Date().toISOString(), partidos: [{ id: "n1", estado: "en juego", cuarto: 3, reloj: "7:42", pl: 71, pv: 66, local: { codigo: "BOS" }, visita: { codigo: "DEN" } }] }) }));
   await page.route(/supabase\.co/, async (route) => {
     const req = route.request(); const url = req.url(); const metodo = req.method();
     LLAMADAS.push(metodo + " " + url.replace(/^.*supabase\.co/, ""));
@@ -264,6 +266,13 @@ DESAFIO.estado = "en juego"; DESAFIO.partidos[0].empezo = true; DESAFIO.partidos
 await page.goto(BASE + "/index.html#desafio=ABC123"); await page.waitForTimeout(1500);
 ok(await page.isVisible("#mam-desafios [data-imagen]"), "hay botón de imagen para Instagram");
 ok(/el modelo/i.test(await page.textContent("#mam-desafios")), "el modelo aparece en la tabla");
+// en vivo: el partido de la NBA ya empezó y el marcador llega del sitio del Quinteto
+DESAFIO.partidos.find((p) => p.partido === "n1").empezo = true;
+await page.goto(BASE + "/index.html#desafio=ABC123"); await page.waitForTimeout(1200); await page.evaluate(() => window.mam.traerVivo()); await page.waitForTimeout(500);
+const vivoTxt = (await page.textContent("#mam-desafios .mam-vivo") || "").replace(/\s+/g, " ");
+ok(/Boston 71 – 66 Denver/.test(vivoTxt) && /EN VIVO · 3Q 7:42/.test(vivoTxt), "el partido de la NBA que se juega muestra el marcador en vivo (" + vivoTxt.trim() + ")");
+ok((await page.$$("#mam-desafios .mam-vivo")).length === 1, "…y solo ese (los otros no empezaron o no son NBA)");
+DESAFIO.partidos.find((p) => p.partido === "n1").empezo = false;
 await page.click("#mam-desafios [data-imagen]"); await page.waitForTimeout(800);
 ok(await page.isVisible("#mam-desafios img.mam-imagen"), "la imagen de la tabla se genera");
 await page.screenshot({ path: aca("./app/captura-4b-tabla.png") });

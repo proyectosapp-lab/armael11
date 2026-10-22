@@ -250,9 +250,22 @@
     const w = (d) => ventana(d) || {};
     return { lista: out, total, faltan, listos: !!(w('futbol').LIGAS && w('tenis').SV_HOY && w('nba').NBA_HOY) };
   }
+  // ── en vivo (22/10): los marcadores de la NBA mientras se juega. Los publica armaelquinteto.com cada 15 minutos de
+  //    noche (nba-vivo.json). Se leen cada minuto mientras la app está a la vista; los desafíos los muestran en cada partido.
+  const VIVO = { nba: {}, cuando: 0 };
+  async function traerVivo() {
+    const origen = (S().sitios || {}).nba; if (!origen) return;
+    try {
+      const r = await fetch(origen.replace(/\/$/, '') + '/datos/nba-vivo.json?t=' + Date.now(), { cache: 'no-store' }); if (!r.ok) return;
+      const j = await r.json(); if (!j || !Array.isArray(j.partidos)) return;
+      VIVO.nba = {}; for (const p of j.partidos) if (p && p.id != null) VIVO.nba[String(p.id)] = p; VIVO.cuando = Date.now();
+      try { raiz.dispatchEvent(new CustomEvent('mam-vivo')); } catch (e) {}
+    } catch (e) {}
+  }
+  const vivo = (deporte, partido) => (VIVO[deporte] || {})[String(partido)] || null;
   function contexto() {
     const codigo = desafioPendiente; desafioPendiente = null;
-    return { partidos, modelo, destacados, ir: (p, d) => ir(p, d), alCambiarCuenta: () => { recargarTodos(); D().refrescarGlobo(); }, codigo, momento };
+    return { partidos, modelo, destacados, vivo, ir: (p, d) => ir(p, d), alCambiarCuenta: () => { recargarTodos(); D().refrescarGlobo(); }, codigo, momento };
   }
 
   // ── la cuenta ──
@@ -449,11 +462,12 @@
     if (cd) abrirDesafio(cd); else if (dhInicio) irADeporte(dhInicio); else if (planesInicio) ir('cuenta'); else { if (/^#juegos/.test(location.hash)) pestana = 'juga'; mostrar(); }
     D().refrescarGlobo();
     setInterval(() => { if (document.visibilityState === 'visible') D().refrescarGlobo(); }, 5 * 60000);
+    traerVivo(); setInterval(() => { if (document.visibilityState === 'visible') traerVivo(); }, 60000);
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { CU().asegurarSesion(); D().refrescarGlobo(); } });
     // volver a Desafíos después de la bienvenida con un código pendiente
     if (desafioPendiente && pestana !== 'desafios') ir('desafios');
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', arrancar); else arrancar();
 
-  raiz.mam = { ir, partidos, modelo, destacados, elegirDestacados, abrirDesafio, recargarTodos, momento, estado: () => ({ deportes, deporte, pestana }), _marcos: marcos };
+  raiz.mam = { ir, partidos, modelo, destacados, elegirDestacados, abrirDesafio, recargarTodos, momento, vivo, traerVivo, estado: () => ({ deportes, deporte, pestana }), _marcos: marcos };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -367,8 +367,12 @@
       if (p.modelo) otros.unshift(`<span><b>el modelo</b> ${esc(NOMBRE_OP(p, p.modelo))}${p.modelo_p ? ' (' + Math.round(p.modelo_p * 100) + '%)' : ''}</span>`);
       revelado = `<div class="mam-revelado">${otros.join('') || '<span>nadie eligió</span>'}</div>`;
     }
-    return `<div class="mam-tarjeta mam-partido-juego">
+    // en vivo: el marcador mientras se juega (lo trae el cascarón de la web de la NBA); cuando termina, hasta que se resuelva
+    const v = (ctx.vivo && !p.resultado && p.empezo) ? ctx.vivo(p.deporte, p.partido) : null;
+    const vivoHTML = v && v.estado !== 'programado' && v.pl != null ? `<div class="mam-vivo${v.estado === 'terminado' ? ' final' : ''}"><b>${esc(p.local)} ${v.pl} – ${v.pv} ${esc(p.visita)}</b><small>${v.estado === 'terminado' ? 'terminó · se resuelve en minutos' : v.estado === 'entretiempo' ? 'EN VIVO · entretiempo' : 'EN VIVO · ' + (v.cuarto > 4 ? 'OT' + (v.cuarto - 4) : (v.cuarto || '') + 'Q') + (v.reloj ? ' ' + esc(v.reloj) : '')}</small></div>` : '';
+    return `<div class="mam-tarjeta mam-partido-juego${v && v.estado !== 'terminado' && v.estado !== 'programado' ? ' envivo' : ''}">
       <div class="mam-fila"><span class="crece"><b>${esc(p.rotulo || DEPORTE[p.deporte])}</b> <small class="mam-nota">· ${esc(horaDe(Date.parse(p.empieza)))}</small></span><small class="mam-nota">${esc(estado)}</small></div>
+      ${vivoHTML}
       <div class="mam-eleccion${p.opciones === 3 ? ' tres' : ''}">${botones.length === 2 ? botones[0] + '<span>o</span>' + botones[1] : botones.join('')}</div>
       ${revelado}</div>`;
   }
@@ -518,5 +522,7 @@
     return pintarLista();
   }
   async function refrescarGlobo() { try { if (!necesitaApodo()) actualizarGlobo((await CU().rpc('mis_desafios')) || []); } catch (e) {} }
+  // cuando llegan marcadores nuevos, el desafío abierto se vuelve a pintar (sin perder el scroll)
+  try { raiz.addEventListener('mam-vivo', () => { if (vista.que !== 'desafio' || !raizEl) return; const d = cache[vista.codigo]; if (!d || !ctx.vivo || !d.partidos.some((p) => p.empezo && !p.resultado && ctx.vivo(p.deporte, p.partido))) return; const c = raizEl.closest('.mam-pantalla') || document.scrollingElement; const y = c ? c.scrollTop : 0; pintarDesafio(d); if (c) c.scrollTop = y; }); } catch (e) {}
   raiz.mamDesafios = { pintar, abrir, pintarLista, pintarCrear, pintarUnirme, refrescarGlobo, imagenElecciones, imagenResultado, _resultado: (d) => { const r = resultado(d, conModelo(d)); return Object.assign(r, { texto: textoResultado(d, r) }); }, _vista: () => vista };
 })(typeof window !== 'undefined' ? window : globalThis);
