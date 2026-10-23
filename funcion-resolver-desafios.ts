@@ -15,9 +15,11 @@
      2. Para cada deporte baja el archivo PÚBLICO de resultados del sitio
         correspondiente —los mismos que usan las webs— y busca el partido:
           tenis   sacavos.com/datos/tenis-hoy.js        → jugados[].gano (1 = ganó a, 2 = ganó b)
-          fútbol  armael11.com/datos/liga-<slug>.js     → partidos[].estado FT/AET/PEN + golL/golV
+          fútbol  armael11.com/datos/liga-<slug>.js     → partidos[] y recientes[]: estado FT/AET/PEN + golL/golV
           NBA     armaelquinteto.com/datos/nba-jugados.js → partidos[].pl / pv
-     3. Lo que encontró lo escribe con `resolver_partido` (solo servicio),
+     3. Lo que encontró lo escribe con `resolver_partido` (solo servicio), junto
+        con el número que el modelo había publicado antes del partido (para
+        los partidos que entraron al desafío sin número: NBA y tenis lejanos),
         que recalcula puntos y cierra el desafío si no queda nada pendiente.
         Un partido suspendido o cancelado se escribe con 0: se saca del
         desafío y nadie suma por él.
@@ -25,15 +27,18 @@
    No inventa nada: si un partido no aparece en el archivo, queda pendiente
    para la próxima vuelta. Y nunca lee ni escribe elecciones.
 
-   PARA QUE CORRA SOLO (pegar en SQL Editor, una vez; requiere pg_cron y
-   pg_net habilitadas en Database → Extensions):
+   v4 (18/10/2026): los archivos de fútbol empiezan con
+   `window.LIGAS=window.LIGAS||{};window.LIGAS["x"]={...}` y la versión
+   anterior agarraba la primera llave (la del `||{}`): no leía nunca un
+   resultado de fútbol. Ahora se busca el objeto que viene después de un `=`
+   y se lee entero, contando llaves fuera de los textos.
 
-     select cron.schedule('resolver-desafios', '17 * * * *', $$
-       select net.http_post(
-         url := 'https://wbqxmoerzofzierurxfb.supabase.co/functions/v1/resolver-desafios',
-         headers := '{"Content-Type":"application/json","Authorization":"Bearer PEGÁ-ACÁ-LA-MISMA-FRASE"}'::jsonb,
-         body := '{}'::jsonb);
-     $$);
+   v5 (23/10/2026): el archivo de cada liga trae solo la fecha en curso.
+   Cuando termina el último partido de una fecha, la corrida siguiente ya
+   publica la que viene y esos partidos desaparecen: los cinco de Champions
+   del 21/10 (los últimos de la fecha 3) no se resolvieron nunca. Ahora el
+   motor de armael11 (ligas-api.mjs) agrega `recientes`, los terminados de
+   los últimos 5 días, y acá se busca en `partidos` y después en `recientes`.
    ══════════════════════════════════════════════════════════════════════════ */
 
 const SB_URL = Deno.env.get("SUPABASE_URL") || "";
@@ -53,12 +58,23 @@ function mismoSecreto(a: string, b: string): boolean {
   let d = 0; for (let i = 0; i < x.length; i++) d |= x.charCodeAt(i) ^ y.charCodeAt(i); return d === 0;
 }
 
-/* los archivos son `window.X = {...};` — se saca el JSON de adentro */
+/* los archivos son `window.X = {...};` (a veces con otras sentencias antes y después): se saca el objeto principal */
 export function jsonDeArchivo(texto: string): any {
   const t = String(texto || "");
-  const i = t.indexOf("{"), j = t.lastIndexOf("}");
-  if (i < 0 || j < i) return null;
-  try { return JSON.parse(t.slice(i, j + 1)); } catch (_e) { return null; }
+  const candidatos: number[] = [];
+  for (let i = 0; i < t.length; i++) if (t[i] === "{") { let k = i - 1; while (k >= 0 && /\s/.test(t[k])) k--; if (t[k] === "=") candidatos.push(i); }
+  if (!candidatos.length) { const i = t.indexOf("{"); if (i >= 0) candidatos.push(i); }
+  for (let c = candidatos.length - 1; c >= 0; c--) {
+    const i = candidatos[c]; let prof = 0, enTexto = false, esc = false;
+    for (let j = i; j < t.length; j++) {
+      const ch = t[j];
+      if (enTexto) { if (esc) esc = false; else if (ch === "\\") esc = true; else if (ch === '"') enTexto = false; continue; }
+      if (ch === '"') enTexto = true;
+      else if (ch === "{") prof++;
+      else if (ch === "}") { prof--; if (prof === 0) { try { const o = JSON.parse(t.slice(i, j + 1)); if (o && Object.keys(o).length) return o; } catch (_e) { /* sigue */ } break; } }
+    }
+  }
+  return null;
 }
 async function bajar(url: string): Promise<any> {
   const r = await fetch(url, { headers: { "Cache-Control": "no-cache" } });
@@ -92,7 +108,8 @@ export function resolverTenis(hoy: any, fuente: string, partido: string): number
   return null;
 }
 export function resolverFutbol(liga: any, partido: string): number | null {
-  const p = ((liga && liga.partidos) || []).find((x: any) => String(x.id) === String(partido));
+  const igual = (x: any) => String(x.id) === String(partido);
+  const p = ((liga && liga.partidos) || []).find(igual) || ((liga && liga.recientes) || []).find(igual);
   if (!p) return null;
   const est = String(p.estado || "").toUpperCase();
   if (/^(CANC|ABD|AWD|WO|PST|POSTP)/.test(est)) return 0;
@@ -107,6 +124,32 @@ export function resolverNba(jugados: any, partido: string): number | null {
   const l = Number(p.pl), v = Number(p.pv);
   if (!Number.isFinite(l) || !Number.isFinite(v) || l === v) return null;
   return l > v ? 1 : 2;
+}
+
+/* ─── el número que el modelo publicó ANTES del partido, para los desafíos que lo agregaron sin número ───
+   NBA: jugados.partidos[].p es la probabilidad del local, guardada en el registro cuando se publicó (48 h antes).
+   Tenis: jugados[].p es la del jugador a (en la fuente del desafío, "tenis:aK:bK:fecha", a es el local).
+   Fútbol no hace falta: el número lo simula la app al armar el desafío. Devuelve {modelo, p} o null. */
+export function modeloNba(jugados: any, partido: string): { modelo: number; p: number } | null {
+  const x = ((jugados && jugados.partidos) || []).find((y: any) => String(y.id) === String(partido));
+  const p = x ? Number(x.p) : NaN;
+  if (!Number.isFinite(p) || p <= 0 || p >= 1) return null;
+  return p >= 0.5 ? { modelo: 1, p } : { modelo: 2, p: 1 - p };
+}
+export function modeloTenis(hoy: any, fuente: string, partido: string): { modelo: number; p: number } | null {
+  const m = /^tenis:([^:]*):([^:]*):/.exec(String(fuente || ""));
+  const aK = m ? m[1] : "", bK = m ? m[2] : "";
+  for (const j of (hoy && hoy.jugados) || []) {
+    if (!j || !j.a || !j.b) continue;
+    const mismo = String(j.k) === String(partido) && String(j.k) !== "";
+    const directo = aK && bK && String(j.a.k) === aK && String(j.b.k) === bK;
+    const dado = aK && bK && String(j.a.k) === bK && String(j.b.k) === aK;
+    if (!(mismo || directo || dado)) continue;
+    let p = Number(j.p); if (!Number.isFinite(p) || p <= 0 || p >= 1) return null;
+    if (dado && !directo) p = 1 - p;
+    return p >= 0.5 ? { modelo: 1, p } : { modelo: 2, p: 1 - p };
+  }
+  return null;
 }
 
 async function rpc(nombre: string, args: unknown) {
@@ -132,19 +175,20 @@ Deno.serve(async (req) => {
   const cache: Record<string, any> = {};
   const traer = async (clave: string, url: string) => { if (!(clave in cache)) { try { cache[clave] = await bajar(url); } catch (e) { console.error(e); cache[clave] = null; } } return cache[clave]; };
 
-  let resueltos = 0, anulados = 0; const sinResultado: string[] = [];
+  let resueltos = 0, anulados = 0; const sinResultado: string[] = []; const sinArchivo: string[] = [];
   for (const p of pendientes) {
-    let r: number | null = null;
+    let r: number | null = null, m: { modelo: number; p: number } | null = null;
     try {
-      if (p.deporte === "tenis") r = resolverTenis(await traer("tenis", SITIOS.tenis), p.fuente, p.partido);
-      else if (p.deporte === "futbol") { const slug = String(p.fuente || ""); if (slug) r = resolverFutbol(await traer("futbol:" + slug, SITIOS.futbol(slug)), p.partido); }
-      else if (p.deporte === "nba") r = resolverNba(await traer("nba", SITIOS.nba), p.partido);
+      if (p.deporte === "tenis") { const T = await traer("tenis", SITIOS.tenis); r = resolverTenis(T, p.fuente, p.partido); m = modeloTenis(T, p.fuente, p.partido); if (!T) sinArchivo.push("tenis"); }
+      else if (p.deporte === "futbol") { const slug = String(p.fuente || ""); if (slug) { const L = await traer("futbol:" + slug, SITIOS.futbol(slug)); if (!L) sinArchivo.push("futbol:" + slug); r = resolverFutbol(L, p.partido); } }
+      else if (p.deporte === "nba") { const N = await traer("nba", SITIOS.nba); r = resolverNba(N, p.partido); m = modeloNba(N, p.partido); if (!N) sinArchivo.push("nba"); }
       // un partido que lleva más de 3 días sin aparecer en ningún archivo se anula: no se puede dejar un desafío abierto para siempre
       if (r == null && Date.now() - Date.parse(p.empieza) > 3 * 86400000) r = 0;
     } catch (e) { console.error(e); }
     if (r == null) { sinResultado.push(p.deporte + ":" + p.partido); continue; }
-    try { await rpc("resolver_partido", { p_deporte: p.deporte, p_partido: String(p.partido), p_resultado: r }); if (r === 0) anulados++; else resueltos++; }
+    // el número del modelo va junto con el resultado: el servidor lo anota solo si ese partido no lo tenía (3-modelo-tardio.sql)
+    try { await rpc("resolver_partido", { p_deporte: p.deporte, p_partido: String(p.partido), p_resultado: r, p_modelo: m ? m.modelo : null, p_modelo_p: m ? Math.round(m.p * 1000) / 1000 : null }); if (r === 0) anulados++; else resueltos++; }
     catch (e) { console.error(e); }
   }
-  return json({ ok: true, pendientes: pendientes.length, resueltos, anulados, esperando: sinResultado });
+  return json({ ok: true, pendientes: pendientes.length, resueltos, anulados, esperando: sinResultado, sin_archivo: [...new Set(sinArchivo)] });
 });

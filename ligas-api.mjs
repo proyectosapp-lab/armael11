@@ -288,6 +288,21 @@ for (const L of CFG.ligas) {
       estado: f.fixture?.status?.short || "NS",
       golL: f.goals?.home ?? null, golV: f.goals?.away ?? null,
     })),
+    /* ── LOS RECIÉN JUGADOS (23/10/2026) ──────────────────────────────────
+       Cuando termina el último partido de una fecha, la corrida siguiente
+       ya publica la fecha que viene y los de la anterior desaparecen del
+       archivo. El que resuelve los desafíos (Supabase, resolver-desafios)
+       lee estos archivos: los partidos que cerraban una fecha no los
+       encontraba nunca. Pasó con los cinco de Champions del 21/10, que
+       eran los últimos de la fecha 3.
+       Acá van los terminados de los últimos 5 días que no están en
+       `partidos`, con lo justo para saber quién ganó. No cuesta pedidos:
+       `jugados` ya está bajado. La pantalla no los usa. */
+    recientes: jugados
+      .filter(f => Date.now() - Date.parse(f.fixture.date) < 5 * 86400000)
+      .filter(f => !deLaFecha.some(d => d.fixture.id === f.fixture.id))
+      .map(f => ({ id: f.fixture.id, fecha: f.fixture.date, estado: f.fixture.status.short,
+                   golL: f.goals?.home ?? null, golV: f.goals?.away ?? null })),
     generado: new Date().toISOString(),
   };
 
