@@ -822,14 +822,30 @@ th{font-family:var(--display);font-weight:500;letter-spacing:.8px}
 .tres-t td{font-family:var(--display);font-weight:700;font-size:15px;font-variant-numeric:tabular-nums}
 
 /* ── la portada ───────────────────────────────────────────────────────── */
-.gancho{background:linear-gradient(160deg,#151B26,#0D1117);color:#F2F5FA;position:relative;overflow:hidden;
-  padding:22px 20px 18px;margin-top:4px}
-.gancho::before{content:"";position:absolute;right:-60px;top:-60px;width:200px;height:200px;border-radius:50%;
-  background:radial-gradient(circle, color-mix(in srgb, #1E8A4A 55%, transparent), transparent 70%)}
-.gancho h2{margin:0 0 8px;font-family:var(--display);font-weight:700;font-size:23px;letter-spacing:-.5px;line-height:1.15;position:relative}
-.gancho p{margin:0;color:#DDE3EC;font-size:14.5px;line-height:1.55;position:relative}
+/* 27/10: el gancho es la piel noche de la app (negro cálido + lima), también
+   en el tema claro: es la vidriera, y la vidriera es siempre de noche. */
+.gancho{background:linear-gradient(160deg,#221D1A,#14110F);color:#F6F1EA;position:relative;overflow:hidden;
+  padding:24px 20px 18px;margin-top:4px}
+.gancho::before{content:"";position:absolute;right:-70px;top:-70px;width:220px;height:220px;border-radius:50%;
+  background:radial-gradient(circle, rgba(223,241,64,.28), transparent 70%)}
+.gancho h2{margin:0 0 8px;font-family:var(--display);font-weight:700;font-size:26px;letter-spacing:-.6px;line-height:1.1;position:relative}
+.gancho h2 em{font-style:normal;color:#DFF140}
+.gancho p{margin:0;color:#C4BBB1;font-size:14.5px;line-height:1.55;position:relative}
 .gancho b{font-family:var(--display);font-weight:500;color:#fff}
-.gancho .chica{margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,.12);color:#98A2B3;font-size:11.5px;font-weight:500}
+.gancho .chica{margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,.12);color:#A39B93;font-size:11.5px;font-weight:500}
+.gancho .botones{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;position:relative}
+.gancho .botones a{display:inline-flex;align-items:center;gap:6px;padding:11px 16px;border-radius:12px;font-family:var(--display);font-weight:700;font-size:14px;text-decoration:none;
+  background:#DFF140;color:#14110F;box-shadow:0 8px 22px -10px #DFF140}
+.gancho .botones a.gris{background:rgba(255,255,255,.1);color:#F6F1EA;box-shadow:none}
+/* la vidriera del desafío: solo en la web (adentro de la app el desafío es su propia pestaña) */
+.vidriera{display:flex;align-items:center;gap:12px;margin-top:10px;padding:13px 14px;border-radius:var(--r-l);text-decoration:none;
+  background:var(--papel);box-shadow:var(--sombra-1);color:var(--tinta);font-size:13px;line-height:1.35;border:1px solid var(--borde)}
+.vidriera .punto{flex:none;width:38px;height:38px;border-radius:12px;background:#DFF140;color:#14110F;display:grid;place-items:center;font-family:var(--display);font-weight:700;font-size:15px}
+.vidriera b{font-family:var(--display);font-weight:700;font-size:14px}
+.vidriera .sub{color:var(--tinta-3);font-size:12px}
+.vidriera .chev{margin-left:auto;color:var(--tinta-3);font-size:22px}
+.vidriera[hidden]{display:none}
+body.mam-marco .vidriera{display:none}
 .tuclub{display:flex;align-items:center;gap:12px;margin-top:10px;padding:12px 14px;border-radius:var(--r-l);
   background:var(--papel);box-shadow:var(--sombra-1);text-decoration:none;color:var(--tinta);font-size:13px;line-height:1.35}
 .tuclub .sub{color:var(--tinta-3);font-size:12px}
@@ -1086,8 +1102,10 @@ function hojaMinima(lav,tin,pA,pB,min=4.5){
 const TEMAS={
   claro:{fondo:"#F6F1EA",papel:"#FFFFFF",tinta:"#14110F",tinta2:"#3E3833",tinta3:"#5C554F",
          borde:"#E8E0D5",barra:"rgba(246,241,234,.88)"},
-  oscuro:{fondo:"#0D1117",papel:"#161C25",tinta:"#F2EDE6",tinta2:"#BDB4AA",tinta3:"#A39B93",
-         borde:"#242B36",barra:"rgba(13,17,23,.88)"}};
+  /* 27/10: la noche de la web es la misma piel noche de Mano a mano (mam.css):
+     negro cálido, no azul. Así la web y la app son la misma cosa. */
+  oscuro:{fondo:"#14110F",papel:"#221D1A",tinta:"#F6F1EA",tinta2:"#C4BBB1",tinta3:"#A39B93",
+         borde:"#2A2521",barra:"rgba(20,17,15,.88)"}};
 const CLUB=window.CLUB, OP=.78;
 
 /* EL CLUB SE ELIGE UNA VEZ. La app instalada arranca en la portada, y la
@@ -1266,16 +1284,37 @@ function diaDe(iso){
    mueve el resultado (el motor lo hace y lo dice), y el modelo está
    probado sobre 13.345 partidos. Nada de "acertá" ni de eficacia: eso no
    está medido en Argentina y no se promete. */
+/* La racha del modelo en los desafíos (rpc modelo_racha, sin sesión). Se pide una vez y se pinta cuando llega.
+   Solo se dice si el modelo quedó arriba de todos al menos una vez: lo que no se midió no se promete. */
+let RACHA=null;
+function rachaTexto(){
+  const r=RACHA; if(!r || !(r.desafios>0) || !(r.arriba>0)) return "";
+  const veces = r.arriba===r.desafios ? (r.desafios===1 ? "arriba de todos" : "arriba de todos las "+(r.desafios===2?"dos":r.desafios)+" veces") : "arriba de todos en "+r.arriba+" de "+r.desafios;
+  return (r.desafios===1 ? "Último desafío" : "Últimos "+r.desafios+" desafíos")+": "+r.modelo+" de "+r.jugados+", "+veces+".";
+}
+function traerRacha(){
+  const sb=(window.SITIO&&window.SITIO.supabase)||{}; if(!sb.url||!sb.anon||RACHA) return;
+  fetch(sb.url+"/rest/v1/rpc/modelo_racha",{method:"POST",headers:{"Content-Type":"application/json",apikey:sb.anon,Authorization:"Bearer "+sb.anon},body:"{}"})
+    .then(r=>r.ok?r.json():null).then(r=>{ if(r && typeof r==="object"){ RACHA=r; if(tab==="juego" && J.paso==="liga") pintar(); } }).catch(()=>{});
+}
 function heroPortada(){
   const R = PORTADA.respaldo || {};
   const rec = clubRecordado(), c = rec && PORTADA.clubes.find(x=>x.id===rec);
+  /* 27/10: la portada vende. Primero la promesa en una línea, después el respaldo medido, y dos botones:
+     simular (acá) y el desafío de la semana (la app). Adentro de la app no hay botones: ya son pestañas. */
+  const adentro = !!(window.mamMarco && window.mamMarco.adentro && window.mamMarco.adentro());
   return `<section class="tarjeta gancho">
-      <h2>Tocas una perilla y se mueve el resultado.</h2>
-      <p>Cada partido se juega <b>6.000 veces</b> con los goles reales de su liga.
+      <h2>Deja de adivinar. <em>Simula el partido.</em></h2>
+      <p>Armas los dos equipos, mueves el planteo y el partido se juega <b>6.000 veces</b> con los goles reales de su liga.
         No tira un dado: está medido en <b>${esc(R.partidos||"13.345")} partidos</b> de ${esc(R.ligas||"trece")} ligas,
-        y en ${esc(R.limpias||"1.783")} partidos de tres ligas que el modelo nunca había visto.</p>
-      <p class="chica">${PORTADA.gratis} simulaciones gratis por mes · app independiente</p>
+        y en ${esc(R.limpias||"1.783")} que el modelo nunca había visto.</p>
+      ${adentro ? "" : `<div class="botones"><a href="#" data-simular>Simular ahora</a><a class="gris" href="/app/#desafios">El desafío de la semana</a></div>`}
+      <p class="chica">${PORTADA.gratis} simulaciones gratis por mes · app independiente · sin juego con dinero</p>
     </section>
+    ${adentro ? "" : `<a class="vidriera" href="/app/#desafios">
+      <span class="punto">M</span>
+      <span><b>El modelo ya eligió. ¿Le vas en contra?</b><br><span class="sub">${esc(rachaTexto() || "El desafío de la semana, gratis, con tu apodo.")}</span></span>
+      <span class="chev">›</span></a>`}
     ${c ? `<a class="tuclub" href="${esc(c.id)}.html" style="--c:${esc(c.color)};--t:${esc(c.tinta)}">
       <span class="mono-c">${esc(c.ini)}</span>
       <span><b>Tu club: ${esc(c.nom)}</b><br><span class="sub">El próximo partido, tu once, el del DT y lo que pasó de verdad</span></span>
@@ -5770,6 +5809,11 @@ $("mono").textContent=CLUB.ini;
 $("nombre").textContent=CLUB.nom;
 if(PORTADA){
   $("resumen").textContent="El simulador donde el once lo armas tú";
+  traerRacha();
+  /* "Simular ahora": baja a la lista de ligas, que es el primer paso */
+  $("vista").addEventListener("click",e=>{
+    const b=e.target.closest("[data-simular]"); if(!b) return; e.preventDefault();
+    const sec=[...document.querySelectorAll("#vista h3.sec")].find(h=>/liga/i.test(h.textContent)); if(sec) sec.scrollIntoView({behavior:"smooth",block:"start"}); });
   const bc=$("bcambiar"); if(bc) bc.hidden=true;
   const bf=document.querySelector('#barra [data-tab="feed"]');
   if(bf) bf.lastChild.textContent="Tu club";
@@ -5786,6 +5830,8 @@ $("barra").addEventListener("click",e=>{
   const b=e.target.closest("button"); if(!b)return; tab=b.dataset.tab; pintar(); scrollTo(0,0);});
 $("btema").onclick=()=>{ tema=temaReal()==="oscuro"?"claro":"oscuro"; pintar(); };
 prefiere.addEventListener("change",()=>{ if(tema==="auto") pintar(); });
+/* 27/10: adentro de Mano a mano la piel la decide el cascarón (noche / día) y esta web la sigue */
+if(window.mamMarco && window.mamMarco.adentro() && window.mamMarco.alTema) window.mamMarco.alTema(t=>{ tema = t==="dia" ? "claro" : "oscuro"; pintar(); });
 pintar();
 if(window.mamMarco && window.mamMarco.adentro()){
   /* Partidos → El 11; Jugá → Fantasy (si el club lo tiene). Y se avisa que la página está lista. */

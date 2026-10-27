@@ -43,7 +43,7 @@ const BASE = "http://127.0.0.1:" + servidor.address().port;
 const UID = "11111111-1111-1111-1111-111111111111";
 const TOKEN = "x." + Buffer.from(JSON.stringify({ sub: UID, exp: 9999999999, is_anonymous: true })).toString("base64url") + ".y";
 const SESION = { access_token: TOKEN, refresh_token: "r", user: { id: UID, is_anonymous: true } };
-let DESAFIO = null; const LLAMADAS = []; let PAGADO = false; const COBRA = { futbol: "si", tenis: "si", nba: "si" };   // los ajustes cobra / cobra_sacavos / cobra_quinteto   // PAGADO: la tienda simulada ya cobró (ver "la compra adentro del teléfono")
+let DESAFIO = null; const LLAMADAS = []; const HITOS = []; let PRUEBA_MAM = null; let PAGADO = false; const COBRA = { futbol: "si", tenis: "si", nba: "si" };   // los ajustes cobra / cobra_sacavos / cobra_quinteto   // PAGADO: la tienda simulada ya cobró (ver "la compra adentro del teléfono")
 const EN = (h) => new Date(Date.now() + h * 36e5).toISOString();
 const OFICIAL = { codigo: "OFI777", nombre: "El desafío del finde", estado: "abierto", creador: "manoamano", oficial: true, total: 312, soy: false, modelo_puntos: 0, modelo_juega: 3,
   partidos: [["futbol", "901", "Racing", "Independiente", 20], ["tenis", "t9", "Sinner", "Alcaraz", 26], ["nba", "n9", "Lakers", "Celtics", 30]].map(([deporte, partido, local, visita, h]) =>
@@ -81,6 +81,11 @@ async function simularBackend(page) {
     if (/rpc\/guardar_elecciones/.test(url)) { const b = req.postDataJSON(); let n = 0; for (const x of b.p_elecciones) { const p = DESAFIO.partidos.find((q) => q.deporte === x.deporte && q.partido === x.partido); if (p && p.mia == null) { p.mia = x.eleccion; n++; } } return ok({ guardadas: n, ya: [], empezados: [] }); }
     if (/rpc\/elegir_desafio/.test(url)) { const b = req.postDataJSON(); const p = DESAFIO.partidos.find((x) => x.deporte === b.p_deporte && x.partido === b.p_partido); if (p) p.mia = b.p_eleccion; return ok(null); }
     if (/rpc\/registrar_dispositivo/.test(url)) return ok(null);
+    if (/rpc\/estado_prueba_mam/.test(url)) return ok(PRUEBA_MAM ? { dias: 7, puede: false, usada: PRUEBA_MAM.desde, hasta: PRUEBA_MAM.hasta, activa: true } : { dias: 7, puede: true });
+    if (/rpc\/empezar_prueba_mam/.test(url)) { PRUEBA_MAM = { desde: new Date().toISOString(), hasta: new Date(Date.now() + 7 * 864e5).toISOString() }; return ok({ hasta: PRUEBA_MAM.hasta, dias: 7 }); }
+    if (/rpc\/mis_pases_mam/.test(url)) return ok({ futbol: PRUEBA_MAM ? PRUEBA_MAM.hasta : null, tenis: PAGADO ? new Date(Date.now() + 30 * 864e5).toISOString() : (PRUEBA_MAM ? PRUEBA_MAM.hasta : null), nba: PRUEBA_MAM ? PRUEBA_MAM.hasta : null, prueba: PRUEBA_MAM });
+    if (/rpc\/sumar_hito/.test(url)) { HITOS.push((req.postDataJSON() || {}).p_codigo + ":" + (req.postDataJSON() || {}).p_hito); return ok(null); }
+    if (/rpc\/modelo_racha/.test(url)) return ok({ desafios: 2, jugados: 23, modelo: 17, arriba: 2 });
     if (/rpc\/mi_prueba|rpc\/mi_pase/.test(url)) return ok([]);
     if (/functions\/v1\/crear-pago/.test(url)) {
       /* la web: el precio lo dice el servidor; el POST arma el link de Mercado Pago (acá, la página de gracias) */
@@ -433,6 +438,14 @@ console.log("\n── la compra en la web (Mercado Pago, armael11.com/app) ─�
   ok(planes.length === 4 && /mam\.futbol \$2\.990 \/ mes/.test(planes[0]) && /mam\.todo \$5\.990 \/ mes/.test(planes[3]), "los cuatro planes muestran el precio en pesos que dijo el servidor (" + planes.join(" · ") + ")");
   ok(/Mercado Pago/.test(await p3.textContent("#mam-cuenta")) && !/se compra en el sitio/.test(await p3.textContent("#mam-cuenta")), "la letra chica es la de la web: Mercado Pago, un mes por vez, sin mandar a cada sitio");
   ok(!/\$ ?2990|2\.990 ?\/ ?mes/.test(readFileSync(join(PRUEBA, "mam.js"), "utf8") + readFileSync(join(PRUEBA, "tienda-mam.js"), "utf8")), "en la app no hay ningún precio escrito");
+  // 27/10: 7 días gratis con la cuenta, en la web
+  ok(await p3.isVisible("#mam-cuenta [data-empezar-prueba]") && /7 días gratis/.test(await p3.textContent("#mam-cuenta")), "con cuenta y sin plan, la web ofrece los 7 días gratis");
+  await p3.click("#mam-cuenta [data-empezar-prueba]"); await p3.waitForTimeout(1500);
+  ok(LLAMADAS.some((l) => /empezar_prueba_mam/.test(l)), "tocar el botón pide la prueba al servidor");
+  ok((await p3.$("#mam-cuenta [data-empezar-prueba]")) === null && /te quedan 7 días/.test(await p3.textContent("#mam-cuenta")), "después: la prueba está activa, te quedan 7 días, y el botón ya no está");
+  ok(/activo hasta el/.test(await p3.$eval('#mam-cuenta [data-plan="mam.futbol"]', (b) => b.textContent)), "los planes se ven como activos mientras dura la prueba");
+  await p3.screenshot({ path: aca("./app/captura-9-prueba.png") });
+  PRUEBA_MAM = null; await p3.evaluate(() => { window.postMessage({ mam: "sesion" }, "*"); }); await p3.waitForTimeout(300); await p3.evaluate(() => { window.mam.ir("cuenta"); }); await p3.waitForTimeout(1000);
   await p3.click('#mam-cuenta [data-plan="mam.tenis"]'); await p3.waitForTimeout(1500);
   ok(LLAMADAS.some((l) => /^PLAN tenis AUTH Bearer x\./.test(l)), "tocar Tenis le pide el link al servidor con el plan 'tenis' y el token de la sesión");
   ok(/gracias\.html/.test(p3.url()) && /Gracias/.test(await p3.textContent("h1")), "y se va a Mercado Pago, que vuelve a gracias.html de la app");
@@ -483,6 +496,46 @@ console.log("\n── el texto de la portada no viaja adentro ──");
   const abs = absolutizar('<a href="contacto.html">c</a><a href="terminos.html">t</a><a href="quienes-somos.html">q</a><a href="talleres-cba.html">ok</a>', "https://armael11.com", { conservar: ["index.html", "talleres-cba.html"] });
   ok(/href="https:\/\/armael11\.com\/contacto\.html"/.test(abs) && /href="https:\/\/armael11\.com\/terminos\.html"/.test(abs) && /href="https:\/\/armael11\.com\/quienes-somos\.html"/.test(abs) && /href="talleres-cba\.html"/.test(abs), "contacto, términos y quiénes somos abren en el navegador; las páginas de club viajan");
 }
+
+console.log("\n── el invitado (27/10): elige sin cuenta, el apodo recién al guardar ──");
+await page.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
+OFICIAL.soy = false; OFICIAL.jugadores = [{ apodo: "lucho", puntos: 0, creador: false, yo: false, elegidos: 3 }];
+await page.goto(BASE + "/index.html?c=reel1#desafio=OFI777"); await page.waitForTimeout(1800);
+ok(await page.isHidden("#mam-bienvenida"), "el que llega con un desafío no pasa por la bienvenida");
+ok((await page.evaluate(() => localStorage.getItem("mam.deportes"))) === '["futbol","tenis","nba"]', "…y sigue los tres deportes");
+ok(!/[?&]c=/.test(await page.evaluate(() => location.href)), "el ?c= del anuncio se saca de la barra");
+ok(await page.isVisible("#mam-desafios .mam-portada"), "ve la portada del desafío");
+ok((await page.$("#mam-desafios [data-form-apodo]")) === null, "no le piden apodo para mirar");
+await page.waitForSelector("#mam-desafios .mam-racha", { timeout: 5000 }).catch(() => {});
+const rachaTxt = (await page.textContent("#mam-desafios .mam-portada .mam-racha") || "").replace(/\s+/g, " ");
+ok(/17 de 23/.test(rachaTxt) && /arriba de todos las dos veces/i.test(rachaTxt), "arriba, la racha del modelo (" + rachaTxt.trim() + ")");
+ok((await page.$$("#mam-desafios .mam-eleccion button:not([disabled])")).length >= 2, "los partidos se pueden elegir sin cuenta");
+await page.click('#mam-desafios [data-partido="901"][data-elegir="1"]'); await page.waitForTimeout(300);
+ok(/1 elección sin guardar/.test(await page.textContent("#mam-desafios [data-barra-guardar]")), "tocar una opción la deja como borrador y aparece Guardar");
+ok(HITOS.includes("mam-web:desafio") && HITOS.includes("mam-web:eligio") && HITOS.includes("reel1:llego") && HITOS.includes("reel1:eligio"), "los hitos se cuentan: desafío y eligió, y también bajo el código del anuncio (" + HITOS.join(", ") + ")");
+await page.click("#mam-desafios [data-guardar]"); await page.waitForTimeout(300);
+ok(await page.isVisible("#mam-desafios [data-form-apodo-guardar] input[name=apodo]"), "Guardar pide el apodo ahí mismo");
+LLAMADAS.length = 0;
+await page.fill("#mam-desafios [data-form-apodo-guardar] input[name=apodo]", "nico");
+await page.click("#mam-desafios [data-form-apodo-guardar] button"); await page.waitForTimeout(1500);
+const orden = LLAMADAS.filter((l) => /signup|ponerme_apodo|unirse_desafio|guardar_elecciones/.test(l)).map((l) => l.replace(/^.*(signup|ponerme_apodo|unirse_desafio|guardar_elecciones).*$/, "$1"));
+ok(orden.join(">") === "signup>ponerme_apodo>unirse_desafio>guardar_elecciones", "apodo → cuenta → entra al desafío → guarda, en ese orden (" + orden.join(" > ") + ")");
+ok(HITOS.includes("mam-web:cuenta") && HITOS.includes("mam-web:guardo"), "…y se cuentan cuenta y guardó");
+ok(await page.isVisible("#mam-desafios .mam-compartir-ya [data-wa]"), "después de guardar: mandar el desafío por WhatsApp");
+await page.screenshot({ path: aca("./app/captura-7-invitado.png") });
+
+console.log("\n── la piel (27/10): noche y día ──");
+ok((await page.evaluate(() => document.documentElement.getAttribute("data-tema"))) === "noche", "la app arranca en noche");
+await page.evaluate(() => window.mam.ponerTema("dia")); await page.waitForTimeout(400);
+ok((await page.evaluate(() => document.documentElement.getAttribute("data-tema"))) === "dia", "ponerTema('dia') cambia la piel");
+const marcoF = page.frames().find((x) => x.url().includes("/futbol/"));
+ok(!!marcoF && (await marcoF.evaluate(() => document.documentElement.getAttribute("data-mam-tema"))) === "dia", "…y el marco de fútbol se entera");
+ok((await page.evaluate(() => JSON.parse(localStorage.getItem("mam.tema")))) === "dia", "…y queda guardada");
+await page.screenshot({ path: aca("./app/captura-8-dia.png") });
+await page.evaluate(() => window.mam.ponerTema("noche")); await page.waitForTimeout(300);
+await page.click('#mam-barra [data-pestana="cuenta"]'); await page.waitForTimeout(800);
+ok((await page.$$("#mam-cuenta [data-tema] [data-t]")).length === 3, "en Cuenta hay tres pieles para elegir");
+OFICIAL.soy = false;
 
 console.log("\n── sin desbordes a 390 ──");
 for (const p of ["partidos", "juga", "desafios", "cuenta"]) { await page.click(`#mam-barra [data-pestana="${p}"]`); await page.waitForTimeout(300); const ancho = await page.evaluate(() => document.documentElement.scrollWidth); ok(ancho <= 390, p + ": sin scroll horizontal (" + ancho + ")"); }

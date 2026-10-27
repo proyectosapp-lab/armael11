@@ -6,6 +6,7 @@
 <title>Mano a mano</title>
 <meta name="description" content="Desafíos de fútbol, tenis y NBA con tus amigos. Simula cada partido y juega contra el modelo.">
 <meta name="theme-color" content="#14110F">
+<script>/* la piel, antes del CSS para que no parpadee: noche (la de siempre), dia o auto */(function(){var t="noche";try{t=JSON.parse(localStorage.getItem("mam.tema"))||"noche"}catch(e){}if(t!=="dia"&&t!=="auto")t="noche";document.documentElement.setAttribute("data-tema",t);})();</script>
 <link rel="icon" href="icono.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icono-180.png">
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -59,6 +60,7 @@
 </div>
 <script src="sitio-mam.js"></script>
 <script src="nativo-mam.js"></script>
+<script src="hitos.js"></script>
 <script src="mam-cuentas.js"></script>
 <script src="tienda-mam.js"></script>
 <script src="juegos.js"></script>

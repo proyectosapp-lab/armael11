@@ -14,12 +14,23 @@
   const alPadre = (m) => { try { if (raiz.parent && raiz.parent !== raiz) raiz.parent.postMessage(m, '*'); } catch (e) {} };
   const escuchas = [];
   function alIr(fn) { escuchas.push(fn); }
+  let temaMam = null;
+  function ponerTema(t) {
+    temaMam = t === 'dia' ? 'dia' : 'noche';
+    try { document.documentElement.setAttribute('data-mam-tema', temaMam); sessionStorage.setItem('mam.tema', temaMam); } catch (e) {}
+    try { raiz.dispatchEvent(new CustomEvent('mam-tema', { detail: { tema: temaMam } })); } catch (e) {}
+  }
+  try { const g = sessionStorage.getItem('mam.tema'); if (adentro && (g === 'dia' || g === 'noche')) { temaMam = g; document.documentElement.setAttribute('data-mam-tema', g); } } catch (e) {}
   if (adentro) {
     document.documentElement.classList.add('mam-marco');
     const ponerBody = () => document.body && document.body.classList.add('mam-marco');
     if (document.body) ponerBody(); else document.addEventListener('DOMContentLoaded', ponerBody);
     raiz.addEventListener('message', (ev) => {
-      const m = ev.data; if (!m || typeof m !== 'object' || m.mam !== 'ir') return;
+      const m = ev.data; if (!m || typeof m !== 'object') return;
+      // 27/10: la piel del cascarón (noche / dia). La web la guarda en <html data-mam-tema> y avisa con un evento;
+      // cada web decide cómo pintarse (en Armá el 11: su `tema`).
+      if (m.mam === 'tema') { ponerTema(m.tema); return; }
+      if (m.mam !== 'ir') return;
       escuchas.forEach((fn) => { try { fn(m.a); } catch (e) {} });
       try { raiz.scrollTo(0, 0); } catch (e) {}
     });
@@ -41,6 +52,7 @@
   }
   raiz.mamMarco = {
     adentro: () => adentro, deporte,
+    tema: () => temaMam, alTema: (fn) => { raiz.addEventListener('mam-tema', (ev) => { try { fn(ev.detail.tema); } catch (e) {} }); if (temaMam) { try { fn(temaMam); } catch (e) {} } },
     listo: () => adentro && alPadre({ mam: 'listo', deporte }),
     pase: (d) => adentro && alPadre({ mam: 'pase', deporte: d || deporte }),
     cuenta: () => adentro && alPadre({ mam: 'cuenta' }),

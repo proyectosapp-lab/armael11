@@ -109,6 +109,11 @@
       fila("Cuentas nuevas", "cuentas") + fila("Desafíos creados", "desafios") + fila("Amigos que se sumaron", "amigos") +
       fila("Aperturas en la app", "app") + fila("Visitas en la web", "web") + fila("Instalaron la app", "instalaron") +
       fila("Personas que pagaron", "pagaron") + "</table></div>";
+    /* 27/10: Mano a mano paso por paso (la app y armael11.com/app). Una vez por teléfono, salvo "abrió", que es por día. */
+    h += '<div class="tarjeta"><h2>Mano a mano, paso por paso</h2><table><tr><th></th><th>Hoy</th><th>7 días</th><th>30 días</th></tr>' +
+      fila("Abrieron la app", "mam_abrio") + fila("Abrieron un desafío", "mam_desafio") + fila("Eligieron un partido", "mam_eligio") +
+      fila("Guardaron", "mam_guardo") + fila("Se pusieron apodo", "mam_cuenta") + fila("Miraron los planes", "mam_planes") + "</table>" +
+      '<p class="nota" style="margin:8px 0 0">Donde el número cae es donde se va la gente. Cuenta desde que se subió la app del 27/10.</p></div>';
     h += '<div class="tarjeta"><h2>Ahora</h2><div class="grande">' +
       "<div><b>" + n(A.cuentas) + "</b><span>cuentas</span></div>" +
       "<div><b>" + n(A.futbol) + "</b><span>plan Fútbol<br>" + cobra(C.futbol) + "</span></div>" +
@@ -120,8 +125,8 @@
         '<span style="text-align:right"><b>' + x.jugadores + "</b> " + (x.jugadores === 1 ? "jugador" : "jugadores") + '<br><span class="chip">' + esc(x.estado) + "</span></span></li>";
     }).join("") + "</ul>" : '<p class="vacio">Todavía no hay desafíos.</p>') + "</div>";
     var K = d.campanas || [];
-    h += '<div class="tarjeta"><h2>Campañas · 7 días</h2>' + (K.length ? '<table><tr><th>código</th><th>llegaron</th><th>simularon</th></tr>' + K.map(function(c){
-      return "<tr><td>" + esc(c.codigo) + "</td><td><b>" + n(c.llego) + "</b></td><td>" + n(c.simulo) + "</td></tr>"; }).join("") + "</table>"
+    h += '<div class="tarjeta"><h2>Campañas · 7 días</h2>' + (K.length ? '<table><tr><th>código</th><th>llegaron</th><th>simularon</th><th>eligieron</th><th>guardaron</th><th>cuenta</th></tr>' + K.map(function(c){
+      return "<tr><td>" + esc(c.codigo) + "</td><td><b>" + n(c.llego) + "</b></td><td>" + n(c.simulo) + "</td><td>" + n(c.eligio) + "</td><td>" + n(c.guardo) + "</td><td>" + n(c.cuenta) + "</td></tr>"; }).join("") + "</table>"
       : '<p class="vacio">Ninguna campaña trajo gente esta semana.</p>') + "</div>";
     h += '<p class="nota">Aperturas y visitas: una por teléfono y por día, de fútbol y tenis (NBA todavía no cuenta). ' +
       'Los planes de Todo cuentan en los tres. "Pagaron" incluye las renovaciones de prueba de Apple. ' +

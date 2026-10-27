@@ -23,6 +23,25 @@
   const leer = (k, def) => { try { const v = localStorage.getItem(k); return v == null ? def : JSON.parse(v); } catch (e) { return def; } };
   const aviso = (t, bien) => { const a = $('[data-aviso]'); if (a) { a.textContent = t || ''; a.classList.toggle('bien', !!bien); } };
   const link = (codigo) => (S().desafios || {}).dominio + ((S().desafios || {}).ruta || '/desafio.html') + '#' + codigo;
+  const hito = (n) => { try { ctx && ctx.hito && ctx.hito(n); } catch (e) {} };
+
+  // ── la racha del modelo (27/10): lo que se muestra arriba del desafío. Sale de la base (modelo_racha): los últimos
+  //    desafíos oficiales terminados, cuántos partidos acertó y en cuántos terminó arriba de todos. Solo se muestra si
+  //    terminó arriba al menos una vez: la vidriera es para cuando gana. ──
+  let RACHA; // undefined: no se pidió; null: no hay; {desafios, jugados, modelo, arriba}
+  async function traerRacha() {
+    if (RACHA !== undefined) return RACHA;
+    try { const r = await CU().pedir('/rest/v1/rpc/modelo_racha', { metodo: 'POST', cuerpo: {}, sinToken: true }); RACHA = r && r.desafios > 0 && r.arriba > 0 ? r : null; }
+    catch (e) { RACHA = null; }
+    return RACHA;
+  }
+  function rachaHTML(r) {
+    if (!r) return '';
+    const n = r.desafios, veces = r.arriba === n ? (n === 1 ? 'arriba de todos' : n === 2 ? 'arriba de todos las dos veces' : 'arriba de todos las ' + n + ' veces') : 'arriba de todos en ' + r.arriba + ' de ' + n;
+    return `<div class="mam-racha"><b>${r.modelo} de ${r.jugados}</b><span>El modelo, en ${n === 1 ? 'el último desafío' : 'los últimos <strong>' + n + ' desafíos</strong>'}. <strong>${esc(veces[0].toUpperCase() + veces.slice(1))}.</strong></span></div>`;
+  }
+  const racha = (d) => (d.oficial || !d.soy) ? `<div data-racha>${rachaHTML(RACHA || null)}</div>` : '';
+  function pintarRacha() { traerRacha().then((r) => { if (!raizEl) return; raizEl.querySelectorAll('[data-racha]').forEach((el) => { el.innerHTML = rachaHTML(r); }); }); }
 
   // ── el apodo, antes que nada ──
   function necesitaApodo() { const c = CU(); return !(c && c.quienSoy() && c.perfil()); }
@@ -39,7 +58,7 @@
     const f = $('[data-form-apodo]'); if (!f) return;
     f.addEventListener('submit', async (ev) => {
       ev.preventDefault(); const b = f.querySelector('button'); b.disabled = true; aviso('Creando tu cuenta…');
-      try { await CU().entrarConApodo(f.apodo.value); if (ctx.alCambiarCuenta) ctx.alCambiarCuenta(); despues(); }
+      try { await CU().entrarConApodo(f.apodo.value); hito('cuenta'); if (ctx.alCambiarCuenta) ctx.alCambiarCuenta(); despues(); }
       catch (e) { aviso(e.message); b.disabled = false; }
     });
     const c = $('[data-ir-cuenta]'); if (c) c.addEventListener('click', (ev) => { ev.preventDefault(); ctx.ir('cuenta'); });
@@ -93,6 +112,7 @@
     return `<div class="mam-tarjeta mam-oficial">
       <span class="mam-etiqueta">El desafío de la semana</span>
       <h2 class="mam-titulo">${esc(d.nombre)}</h2>
+      ${racha(d)}
       <p class="mam-nota">${d.partidos.length} ${d.partidos.length === 1 ? 'partido' : 'partidos'} · ${total >= 10 ? total + ' juegan' : 'abierto para todos'}${d.modelo_juega ? ' · juega el modelo' : ''}${prox ? ' · el próximo cierra ' + esc(diaTexto(diaDe(prox))) + ' ' + esc(horaDe(prox)) : ''}${d.soy ? ' · elegiste ' + mias + ' de ' + d.partidos.length : ''}</p>
       ${(() => { const js = (d.jugadores || []).slice(); if (d.modelo_juega > 0) js.push({ apodo: 'el modelo', puntos: d.modelo_puntos || 0, modelo: true }); return ganadorHTML(d, js, true); })()}
       <ul class="mam-mini">${d.partidos.slice(0, 5).map((p) => `<li class="${esc(p.deporte)}"><i></i>${esc(p.local)} – ${esc(p.visita)}</li>`).join('')}${d.partidos.length > 5 ? `<li>y ${d.partidos.length - 5} más</li>` : ''}</ul>
@@ -106,6 +126,7 @@
       const el = sigue() && raizEl.querySelector('[data-oficial]'); if (!el) return;
       if (!d) { el.innerHTML = ''; return; }
       el.innerHTML = oficialHTML(d);
+      pintarRacha();
       el.querySelector('[data-oficial-jugar]').addEventListener('click', () => abrir(d.codigo));
       const cr = el.querySelector('[data-compartir-resultado]'); if (cr) cr.addEventListener('click', () => imagenResultado(d, el.querySelector('.mam-oficial')));
     });
@@ -117,7 +138,7 @@
       if (!sigue()) return;
       if (r && r.lista.length > mostrados) {
         if (falta === null) {
-          try { const [pases, cobra] = await Promise.all([CU().misPases(), CU().cobra()]); falta = ['futbol', 'tenis', 'nba'].filter((dep) => cobra[dep] && !pases[dep]); } catch (e) { falta = ['futbol', 'tenis', 'nba']; }
+          try { const [pases, cobra] = await Promise.all([CU().misPases(), CU().cobra(), verPrueba()]); falta = ['futbol', 'tenis', 'nba'].filter((dep) => cobra[dep] && !pases[dep]); } catch (e) { falta = ['futbol', 'tenis', 'nba']; }
           if (!sigue()) return;
         }
         if (r.lista.length || (r.listos && i >= 2)) { pintarDestacados(r, falta); mostrados = r.lista.length; }
@@ -126,6 +147,11 @@
       await new Promise((ok) => setTimeout(ok, 1500));
     }
     if (mostrados < 0) { const el = sigue() && raizEl.querySelector('[data-destacados]'); if (el) el.innerHTML = ''; }
+  }
+  // la prueba gratis de la web (7 días con cuenta): si esta persona puede empezarla, el botón de "El modelo, hoy" lo dice
+  let PRUEBA_WEB = 0;
+  async function verPrueba() {
+    try { const n = N(); if (n && n.hayNativo && n.hayNativo()) return; const c = CU(); if (!c.quienSoy() || !c.estadoPrueba) { PRUEBA_WEB = 0; return; } const e = await c.estadoPrueba(); PRUEBA_WEB = e && e.puede ? e.dias : 0; } catch (e) { PRUEBA_WEB = 0; }
   }
   function pintarDestacados(r, falta) {
     const el = raizEl && raizEl.querySelector('[data-destacados]'); if (!el) return;
@@ -140,14 +166,14 @@
     el.innerHTML = `<div class="mam-tarjeta mam-destacados">
       <div class="mam-fila"><b class="crece">El modelo, hoy</b><small class="mam-nota">gratis · cambian cada día</small></div>
       <ul class="mam-lista">${lista}</ul>
-      ${nOtros ? `<p class="mam-nota">${nOtros === 1 ? 'Hay 1 partido más' : 'Hay ' + nOtros + ' partidos más'} con su número en los próximos tres días: ${y(otros.map((x) => x.n + ' de ' + (x.dep === 'futbol' ? 'fútbol' : x.dep === 'tenis' ? 'tenis' : 'NBA')))}. Con un plan los ves todos, con la perilla y la simulación sin tope.</p>
-      <button type="button" class="mam-boton" data-planes>Ver los planes</button>` : ''}
+      ${nOtros ? `<p class="mam-nota">${nOtros === 1 ? 'Hay 1 partido más' : 'Hay ' + nOtros + ' partidos más'} con su número en los próximos tres días: ${y(otros.map((x) => x.n + ' de ' + (x.dep === 'futbol' ? 'fútbol' : x.dep === 'tenis' ? 'tenis' : 'NBA')))}. ${PRUEBA_WEB ? 'Mira el pronóstico de todos: ' + PRUEBA_WEB + ' días gratis con tu apodo.' : 'Con un plan los ves todos, con la perilla y la simulación sin tope.'}</p>
+      <button type="button" class="mam-boton" data-planes>${PRUEBA_WEB ? PRUEBA_WEB + ' días gratis' : 'Ver los planes'}</button>` : ''}
     </div>`;
     el.querySelectorAll('[data-ver]').forEach((b) => b.addEventListener('click', () => ctx.ir('partidos', b.dataset.ver)));
     const pl = el.querySelector('[data-planes]'); if (pl) pl.addEventListener('click', () => ctx.ir('cuenta'));
   }
   function comoFuncionaHTML() {
-    return `<div class="mam-tarjeta" style="margin-top:6px"><b>Cómo es</b><p class="mam-nota" style="margin:0">Eliges partidos de fútbol, tenis o NBA, de hoy o de la semana, y mandas el link. Cada uno elige quién gana, a ciegas: las elecciones se ven recién cuando empieza el partido. Un punto por cada partido bien elegido. El modelo también juega, y pierde seguido.</p></div>`;
+    return `<div class="mam-tarjeta" style="margin-top:6px"><b>Cómo es</b><p class="mam-nota" style="margin:0">Eliges partidos de fútbol, tenis o NBA, de hoy o de la semana, y mandas el link. Cada uno elige quién gana, a ciegas: las elecciones se ven recién cuando empieza el partido. Un punto por cada partido bien elegido. El modelo también juega: elige antes que todos y se revela cuando empieza el partido.</p></div>`;
   }
   function actualizarGlobo(mios) {
     const n = (mios || []).filter((d) => d.estado !== 'terminado').length;
@@ -253,15 +279,21 @@
     try { d = await CU().rpc('ver_desafio', { p_codigo: codigo }); } catch (e) { raizEl.innerHTML = `<div class="mam-vacio">${esc(e.message)}</div>`; return; }
     if (!d) { raizEl.innerHTML = `<div class="mam-vacio">Ese desafío no existe.</div><button type="button" class="mam-boton secundario" data-volver>Volver</button>`; $('[data-volver]').addEventListener('click', pintarLista); return; }
     cache[codigo] = d;
-    if (necesitaApodo()) {
-      raizEl.innerHTML = `<div class="mam-seccion"><span>Te desafiaron</span></div>${resumenHTML(d)}${apodoHTML(`${d.creador ? esc(d.creador) + ' te desafió' : 'Te desafiaron'}: ${d.partidos.length} ${d.partidos.length === 1 ? 'partido' : 'partidos'}. Elige un apodo para entrar.`)}`;
-      engancharApodo(() => unirme(codigo)); return;
-    }
-    if (!d.soy) {
-      raizEl.innerHTML = `<div class="mam-seccion"><span>Te desafiaron</span></div>${resumenHTML(d)}<button type="button" class="mam-boton" data-entrar>Entrar al desafío</button><div class="mam-aviso" data-aviso></div><button type="button" class="mam-boton secundario" data-volver>Ahora no</button>`;
-      $('[data-entrar]').addEventListener('click', () => unirme(codigo)); $('[data-volver]').addEventListener('click', pintarLista); return;
-    }
+    hito('desafio');
+    // 27/10: el que llega por un link (sin cuenta, o con cuenta pero sin haber entrado) ve el desafío entero y elige.
+    // El apodo se pide recién al guardar, que es cuando hace falta. Antes había dos pantallas antes de tocar un partido.
     pintarDesafio(d, recienCreado);
+  }
+  function portadaHTML(d) {
+    const quedan = d.partidos.filter((p) => !p.empezo).length;
+    const quien = d.oficial ? 'El desafío de la semana' : (d.creador ? esc(d.creador) + ' te desafió' : 'Te desafiaron');
+    return `<div class="mam-portada">
+      <span class="mam-etiqueta">${quien}</span>
+      <h2>${esc(d.nombre)}</h2>
+      <p>${d.partidos.length} ${d.partidos.length === 1 ? 'partido' : 'partidos'} de ${yLista([...new Set(d.partidos.map((p) => p.deporte === 'nba' ? 'NBA' : DEPORTE[p.deporte].toLowerCase()))])}${d.modelo_juega ? ' · juega el modelo' : ''}${quedan ? '' : ' · ya empezó'}</p>
+      ${racha(d)}
+      <div class="mam-pasos"><div><b>1</b>Elige quién gana, a ciegas</div><div><b>2</b>Guarda con un apodo. Sin mail.</div><div><b>3</b>Cuando empieza, se revela todo</div></div>
+    </div>`;
   }
   function resumenHTML(d) {
     return `<div class="mam-tarjeta"><h2 class="mam-titulo">${esc(d.nombre)}</h2><p class="mam-nota" style="margin:0">${d.creador ? 'Lo armó ' + esc(d.creador) + '. ' : ''}${d.partidos.length} ${d.partidos.length === 1 ? 'partido' : 'partidos'} · ${d.jugadores.length} ${d.jugadores.length === 1 ? 'jugador' : 'jugadores'}.</p>
@@ -301,15 +333,19 @@
   const clavePartido = (p) => p.deporte + ':' + p.partido;
   const NOMBRE_OP = (p, i) => (p.opciones === 3 ? [p.local, 'Empate', p.visita] : [p.local, p.visita])[i - 1] || '';
   function pintarDesafio(d, recienCreado) {
+    const invitado = !d.soy;
     const bo = borrador(d.codigo);
     for (const p of d.partidos) { const k = clavePartido(p); if (bo.has(k) && (p.mia != null || p.empezo)) bo.delete(k); }
     guardarBorrador(d.codigo);
     const pendientes = d.partidos.filter((p) => !p.empezo && p.mia == null && !bo.has(clavePartido(p))).length;
     const jugadores = conModelo(d);
     jugadores.sort((a, b) => b.puntos - a.puntos);
-    let html = `<div class="mam-seccion"><span>${esc(d.estado)}</span><button type="button" class="mam-boton secundario chico" data-volver>Mis desafíos</button></div>
-      <div class="mam-tarjeta">
+    let html = `<div class="mam-seccion"><span>${esc(d.estado)}</span><button type="button" class="mam-boton secundario chico" data-volver>${invitado ? 'Desafíos' : 'Mis desafíos'}</button></div>`;
+    if (invitado) html += portadaHTML(d) + `<div class="mam-tarjeta">${ganadorHTML(d, jugadores)}
+        <div class="mam-fila"><button type="button" class="mam-boton secundario chico crece" data-compartir>Mandar el link</button>${d.estado !== 'abierto' ? '<button type="button" class="mam-boton secundario chico crece" data-imagen>Compartir cómo va</button>' : ''}</div></div>`;
+    else html += `<div class="mam-tarjeta">
         <h2 class="mam-titulo">${esc(d.nombre)}</h2>
+        ${d.oficial ? racha(d) : ''}
         ${ganadorHTML(d, jugadores)}
         <div class="mam-codigo"><span class="mam-nota">Código del desafío</span><b>${esc(d.codigo)}</b></div>
         ${d.estado === 'terminado'
@@ -317,9 +353,9 @@
           : `<div class="mam-fila"><button type="button" class="mam-boton chico crece" data-compartir>Mandar el link</button>${d.estado !== 'abierto' ? '<button type="button" class="mam-boton secundario chico crece" data-imagen>Compartir cómo va</button>' : ''}</div>`}
         ${d.partidos.some((p) => p.mia != null) ? '<button type="button" class="mam-boton secundario chico" data-mis-elecciones style="width:100%">Compartir mis elecciones</button>' : ''}
         ${recienCreado ? '<p class="mam-nota">Listo. Mándales el link a tus amigos y elige tus ganadores abajo.</p>' : ''}
-        ${pendientes ? `<p class="mam-nota">Te faltan ${pendientes} ${pendientes === 1 ? 'partido' : 'partidos'} por elegir.</p>` : ''}
-      </div>
-      <div class="mam-aviso" data-aviso></div>`;
+        ${pendientes ? `<p class="mam-nota">Te ${pendientes === 1 ? 'falta 1 partido' : 'faltan ' + pendientes + ' partidos'} por elegir.</p>` : ''}
+      </div>`;
+    html += `<div class="mam-aviso" data-aviso></div><div data-compartir-ya></div>`;
     if (d.partidos.some((p) => !p.empezo && p.mia == null)) html += `<p class="mam-nota mam-regla">Elige y toca <b>Guardar</b>. Una vez guardadas, tus elecciones no se pueden cambiar.</p>`;
     let dia = '';
     for (const p of d.partidos) {
@@ -336,6 +372,7 @@
       </div>`;
     if (bo.size) html += `<div class="mam-pegajoso mam-guardar" data-barra-guardar><span class="crece mam-nota" data-guardar-texto>${bo.size} ${bo.size === 1 ? 'elección' : 'elecciones'} sin guardar</span><button type="button" class="mam-boton chico" data-guardar>Guardar</button></div>`;
     raizEl.innerHTML = html;
+    if (invitado || d.oficial) pintarRacha();
     $('[data-volver]').addEventListener('click', pintarLista);
     $('[data-compartir]').addEventListener('click', () => compartir(d));
     const im = $('[data-imagen]'); if (im) im.addEventListener('click', () => imagenResultado(d));
@@ -345,6 +382,24 @@
     const rv = $('[data-revancha]'); if (rv) rv.addEventListener('click', () => pintarCrear({ nombre: 'Revancha: ' + d.nombre.replace(/^Revancha: /, '').slice(0, 50) }));
     raizEl.querySelectorAll('[data-elegir]').forEach((b) => b.addEventListener('click', () => elegir(d, b.dataset.deporte, b.dataset.partido, Number(b.dataset.elegir))));
     const gu = $('[data-guardar]'); if (gu) gu.addEventListener('click', () => confirmarGuardar(d));
+  }
+  // ── el invitado guarda: primero el apodo (si no tiene cuenta), después entra al desafío, después se guardan las elecciones ──
+  function pedirApodoYGuardar(d) {
+    const barra = $('[data-barra-guardar]'); if (!barra) return;
+    const sinCuenta = necesitaApodo();
+    barra.innerHTML = `<div class="mam-apodo-guardar crece"><span class="mam-nota">${sinCuenta ? 'Un apodo para la tabla. Sin mail, sin contraseña.' : 'Entras al desafío y se guardan tus elecciones.'}</span>
+      <form data-form-apodo-guardar class="mam-fila">${sinCuenta ? '<input class="mam-campo crece" name="apodo" placeholder="tu apodo" maxlength="16" autocomplete="nickname" required>' : ''}<button class="mam-boton chico" type="submit">${sinCuenta ? 'Guardar' : 'Entrar y guardar'}</button></form>
+      <div class="mam-aviso" data-aviso-guardar></div></div>`;
+    const f = barra.querySelector('[data-form-apodo-guardar]'); const inp = f.querySelector('input'); if (inp) setTimeout(() => inp.focus(), 50);
+    f.addEventListener('submit', async (ev) => {
+      ev.preventDefault(); const b = f.querySelector('button'); b.disabled = true; const av = barra.querySelector('[data-aviso-guardar]');
+      try {
+        if (sinCuenta) { av.textContent = 'Creando tu cuenta…'; await CU().entrarConApodo(f.apodo.value); hito('cuenta'); if (ctx.alCambiarCuenta) ctx.alCambiarCuenta(); }
+        av.textContent = 'Entrando…'; await CU().rpc('unirse_desafio', { p_codigo: d.codigo }); pedirAvisos();
+        d.soy = true; const yo = CU().perfil(); d.jugadores = (d.jugadores || []).concat([{ apodo: yo ? yo.usuario : 'tú', puntos: 0, creador: false, yo: true, elegidos: 0 }]);
+        await guardarElecciones(d, true);
+      } catch (e) { av.textContent = e.message; b.disabled = false; }
+    });
   }
   function partidoHTML(d, p) {
     const op = p.opciones === 3 ? [1, 2, 3] : [1, 2];
@@ -370,7 +425,7 @@
     // en vivo: el marcador mientras se juega (lo trae el cascarón de la web de la NBA); cuando termina, hasta que se resuelva
     const v = (ctx.vivo && !p.resultado && p.empezo) ? ctx.vivo(p.deporte, p.partido) : null;
     const vivoHTML = v && v.estado !== 'programado' && v.pl != null ? `<div class="mam-vivo${v.estado === 'terminado' ? ' final' : ''}"><b>${esc(p.local)} ${v.pl} – ${v.pv} ${esc(p.visita)}</b><small>${v.estado === 'terminado' ? 'terminó · se resuelve en minutos' : v.estado === 'entretiempo' ? 'EN VIVO · entretiempo' : 'EN VIVO · ' + (v.cuarto > 4 ? 'OT' + (v.cuarto - 4) : (v.cuarto || '') + 'Q') + (v.reloj ? ' ' + esc(v.reloj) : '')}</small></div>` : '';
-    return `<div class="mam-tarjeta mam-partido-juego${v && v.estado !== 'terminado' && v.estado !== 'programado' ? ' envivo' : ''}">
+    return `<div class="mam-tarjeta mam-partido-juego${v && v.estado !== 'terminado' && v.estado !== 'programado' ? ' envivo' : ''}${marcada != null ? ' elegido' : ''}">
       <div class="mam-fila"><span class="crece"><b>${esc(p.rotulo || DEPORTE[p.deporte])}</b> <small class="mam-nota">· ${esc(horaDe(Date.parse(p.empieza)))}</small></span><small class="mam-nota">${esc(estado)}</small></div>
       ${vivoHTML}
       <div class="mam-eleccion${p.opciones === 3 ? ' tres' : ''}">${botones.length === 2 ? botones[0] + '<span>o</span>' + botones[1] : botones.join('')}</div>
@@ -381,7 +436,7 @@
     if (!p || p.empezo || p.mia != null) return;
     const bo = borrador(d.codigo), k = clavePartido(p);
     if (Number(bo.get(k)) === eleccion) bo.delete(k); else bo.set(k, eleccion);
-    guardarBorrador(d.codigo);
+    guardarBorrador(d.codigo); hito('eligio');
     N() && N().vibrar('toque');
     const y = (raizEl.closest('.mam-pantalla') || document.scrollingElement || {}).scrollTop;
     pintarDesafio(d);
@@ -390,11 +445,12 @@
   // dos toques: "Guardar" → "Sí, guardar" (avisa que después no se cambian)
   function confirmarGuardar(d) {
     const b = $('[data-guardar]'), t = $('[data-guardar-texto]'); if (!b) return;
+    if (!d.soy) return pedirApodoYGuardar(d);
     if (b.dataset.confirmar) return guardarElecciones(d);
     b.dataset.confirmar = '1'; b.textContent = 'Sí, guardar';
     if (t) t.innerHTML = '<b>¿Seguro?</b> Después no se pueden cambiar.';
   }
-  async function guardarElecciones(d) {
+  async function guardarElecciones(d, recienEntro) {
     const bo = borrador(d.codigo); if (!bo.size) return;
     const b = $('[data-guardar]'); if (b) { b.disabled = true; b.textContent = 'Guardando…'; }
     const lista = [...bo.entries()].map(([k, e]) => { const i = k.indexOf(':'); return { deporte: k.slice(0, i), partido: k.slice(i + 1), eleccion: Number(e) }; });
@@ -404,14 +460,31 @@
       for (const x of lista) { const p = d.partidos.find((q) => q.deporte === x.deporte && q.partido === x.partido); if (p && !empezados.has(clavePartido(p)) && p.mia == null) p.mia = x.eleccion; }
       bo.clear(); guardarBorrador(d.codigo);
       const yo = d.jugadores.find((j) => j.yo); if (yo) yo.elegidos = d.partidos.filter((x) => x.mia != null).length;
-      N() && N().vibrar('set');
+      N() && N().vibrar('set'); hito('guardo');
+      if (recienEntro) { try { d = (await CU().rpc('ver_desafio', { p_codigo: d.codigo })) || d; cache[d.codigo] = d; } catch (e) {} }
       pintarDesafio(d);
       aviso(empezados.size ? `Guardado. ${empezados.size === 1 ? 'Un partido ya había empezado y quedó afuera' : empezados.size + ' partidos ya habían empezado y quedaron afuera'}.` : 'Guardado. Ya no se cambian. ¡Suerte!', true);
-      if ((r.ya || []).length) abrir(d.codigo);
+      compartirYaHTML(d);
+      if ((r.ya || []).length && !recienEntro) abrir(d.codigo);
     } catch (e) { aviso(e.message); if (b) { b.disabled = false; b.textContent = 'Guardar'; delete b.dataset.confirmar; } }
   }
-  async function compartir(d) {
-    const texto = `Te desafío en Mano a mano: "${d.nombre}", ${d.partidos.length} ${d.partidos.length === 1 ? 'partido' : 'partidos'}. Elige quién gana y vemos quién sabe más. Código ${d.codigo}.`;
+  // ── compartir al guardar (27/10): el momento en que alguien acaba de jugar es el momento de traer a otro ──
+  function textoInvitacion(d) { return `Ya elegí en "${d.nombre}" en Mano a mano. ${d.partidos.length} ${d.partidos.length === 1 ? 'partido' : 'partidos'}, a ciegas, contra el modelo. ¿Te animas? ${link(d.codigo)}`; }
+  function compartirYaHTML(d) {
+    const el = $('[data-compartir-ya]'); if (!el) return;
+    el.innerHTML = `<div class="mam-tarjeta mam-compartir-ya"><b>Listo. ¿A quién le mandas el desafío?</b><p class="mam-nota" style="margin:0">Cuanto más gente, mejor la tabla. El que entra con tu link juega gratis, con un apodo.</p>
+      <div class="mam-fila"><button type="button" class="mam-boton chico crece wa" data-wa>Mandar por WhatsApp</button><button type="button" class="mam-boton secundario chico crece" data-otro>Otro</button></div></div>`;
+    el.querySelector('[data-wa]').addEventListener('click', () => whatsapp(textoInvitacion(d)));
+    el.querySelector('[data-otro]').addEventListener('click', () => compartir(d, textoInvitacion(d)));
+    try { el.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e) {}
+  }
+  function whatsapp(texto) {
+    const url = 'https://wa.me/?text=' + encodeURIComponent(texto); const n = N();
+    if (n && n.hayNativo && n.hayNativo()) { n.abrir(url); return; }
+    try { window.open(url, '_blank'); } catch (e) { location.href = url; }
+  }
+  async function compartir(d, textoDado) {
+    const texto = textoDado || `Te desafío en Mano a mano: "${d.nombre}", ${d.partidos.length} ${d.partidos.length === 1 ? 'partido' : 'partidos'}. Elige quién gana y vemos quién sabe más. Código ${d.codigo}.`;
     const n = N();
     if (n && await n.compartir(texto, link(d.codigo), 'Mandar el desafío')) return;
     try { await navigator.clipboard.writeText(texto + ' ' + link(d.codigo)); aviso('Link copiado. Pégalo donde quieras.', true); } catch (e) { aviso('El link: ' + link(d.codigo), true); }

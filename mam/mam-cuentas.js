@@ -169,6 +169,8 @@
   async function misPases() {
     const out = { futbol: null, tenis: null, nba: null };
     if (!sesion) return out;
+    // 27/10: una sola consulta, con las pruebas gratis vigentes incluidas (mis_pases_mam). Si falla, lo de siempre.
+    try { const m = await rpc('mis_pases_mam'); if (m && typeof m === 'object') { for (const k of ['futbol', 'tenis', 'nba']) out[k] = m[k] || null; out.prueba = m.prueba || null; return out; } } catch (e) {}
     try {
       const f = await pedir('/rest/v1/perfil?select=plan,premium_hasta&id=eq.' + sesion.uid);
       const p = f && f[0];
@@ -184,6 +186,9 @@
     } catch (e) {}
     return out;
   }
+  // la prueba gratis de Mano a mano (7 días, con cuenta, en la web): ¿puede empezarla? / empezarla
+  async function estadoPrueba() { try { return (await rpc('estado_prueba_mam')) || null; } catch (e) { return null; } }
+  async function empezarPrueba() { return rpc('empezar_prueba_mam'); }
   async function cobra() {
     try { const f = await pedir('/rest/v1/ajuste?select=clave,valor&clave=in.(cobra,cobra_sacavos,cobra_quinteto)', { sinToken: true }); const m = {}; for (const x of f || []) m[x.clave] = x.valor === 'si'; return { futbol: !!m.cobra, tenis: !!m.cobra_sacavos, nba: !!m.cobra_quinteto }; }
     catch (e) { return { futbol: true, tenis: true, nba: true }; }
@@ -214,5 +219,5 @@
   }
   raiz.mamCuentas = { hayBackend, pedir, rpc, quienSoy: () => sesion, asegurarSesion, salir, esAnonima, miPerfil, perfil: () => PERFIL,
     entrarConApodo, atarMail, entrarConClave, crearCuenta, pedirLink, pedirCodigo, entrarConCodigo, capturarVuelta, asegurarPerfil, borrarMiCuenta,
-    misPases, cobra, planesWeb, linkDePago, avisarPagoDeTienda };
+    misPases, cobra, planesWeb, linkDePago, avisarPagoDeTienda, estadoPrueba, empezarPrueba };
 })(typeof window !== 'undefined' ? window : globalThis);

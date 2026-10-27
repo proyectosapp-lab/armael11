@@ -30,6 +30,18 @@
   const deporteDe = (h) => (/^#(futbol|tenis|nba)\b/.exec(h || '') || [])[1] || null;
   let desafioPendiente = null;                         // un #desafio=CODIGO que llegó antes de estar listos
   let planPendiente = null;                            // el deporte cuyo plan hay que resaltar en Cuenta
+  const H = () => raiz.mamHitos; const hito = (n) => { try { H() && H().hito(n); } catch (e) {} };
+
+  // ── la piel (27/10): noche (la de las historias y el reel), día (papel), o la del teléfono. Los marcos la siguen. ──
+  let tema = leer('mam.tema', 'noche'); if (tema !== 'dia' && tema !== 'auto') tema = 'noche';
+  const temaReal = () => tema === 'auto' ? (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches ? 'dia' : 'noche') : tema;
+  function aplicarTema() {
+    document.documentElement.setAttribute('data-tema', tema);
+    const m = document.querySelector('meta[name=theme-color]'); if (m) m.setAttribute('content', temaReal() === 'dia' ? '#F6F1EA' : '#14110F');
+    for (const d of DEPORTES) decirle(d, { mam: 'tema', tema: temaReal() });
+  }
+  function ponerTema(t) { tema = t === 'dia' || t === 'auto' ? t : 'noche'; guardar('mam.tema', tema); aplicarTema(); }
+  try { window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', () => { if (tema === 'auto') aplicarTema(); }); } catch (e) {}
 
   // ── los marcos ──
   function srcDe(d) {
@@ -107,11 +119,12 @@
     if (pestana === 'cuenta') pintarCuenta();
     try { window.scrollTo(0, 0); } catch (e) {}
   }
-  function ir(p, d) {
+  // sinVibrar: cuando lo manda un link o el arranque, no un toque (el teléfono no vibra si nadie tocó nada)
+  function ir(p, d, sinVibrar) {
     if (d && DEPORTES.includes(d)) { deporte = d; guardar('mam.deporte', d); if (deportes && !deportes.includes(d)) { deportes.push(d); guardar('mam.deportes', deportes); } }
     if (p) { pestana = p; guardar('mam.pestana', p); }
     mostrar();
-    N() && N().vibrar('toque');
+    if (!sinVibrar) N() && N().vibrar('toque');
   }
 
   // ── la reseña: después de un poco de uso real ──
@@ -265,7 +278,7 @@
   const vivo = (deporte, partido) => (VIVO[deporte] || {})[String(partido)] || null;
   function contexto() {
     const codigo = desafioPendiente; desafioPendiente = null;
-    return { partidos, modelo, destacados, vivo, ir: (p, d) => ir(p, d), alCambiarCuenta: () => { recargarTodos(); D().refrescarGlobo(); }, codigo, momento };
+    return { partidos, modelo, destacados, vivo, ir: (p, d) => ir(p, d), alCambiarCuenta: () => { recargarTodos(); D().refrescarGlobo(); }, codigo, momento, hito };
   }
 
   // ── la cuenta ──
@@ -316,8 +329,18 @@
         <div class="mam-aviso${CU_ESTADO.bien ? ' bien' : ''}" data-aviso>${esc(CU_ESTADO.aviso)}</div>
       </div>`;
       const conPrueba = nativo && CU_ESTADO.precios && Object.values(CU_ESTADO.precios).some((p) => p && p.prueba);
-      html += `<div class="mam-seccion"><span>Planes</span><small>${conPrueba ? '3 días gratis la primera vez' : 'los desafíos y los juegos son gratis siempre'}</small></div>
+      // 27/10: en la web, 7 días gratis con la cuenta (sin tarjeta). Una vez por cuenta; la da el servidor (empezar_prueba_mam).
+      if (!nativo && c.hayBackend() && CU_ESTADO.prueba === undefined) { CU_ESTADO.prueba = null; c.estadoPrueba().then((e) => { CU_ESTADO.prueba = e || null; if (pestana === 'cuenta') pintarCuenta(); }); }
+      const pr = CU_ESTADO.prueba, pa = (CU_ESTADO.pases || {}).prueba;
+      const pruebaActiva = pa && pa.hasta && Date.parse(pa.hasta) > Date.now();
+      const diasQuedan = pruebaActiva ? Math.max(1, Math.ceil((Date.parse(pa.hasta) - Date.now()) / 864e5)) : 0;
+      if (!nativo && pr && pr.puede) html += `<div class="mam-tarjeta mam-oficial"><span class="mam-etiqueta">${pr.dias} días gratis</span>
+        <h2 class="mam-titulo">Mira el pronóstico de todos los partidos</h2>
+        <p class="mam-nota" style="margin:0">Fútbol, tenis y NBA, con el número del modelo y la simulación sin tope. ${pr.dias} días, sin tarjeta. Después, si quieres, un plan.</p>
+        <button type="button" class="mam-boton" data-empezar-prueba ${CU_ESTADO.comprando ? 'disabled' : ''}>Empezar los ${pr.dias} días gratis</button></div>`;
+      html += `<div class="mam-seccion"><span>Planes</span><small>${pruebaActiva ? 'prueba gratis · ' + (diasQuedan === 1 ? 'último día' : 'te quedan ' + diasQuedan + ' días') : conPrueba ? '3 días gratis la primera vez' : 'los desafíos y los juegos son gratis siempre'}</small></div>
         <div class="mam-tarjeta" data-planes>${T().panelHTML({ pases: CU_ESTADO.pases || {}, nativo, precios: CU_ESTADO.precios, preciosWeb: web, comprando: CU_ESTADO.comprando, cobra: CU_ESTADO.cobra })}</div>`;
+      hito('planes');
       html += `<div class="mam-seccion"><span>Qué sigues</span></div>
         <div class="mam-tarjeta"><div class="mam-chips" data-sigo>${DEPORTES.map((d) => `<button type="button" data-d="${d}" aria-pressed="${(deportes || DEPORTES).includes(d) ? 'true' : 'false'}">${NOMBRE[d]}</button>`).join('')}</div></div>`;
       html += `<div class="mam-tarjeta">
@@ -325,6 +348,8 @@
         <p class="mam-letra">Borrar la cuenta elimina tu perfil, tus desafíos y tus elecciones. No se puede deshacer. Las suscripciones se cancelan desde los ajustes del teléfono.</p>
       </div>`;
     }
+    html += `<div class="mam-seccion"><span>Piel</span><small>cómo se ve la app</small></div>
+      <div class="mam-tarjeta mam-tema"><div class="mam-chips" data-tema>${[['noche', 'Noche'], ['dia', 'Día'], ['auto', 'Como el teléfono']].map(([k, n]) => `<button type="button" data-t="${k}" aria-pressed="${tema === k ? 'true' : 'false'}">${n}</button>`).join('')}</div></div>`;
     html += `<p class="mam-letra">App independiente, sin relación con ligas, torneos, jugadores ni equipos. <a href="${esc(s.privacidad || '#')}" data-abrir>Privacidad</a></p>`;
     raizEl.innerHTML = html;
     CU_ESTADO.aviso = ''; CU_ESTADO.bien = false;
@@ -337,21 +362,21 @@
     const form = (sel, fn) => { const f = raizEl.querySelector(sel); if (f) f.addEventListener('submit', async (ev) => { ev.preventDefault(); const b = f.querySelector('button[type=submit]'); if (b) b.disabled = true; try { await fn(f); } catch (e) { avisoCuenta(e.message); if (b) b.disabled = false; } }); return f; };
     // `pedido = false`: la tienda se vuelve a presentar con el perfil nuevo (quienCompra). Si no, RevenueCat se queda con un
     // usuario anónimo, Apple cobra y el servidor no encuentra la compra en el perfil de Supabase: cobrado y sin plan.
-    form('[data-form-apodo]', async (f) => { await c.entrarConApodo(f.apodo.value); CU_ESTADO.pases = null; CU_ESTADO.pedido = false; CU_ESTADO.aviso = 'Listo.'; CU_ESTADO.bien = true; cambioDeCuenta(); pintarCuenta(); });
-    const fe = form('[data-form-entrar]', async (f) => { if (!f.clave.value) throw new Error('Escribe la contraseña, o pide un código al mail para entrar sin ella.'); await c.entrarConClave(f.email.value, f.clave.value); CU_ESTADO.pases = null; CU_ESTADO.pedido = false; CU_ESTADO.conMail = false; cambioDeCuenta(); pintarCuenta(); });
+    form('[data-form-apodo]', async (f) => { await c.entrarConApodo(f.apodo.value); hito('cuenta'); CU_ESTADO.pases = null; CU_ESTADO.prueba = undefined; CU_ESTADO.pedido = false; CU_ESTADO.aviso = 'Listo.'; CU_ESTADO.bien = true; cambioDeCuenta(); pintarCuenta(); });
+    const fe = form('[data-form-entrar]', async (f) => { if (!f.clave.value) throw new Error('Escribe la contraseña, o pide un código al mail para entrar sin ella.'); await c.entrarConClave(f.email.value, f.clave.value); hito('cuenta'); CU_ESTADO.pases = null; CU_ESTADO.prueba = undefined; CU_ESTADO.pedido = false; CU_ESTADO.conMail = false; cambioDeCuenta(); pintarCuenta(); });
     /* Entrar sin contraseña: un CÓDIGO por mail, no un link. El link abría el navegador del teléfono (y mandaba a
        armael11.com): la sesión quedaba afuera de la app. El código se escribe acá y la sesión queda acá. */
     if (fe) { const l = fe.querySelector('[data-codigo]'); l.addEventListener('click', async () => { l.disabled = true; try { CU_ESTADO.codigoPara = await c.pedirCodigo(fe.email.value); pintarCuenta(); } catch (e) { avisoCuenta(e.message); l.disabled = false; } }); }
-    form('[data-form-codigo]', async (f) => { await c.entrarConCodigo(CU_ESTADO.codigoPara, f.codigo.value); CU_ESTADO.codigoPara = null; CU_ESTADO.conMail = false; CU_ESTADO.pases = null; CU_ESTADO.pedido = false; cambioDeCuenta(); pintarCuenta(); });
+    form('[data-form-codigo]', async (f) => { await c.entrarConCodigo(CU_ESTADO.codigoPara, f.codigo.value); hito('cuenta'); CU_ESTADO.codigoPara = null; CU_ESTADO.conMail = false; CU_ESTADO.pases = null; CU_ESTADO.prueba = undefined; CU_ESTADO.pedido = false; cambioDeCuenta(); pintarCuenta(); });
     const otro = raizEl.querySelector('[data-otro-mail]'); if (otro) otro.addEventListener('click', () => { CU_ESTADO.codigoPara = null; pintarCuenta(); });
     const cm = raizEl.querySelector('[data-con-mail]'); if (cm) cm.addEventListener('click', (ev) => { ev.preventDefault(); CU_ESTADO.conMail = true; pintarCuenta(); });
     raizEl.querySelectorAll('[data-ojo]').forEach((b) => b.addEventListener('click', () => { const i = b.parentElement.querySelector('input'); const ver = i.type === 'password'; i.type = ver ? 'text' : 'password'; b.setAttribute('aria-pressed', ver ? 'true' : 'false'); b.setAttribute('aria-label', ver ? 'Ocultar la contraseña' : 'Mostrar la contraseña'); }));
     form('[data-form-atar]', async (f) => { await c.atarMail(f.email.value, f.clave.value); CU_ESTADO.aviso = 'Mandamos un mail para confirmarlo. Mientras tanto, se sigue jugando igual.'; CU_ESTADO.bien = true; pintarCuenta(); });
-    const salir = raizEl.querySelector('[data-salir]'); if (salir) salir.addEventListener('click', () => { c.salir(); CU_ESTADO = { pases: null, comprando: false, precios: CU_ESTADO.precios, aviso: '', bien: false, pedido: false, web: CU_ESTADO.web }; T().quienCompra(null); cambioDeCuenta(); pintarCuenta(); });
+    const salir = raizEl.querySelector('[data-salir]'); if (salir) salir.addEventListener('click', () => { c.salir(); CU_ESTADO = { pases: null, comprando: false, precios: CU_ESTADO.precios, aviso: '', bien: false, pedido: false, web: CU_ESTADO.web, prueba: undefined }; T().quienCompra(null); cambioDeCuenta(); pintarCuenta(); });
     const borrar = raizEl.querySelector('[data-borrar]'); if (borrar) borrar.addEventListener('click', async () => {
       if (borrar.dataset.seguro !== '1') { borrar.dataset.seguro = '1'; borrar.textContent = 'Toca otra vez para borrar todo'; setTimeout(() => { borrar.dataset.seguro = ''; borrar.textContent = 'Borrar mi cuenta'; }, 6000); return; }
       borrar.disabled = true;
-      try { await c.borrarMiCuenta(); CU_ESTADO = { pases: null, comprando: false, precios: CU_ESTADO.precios, aviso: 'Cuenta borrada.', bien: true, pedido: false, web: CU_ESTADO.web }; T().quienCompra(null); cambioDeCuenta(); pintarCuenta(); }
+      try { await c.borrarMiCuenta(); CU_ESTADO = { pases: null, comprando: false, precios: CU_ESTADO.precios, aviso: 'Cuenta borrada.', bien: true, pedido: false, web: CU_ESTADO.web, prueba: undefined }; T().quienCompra(null); cambioDeCuenta(); pintarCuenta(); }
       catch (e) { avisoCuenta(e.message); borrar.disabled = false; }
     });
     raizEl.querySelectorAll('[data-sigo] [data-d]').forEach((b) => b.addEventListener('click', () => {
@@ -361,6 +386,12 @@
       guardar('mam.deportes', deportes); pintarDeportes();
       raizEl.querySelectorAll('[data-sigo] [data-d]').forEach((x) => x.setAttribute('aria-pressed', deportes.includes(x.dataset.d) ? 'true' : 'false'));
     }));
+    raizEl.querySelectorAll('[data-tema] [data-t]').forEach((b) => b.addEventListener('click', () => { ponerTema(b.dataset.t); raizEl.querySelectorAll('[data-tema] [data-t]').forEach((x) => x.setAttribute('aria-pressed', x.dataset.t === tema ? 'true' : 'false')); N() && N().vibrar('toque'); }));
+    const ep = raizEl.querySelector('[data-empezar-prueba]'); if (ep) ep.addEventListener('click', async () => {
+      ep.disabled = true; ep.textContent = 'Un segundo…';
+      try { await c.empezarPrueba(); hito('prueba'); CU_ESTADO.pases = null; CU_ESTADO.prueba = undefined; CU_ESTADO.aviso = 'Listo. Ya ves el pronóstico de todos los partidos.'; CU_ESTADO.bien = true; cambioDeCuenta(); pintarCuenta(); n && n.vibrar('partido'); }
+      catch (e) { avisoCuenta(e.message); ep.disabled = false; ep.textContent = 'Empezar la prueba gratis'; }
+    });
     raizEl.querySelectorAll('[data-plan]').forEach((b) => b.addEventListener('click', () => comprar(b.dataset.plan)));
     const rest = raizEl.querySelector('[data-restaurar]'); if (rest) rest.addEventListener('click', async () => { rest.disabled = true; try { await T().restaurar(); await acreditar(); avisoCuenta('Compras restauradas.', true); } catch (e) { avisoCuenta(T().textoDeError(e)); } rest.disabled = false; });
     raizEl.querySelectorAll('[data-abrir]').forEach((a) => a.addEventListener('click', (ev) => { if (n && n.hayNativo()) { ev.preventDefault(); n.abrir(a.getAttribute('href')); } }));
@@ -400,7 +431,7 @@
   window.addEventListener('message', (ev) => {
     const m = ev.data; if (!m || typeof m !== 'object' || !m.mam) return;
     const d = DEPORTES.find((x) => ventana(x) === ev.source) || m.deporte || deporte;
-    if (m.mam === 'listo') { const mk = marcos[d]; if (mk) { mk.listo = true; const esp = mk.esperando.splice(0); esp.forEach((fn) => fn()); } return; }
+    if (m.mam === 'listo') { const mk = marcos[d]; if (mk) { mk.listo = true; const esp = mk.esperando.splice(0); esp.forEach((fn) => fn()); } decirle(d, { mam: 'tema', tema: temaReal() }); return; }
     if (m.mam === 'pase') { planPendiente = DEPORTES.includes(m.deporte) ? m.deporte : d; CU_ESTADO.pases = null; ir('cuenta'); return; }
     if (m.mam === 'cuenta') { CU_ESTADO.pases = null; ir('cuenta'); return; }
     if (m.mam === 'sesion') { CU_ESTADO.pases = null; D().refrescarGlobo(); return; }   // el marco entró o salió
@@ -419,23 +450,23 @@
     if (!codigo) return;
     desafioPendiente = codigo;
     try { if (/desafio=/.test(location.hash)) history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
-    ir('desafios');
+    ir('desafios', null, true);
   }
   function leerHash() {
     const h = location.hash || '';
     const c = codigoDe(h); if (c) return abrirDesafio(c);
-    if (/^#juegos/.test(h)) { history.replaceState(null, '', location.pathname); ir('juga'); }
-    if (/^#desafios/.test(h)) { history.replaceState(null, '', location.pathname); ir('desafios'); }
+    if (/^#juegos/.test(h)) { history.replaceState(null, '', location.pathname); ir('juga', null, true); }
+    if (/^#desafios/.test(h)) { history.replaceState(null, '', location.pathname); ir('desafios', null, true); }
     // la vuelta de Mercado Pago (gracias.html → index.html#cuenta): se vuelve a leer qué tiene la persona
-    if (/^#cuenta/.test(h)) { history.replaceState(null, '', location.pathname); CU_ESTADO.pases = null; ir('cuenta'); }
-    if (/^#planes/.test(h)) { history.replaceState(null, '', location.pathname); ir('cuenta'); }
+    if (/^#cuenta/.test(h)) { history.replaceState(null, '', location.pathname); CU_ESTADO.pases = null; ir('cuenta', null, true); }
+    if (/^#planes/.test(h)) { history.replaceState(null, '', location.pathname); ir('cuenta', null, true); }
     const dh = deporteDe(h); if (dh) { history.replaceState(null, '', location.pathname); irADeporte(dh); }
   }
   // un link a un deporte (#futbol, #tenis, #nba): la pantalla de partidos de ese deporte, con el número del modelo
   function irADeporte(dh) {
     if (!deportes || !deportes.length) { deportePendiente = dh; return; }
     if (!deportes.includes(dh)) { deportes = deportes.concat(dh); guardar('mam.deportes', deportes); if (typeof pintarDeportes === 'function') pintarDeportes(); }
-    ir('partidos', dh);
+    ir('partidos', dh, true);
   }
 
   // ── la red ──
@@ -453,21 +484,26 @@
     window.addEventListener('hashchange', leerHash);
     window.addEventListener('mam-aviso', (ev) => { const d = ev.detail || {}; if (d.desafio) abrirDesafio(String(d.desafio)); });
     document.body.classList.remove('mam-cargando');
+    aplicarTema();
+    try { H() && H().arrancar(); } catch (e) {}
     const dhInicio = deporteDe(location.hash), planesInicio = /^#planes/.test(location.hash);
     if (dhInicio || planesInicio) { try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {} }
+    // el que llega con un desafío (de una historia, un anuncio o un amigo) no pasa por la bienvenida: ve el desafío y elige.
+    // Sigue los tres deportes; se cambia desde Cuenta.
+    if ((!deportes || !deportes.length) && codigoDe(location.hash)) { deportes = DEPORTES.slice(); deporte = dhInicio || 'futbol'; guardar('mam.deportes', deportes); guardar('mam.deporte', deporte); }
     if (!deportes || !deportes.length) { deportePendiente = dhInicio; const cd = codigoDe(location.hash); if (cd) desafioPendiente = cd; bienvenida(); return; }
     if (!deporte || !deportes.includes(deporte)) deporte = deportes[0];
     cargarTodos();
     const cd = codigoDe(location.hash);
-    if (cd) abrirDesafio(cd); else if (dhInicio) irADeporte(dhInicio); else if (planesInicio) ir('cuenta'); else { if (/^#juegos/.test(location.hash)) pestana = 'juga'; mostrar(); }
+    if (cd) abrirDesafio(cd); else if (dhInicio) irADeporte(dhInicio); else if (planesInicio) ir('cuenta', null, true); else { if (/^#juegos/.test(location.hash)) pestana = 'juga'; mostrar(); }
     D().refrescarGlobo();
     setInterval(() => { if (document.visibilityState === 'visible') D().refrescarGlobo(); }, 5 * 60000);
     traerVivo(); setInterval(() => { if (document.visibilityState === 'visible') traerVivo(); }, 60000);
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') { CU().asegurarSesion(); D().refrescarGlobo(); } });
     // volver a Desafíos después de la bienvenida con un código pendiente
-    if (desafioPendiente && pestana !== 'desafios') ir('desafios');
+    if (desafioPendiente && pestana !== 'desafios') ir('desafios', null, true);
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', arrancar); else arrancar();
 
-  raiz.mam = { ir, partidos, modelo, destacados, elegirDestacados, abrirDesafio, recargarTodos, momento, vivo, traerVivo, estado: () => ({ deportes, deporte, pestana }), _marcos: marcos };
+  raiz.mam = { ir, partidos, modelo, destacados, elegirDestacados, abrirDesafio, recargarTodos, momento, vivo, traerVivo, ponerTema, tema: () => tema, estado: () => ({ deportes, deporte, pestana, tema }), _marcos: marcos };
 })(typeof window !== 'undefined' ? window : globalThis);
