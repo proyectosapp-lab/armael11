@@ -46,6 +46,8 @@ la carpeta y GitHub reemplaza los archivos que ya existen.
 | `app.tpl.html` | la web de fútbol: noche cálida, portada que vende, racha en vivo, sigue la piel adentro de la app. |
 | `control-mam.tpl.html` | el control corto con los pasos. |
 | `probar-mam.mjs` | 177 pruebas (las 2 de "cabecera propia" de tenis/NBA fallan solo con los stubs de prueba). |
+| `probar-clubes.mjs`, `probar-sitio.cjs` | las pruebas que miraban el azul viejo de la noche y el gancho viejo, puestas al día (la primera corrida de Actions cortó por esto). |
+| `construir-sitio.mjs`, `paginas-medido.mjs` | las páginas de consulta y de "medido" en modo oscuro también pasan al negro cálido. |
 | `racha-y-hitos-mam.sql`, `prueba-y-mail-mam.sql` | copia de lo que YA está aplicado en Supabase. No hay que correrlos. |
 | `funcion-mail-desafio.ts` | copia de la Edge Function `mail-desafio`, YA desplegada. |
 

@@ -278,8 +278,13 @@ srv.listen(8099, async () => {
      y lo obliga a pasar por el respaldo. */
   {
     const g = pg.locator('.gancho');
-    caso("la portada dice, arriba de todo, que la perilla mueve el resultado",
-         await g.count() === 1 && /perilla y se mueve el resultado/i.test(await g.innerText()));
+    /* 27/10: el gancho vende: "Deja de adivinar. Simula el partido." y, debajo, que el planteo mueve el resultado. */
+    caso("la portada dice, arriba de todo, que dejes de adivinar y simules",
+         await g.count() === 1 && /Deja de adivinar\. Simula el partido\./.test(await g.innerText()) && /mueves el planteo/i.test(await g.innerText()));
+    caso("y tiene los dos botones: simular acá, el desafío en la app",
+         await g.locator('.botones a[data-simular]').count() === 1 && await g.locator('.botones a[href="/app/#desafios"]').count() === 1);
+    caso("y abajo del gancho está la vidriera del desafío",
+         await pg.locator('.vidriera[href="/app/#desafios"]').count() === 1);
     caso("y que no tira un dado", /no tira un dado/i.test(await g.innerText()));
     const txt = await g.innerText();
     for (const n of ["13.345", "trece ligas", "1.783", "6.000"])

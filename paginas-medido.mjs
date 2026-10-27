@@ -111,7 +111,7 @@ export const CSS = `  /* Los neutros y la letra de la familia (12/10/2026): los 
   @font-face{font-family:"Poppins";font-weight:500;font-display:swap;src:url("/datos/poppins-medium.woff") format("woff")}
   :root{ --fondo:#F6F1EA; --papel:#FFFFFF; --texto:#14110F; --suave:#5C554F; --borde:#E8E0D5; --verde:#1E8A4A; }
   @media (prefers-color-scheme: dark){
-    :root{ --fondo:#0D1117; --papel:#161C25; --texto:#F2EDE6; --suave:#A39B93; --borde:#242B36; --verde:#3DD17A; } }
+    :root{ --fondo:#14110F; --papel:#221D1A; --texto:#F6F1EA; --suave:#A39B93; --borde:#2A2521; --verde:#3DD17A; } }
   .familia{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:0 0 18px;font-size:11.5px;font-weight:500;letter-spacing:.06em;text-transform:uppercase;color:var(--suave);line-height:1}
   .familia a,.familia b{color:inherit;text-decoration:none;padding:8px 0;display:inline-flex;align-items:center;border-bottom:2px solid transparent}
   .familia a:hover{color:var(--texto)} .familia b{color:var(--texto);font-weight:700;border-bottom-color:var(--verde)}

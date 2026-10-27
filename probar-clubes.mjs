@@ -191,8 +191,10 @@ const caso = (nom, ok) => casos.push([nom, ok]);
   caso("el escritorio vive detrás de 980 px y fuera de la app",
        /@media \(min-width:980px\)\{\s*body:not\(\.mam-marco\)/.test(app) &&
        !/@media \(min-width:980px\)[\s\S]*?\n\s{2}\.barra\{/.test(app.slice(app.indexOf("@media (min-width:980px)"))));
-  caso("los neutros son los de la familia: el papel cálido de Sacá vos",
-       /fondo:"#F6F1EA"/.test(app) && /fondo:"#0D1117"/.test(app) && /--fondo:#F6F1EA/.test(pm) && /--fondo:#F6F1EA/.test(cs));
+  /* 27/10: la noche es la de Mano a mano (negro cálido #14110F), en la app, en la consulta y en las páginas medidas. */
+  caso("los neutros son los de la familia: el papel cálido de Sacá vos y la noche de Mano a mano",
+       /fondo:"#F6F1EA"/.test(app) && /fondo:"#14110F"/.test(app) && !/#0D1117/.test(app) &&
+       /--fondo:#F6F1EA/.test(pm) && /--fondo:#14110F/.test(pm) && /--fondo:#F6F1EA/.test(cs) && /--fondo:#14110F/.test(cs));
   caso("y la letra del cuerpo es Poppins, como en las hermanas",
        /font:500 16px\/1\.5 "Poppins"/.test(app) && /"Poppins"/.test(pm) && /"Poppins"/.test(cs));
   caso("la franja y las hermanas van entre marcas, para que el empaquetador las saque",

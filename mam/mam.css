@@ -241,7 +241,11 @@ button:disabled{opacity:.45;cursor:default}
 .mam-portada h2{margin:0;font-size:26px;letter-spacing:-.6px;line-height:1.05;color:#fff}
 .mam-portada p{margin:0;font-size:13px;color:#A39B93}
 .mam-portada .mam-racha{background:rgba(255,255,255,.06);margin-top:4px}
-.mam-portada .mam-racha b{color:#DFF140}.mam-portada .mam-racha span{color:#A39B93}.mam-portada .mam-racha span strong{color:#fff}
+/* 27/10: la portada es siempre de noche, también con la piel de día: el "17 de 23" va en lima sí o sí
+   (la regla de día de .mam-racha b pesa más, por eso acá se repite con :root adelante). */
+:root .mam-portada .mam-racha b, :root[data-tema="dia"] .mam-portada .mam-racha b{color:#DFF140}
+:root .mam-portada .mam-racha span{color:#A39B93}:root .mam-portada .mam-racha span strong{color:#fff}
+.mam-portada .mam-racha{background:rgba(255,255,255,.08)}
 .mam-pasos{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:6px}
 .mam-pasos div{font-size:11.5px;line-height:1.25;color:#A39B93;padding:8px;border-radius:10px;background:rgba(255,255,255,.05)}
 .mam-pasos div b{display:block;color:#DFF140;font-size:16px;margin-bottom:2px}
