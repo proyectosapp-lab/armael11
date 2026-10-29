@@ -6,15 +6,19 @@
    modelo y el link. Un mail por desafío por persona (tabla mail_enviado), y
    quien toca "no me mandes más" queda en mail_baja para siempre.
 
-   Lo manda Resend (resend.com). Secretos de la función (Edge Functions → Secrets):
-     RESEND_API_KEY   la clave de Resend (empieza con re_). NUNCA va en un archivo.
+   Lo manda Brevo, el mismo que manda los códigos de inicio de sesión: armael11.com ya está autenticado
+   ahí (SPF y DKIM), así que sale de hola@armael11.com sin tocar el DNS. Secretos de la función
+   (Edge Functions → Secrets):
+     BREVO_API_KEY    la clave de API de Brevo (empieza con xkeysib-). NO es la clave SMTP que usa Supabase
+                      para los códigos: es otra, de SMTP y API → Claves API. NUNCA va en un archivo.
      RESOLVER_CLAVE   la misma frase que resolver-desafios: la puerta para que la llame el reloj.
-     MAIL_DESDE       opcional, "Mano a mano <hola@armael11.com>". Hasta verificar el dominio en Resend,
-                      Resend solo deja mandar desde onboarding@resend.dev y solo al mail del dueño de la cuenta.
+     MAIL_DESDE       opcional, "Mano a mano <hola@armael11.com>" por defecto.
+   (Si algún día hiciera falta, RESEND_API_KEY también sirve: se usa solo si no hay clave de Brevo.)
+   OJO con el cupo: Brevo gratis son 300 mails por día, compartidos con los códigos de inicio de sesión.
 
    Cómo se llama:
      POST  con Authorization: Bearer <RESOLVER_CLAVE>    → manda (lo hace pg_cron después de cada cambio de desafío)
-     POST  ?prueba=mail@x.com                            → manda SOLO a ese mail, para ver cómo queda
+     POST  cuerpo {"prueba":"mail@x.com"}               → manda SOLO a ese mail, para ver cómo queda
      GET   ?baja=<id>.<firma>                            → el link de "no me mandes más": da de baja y muestra una página
 
    No tiene palabras de apuestas. Es un aviso de que abrió el desafío.
@@ -22,9 +26,13 @@
 const SB_URL = Deno.env.get("SUPABASE_URL") || "";
 const SB_SERVICE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 const CLAVE = Deno.env.get("RESOLVER_CLAVE") || "";
+const BREVO = Deno.env.get("BREVO_API_KEY") || "";
 const RESEND = Deno.env.get("RESEND_API_KEY") || "";
-const DESDE = Deno.env.get("MAIL_DESDE") || "Mano a mano <onboarding@resend.dev>";
+const DESDE = Deno.env.get("MAIL_DESDE") || "Mano a mano <hola@armael11.com>";
+const remitente = () => { const m = DESDE.match(/^\s*(.*?)\s*<([^>]+)>\s*$/); return m ? { name: m[1] || "Mano a mano", email: m[2] } : { name: "Mano a mano", email: DESDE.trim() }; };
 const APP = "https://armael11.com/app/";
+// El link de baja va a la dirección pública de la función (req.url adentro de Supabase no siempre la trae).
+const BAJA = SB_URL.replace(/\/+$/, "") + "/functions/v1/mail-desafio";
 
 const json = (d: unknown, status = 200) => new Response(JSON.stringify(d), { status, headers: { "Content-Type": "application/json" } });
 const html = (t: string, status = 200) => new Response(t, { status, headers: { "Content-Type": "text/html; charset=utf-8" } });
@@ -87,7 +95,16 @@ export function armarMail(d: any, racha: any, bajaUrl: string) {
 }
 
 async function mandar(lote: Array<{ to: string; subject: string; html: string; text: string }>) {
-  if (!RESEND) throw new Error("falta RESEND_API_KEY");
+  if (BREVO) {
+    // Brevo: uno por persona (cada mail lleva su propio link de baja). Si uno falla, se corta el lote y se reintenta en la hora siguiente.
+    for (const m of lote) {
+      const r = await fetch("https://api.brevo.com/v3/smtp/email", { method: "POST", headers: { "api-key": BREVO, "Content-Type": "application/json", accept: "application/json" },
+        body: JSON.stringify({ sender: remitente(), to: [{ email: m.to }], subject: m.subject, htmlContent: m.html, textContent: m.text, tags: ["desafio"] }) });
+      if (!r.ok) throw new Error("Brevo → " + r.status + " " + (await r.text()).slice(0, 300));
+    }
+    return "brevo";
+  }
+  if (!RESEND) throw new Error("falta BREVO_API_KEY");
   const r = await fetch("https://api.resend.com/emails/batch", { method: "POST", headers: { Authorization: "Bearer " + RESEND, "Content-Type": "application/json" }, body: JSON.stringify(lote.map((m) => ({ from: DESDE, to: [m.to], subject: m.subject, html: m.html, text: m.text }))) });
   const t = await r.text(); if (!r.ok) throw new Error("Resend → " + r.status + " " + t.slice(0, 300));
   return t;
@@ -109,18 +126,27 @@ Deno.serve(async (req) => {
   const d = await desafioOficial();
   if (!d) return json({ ok: true, mandados: 0, motivo: "no hay desafío abierto" });
   let racha = null; try { racha = await rpc("modelo_racha", {}); } catch { racha = null; }
-  const prueba = u.searchParams.get("prueba");
+  // la prueba viaja en el cuerpo ({"prueba":"mail@x.com"}), no en la dirección: así el mail no queda en los registros
+  let cuerpoPedido: any = {}; try { cuerpoPedido = await req.json(); } catch { cuerpoPedido = {}; }
+  const prueba = String(cuerpoPedido?.prueba || u.searchParams.get("prueba") || "").trim() || null;
   const tipo = "desafio";
+  // 27/10: el mail solo sale si el desafío todavía tiene partidos por delante. Un desafío casi jugado no se anuncia:
+  // la persona entra y ve todo revelado. Con menos de 3 partidos sin empezar, se espera al próximo desafío oficial.
+  const MIN_PROXIMOS = 3;
+  const proximos = (d.partidos || []).filter((p: any) => !p.empezo).length;
+  if (!prueba && proximos < MIN_PROXIMOS) return json({ ok: true, desafio: d.codigo, mandados: 0, motivo: "quedan " + proximos + " partidos sin empezar: no se anuncia" });
   let gente: Array<{ id: string; email: string; usuario: string }>;
   if (prueba) gente = [{ id: "00000000-0000-0000-0000-000000000000", email: prueba, usuario: "prueba" }];
   else gente = (await rpc("mail_destinatarios", { p_tipo: tipo, p_clave: d.codigo })) || [];
   let mandados = 0; const errores: string[] = [];
-  for (let i = 0; i < gente.length; i += 50) {
-    const parte = gente.slice(i, i + 50);
+  // Con Brevo va de a uno y se marca cada envío apenas sale: si se corta en el medio, nadie recibe dos veces.
+  const TANDA = BREVO ? 1 : 50;
+  for (let i = 0; i < gente.length; i += TANDA) {
+    const parte = gente.slice(i, i + TANDA);
     const lote = [];
-    for (const g of parte) { const m = armarMail(d, racha, u.origin + u.pathname + "?baja=" + g.id + "." + await firma(g.id)); lote.push({ to: g.email, subject: m.asunto, html: m.cuerpo, text: m.texto }); }
+    for (const g of parte) { const m = armarMail(d, racha, BAJA + "?baja=" + g.id + "." + await firma(g.id)); lote.push({ to: g.email, subject: m.asunto, html: m.cuerpo, text: m.texto }); }
     try { await mandar(lote); mandados += lote.length; if (!prueba) for (const g of parte) { try { await rpc("mail_marcar", { p_perfil: g.id, p_tipo: tipo, p_clave: d.codigo }); } catch (e) { console.error(e); } } }
-    catch (e) { errores.push(String(e)); console.error(e); }
+    catch (e) { errores.push(String(e)); console.error(e); if (BREVO) break; }
   }
   return json({ ok: !errores.length, desafio: d.codigo, destinatarios: gente.length, mandados, errores });
 });
