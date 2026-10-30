@@ -250,6 +250,17 @@ button:disabled{opacity:.45;cursor:default}
 :root .mam-portada .mam-racha b, :root[data-tema="dia"] .mam-portada .mam-racha b{color:#DFF140}
 :root .mam-portada .mam-racha span{color:#A39B93}:root .mam-portada .mam-racha span strong{color:#fff}
 .mam-portada .mam-racha{background:rgba(255,255,255,.08)}
+/* 30/10: la portada del invitado, en chico, para que los partidos se vean en la primera pantalla */
+.mam-portada{gap:4px;padding:12px 14px}
+.mam-portada h2{font-size:22px}
+.mam-portada .mam-racha{padding:7px 10px;margin-top:2px}
+.mam-portada .mam-racha b{font-size:18px}
+.mam-portada .mam-racha span{font-size:11.5px}
+.mam-arranque{display:flex;flex-direction:column;gap:2px;margin:2px 2px 0}
+.mam-arranque b{font-size:17px;letter-spacing:-.2px;color:var(--tinta)}
+.mam-arranque b::after{content:" ↓";color:var(--acento)}
+:root:not([data-tema="dia"]) .mam-arranque b::after{color:var(--lima)}
+.mam-arranque span{font-size:12.5px;line-height:1.35;color:var(--gris)}
 .mam-pasos{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:6px}
 .mam-pasos div{font-size:11.5px;line-height:1.25;color:#A39B93;padding:8px;border-radius:10px;background:rgba(255,255,255,.05)}
 .mam-pasos div b{display:block;color:#DFF140;font-size:16px;margin-bottom:2px}

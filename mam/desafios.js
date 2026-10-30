@@ -292,9 +292,11 @@
       <h2>${esc(d.nombre)}</h2>
       <p>${d.partidos.length} ${d.partidos.length === 1 ? 'partido' : 'partidos'} de ${yLista([...new Set(d.partidos.map((p) => p.deporte === 'nba' ? 'NBA' : DEPORTE[p.deporte].toLowerCase()))])}${d.modelo_juega ? ' · juega el modelo' : ''}${quedan ? '' : ' · ya empezó'}</p>
       ${racha(d)}
-      <div class="mam-pasos"><div><b>1</b>Elige quién gana, a ciegas</div><div><b>2</b>Guarda con un apodo. Sin mail.</div><div><b>3</b>Cuando empieza, se revela todo</div></div>
     </div>`;
   }
+  // 30/10: el que llega por link veía la portada, los tres pasos y "Mandar el link", y los partidos recién abajo de todo:
+  // 84 abrieron el desafío el 29/10 y ninguno tocó un equipo. Ahora la portada es chica y los partidos van enseguida.
+  const ARRANQUE = '<div class="mam-arranque"><b>Toca quién gana</b><span>Eliges a ciegas, guardas con un apodo (sin mail) y cuando empieza cada partido se revela todo.</span></div>';
   function resumenHTML(d) {
     return `<div class="mam-tarjeta"><h2 class="mam-titulo">${esc(d.nombre)}</h2><p class="mam-nota" style="margin:0">${d.creador ? 'Lo armó ' + esc(d.creador) + '. ' : ''}${d.partidos.length} ${d.partidos.length === 1 ? 'partido' : 'partidos'} · ${d.jugadores.length} ${d.jugadores.length === 1 ? 'jugador' : 'jugadores'}.</p>
       ${ganadorHTML(d, conModelo(d))}
@@ -341,8 +343,10 @@
     const jugadores = conModelo(d);
     jugadores.sort((a, b) => b.puntos - a.puntos);
     let html = `<div class="mam-seccion"><span>${esc(d.estado)}</span><button type="button" class="mam-boton secundario chico" data-volver>${invitado ? 'Desafíos' : 'Mis desafíos'}</button></div>`;
-    if (invitado) html += portadaHTML(d) + `<div class="mam-tarjeta">${ganadorHTML(d, jugadores)}
+    const tarjetaLink = `<div class="mam-tarjeta">${ganadorHTML(d, jugadores)}
         <div class="mam-fila"><button type="button" class="mam-boton secundario chico crece" data-compartir>Mandar el link</button>${d.estado !== 'abierto' ? '<button type="button" class="mam-boton secundario chico crece" data-imagen>Compartir cómo va</button>' : ''}</div></div>`;
+    const porElegir = d.partidos.some((p) => !p.empezo && p.mia == null);
+    if (invitado) html += portadaHTML(d) + (porElegir ? '' : tarjetaLink);
     else html += `<div class="mam-tarjeta">
         <h2 class="mam-titulo">${esc(d.nombre)}</h2>
         ${d.oficial ? racha(d) : ''}
@@ -356,13 +360,14 @@
         ${pendientes ? `<p class="mam-nota">Te ${pendientes === 1 ? 'falta 1 partido' : 'faltan ' + pendientes + ' partidos'} por elegir.</p>` : ''}
       </div>`;
     html += `<div class="mam-aviso" data-aviso></div><div data-compartir-ya></div>`;
-    if (d.partidos.some((p) => !p.empezo && p.mia == null)) html += `<p class="mam-nota mam-regla">Elige y toca <b>Guardar</b>. Una vez guardadas, tus elecciones no se pueden cambiar.</p>`;
+    if (porElegir) html += invitado ? ARRANQUE : `<p class="mam-nota mam-regla">Elige y toca <b>Guardar</b>. Una vez guardadas, tus elecciones no se pueden cambiar.</p>`;
     let dia = '';
     for (const p of d.partidos) {
       const dd = diaDe(Date.parse(p.empieza));
       if (dd !== dia) { dia = dd; html += `<div class="mam-dia">${esc(diaTexto(dd))}</div>`; }
       html += partidoHTML(d, p);
     }
+    if (invitado && porElegir) html += tarjetaLink;
     html += `<div class="mam-seccion"><span>Tabla</span><small>${d.oficial ? ((d.total || 0) >= 10 ? d.total + ' juegan · se ven los 20 primeros' : 'abierto para todos · se ven los 20 primeros') : 'un punto por cada partido bien elegido'}</small></div>
       <div class="mam-tarjeta"><table class="mam-tabla"><thead><tr><th>#</th><th>jugador</th><th>elegidos</th><th>puntos</th></tr></thead><tbody>
       ${jugadores.map((j, i) => `<tr class="${j.yo ? 'yo' : ''}${j.modelo ? ' modelo' : ''}"><td>${i + 1}</td><td>${esc(j.apodo)}${j.creador ? ' <small class="mam-nota">(lo armó)</small>' : ''}</td><td>${j.elegidos}/${d.partidos.length}</td><td>${j.puntos}</td></tr>`).join('')}

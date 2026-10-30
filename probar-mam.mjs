@@ -510,6 +510,11 @@ await page.waitForSelector("#mam-desafios .mam-racha", { timeout: 5000 }).catch(
 const rachaTxt = (await page.textContent("#mam-desafios .mam-portada .mam-racha") || "").replace(/\s+/g, " ");
 ok(/17 de 23/.test(rachaTxt) && /arriba de todos las dos veces/i.test(rachaTxt), "arriba, la racha del modelo (" + rachaTxt.trim() + ")");
 ok((await page.$$("#mam-desafios .mam-eleccion button:not([disabled])")).length >= 2, "los partidos se pueden elegir sin cuenta");
+// 30/10: el 29/10, 84 abrieron el desafío y nadie tocó un equipo: los partidos quedaban abajo de la primera pantalla
+{ const pos = await page.evaluate(() => { const b = document.querySelector("#mam-desafios [data-elegir]"); const l = document.querySelector("#mam-desafios [data-compartir]"); return { boton: b.getBoundingClientRect().bottom, alto: innerHeight, link: l ? l.getBoundingClientRect().top : 1e9, pasos: !!document.querySelector("#mam-desafios .mam-pasos"), arranque: (document.querySelector("#mam-desafios .mam-arranque") || {}).textContent || "" }; });
+  ok(pos.boton < pos.alto - 70, "el primer partido para elegir se ve en la primera pantalla, sin bajar (" + Math.round(pos.boton) + " de " + pos.alto + ")");
+  ok(/Toca quién gana/.test(pos.arranque) && !pos.pasos, "arriba de los partidos dice \"Toca quién gana\" (sin la grilla de tres pasos)");
+  ok(pos.link > pos.boton, "\"Mandar el link\" va después de los partidos"); }
 await page.click('#mam-desafios [data-partido="901"][data-elegir="1"]'); await page.waitForTimeout(300);
 ok(/1 elección sin guardar/.test(await page.textContent("#mam-desafios [data-barra-guardar]")), "tocar una opción la deja como borrador y aparece Guardar");
 ok(HITOS.includes("mam-web:desafio") && HITOS.includes("mam-web:eligio") && HITOS.includes("reel1:llego") && HITOS.includes("reel1:eligio"), "los hitos se cuentan: desafío y eligió, y también bajo el código del anuncio (" + HITOS.join(", ") + ")");
