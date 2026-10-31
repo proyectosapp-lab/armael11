@@ -122,7 +122,9 @@ console.log("\n── la liga argentina ──");
 {
   const h = por("liga-argentina.html").html;
   caso("con los datos de la temporada, dice el porcentaje de empates",
-       h.includes(String(STATS.promedios.empate).replace(".", ",") + "%"));
+       /* 31/10: con el formato de la página (un decimal). Cuando el empate de la temporada dio un número redondo
+          (28 → "28,0%"), la prueba buscaba "28%" y cortó la publicación. */
+       h.includes(Number(STATS.promedios.empate).toFixed(1).replace(".", ",") + "%"));
   const sin = paginasMedido({ RAIZ, ligas: LIGAS, stats: null })
     .find(p => p.archivo === "liga-argentina.html");
   const t = texto(sin.html);
