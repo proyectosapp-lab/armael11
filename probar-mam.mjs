@@ -43,7 +43,7 @@ const BASE = "http://127.0.0.1:" + servidor.address().port;
 const UID = "11111111-1111-1111-1111-111111111111";
 const TOKEN = "x." + Buffer.from(JSON.stringify({ sub: UID, exp: 9999999999, is_anonymous: true })).toString("base64url") + ".y";
 const SESION = { access_token: TOKEN, refresh_token: "r", user: { id: UID, is_anonymous: true } };
-let DESAFIO = null; const LLAMADAS = []; const HITOS = []; let PRUEBA_MAM = null; let PAGADO = false; const COBRA = { futbol: "si", tenis: "si", nba: "si" };   // los ajustes cobra / cobra_sacavos / cobra_quinteto   // PAGADO: la tienda simulada ya cobró (ver "la compra adentro del teléfono")
+let DESAFIO = null; const LLAMADAS = []; const HITOS = []; let PRUEBA_MAM = null; let PAGADO = false; const COBRA = { futbol: "si", tenis: "si", nba: "si" }; let RACHA_MOCK = { desafios: 2, jugados: 23, modelo: 17, arriba: 2 }; let PAUSA = "";   // el ajuste pausa_tenis (11/11): con texto, el tenis está en pausa   // los ajustes cobra / cobra_sacavos / cobra_quinteto   // PAGADO: la tienda simulada ya cobró (ver "la compra adentro del teléfono")
 const EN = (h) => new Date(Date.now() + h * 36e5).toISOString();
 const OFICIAL = { codigo: "OFI777", nombre: "El desafío del finde", estado: "abierto", creador: "manoamano", oficial: true, total: 312, soy: false, modelo_puntos: 0, modelo_juega: 3,
   partidos: [["futbol", "901", "Racing", "Independiente", 20], ["tenis", "t9", "Sinner", "Alcaraz", 26], ["nba", "n9", "Lakers", "Celtics", 30]].map(([deporte, partido, local, visita, h]) =>
@@ -65,7 +65,7 @@ async function simularBackend(page) {
     if (/\/rest\/v1\/pase/.test(url)) return ok(PAGADO ? [{ producto: "sacavos", hasta: new Date(Date.now() + 30 * 864e5).toISOString() }] : []);
     if (/functions\/v1\/pago-apple/.test(url)) { PAGADO = true; LLAMADAS.push("AUTH " + (req.headers()["authorization"] || "")); return ok({ ok: true, plan: "tenis", planes: ["tenis"] }); }
     if (/\/rest\/v1\/ajuste.*desafio_oficial/.test(url)) return ok([{ clave: "desafio_oficial", valor: "OFI777" }]);
-    if (/\/rest\/v1\/ajuste/.test(url)) return ok([{ clave: "cobra", valor: COBRA.futbol }, { clave: "cobra_sacavos", valor: COBRA.tenis }, { clave: "cobra_quinteto", valor: COBRA.nba }]);
+    if (/\/rest\/v1\/ajuste/.test(url)) return ok([{ clave: "cobra", valor: COBRA.futbol }, { clave: "cobra_sacavos", valor: COBRA.tenis }, { clave: "cobra_quinteto", valor: COBRA.nba }].concat(PAUSA ? [{ clave: "pausa_tenis", valor: PAUSA }] : []));
     if (/\/rest\/v1\/prueba/.test(url)) return ok([]);
     if (/rpc\/ponerme_apodo/.test(url)) return ok("fausto");
     if (/rpc\/mis_desafios/.test(url)) return ok(DESAFIO ? [{ codigo: DESAFIO.codigo, nombre: DESAFIO.nombre, estado: "abierto", partidos: DESAFIO.partidos.length, jugadores: 1, proximo: DESAFIO.partidos[0].empieza, mis_puntos: 0, puesto: 1 }] : []);
@@ -85,7 +85,7 @@ async function simularBackend(page) {
     if (/rpc\/empezar_prueba_mam/.test(url)) { PRUEBA_MAM = { desde: new Date().toISOString(), hasta: new Date(Date.now() + 7 * 864e5).toISOString() }; return ok({ hasta: PRUEBA_MAM.hasta, dias: 7 }); }
     if (/rpc\/mis_pases_mam/.test(url)) return ok({ futbol: PRUEBA_MAM ? PRUEBA_MAM.hasta : null, tenis: PAGADO ? new Date(Date.now() + 30 * 864e5).toISOString() : (PRUEBA_MAM ? PRUEBA_MAM.hasta : null), nba: PRUEBA_MAM ? PRUEBA_MAM.hasta : null, prueba: PRUEBA_MAM });
     if (/rpc\/sumar_hito/.test(url)) { HITOS.push((req.postDataJSON() || {}).p_codigo + ":" + (req.postDataJSON() || {}).p_hito); return ok(null); }
-    if (/rpc\/modelo_racha/.test(url)) return ok({ desafios: 2, jugados: 23, modelo: 17, arriba: 2 });
+    if (/rpc\/modelo_racha/.test(url)) return ok(RACHA_MOCK);
     if (/rpc\/mi_prueba|rpc\/mi_pase/.test(url)) return ok([]);
     if (/functions\/v1\/crear-pago/.test(url)) {
       /* la web: el precio lo dice el servidor; el POST arma el link de Mercado Pago (acá, la página de gracias) */
@@ -107,16 +107,18 @@ page.on("console", (m) => { if (m.type() === "error" && !/net::|Failed to load|4
 await simularBackend(page);
 
 console.log("\n── la primera vez ──");
-await page.goto(BASE + "/index.html"); await page.waitForTimeout(600);
-ok(await page.isVisible("#mam-bienvenida"), "la bienvenida se ve la primera vez");
-ok(await page.evaluate(() => !document.getElementById("mam-futbol").src), "los marcos todavía no cargan nada");
-await page.click('#mam-elegir [data-deporte="tenis"]');
-await page.click("#mam-empezar"); await page.waitForTimeout(1500);
-ok(await page.isHidden("#mam-bienvenida"), "la bienvenida se va al tocar Empezar");
+await page.goto(BASE + "/index.html"); await page.waitForTimeout(1500);
+// 31/10: la primera vez ya no pregunta los deportes: entra directo a Desafíos, siguiendo los tres
+ok(await page.isHidden("#mam-bienvenida"), "la primera vez no hay pregunta de deportes: entra directo");
+ok((await page.evaluate(() => localStorage.getItem("mam.deportes"))) === '["futbol","tenis","nba"]', "…y sigue los tres deportes (se cambian en Cuenta)");
+ok(await page.isVisible("#mam-desafios"), "…y abre en Desafíos");
+// el resto de la prueba sigue con alguien que eligió fútbol y tenis (lo que antes hacía la bienvenida)
+await page.evaluate(() => { localStorage.setItem("mam.deportes", '["futbol","tenis"]'); localStorage.setItem("mam.deporte", '"futbol"'); });
+await page.goto(BASE + "/index.html"); await page.waitForTimeout(1500);
 const deportesVisibles = await page.$$eval("#mam-deportes [data-deporte]:not([hidden])", (b) => b.map((x) => x.dataset.deporte));
 ok(JSON.stringify(deportesVisibles) === JSON.stringify(["futbol", "tenis"]), "arriba quedan los deportes elegidos: " + deportesVisibles.join(", "));
 ok((await page.evaluate(() => localStorage.getItem("mam.deportes"))) === '["futbol","tenis"]', "la elección queda guardada");
-ok(await page.isVisible("#mam-desafios"), "después de Empezar abre en Desafíos");
+ok(await page.isVisible("#mam-desafios"), "al volver a abrir, sigue en Desafíos");
 await page.waitForSelector("#mam-desafios .mam-oficial", { timeout: 8000 }).catch(() => {});
 ok(await page.isVisible("#mam-desafios .mam-oficial"), "arriba de todo, el desafío de la semana");
 const txtOf = await page.textContent("#mam-desafios .mam-oficial");
@@ -349,7 +351,7 @@ await page.mouse.click(200, 560); await page.waitForTimeout(200);
 await deslizar(180, 430, 130, 250, 150); await page.waitForTimeout(300);
 let est = await page.evaluate(() => window.mamJuegos._estado().estado.fase);
 ok(est === "vuelo-mio" || est === "fin-tiro", "deslizar patea el penal (fase " + est + ")");
-await page.waitForTimeout(3600); est = await page.evaluate(() => { const s = window.mamJuegos._estado().estado; return { serie: s.serie.length, tanda: s.tanda, fase: s.fase }; });   // (con la cámara lenta del final, el tiro tarda un poco más)
+for (let i = 0; i < 28; i++) { await page.waitForTimeout(300); est = await page.evaluate(() => { const s = window.mamJuegos._estado().estado; return { serie: s.serie.length, tanda: s.tanda, fase: s.fase }; }); if (est.serie === 1 && est.tanda === "el") break; }   // (con la cámara lenta y, si fue golazo, la repetición, el tiro tarda más)
 ok(est.serie === 1 && est.tanda === "el", "después de mi penal patea él (" + JSON.stringify(est) + ")");
 await page.click('#mam-juga [data-j="libre"]'); await page.waitForTimeout(400);
 ok((await page.evaluate(() => window.mamJuegos._estado().nombre)) === "libre", "la ficha Tiro libre monta el otro juego");
@@ -363,6 +365,56 @@ await page.mouse.click(200, 560); await page.waitForTimeout(200); await deslizar
 for (let i = 0; i < 20; i++) { await page.waitForTimeout(300); est = await page.evaluate(() => { const s = window.mamJuegos._estado().estado; return { tiros: s.tiros, ultimo: s.ultimo }; }); if (est.ultimo) break; }
 ok(est.tiros === 1 && est.ultimo, "deslizar hacia arriba tira y el tiro se resuelve (" + est.ultimo + ")");
 await page.screenshot({ path: aca("./app/captura-6-juego.png") });
+
+console.log("\n── retar a un amigo (11/11): la misma tanda para los dos, por un link ──");
+{
+  const J = (fn) => page.evaluate(new Function("const G = window.mamJuegos._estado(), S = G.estado; return (" + fn + ")(G, S);"));
+  const tocarCancha = async (x, y) => { const cv = await page.$("canvas.mam-cancha"); await cv.scrollIntoViewIfNeeded(); const r = await cv.boundingBox(); await page.mouse.click(r.x + x / 360 * r.width, r.y + y / 540 * r.height); };
+  const jugarLibre = async (pg) => { for (let i = 0; i < 5; i++) { for (let k = 0; k < 200; k++) { const f = await pg.evaluate(() => window.mamJuegos._estado().estado.fase); if (f === "listo" || f === "guia") break; await pg.waitForTimeout(40); } await pg.evaluate(() => { const G = window.mamJuegos._estado(), S = G.estado; G.soltar(G.gestoHacia(S.gx - S.barrera.lado * 2.9, 1.9, 1.8, -S.barrera.lado * 0.45)); }); for (let k = 0; k < 200; k++) { if ((await pg.evaluate(() => window.mamJuegos._estado().estado.fase)) === "fin-tiro") break; await pg.waitForTimeout(40); } await pg.evaluate(() => { window.mamJuegos._estado().estado.t = 9; }); await pg.waitForTimeout(80); } for (let k = 0; k < 100; k++) { if ((await pg.evaluate(() => window.mamJuegos._estado().estado.fase)) === "final") break; await pg.waitForTimeout(40); } };
+  await page.evaluate(() => { localStorage.setItem("mam.juga", JSON.stringify({ futbol: "libre", nba: "triples" })); }); await page.reload(); await page.waitForTimeout(1500);
+  await page.evaluate(() => { try { Object.defineProperty(navigator, "share", { value: undefined, configurable: true }); } catch (e) {} try { Object.defineProperty(navigator, "clipboard", { value: { writeText: (t) => { window.__copiado = t; return Promise.resolve(); } }, configurable: true }); } catch (e) {} });
+  await page.evaluate(() => window.mam.ir("juga", "futbol")); await page.waitForTimeout(600);
+  ok(await page.isVisible("#mam-juga [data-juego-retar]") && !(await page.$("#mam-juga [data-juego-compartir]")), "abajo de la cancha hay un botón 'Retar a un amigo'");
+  ok(await page.isHidden("#mam-juga [data-reto]"), "sin reto, no hay cartel arriba de la cancha");
+  await page.click("#mam-juga [data-juego-retar]"); await page.waitForTimeout(150);
+  ok(/Termina la tanda/.test(await page.textContent("#mam-juga [data-juego-retar-nota]")), "antes de terminar no manda nada: pide terminar la tanda");
+  const semilla = await page.evaluate(() => window.mamJuegos._semilla()); const lugar1 = await J("(G, S) => S.gx.toFixed(4) + ' ' + S.dist.toFixed(4) + ' ' + S.rival");
+  ok(Number.isInteger(semilla) && semilla >= 0, "cada tanda tiene su semilla (" + semilla + ")");
+  await jugarLibre(page); const fin1 = await J("(G, S) => S.fin");
+  ok(fin1 && typeof fin1.goles === "number", "se juega la tanda entera (" + JSON.stringify(fin1) + ")");
+  ok(/Retar a un amigo con esta tanda/.test(await page.textContent("#mam-juga [data-juego-retar]")), "al terminar, el botón invita a retar con esta tanda");
+  await page.waitForTimeout(500); await tocarCancha(250, 380); await page.waitForTimeout(400);
+  const copiado = await page.evaluate(() => window.__copiado || "");
+  const link = (copiado.match(/https:\/\/armael11\.com\/app\/#reto=\S+/) || [""])[0];
+  ok(/^https:\/\/armael11\.com\/app\/#reto=libre\.[0-9a-z]+\.\d-\d(\.[a-z0-9_]+)?$/.test(link), "el botón de la cancha arma el link del reto (" + link + ")");
+  ok(link.includes("#reto=libre." + semilla.toString(36) + "." + fin1.goles + "-" + (fin1.escuadras || 0)), "…con la semilla de esta tanda y lo que hice");
+  ok(/Te reto a los tiros libres de Mano a mano: hice \d de 5/.test(copiado) && /la misma tanda para los dos/.test(copiado), "…y un texto que lo explica (" + copiado.slice(0, 70) + "…)");
+  ok(!/cuota|apuesta|pick|fija|value|acert[aá]|gan[aá]\b|prode|quiniela|premio|plata/i.test(copiado), "…sin ninguna palabra prohibida");
+  ok(/Link copiado/.test(await page.textContent("#mam-juga [data-juego-retar-nota]")), "sin menú de compartir, lo copia y lo dice");
+  ok(HITOS.includes("mam-web:retoenvio") && HITOS.includes("mam-web:jugo"), "y se cuentan los hitos: terminó una tanda (jugo) y mandó un reto (retoenvio)");
+  // el amigo: otro teléfono, abre el link
+  const ctxA = await navegador.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true, locale: "es-AR" });
+  const pa = await ctxA.newPage(); pa.on("pageerror", (e) => errores.push("reto: " + e.message)); await simularBackend(pa);
+  await pa.goto(BASE + "/index.html" + link.replace("https://armael11.com/app/", "").replace(/(\.\d-\d)(\.[a-z0-9_]+)?$/, "$1.fausto")); await pa.waitForTimeout(2000);
+  ok(await pa.isHidden("#mam-bienvenida") && await pa.isVisible("#mam-juga canvas.mam-cancha"), "el link abre directo el juego, sin bienvenida ni cuenta");
+  ok((await pa.evaluate(() => window.mamJuegos._estado().nombre)) === "libre" && (await pa.evaluate(() => window.mamJuegos._semilla())) === semilla, "…el mismo juego, con la misma semilla");
+  ok(/Reto de fausto/.test(await pa.textContent("#mam-juga [data-reto]")) && /en esta misma tanda/.test(await pa.textContent("#mam-juga [data-reto]")), "arriba dice de quién es el reto y qué hizo (" + (await pa.textContent("#mam-juga [data-reto]")).slice(0, 70) + ")");
+  ok(!/reto=/.test(await pa.evaluate(() => location.href)), "…y el #reto se saca de la barra");
+  const lugar2 = await pa.evaluate(() => { const S = window.mamJuegos._estado().estado; return S.gx.toFixed(4) + " " + S.dist.toFixed(4) + " " + S.rival; });
+  ok(lugar1 === lugar2, "el primer tiro es desde el mismo lugar y contra el mismo rival (" + lugar2 + ")");
+  await jugarLibre(pa); const fin2 = await pa.evaluate(() => window.mamJuegos._estado().estado.fin);
+  ok(fin2.goles === fin1.goles && (fin2.escuadras || 0) === (fin1.escuadras || 0), "con la misma mano, el amigo hace exactamente lo mismo (" + fin2.goles + " de 5)");
+  await pa.waitForTimeout(300);
+  ok(/Empate con fausto/.test(await pa.textContent("#mam-juga [data-reto]")) && /Mandarle tu resultado a fausto/.test(await pa.textContent("#mam-juga [data-juego-retar]")), "al terminar dice cómo quedó contra el que retó, y el botón es para mandarle el resultado");
+  ok(HITOS.filter((h) => h === "mam-web:retoabrio").length === 1 && HITOS.includes("mam-web:retojugo"), "y del lado del amigo: abrió el reto (retoabrio) y lo jugó (retojugo)");
+  await pa.screenshot({ path: aca("./app/captura-10-reto.png") });
+  await pa.waitForTimeout(400); { const cv = await pa.$("canvas.mam-cancha"); await cv.scrollIntoViewIfNeeded(); const r = await cv.boundingBox(); await pa.mouse.click(r.x + 86 / 360 * r.width, r.y + 380 / 540 * r.height); } await pa.waitForTimeout(400);
+  const otra = await pa.evaluate(() => ({ fase: window.mamJuegos._estado().estado.fase, semilla: window.mamJuegos._semilla(), cartel: getComputedStyle(document.querySelector("#mam-juga [data-reto]")).display === "none" }));
+  ok(otra.fase !== "final" && otra.semilla !== semilla && otra.cartel, "'Jugar otra' empieza una tanda nueva, con otra semilla y sin el cartel del reto (" + JSON.stringify(otra) + ")");
+  await pa.goto(BASE + "/index.html#reto=penales.zz.99-99.<b>x"); await pa.waitForTimeout(1500);
+  ok((await pa.evaluate(() => !!window.mam.estado().pestana && !window.mamJuegos._reto())) && !(await pa.$("#mam-juga [data-reto]:not([hidden])")) && !/reto=/.test(await pa.evaluate(() => document.body.innerHTML.slice(0, 0) + (window.mamJuegos._reto() ? "reto=" : ""))), "un link de reto roto o inventado no entra: la app abre como siempre, sin reto");
+  await ctxA.close();
+}
 
 console.log("\n── la compra adentro del teléfono (tienda simulada) ──");
 /* Un Capacitor de mentira con el plugin de RevenueCat: anota cada llamada. Lo que se prueba es el ORDEN que protege la
@@ -502,6 +554,7 @@ await page.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
 OFICIAL.soy = false; OFICIAL.jugadores = [{ apodo: "lucho", puntos: 0, creador: false, yo: false, elegidos: 3 }];
 await page.goto(BASE + "/index.html?c=reel1#desafio=OFI777"); await page.waitForTimeout(1800);
 ok(await page.isHidden("#mam-bienvenida"), "el que llega con un desafío no pasa por la bienvenida");
+ok(/Este finde · abierto para todos/.test(await page.textContent("#mam-desafios .mam-portada .mam-etiqueta")), "la etiqueta dice lo que es: 'Este finde', no 'de la semana'");
 ok((await page.evaluate(() => localStorage.getItem("mam.deportes"))) === '["futbol","tenis","nba"]', "…y sigue los tres deportes");
 ok(!/[?&]c=/.test(await page.evaluate(() => location.href)), "el ?c= del anuncio se saca de la barra");
 ok(await page.isVisible("#mam-desafios .mam-portada"), "ve la portada del desafío");
@@ -529,6 +582,13 @@ ok(HITOS.includes("mam-web:cuenta") && HITOS.includes("mam-web:guardo"), "…y s
 ok(await page.isVisible("#mam-desafios .mam-compartir-ya [data-wa]"), "después de guardar: mandar el desafío por WhatsApp");
 await page.screenshot({ path: aca("./app/captura-7-invitado.png") });
 
+console.log("\n── #oficial (31/10): el link de la portada abre el desafío oficial, sin saber el código ──");
+await page.evaluate(() => { localStorage.clear(); sessionStorage.clear(); });
+await page.goto(BASE + "/index.html#oficial"); await page.waitForTimeout(2200);
+ok(await page.isHidden("#mam-bienvenida") && await page.isVisible("#mam-desafios .mam-portada"), "abre directo el desafío oficial, con los partidos para elegir");
+ok(/El desafío del finde/.test(await page.textContent("#mam-desafios .mam-portada h2")), "…el que dice ajuste.desafio_oficial");
+ok(!/#oficial/.test(await page.evaluate(() => location.href)), "…y el #oficial se saca de la barra");
+
 console.log("\n── la piel (27/10): noche y día ──");
 ok((await page.evaluate(() => document.documentElement.getAttribute("data-tema"))) === "noche", "la app arranca en noche");
 await page.evaluate(() => window.mam.ponerTema("dia")); await page.waitForTimeout(400);
@@ -541,6 +601,48 @@ await page.evaluate(() => window.mam.ponerTema("noche")); await page.waitForTime
 await page.click('#mam-barra [data-pestana="cuenta"]'); await page.waitForTimeout(800);
 ok((await page.$$("#mam-cuenta [data-tema] [data-t]")).length === 3, "en Cuenta hay tres pieles para elegir");
 OFICIAL.soy = false;
+
+console.log("\n── el tenis en pausa (11/11): el plan Tenis no se ofrece hasta que vuelva la temporada ──");
+{
+  const filaTenis = async () => page.$eval('#mam-cuenta [data-plan="mam.tenis"]', (b) => ({ texto: b.textContent.replace(/\s+/g, " ").trim(), apagado: b.disabled, pausa: b.classList.contains("pausa") }));
+  const entrar = async () => { if (!(await page.$("#mam-cuenta [data-plan]"))) { await page.fill("#mam-cuenta [data-form-apodo] input[name=apodo]", "fausto"); await page.click("#mam-cuenta [data-form-apodo] button"); await page.waitForTimeout(1500); } };
+  await entrar();
+  const antes = await filaTenis();
+  ok(!antes.pausa && !/en pausa/.test(antes.texto), "sin el ajuste, el plan Tenis se ofrece como siempre (" + antes.texto.slice(0, 60) + ")");
+  const pagadoAntes = PAGADO; PAGADO = false;   // quien ya tiene el plan lo ve activo: acá se mira al que no lo tiene
+  PAUSA = "Volvemos con el inicio de la temporada 2027."; COBRA.tenis = "no";
+  await page.reload(); await page.waitForTimeout(1800);
+  await page.click('#mam-barra [data-pestana="cuenta"]'); await page.waitForTimeout(1200); await entrar();
+  const f = await filaTenis();
+  ok(f.pausa && f.apagado && /en pausa/.test(f.texto) && /Volvemos con el inicio de la temporada 2027\./.test(f.texto), "con el ajuste, la fila dice 'en pausa' y cuándo vuelve, y no se puede tocar (" + f.texto + ")");
+  ok(!/abierto para todos|\$|US\$/.test(f.texto), "…sin precio y sin 'abierto para todos'");
+  const todo = await page.$eval('#mam-cuenta [data-plan="mam.todo"]', (b) => ({ texto: b.textContent.replace(/\s+/g, " ").trim(), apagado: b.disabled }));
+  ok(!todo.apagado && /fútbol y NBA \(el tenis, en pausa\)/.test(todo.texto) && !/los tres deportes/.test(todo.texto), "el plan Todo se sigue ofreciendo y dice lo que da hoy (" + todo.texto.slice(0, 70) + ")");
+  const fut = await page.$eval('#mam-cuenta [data-plan="mam.futbol"]', (b) => b.disabled);
+  ok(!fut, "…y Fútbol también");
+  const antesDeTocar = LLAMADAS.length;
+  await page.evaluate(() => document.querySelector('#mam-cuenta [data-plan="mam.tenis"]').click()); await page.waitForTimeout(400);
+  ok(!LLAMADAS.slice(antesDeTocar).some((l) => /crear-pago/.test(l) && /^POST/.test(l)), "tocar la fila en pausa no arma ningún pago");
+  await page.$eval('#mam-cuenta [data-plan="mam.tenis"]', (el) => el.scrollIntoView({ block: "center" })); await page.waitForTimeout(200);
+  await page.screenshot({ path: aca("./app/captura-9-pausa.png") });
+  PAUSA = ""; COBRA.tenis = "si";
+  await page.reload(); await page.waitForTimeout(1800);
+  await page.click('#mam-barra [data-pestana="cuenta"]'); await page.waitForTimeout(1200); await entrar();
+  const despues = await filaTenis();
+  ok(!despues.pausa && !despues.apagado && !/en pausa/.test(despues.texto), "al vaciar el ajuste, el plan Tenis vuelve solo (" + despues.texto.slice(0, 60) + ")");
+  PAGADO = pagadoAntes;
+}
+
+console.log("\n── la racha cuando el modelo no quedó arriba en todos (11/11): el número solo ──");
+{
+  RACHA_MOCK = { desafios: 3, jugados: 32, modelo: 23, arriba: 2 };
+  await page.goto(BASE + "/index.html#oficial"); await page.reload(); await page.waitForTimeout(2200);
+  const rt = (await page.textContent("#mam-desafios [data-racha]")).replace(/\s+/g, " ").trim();
+  ok(/23 de 32/.test(rt) && /últimos 3 desafíos/.test(rt), "dice el número y de cuántos desafíos (" + rt + ")");
+  ok(!/arriba/i.test(rt) && !/2 de 3/.test(rt), "…y no dice en cuántos quedó arriba: no se deja ver que alguien le ganó");
+  RACHA_MOCK = { desafios: 2, jugados: 23, modelo: 17, arriba: 2 };
+  await page.goto(BASE + "/index.html"); await page.reload(); await page.waitForTimeout(1500);
+}
 
 console.log("\n── sin desbordes a 390 ──");
 for (const p of ["partidos", "juga", "desafios", "cuenta"]) { await page.click(`#mam-barra [data-pestana="${p}"]`); await page.waitForTimeout(300); const ancho = await page.evaluate(() => document.documentElement.scrollWidth); ok(ancho <= 390, p + ": sin scroll horizontal (" + ancho + ")"); }

@@ -37,8 +37,10 @@
   }
   function rachaHTML(r) {
     if (!r) return '';
-    const n = r.desafios, veces = r.arriba === n ? (n === 1 ? 'arriba de todos' : n === 2 ? 'arriba de todos las dos veces' : 'arriba de todos las ' + n + ' veces') : 'arriba de todos en ' + r.arriba + ' de ' + n;
-    return `<div class="mam-racha"><b>${r.modelo} de ${r.jugados}</b><span>El modelo, en ${n === 1 ? 'el último desafío' : 'los últimos <strong>' + n + ' desafíos</strong>'}. <strong>${esc(veces[0].toUpperCase() + veces.slice(1))}.</strong></span></div>`;
+    // 11/11: "arriba de todos" solo cuando lo fue en todos. Si en alguno no, va el número solo: nunca se dice ni se deja
+    // deducir que alguien quedó por encima del modelo (la misma regla que el mail).
+    const n = r.desafios, veces = r.arriba === n ? (n === 1 ? 'arriba de todos' : n === 2 ? 'arriba de todos las dos veces' : 'arriba de todos las ' + n + ' veces') : '';
+    return `<div class="mam-racha"><b>${r.modelo} de ${r.jugados}</b><span>El modelo, en ${n === 1 ? 'el último desafío' : 'los últimos <strong>' + n + ' desafíos</strong>'}.${veces ? ` <strong>${esc(veces[0].toUpperCase() + veces.slice(1))}.</strong>` : ''}</span></div>`;
   }
   const racha = (d) => (d.oficial || !d.soy) ? `<div data-racha>${rachaHTML(RACHA || null)}</div>` : '';
   function pintarRacha() { traerRacha().then((r) => { if (!raizEl) return; raizEl.querySelectorAll('[data-racha]').forEach((el) => { el.innerHTML = rachaHTML(r); }); }); }
@@ -95,6 +97,15 @@
     const e = p.m.eleccion; const nombre = p.opciones === 3 ? (e === 1 ? p.local : e === 2 ? 'el empate' : p.visita) : (e === 1 ? p.local : p.visita);
     return { nombre, pct: Math.round(p.m.p * 100) };
   }
+  // 31/10: armael11.com/app/#oficial abre derecho el desafío oficial vigente (el de la semana o el del finde), sin pasar por la lista
+  async function abrirOficial() {
+    raizEl.innerHTML = `<div class="mam-vacio">Cargando el desafío…</div>`;
+    const d = await traerOficial();
+    if (d) return abrir(d.codigo);
+    return pintarLista();
+  }
+  // la etiqueta del oficial: lo que es, no siempre "de la semana" (31/10: el del finde decía "El desafío de la semana")
+  const etiquetaOficial = (d) => /finde/i.test(d.nombre || '') ? 'Este finde · abierto para todos' : 'Esta semana · abierto para todos';
   async function traerOficial() {
     try {
       const f = await CU().pedir('/rest/v1/ajuste?select=clave,valor&clave=eq.desafio_oficial', { sinToken: true });
@@ -110,7 +121,7 @@
     const mias = d.partidos.filter((p) => p.mia != null).length;
     const boton = d.soy ? (quedan.some((p) => p.mia == null) ? 'Completar mis elecciones' : 'Ver la tabla') : (quedan.length ? 'Jugar' : 'Ver la tabla');
     return `<div class="mam-tarjeta mam-oficial">
-      <span class="mam-etiqueta">El desafío de la semana</span>
+      <span class="mam-etiqueta">${etiquetaOficial(d)}</span>
       <h2 class="mam-titulo">${esc(d.nombre)}</h2>
       ${racha(d)}
       <p class="mam-nota">${d.partidos.length} ${d.partidos.length === 1 ? 'partido' : 'partidos'} · ${total >= 10 ? total + ' juegan' : 'abierto para todos'}${d.modelo_juega ? ' · juega el modelo' : ''}${prox ? ' · el próximo cierra ' + esc(diaTexto(diaDe(prox))) + ' ' + esc(horaDe(prox)) : ''}${d.soy ? ' · elegiste ' + mias + ' de ' + d.partidos.length : ''}</p>
@@ -286,7 +297,7 @@
   }
   function portadaHTML(d) {
     const quedan = d.partidos.filter((p) => !p.empezo).length;
-    const quien = d.oficial ? 'El desafío de la semana' : (d.creador ? esc(d.creador) + ' te desafió' : 'Te desafiaron');
+    const quien = d.oficial ? etiquetaOficial(d) : (d.creador ? esc(d.creador) + ' te desafió' : 'Te desafiaron');
     return `<div class="mam-portada">
       <span class="mam-etiqueta">${quien}</span>
       <h2>${esc(d.nombre)}</h2>
@@ -595,6 +606,7 @@
   // ── entrada ──
   function pintar(contexto) {
     ctx = contexto; raizEl = document.getElementById('mam-desafios');
+    if (ctx.codigo === 'OFICIAL') { ctx.codigo = null; return abrirOficial(); }
     if (ctx.codigo) { const c = ctx.codigo; ctx.codigo = null; return abrir(c); }
     if (vista.que === 'desafio' && vista.codigo) return abrir(vista.codigo);
     return pintarLista();

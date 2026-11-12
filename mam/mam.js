@@ -30,6 +30,7 @@
   const deporteDe = (h) => (/^#(futbol|tenis|nba)\b/.exec(h || '') || [])[1] || null;
   let desafioPendiente = null;                         // un #desafio=CODIGO que llegó antes de estar listos
   let planPendiente = null;                            // el deporte cuyo plan hay que resaltar en Cuenta
+  let RETO = null;                                     // un #reto=… que llegó por un link: la tanda de un amigo, para jugarla igual (11/11)
   const H = () => raiz.mamHitos; const hito = (n) => { try { H() && H().hito(n); } catch (e) {} };
 
   // ── la piel (27/10): noche (la de las historias y el reel), día (papel), o la del teléfono. Los marcos la siguen. ──
@@ -100,8 +101,12 @@
   function pintarJuga() {
     const el = $('mam-juga'); const lista = JUEGOS_DE[deporte] || []; const sel = JUGA[deporte] || (lista[0] && lista[0][0]);
     el.innerHTML = `<div class="mam-chips" data-juegos>${lista.map(([k, n]) => `<button type="button" data-j="${k}" aria-pressed="${k === sel ? 'true' : 'false'}">${n}</button>`).join('')}</div><div data-juego></div>`;
-    el.querySelectorAll('[data-j]').forEach((b) => b.addEventListener('click', () => { JUGA[deporte] = b.dataset.j; guardar('mam.juga', JUGA); mostrar(); }));
-    if (raiz.mamJuegos && sel && sel !== 'fantasy') raiz.mamJuegos.montar(el.querySelector('[data-juego]'), sel, { vibrar: (t) => N() && N().vibrar(t), compartir: (t) => N() && N().compartir(t, (S().tiendas || {}).play || '', 'Mano a mano'), rival: { nombre: 'el modelo' }, momento });
+    el.querySelectorAll('[data-j]').forEach((b) => b.addEventListener('click', () => { JUGA[deporte] = b.dataset.j; guardar('mam.juga', JUGA); RETO = null; mostrar(); }));
+    // 11/11: retar a un amigo. El link va a la app web (se juega sin instalar nada) y lleva la tanda; si llegó uno, se juega esa.
+    if (raiz.mamJuegos && sel && sel !== 'fantasy') raiz.mamJuegos.montar(el.querySelector('[data-juego]'), sel, { vibrar: (t) => N() && N().vibrar(t),
+      compartir: (t, url) => (N() ? N().compartir(t, url || (S().tiendas || {}).play || '', 'Mano a mano') : false), base: S().web || 'https://armael11.com/app/',
+      apodo: () => { try { const p = CU().perfil(); return p ? p.usuario : ''; } catch (e) { return ''; } }, hito,
+      reto: RETO && RETO.juego === sel ? RETO : null, alTerminar: () => { RETO = null; }, rival: { nombre: 'el modelo' }, momento });
   }
   function mostrar() {
     pintarDeportes(); pintarBarra();
@@ -298,7 +303,9 @@
     if (!nativo && !CU_ESTADO.web && c.hayBackend()) { CU_ESTADO.web = {}; c.planesWeb().then((pl) => { const m = {}; for (const x of pl || []) m[x.id] = x.precio; CU_ESTADO.web = m; if (pestana === 'cuenta') pintarCuenta(); }).catch(() => {}); }
     const web = {}; for (const pl of T().PLANES) { const pr = CU_ESTADO.web && CU_ESTADO.web[pl.web]; if (pr) web[pl.id] = pr; }
     // qué deportes cobran hoy (ajuste cobra / cobra_sacavos / cobra_quinteto): un plan de un deporte abierto no se vende
-    if (yo && !CU_ESTADO.cobra && c.hayBackend()) { CU_ESTADO.cobra = { futbol: true, tenis: true, nba: true }; c.cobra().then((cb) => { CU_ESTADO.cobra = cb; if (pestana === 'cuenta') pintarCuenta(); }); }
+    // 11/11: lo último que dijo el servidor queda guardado (mam.cobra): un plan en pausa no parpadea con precio al abrir Cuenta.
+    if (yo && !CU_ESTADO.cobra && c.hayBackend()) { CU_ESTADO.cobra = leer('mam.cobra', null) || { futbol: true, tenis: true, nba: true }; c.cobra().then((cb) => { CU_ESTADO.cobra = cb; guardar('mam.cobra', cb); if (pestana === 'cuenta') pintarCuenta(); }); }
+    const pausaTenis = String((CU_ESTADO.cobra && CU_ESTADO.cobra.pausaTenis) || '').trim();
     const s = S();
     let html = `<div class="mam-seccion"><span>Cuenta</span><small>${yo ? esc(perfil ? perfil.usuario : '') : 'sin cuenta todavía'}</small></div>`;
     if (!yo) {
@@ -336,7 +343,7 @@
       const diasQuedan = pruebaActiva ? Math.max(1, Math.ceil((Date.parse(pa.hasta) - Date.now()) / 864e5)) : 0;
       if (!nativo && pr && pr.puede) html += `<div class="mam-tarjeta mam-oficial"><span class="mam-etiqueta">${pr.dias} días gratis</span>
         <h2 class="mam-titulo">Mira el pronóstico de todos los partidos</h2>
-        <p class="mam-nota" style="margin:0">Fútbol, tenis y NBA, con el número del modelo y la simulación sin tope. ${pr.dias} días, sin tarjeta. Después, si quieres, un plan.</p>
+        <p class="mam-nota" style="margin:0">${pausaTenis ? 'Fútbol y NBA' : 'Fútbol, tenis y NBA'}, con el número del modelo y la simulación sin tope. ${pr.dias} días, sin tarjeta. Después, si quieres, un plan.</p>
         <button type="button" class="mam-boton" data-empezar-prueba ${CU_ESTADO.comprando ? 'disabled' : ''}>Empezar los ${pr.dias} días gratis</button></div>`;
       html += `<div class="mam-seccion"><span>Planes</span><small>${pruebaActiva ? 'prueba gratis · ' + (diasQuedan === 1 ? 'último día' : 'te quedan ' + diasQuedan + ' días') : conPrueba ? '3 días gratis la primera vez' : 'los desafíos y los juegos son gratis siempre'}</small></div>
         <div class="mam-tarjeta" data-planes>${T().panelHTML({ pases: CU_ESTADO.pases || {}, nativo, precios: CU_ESTADO.precios, preciosWeb: web, comprando: CU_ESTADO.comprando, cobra: CU_ESTADO.cobra })}</div>`;
@@ -406,6 +413,7 @@
     const c = CU(); const n = N(); const nativo = !!(n && n.hayNativo());
     if (!c.quienSoy()) { avisoCuenta('Primero elige un apodo.'); return; }
     if (CU_ESTADO.pases) { const pl = T().PLANES.find((x) => x.id === plan); if (pl && pl.da.every((d) => CU_ESTADO.pases[d])) return; }
+    if (plan === 'mam.tenis' && CU_ESTADO.cobra && CU_ESTADO.cobra.pausaTenis) return;   // en pausa: no se vende
     CU_ESTADO.comprando = true; await pintarCuenta();
     try {
       if (nativo) {
@@ -443,17 +451,27 @@
 
   // ── los links que entran: #desafio=CODIGO (aviso, link universal, link del mail) ──
   function codigoDe(texto) {
+    if (/^#oficial\b/i.test(String(texto || ''))) return 'OFICIAL';   // 31/10: el desafío oficial vigente, sin saber el código
     const m = /desafio(?:\.html)?[#=/]+([A-Z0-9]{4,8})/i.exec(String(texto || '')) || /[#&]desafio=([A-Z0-9]{4,8})/i.exec(String(texto || ''));
     return m ? m[1].toUpperCase() : null;
   }
   function abrirDesafio(codigo) {
     if (!codigo) return;
     desafioPendiente = codigo;
-    try { if (/desafio=/.test(location.hash)) history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+    try { if (/desafio=|^#oficial/.test(location.hash)) history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
     ir('desafios', null, true);
+  }
+  // un reto (#reto=penales.SEMILLA.4-2.apodo): Jugar, en ese juego, con la tanda del que retó
+  const retoDe = (texto) => { try { return raiz.mamJuegos && raiz.mamJuegos.leerReto ? raiz.mamJuegos.leerReto(texto) : null; } catch (e) { return null; } };
+  function abrirReto(r) {
+    if (!r) return; RETO = r; const d = r.juego === 'triples' ? 'nba' : 'futbol';
+    JUGA[d] = r.juego; guardar('mam.juga', JUGA);
+    try { if (/reto=/.test(location.hash)) history.replaceState(null, '', location.pathname + location.search); } catch (e) {}
+    ir('juga', d, true);
   }
   function leerHash() {
     const h = location.hash || '';
+    const rt = retoDe(h); if (rt) return abrirReto(rt);
     const c = codigoDe(h); if (c) return abrirDesafio(c);
     if (/^#juegos/.test(h)) { history.replaceState(null, '', location.pathname); ir('juga', null, true); }
     if (/^#desafios/.test(h)) { history.replaceState(null, '', location.pathname); ir('desafios', null, true); }
@@ -480,7 +498,7 @@
     if (c.quienSoy()) { try { await c.miPerfil(); } catch (e) {} }
     $('mam-deportes').addEventListener('click', (ev) => { const b = ev.target.closest('[data-deporte]'); if (b) ir(pestana === 'partidos' || pestana === 'juga' ? pestana : 'partidos', b.dataset.deporte); });
     $('mam-barra').addEventListener('click', (ev) => { const b = ev.target.closest('[data-pestana]'); if (b) ir(b.dataset.pestana); });
-    if (n) { n.engancharLinks(document); n.alCambiarRed(red); n.hayRed().then(red); n.alAbrirLink((url) => { const cd = codigoDe(url); if (cd) abrirDesafio(cd); }); }
+    if (n) { n.engancharLinks(document); n.alCambiarRed(red); n.hayRed().then(red); n.alAbrirLink((url) => { const rt = retoDe(url); if (rt) return abrirReto(rt); const cd = codigoDe(url); if (cd) abrirDesafio(cd); }); }
     window.addEventListener('hashchange', leerHash);
     window.addEventListener('mam-aviso', (ev) => { const d = ev.detail || {}; if (d.desafio) abrirDesafio(String(d.desafio)); });
     document.body.classList.remove('mam-cargando');
@@ -489,13 +507,15 @@
     const dhInicio = deporteDe(location.hash), planesInicio = /^#planes/.test(location.hash);
     if (dhInicio || planesInicio) { try { history.replaceState(null, '', location.pathname + location.search); } catch (e) {} }
     // el que llega con un desafío (de una historia, un anuncio o un amigo) no pasa por la bienvenida: ve el desafío y elige.
-    // Sigue los tres deportes; se cambia desde Cuenta.
-    if ((!deportes || !deportes.length) && codigoDe(location.hash)) { deportes = DEPORTES.slice(); deporte = dhInicio || 'futbol'; guardar('mam.deportes', deportes); guardar('mam.deporte', deporte); }
+    // 31/10: tampoco el que llega sin link: la pregunta de los deportes frenaba antes de ver el desafío. Sigue los tres
+    // deportes (o el del link, si vino con #futbol / #tenis / #nba primero) y entra a Desafíos, con el oficial arriba de todo.
+    // Los deportes se cambian desde Cuenta.
+    if (!deportes || !deportes.length) { deportes = DEPORTES.slice(); deporte = dhInicio || 'futbol'; guardar('mam.deportes', deportes); guardar('mam.deporte', deporte); }
     if (!deportes || !deportes.length) { deportePendiente = dhInicio; const cd = codigoDe(location.hash); if (cd) desafioPendiente = cd; bienvenida(); return; }
     if (!deporte || !deportes.includes(deporte)) deporte = deportes[0];
     cargarTodos();
-    const cd = codigoDe(location.hash);
-    if (cd) abrirDesafio(cd); else if (dhInicio) irADeporte(dhInicio); else if (planesInicio) ir('cuenta', null, true); else { if (/^#juegos/.test(location.hash)) pestana = 'juga'; mostrar(); }
+    const cd = codigoDe(location.hash), rt = retoDe(location.hash);
+    if (rt) abrirReto(rt); else if (cd) abrirDesafio(cd); else if (dhInicio) irADeporte(dhInicio); else if (planesInicio) ir('cuenta', null, true); else { if (/^#juegos/.test(location.hash)) pestana = 'juga'; mostrar(); }
     D().refrescarGlobo();
     setInterval(() => { if (document.visibilityState === 'visible') D().refrescarGlobo(); }, 5 * 60000);
     traerVivo(); setInterval(() => { if (document.visibilityState === 'visible') traerVivo(); }, 60000);

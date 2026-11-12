@@ -189,9 +189,11 @@
   // la prueba gratis de Mano a mano (7 días, con cuenta, en la web): ¿puede empezarla? / empezarla
   async function estadoPrueba() { try { return (await rpc('estado_prueba_mam')) || null; } catch (e) { return null; } }
   async function empezarPrueba() { return rpc('empezar_prueba_mam'); }
+  // 11/11: `pausaTenis` es el texto del ajuste `pausa_tenis` ("Volvemos con el inicio de la temporada 2027."). Con texto,
+  // el tenis está en pausa: el plan Tenis no se ofrece y Cuenta lo dice. Vacío o sin la fila, no hay pausa.
   async function cobra() {
-    try { const f = await pedir('/rest/v1/ajuste?select=clave,valor&clave=in.(cobra,cobra_sacavos,cobra_quinteto)', { sinToken: true }); const m = {}; for (const x of f || []) m[x.clave] = x.valor === 'si'; return { futbol: !!m.cobra, tenis: !!m.cobra_sacavos, nba: !!m.cobra_quinteto }; }
-    catch (e) { return { futbol: true, tenis: true, nba: true }; }
+    try { const f = await pedir('/rest/v1/ajuste?select=clave,valor&clave=in.(cobra,cobra_sacavos,cobra_quinteto,pausa_tenis)', { sinToken: true }); const m = {}; let pausa = ''; for (const x of f || []) { if (x.clave === 'pausa_tenis') pausa = String(x.valor || '').trim(); else m[x.clave] = x.valor === 'si'; } return { futbol: !!m.cobra, tenis: !!m.cobra_sacavos, nba: !!m.cobra_quinteto, pausaTenis: pausa }; }
+    catch (e) { return { futbol: true, tenis: true, nba: true, pausaTenis: '' }; }
   }
   // la compra en la web (Mercado Pago): el servidor arma el link; el plan es uno de mam.futbol / mam.tenis / mam.nba / mam.todo
   async function planesWeb() {

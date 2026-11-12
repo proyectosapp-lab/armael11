@@ -35,3 +35,39 @@ for (const [nombre, perfil] of [["bueno", PERFILES.bueno], ["novato", PERFILES.n
 }
 for (const [nombre, perfil] of [["bueno", PERFILES.libreBueno], ["novato", PERFILES.libreNovato]]) { const r = jugar("libre", perfil, 300); console.log(`tiro libre · ${nombre}: ${media(r.map((x) => x.goles))} de 5`); }
 for (const [nombre, perfil] of [["bueno", PERFILES.triplesBueno], ["novato", PERFILES.triplesNovato]]) { const r = jugar("triples", perfil, 60); console.log(`triples · ${nombre}: ${media(r.map((x) => x.puntos))} pts en 60 s · ${media(r.map((x) => x.tiros))} tiros · racha ${media(r.map((x) => x.racha))}`); }
+
+// ── el reto (11/11): con la misma semilla, la tanda es la misma para los dos ──
+// Sin `azar` propio, cada tiro saca su suerte de (semilla, canal, número de tiro). Se juega la misma semilla con dos
+// manos distintas y se mira que lo que NO depende del jugador sea idéntico: los amagos y las patadas del rival en
+// penales, el lugar de cada tiro libre y lo que hace el modelo. Y con la misma mano, que el resultado sea el mismo.
+{
+  let mal = 0; const ok = (c, m) => { console.log((c ? "  ✓ " : "  ✗ ") + m); if (!c) mal++; };
+  const J = mamJuegos;
+  function tanda(juego, semilla, mano) {
+    let t = 0, k = 0; const G = J._crear(juego, { ahora: () => t, semilla }); const S = G.estado; const huella = []; let n = 0, seguridad = 0, visto = -1;
+    while (S.fase !== "final" && seguridad++ < 40000) {
+      if (juego === "penales" && (S.fase === "listo" || S.fase === "guia") && S.tanda === "yo" && S.serie.length !== visto) { visto = S.serie.length; huella.push("amago " + S.amago.dir + (S.amago.engano ? "e" : "v")); }
+      if (juego === "libre" && (S.fase === "listo" || S.fase === "guia") && S.serie.length !== visto) { visto = S.serie.length; huella.push("lugar " + S.gx.toFixed(3) + " " + S.dist.toFixed(3) + " " + S.barrera.lado + " " + S.barrera.n); }
+      if (S.fase === "guia" || S.fase === "listo") { if (juego === "triples") G.soltar({ toque: false, largo: 186 + mano * 6 + ((k++ * 7) % 5), vel: 1.5, dy: -100, dx: 0, comba: 0, angulo: 0.01 * mano, x: 180, y: 450 }); else if (juego === "libre") G.soltar(G.gestoHacia(S.gx - S.barrera.lado * (2.6 + 0.3 * mano), 1.7 + 0.2 * mano, 1.7, -S.barrera.lado * 0.4)); else if (S.tanda === "yo") G.soltar(G.gestoHacia((n++ % 2 ? -1 : 1) * (2.4 + 0.5 * mano), 1.2 + 0.6 * mano, 1.5 + 0.3 * mano, 0)); }
+      if (S.fase === "vuelo-rival" && !S.arquero.vuelo && S.t > 0.12) { huella.push("patea " + S.pelota.vx.toFixed(3) + " " + S.pelota.vy.toFixed(3) + " " + S.pelota.vz.toFixed(3)); G.soltar({ toque: true, x: 180 + (mano ? 110 : -110), y: 400, dx: 0, dy: 0, largo: 0 }); }
+      G.avanzar(1 / 60); t += 1000 / 60;
+    }
+    return { fin: JSON.stringify(S.fin), rival: S.rival, huella: huella.join(" | "), n: huella.length };
+  }
+  console.log("\nreto · la misma semilla es la misma tanda");
+  for (const juego of ["penales", "libre", "triples"]) {
+    const a = tanda(juego, 123456789, 0), b = tanda(juego, 123456789, 0), c = tanda(juego, 123456789, 1), d = tanda(juego, 987654321, 0);
+    ok(a.fin === b.fin && a.huella === b.huella, juego + ": la misma mano, el mismo resultado (" + a.fin.slice(0, 60) + ")");
+    if (juego === "penales") { const pa = a.huella.split(" | "), pc = c.huella.split(" | "); const m = Math.min(pa.length, pc.length); const iguales = pa.slice(0, m).filter((x, i) => x === pc[i]).length; ok(m >= 4 && iguales === m, "penales: otra mano, los mismos amagos y las mismas patadas del rival (" + iguales + " de " + m + ")"); }
+    if (juego === "libre") ok(a.huella === c.huella && a.n === 5 && a.rival === c.rival, "tiro libre: otra mano, los mismos cinco lugares y el mismo rival (" + a.rival + ")");
+    if (juego === "triples") ok(a.rival === c.rival, "triples: otra mano, el mismo minuto del modelo (" + a.rival + ")");
+    ok(juego === "triples" ? true : a.huella !== d.huella, juego + ": otra semilla, otra tanda");
+  }
+  const h = J.hashReto("penales", 123456789, [4, 2], "Fausto_10"), r = J.leerReto("https://armael11.com/app/" + h);
+  ok(h === "#reto=penales.21i3v9.4-2.fausto_10" && r && r.juego === "penales" && r.semilla === 123456789 && r.r.join() === "4,2" && r.de === "fausto_10", "el link va y vuelve (" + h + ")");
+  ok(J.leerReto("#reto=triples.zzzzzz.45") && J.leerReto("#reto=triples.zzzzzz.45").de === "", "sin apodo también vale");
+  const malos = ["#reto=penales.21i3v9.4-2.<script>", "#reto=golf.21i3v9.4-2", "#reto=penales.21i3v9.99-2", "#reto=libre.21i3v9.6-0", "#reto=penales.zzzzzzz9.4-2", "#reto=triples.21i3v9.4-2", "#reto=penales.21i3v9.4", "#reto=penales..4-2", "#reto=penales.21i3v9.4-2.con espacio y más"];
+  const pasaron = malos.filter((x) => { const q = J.leerReto(x); return q && !(x.includes("con espacio") && q.de === "con"); });
+  ok(pasaron.length === 0, "un link roto o inventado no entra (" + (pasaron.join(" ") || "ninguno pasó") + ")");
+  if (mal) { console.log("\n✗ " + mal + " del reto fallaron\n"); process.exit(1); }
+}

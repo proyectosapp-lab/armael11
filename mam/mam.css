@@ -162,6 +162,7 @@ body.mam-sin-red .mam-sinred{display:block}
 .mam-plan.resaltado{outline:3px solid var(--acento,#E8731C);outline-offset:2px}
 .mam-plan .precio{white-space:normal;text-align:left;line-height:1.25}
 .mam-plan.abierto .precio{color:var(--gris);font-weight:600;font-size:12px}
+.mam-plan.pausa{border-style:dashed}
 /* el campo de contraseña con el ojito */
 .mam-clave{position:relative}.mam-clave .mam-campo{padding-right:44px}
 .mam-ojo{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:36px;height:36px;border:0;background:transparent;color:var(--gris);padding:6px;border-radius:10px}
@@ -173,6 +174,14 @@ body.mam-sin-red .mam-sinred{display:block}
 .mam-cancha-caja{border-radius:18px;overflow:hidden;background:#0B1026;box-shadow:0 10px 30px rgba(0,0,0,.25);line-height:0}
 .mam-cancha{display:block;width:100%;touch-action:none;user-select:none;-webkit-user-select:none;outline:none}
 .mam-juego .mam-nota{margin:0 0 4px}
+/* 11/11: retar a un amigo. El cartel de arriba (de quién es el reto y cómo quedó) y el botón de abajo. */
+.mam-reto{display:flex;flex-direction:column;gap:2px;margin:6px 0 10px;padding:10px 14px;border-radius:14px;border:2px solid var(--lima);background:var(--blanco);color:var(--tinta)}
+.mam-reto b{font-size:15px;line-height:1.25}.mam-reto span{font-size:12.5px;line-height:1.35;color:var(--gris)}
+.mam-reto[hidden]{display:none}
+.mam-reto.gane{border-color:var(--ok)}.mam-reto.perdi{border-color:var(--linea)}
+.mam-juego .mam-retar{width:100%;margin-top:8px}
+.mam-como{margin:0 0 8px}.mam-como summary{font-size:12.5px;font-weight:600;color:var(--gris);cursor:pointer;padding:4px 0;list-style-position:inside}.mam-como[open] summary{margin-bottom:4px}
+.mam-juego .mam-retar-nota{margin:6px 0 0;word-break:break-word}.mam-juego .mam-retar-nota:empty{display:none}
 .mam-juego .mam-fila{flex-wrap:wrap;gap:8px}.mam-juego .mam-fila .mam-boton.chico{flex:1 1 auto;padding:0 12px;min-width:0;white-space:nowrap}
 
 /* ── pulido (lista de control de apps): respuesta al toque, foco visible, menos movimiento ── */

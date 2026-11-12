@@ -81,17 +81,22 @@
   function panelHTML(o) {
     o = o || {}; const pases = o.pases || {}; const nativo = !!o.nativo; const precios = o.precios || PRECIOS; const web = o.preciosWeb || {};
     const cobra = o.cobra || null;   // { futbol, tenis, nba }: false = ese deporte hoy es abierto para todos, no se vende
+    // 11/11: el tenis en pausa entre temporadas (ajuste pausa_tenis). El plan Tenis no se ofrece y dice cuándo vuelve;
+    // el plan Todo se sigue ofreciendo y dice lo que da hoy. Quien ya tiene el plan lo ve activo como siempre.
+    const pausa = String(o.pausaTenis || (cobra && cobra.pausaTenis) || '').trim();
     const tiene = (plan) => plan.da.every((d) => pases[d]);
     const filas = PLANES.map((plan) => {
       const activo = tiene(plan);
-      const abierto = !!cobra && plan.da.every((d) => cobra[d] === false);
+      const enPausa = !!pausa && !activo && plan.da.length === 1 && plan.da[0] === 'tenis';
+      const abierto = !enPausa && !!cobra && plan.da.every((d) => cobra[d] === false);
+      const detalle = enPausa ? pausa : (pausa && plan.todo ? 'fútbol y NBA (el tenis, en pausa)' : plan.detalle);
       const pr = nativo ? (precios && precios[plan.id]) : null;
       const precio = nativo ? (pr ? pr.precio + ' / mes' : '…') : (web[plan.id] ? '$' + Number(web[plan.id]).toLocaleString('es-AR') + ' / mes' : '…');
       /* la prueba gratis la pone la tienda (oferta introductoria): se muestra como lo que es, y el botón dice qué hace */
       const prueba = nativo && pr && pr.prueba ? pr.prueba : 0;
-      const accion = activo ? 'activo hasta el ' + esc(fechaCorta(pases[plan.da[0]])) : abierto ? 'por ahora, abierto para todos' : prueba ? `probar ${prueba} días gratis · después ${esc(precio)}` : esc(precio);
-      return `<button type="button" class="mam-plan${plan.todo ? ' todo' : ''}${activo ? ' activo' : ''}${abierto ? ' abierto' : ''}" data-plan="${plan.id}" ${o.comprando || abierto ? 'disabled' : ''}>
-        <b>${esc(plan.nombre)}${plan.todo ? ' · los tres deportes' : ''}</b><small>${esc(plan.detalle)}</small>
+      const accion = activo ? 'activo hasta el ' + esc(fechaCorta(pases[plan.da[0]])) : enPausa ? 'en pausa' : abierto ? 'por ahora, abierto para todos' : prueba ? `probar ${prueba} días gratis · después ${esc(precio)}` : esc(precio);
+      return `<button type="button" class="mam-plan${plan.todo ? ' todo' : ''}${activo ? ' activo' : ''}${abierto ? ' abierto' : ''}${enPausa ? ' abierto pausa' : ''}" data-plan="${plan.id}" ${o.comprando || abierto || enPausa ? 'disabled' : ''}>
+        <b>${esc(plan.nombre)}${plan.todo && !pausa ? ' · los tres deportes' : ''}</b><small>${esc(detalle)}</small>
         <span class="precio">${accion}</span></button>`;
     }).join('');
     const s = S();

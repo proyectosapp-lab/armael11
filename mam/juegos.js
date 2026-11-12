@@ -3,8 +3,14 @@
 // comba; una cámara con perspectiva; dibujo en canvas sin imágenes; sonido sintetizado sin archivos) y tres pieles.
 // El de tenis (el saque) vive en la web de Sacá vos, con el mismo espíritu: el punto se juega entero, a la vista.
 //
-//   mamJuegos.montar(el, 'penales' | 'libre' | 'triples', { ahora, vibrar, compartir, rival, alTerminar })
+//   mamJuegos.montar(el, 'penales' | 'libre' | 'triples', { ahora, vibrar, compartir(texto, url), rival, alTerminar,
+//                                                           reto, apodo(), base, hito(nombre) })
 //   mamJuegos.desmontar()
+//   mamJuegos.leerReto(texto) → { juego, semilla, r, de } | null      un link de reto, validado
+//
+// 11/11 — el siguiente nivel. (1) Mi pateador, de espaldas: carrera, golpe, festejo. (2) La repetición del gol desde
+// atrás del arco, lenta. (3) Haces de luz, teléfonos en la tribuna, la estela como cinta, el golpe en el pasto.
+// (4) Retar a un amigo: cada tanda tiene una semilla; el link la lleva y el amigo juega exactamente la misma.
 //
 // Reglas de diseño: todo es gratis; sin plata, sin premios; "vs el modelo" es el rival (un arquero o un defensor
 // con número), nunca un jugador real con nombre y foto. Nada de acá toca la red.
@@ -19,7 +25,18 @@
   let O = {};                                               // opciones del cascarón
   const ahora = () => (O.ahora ? O.ahora() : (typeof performance !== 'undefined' ? performance.now() : Date.now()));
   const vibrar = (t) => { try { O.vibrar && O.vibrar(t); } catch (e) {} };
-  const azar = () => (O.azar ? O.azar() : Math.random());
+  // La semilla (11/11): cada tanda tiene la suya, y cada tiro saca su propia suerte de (semilla, canal, número de tiro).
+  // Así dos personas con la misma semilla juegan EXACTAMENTE la misma tanda —los mismos amagos, las mismas patadas del
+  // rival, los mismos lugares— sin que lo que hizo uno en el tiro 1 le cambie la suerte al tiro 2. Es lo que hace
+  // posible retar a un amigo. El simulador pasa su propio `azar` y esto no interviene.
+  let SEM = null, RNG = null, RETO = null, TANDA = 0;
+  const nuevaSemilla = () => Math.floor(Math.random() * 4294967296) >>> 0;
+  const mezclar = (a, b) => { let h = (a ^ Math.imul((b + 0x9E3779B9) | 0, 0x85EBCA6B)) >>> 0; h ^= h >>> 15; h = Math.imul(h, 0x2C1B3C6D); h ^= h >>> 12; h = Math.imul(h, 0x297A2D39); h ^= h >>> 15; return h >>> 0; };
+  const mulberry = (a) => () => { a = (a + 0x6D2B79F5) >>> 0; let x = a; x = Math.imul(x ^ (x >>> 15), x | 1); x ^= x + Math.imul(x ^ (x >>> 7), x | 61); return ((x ^ (x >>> 14)) >>> 0) / 4294967296; };
+  const sembrar = (canal, n) => { if (SEM != null && !O.azar) RNG = mulberry(mezclar(mezclar(SEM, canal), n)); };
+  const azar = () => (O.azar ? O.azar() : RNG ? RNG() : Math.random());
+  // "Otra vez": una tanda nueva, con otra semilla; el reto (si lo había) ya se jugó
+  function otraTanda() { TANDA++; RETO = null; SEM = O.azar ? null : nuevaSemilla(); RNG = null; }
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
   const lerp = (a, b, k) => a + (b - a) * k;
   const easeOut = (t) => 1 - Math.pow(1 - clamp(t, 0, 1), 3);
@@ -150,7 +167,7 @@
   }
   // paso fijo (1/120 s): la física sale igual a 30, 60 o 120 cuadros por segundo, y si un cuadro se saltea no cambia el tiro
   const PASO = 1 / 120;
-  function loop() { parar(); let ult = ahora(), acum = 0; const paso = () => { if (!G) return; const t = ahora(); acum += Math.min(0.1, Math.max(0, t - ult) / 1000); ult = t; while (acum >= PASO) { G.avanzar(PASO); acum -= PASO; } G.dibujar(); anim = requestAnimationFrame(paso); }; anim = requestAnimationFrame(paso); }
+  function loop() { parar(); let ult = ahora(), acum = 0; const paso = () => { if (!G) return; const t = ahora(); acum += Math.min(0.1, Math.max(0, t - ult) / 1000); ult = t; while (acum >= PASO) { G.avanzar(PASO); acum -= PASO; } G.dibujar(); if (G.refrescar) G.refrescar(); anim = requestAnimationFrame(paso); }; anim = requestAnimationFrame(paso); }
   function parar() { if (anim) cancelAnimationFrame(anim); anim = null; }
 
   /* ─── piezas de dibujo compartidas ─── */
@@ -234,8 +251,22 @@
   }
   // la estela de la pelota: fantasmas que se apagan; en llamas cuando hay racha
   function estela(ctx, cam, lista, rw, fuego) {
-    if (!lista || lista.length < 2) return; ctx.save();
-    for (let i = 0; i < lista.length; i++) { const q = cam.p(lista[i].x, lista[i].y, lista[i].z); const k = (i + 1) / lista.length; ctx.globalAlpha = (fuego ? 0.55 : 0.3) * k; ctx.fillStyle = fuego ? (i % 2 ? '#FFD23F' : '#FF7A1A') : '#fff'; ctx.beginPath(); ctx.arc(q.x, q.y, Math.max(1.2, rw * q.k * (0.4 + 0.5 * k)), 0, Math.PI * 2); ctx.fill(); }
+    if (!lista || lista.length < 2) return; ctx.save(); ctx.lineCap = 'round';
+    let a = cam.p(lista[0].x, lista[0].y, lista[0].z);
+    for (let i = 1; i < lista.length; i++) { const q = cam.p(lista[i].x, lista[i].y, lista[i].z); const k = i / (lista.length - 1); ctx.globalAlpha = (fuego ? 0.55 : 0.36) * k * k; ctx.strokeStyle = fuego ? (i % 2 ? '#FFD23F' : '#FF7A1A') : '#fff'; ctx.lineWidth = Math.max(1.2, rw * q.k * (0.5 + 1.3 * k)); ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(q.x, q.y); ctx.stroke(); a = q; }
+    ctx.restore();
+  }
+  // el golpe: un anillo que se abre en el pasto y unas briznas que saltan (e: 0 → 1). Todo sale de `hash`.
+  function impacto(ctx, x, y, e, r) {
+    if (e == null || e < 0 || e >= 1) return; ctx.save(); const k = easeOut(e);
+    ctx.globalAlpha = (1 - e) * 0.85; ctx.strokeStyle = '#fff'; ctx.lineWidth = 3 * (1 - e) + 0.5; ctx.beginPath(); ctx.ellipse(x, y, r * (0.7 + 2.4 * k), r * (0.28 + 0.95 * k), 0, 0, Math.PI * 2); ctx.stroke();
+    for (let i = 0; i < 10; i++) { const a = -Math.PI * (0.12 + 0.76 * hash(i + 31)), d = r * (1.2 + 3.8 * hash(i + 47)) * k; ctx.fillStyle = i % 3 ? '#2E9A52' : '#9BE8A8'; ctx.fillRect(x + Math.cos(a) * d * 1.3, y + Math.sin(a) * d + 2.2 * r * e * e, 2.6, 2.6); }
+    ctx.restore();
+  }
+  // los haces de los reflectores: tres conos de luz que bajan de arriba hasta el pasto, apenas visibles
+  function haces(ctx, cam, gx, zArco) {
+    ctx.save(); ctx.globalCompositeOperation = 'lighter';
+    for (const [lx, dx] of [[W * 0.12, -7], [W * 0.5, 0], [W * 0.88, 7]]) { const s = cam.p(gx + dx * 0.6, 0, zArco - 6); const an = Math.min(150, Math.max(46, 5.5 * s.k)); const g = ctx.createLinearGradient(lx, 12, s.x, s.y); g.addColorStop(0, 'rgba(255,246,205,.17)'); g.addColorStop(0.7, 'rgba(255,246,205,.05)'); g.addColorStop(1, 'rgba(255,246,205,0)'); ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(lx - 10, 12); ctx.lineTo(lx + 10, 12); ctx.lineTo(s.x + an, s.y); ctx.lineTo(s.x - an, s.y); ctx.closePath(); ctx.fill(); }
     ctx.restore();
   }
   // la viñeta: los bordes un poco más oscuros, la mirada va al centro
@@ -246,6 +277,25 @@
   function velo(ctx, y0, y1, color, a0, a1) {
     ctx.save(); const g = ctx.createLinearGradient(0, y0, 0, y1); g.addColorStop(0, color.replace('A', String(a0))); g.addColorStop(1, color.replace('A', String(a1))); ctx.fillStyle = g; ctx.fillRect(0, Math.min(y0, y1) - 1, W, Math.abs(y1 - y0) + 2); ctx.restore();
   }
+  /* ─── el reto (11/11): al terminar una tanda, un link. El amigo juega la misma tanda y se compara. ───
+     El link lleva el juego, la semilla y lo que hizo el que reta:  #reto=penales.k3f9x2.4-2.fausto
+     Todo lo que entra por el link se valida (juego, números con tope, apodo de letras y números): nada se ejecuta. */
+  const TOPE_RETO = { penales: [40, 40], libre: [5, 5], triples: [999] };
+  const NOMBRE_RETO = { penales: 'los penales', libre: 'los tiros libres', triples: 'los triples' };
+  const resultadoDe = (juego, fin) => !fin ? null : juego === 'penales' ? [fin.yo, fin.el] : juego === 'libre' ? [fin.goles, fin.escuadras || 0] : [fin.puntos];
+  const valeReto = (juego, r) => juego === 'penales' ? (r[0] - r[1]) * 100 + r[0] : juego === 'libre' ? r[0] * 10 + (r[1] || 0) : r[0];
+  const textoReto = (juego, r, corto) => juego === 'penales' ? r[0] + ' – ' + r[1] : juego === 'libre' ? r[0] + ' de 5' + (r[1] && !corto ? ' (' + r[1] + ' a la escuadra)' : '') : r[0] + (corto ? ' pts' : ' puntos');
+  const apodoLimpio = (a) => String(a == null ? '' : a).toLowerCase().replace(/[^a-z0-9_]/g, '').slice(0, 16);
+  function leerReto(texto) {
+    const m = /reto=(penales|libre|triples)\.([0-9a-z]{1,7})\.(\d{1,3}(?:-\d{1,3})?)(?:\.([a-z0-9_]{1,16}))?(?![a-z0-9_.-])/i.exec(String(texto || '')); if (!m) return null;
+    const juego = m[1].toLowerCase(), semilla = parseInt(m[2].toLowerCase(), 36), r = m[3].split('-').map(Number), tope = TOPE_RETO[juego];
+    if (!(semilla >= 0 && semilla <= 4294967295) || r.length !== tope.length || r.some((v, i) => !(v >= 0 && v <= tope[i]))) return null;
+    return { juego, semilla, r, de: m[4] ? m[4].toLowerCase() : '' };
+  }
+  const hashReto = (juego, semilla, r, de) => '#reto=' + juego + '.' + (semilla >>> 0).toString(36) + '.' + r.join('-') + (apodoLimpio(de) ? '.' + apodoLimpio(de) : '');
+  // cómo quedé contra el que me retó: 1 lo superé, 0 empate, −1 quedó arriba él
+  function veredicto(juego, fin) { if (!RETO || !fin) return null; const mio = valeReto(juego, resultadoDe(juego, fin)), suyo = valeReto(juego, RETO.r); return mio > suyo ? 1 : mio === suyo ? 0 : -1; }
+  const quienReta = () => (RETO && RETO.de) || 'tu amigo';
   // la marca personal de cada juego, en el teléfono
   const marcaDe = (juego) => leer('mam.marca.' + juego, null);
   function anotarMarca(juego, fin, mejor) { const vieja = marcaDe(juego); const nueva = !vieja || mejor(fin, vieja); if (nueva) guardar('mam.marca.' + juego, fin); if (nueva && vieja && O.momento) { try { O.momento('marca'); } catch (e) {} } return nueva; }
@@ -276,6 +326,8 @@
       for (let i = 0; i < n; i++) { const h = hash(f * 131 + i * 7); if (h < 0.07) continue; const x = X0 + 1 + (i + 0.5) * ((X1 - X0 - 2) / n) + (hash(f * 17 + i) - 0.5) * 0.35; const salto = eu > 0 ? Math.max(0, Math.sin(t * 9 + i * 1.7 + f)) * 0.45 * eu : 0; const q = cam.p(x, y0 + 0.5 + salto, zp); if (q.x < -6 || q.x > W + 6) continue; const s = Math.max(1, 0.36 * q.k); ctx.fillStyle = paleta[Math.floor(hash(f * 53 + i * 11) * paleta.length)]; ctx.globalAlpha = 0.55 + 0.3 * hash(f * 7 + i * 13); ctx.beginPath(); ctx.roundRect(q.x - s / 2, q.y - s * 1.1, s, s * 1.7, s * 0.3); ctx.fill(); ctx.fillStyle = ['#9A6A3A', '#6D4320', '#B08A6A', '#4C3021'][(i + f) % 4]; ctx.beginPath(); ctx.arc(q.x, q.y - s * 1.3, s * 0.34, 0, Math.PI * 2); ctx.fill(); }
       ctx.globalAlpha = 1;
     }
+    // las lucecitas de los teléfonos: unas pocas, que se prenden y se apagan todo el tiempo
+    { ctx.fillStyle = '#FFF6CD'; for (let i = 0; i < 16; i++) { const b = Math.sin(t * (0.8 + hash(i + 400)) + i * 1.9); if (b < 0.5) continue; const f = Math.floor(hash(i + 420) * FILAS); const q = cam.p(X0 + 2 + hash(i + 440) * (X1 - X0 - 4), 1.1 + f * SUBE + 0.95, zPie + dirF * (f + 0.5) * ATRAS); if (q.x < 0 || q.x > W) continue; ctx.globalAlpha = (b - 0.5) * 1.7; ctx.beginPath(); ctx.arc(q.x, q.y, 1.5, 0, Math.PI * 2); ctx.fill(); } ctx.globalAlpha = 1; }
     // flashes de las cámaras cuando hay gol
     if (eu > 0) { ctx.fillStyle = '#fff'; for (let i = 0; i < 12; i++) { const paso = Math.floor(t * 18); if (hash(paso * 7 + i * 13) < 0.35) { const f = Math.floor(hash(i + 900 + paso) * FILAS); const q = cam.p(X0 + hash(i + 950 + paso) * (X1 - X0), 1.1 + f * SUBE + 0.9, zPie + dirF * (f + 0.5) * ATRAS); ctx.globalAlpha = 0.9 * eu; ctx.beginPath(); ctx.arc(q.x, q.y, 2.5, 0, Math.PI * 2); ctx.fill(); } } ctx.globalAlpha = 1; }
     // el techo de la tribuna, oscuro, y el borde iluminado
@@ -307,6 +359,7 @@
       ctx.strokeStyle = 'rgba(255,246,205,.35)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(d.x, d.y); ctx.lineTo(c.x, c.y); ctx.stroke();
       // las torres de luz, en el mundo: dos mástiles detrás de la tribuna con la cabeza encendida y su halo
       for (const tx of [-26, 26]) { const base = cam.p(tx, yt + 1.6, zt - cam.dir * 2.5), top = cam.p(tx, yt + 12, zt - cam.dir * 2.5); if (top.x < -40 || top.x > W + 40) continue; ctx.strokeStyle = '#1A2040'; ctx.lineWidth = Math.max(2, 0.25 * top.k); ctx.beginPath(); ctx.moveTo(base.x, base.y); ctx.lineTo(top.x, top.y); ctx.stroke(); const g = ctx.createRadialGradient(top.x, top.y, 0, top.x, top.y, 2.2 * top.k + 40); g.addColorStop(0, 'rgba(255,246,205,.5)'); g.addColorStop(0.35, 'rgba(255,246,205,.12)'); g.addColorStop(1, 'rgba(255,246,205,0)'); ctx.fillStyle = g; ctx.fillRect(top.x - 2.2 * top.k - 40, top.y - 2.2 * top.k - 40, 4.4 * top.k + 80, 4.4 * top.k + 80); ctx.fillStyle = '#FFF4C8'; ctx.beginPath(); ctx.roundRect(top.x - 0.9 * top.k, top.y - 0.35 * top.k, 1.8 * top.k, 0.7 * top.k, 0.15 * top.k); ctx.fill(); } }
+    haces(ctx, cam, gx, zArco);
     // el cartel del perímetro, al pie de la tribuna: la marca propia, nada ajeno
     { const zc = zTrib - cam.dir * 0.2; for (let x = -32; x < 32; x += 8) { const a = cam.p(x, 0, zc), b = cam.p(x + 8, 0, zc), c = cam.p(x + 8, 0.9, zc), d = cam.p(x, 0.9, zc); ctx.fillStyle = '#14110F'; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.lineTo(c.x, c.y); ctx.lineTo(d.x, d.y); ctx.closePath(); ctx.fill(); const m = cam.p(x + 4, 0.45, zc); if (m.x > -40 && m.x < W + 40) texto(ctx, 'MANO A MANO', m.x, m.y, Math.max(3, 0.33 * m.k), 'rgba(232,115,28,.8)', 800); } }
     // los charcos de luz de los reflectores sobre el césped, y la sombra de la noche en los bordes
@@ -396,6 +449,7 @@
     ctx.fillStyle = piel; ctx.beginPath(); ctx.arc(0, cabY, cabezaR, 0, Math.PI * 2); ctx.fill();
     // el pelo: un casquete arriba, con el flequillo de un lado; la cara queda a la vista
     ctx.fillStyle = colores.pelo || '#2b1d12'; ctx.beginPath(); ctx.arc(0, cabY, cabezaR * 1.02, Math.PI * 1.0, Math.PI * 2.0); ctx.quadraticCurveTo(cabezaR * 0.55, cabY - cabezaR * 0.45, cabezaR * 0.1, cabY - cabezaR * 0.3); ctx.quadraticCurveTo(-cabezaR * 0.6, cabY - cabezaR * 0.2, -cabezaR * 1.02, cabY); ctx.closePath(); ctx.fill();
+    if (colores.deEspaldas) { ctx.beginPath(); ctx.arc(0, cabY, cabezaR * 1.02, 0, Math.PI * 2); ctx.fill(); }
     // la cara, de frente: ojos, cejas y boca (cuando la figura es grande como para verlos)
     if (A > 40 && !colores.deEspaldas) {
       const ojo = cabezaR * 0.13, oy = cabY + cabezaR * 0.12;
@@ -419,6 +473,46 @@
       piernas: [lerp(Math.PI / 2 + 0.3, Math.PI / 2 + 0.55 * d, ext), lerp(Math.PI / 2 - 0.3, Math.PI / 2 + 0.15 * d, ext)], rodillas: [lerp(-0.4, -0.5 * d, ext), lerp(0.4, -1.0 * d, ext)],
       inclinacion: d * k * (dir === 0 ? 0 : 1.15) * (alto ? 0.95 : 1.05),
     };
+  }
+
+  // Mi pateador (11/11), visto de espaldas: entra en la carrera, le pega, y festeja o se agarra la cabeza. Durante la
+  // puntería no está (taparía la mira): aparece cuando soltás. `fase`: 'carrera' | 'vuelo' | 'fin'.
+  const CARRERA = 0.12;                                                 // segundos entre soltar el dedo y el golpe
+  const COL_MIO = { camiseta: '#E8E337', camisetaLuz: '#F4F07A', pantalon: '#1b1b1f', medias: '#E8E337', piel: '#C68642', numero: '10', numeroColor: 'rgba(0,0,0,.55)', deEspaldas: true };
+  const COL_MIO_FRENTE = Object.assign({}, COL_MIO, { deEspaldas: false });
+  function miPateador(cam, zP, fase, t, gol, col, escala) {
+    const e = fase === 'carrera' ? clamp(t / CARRERA, 0, 1) : 1; const sigue = fase === 'carrera' ? 0 : fase === 'vuelo' ? easeOut(t / 0.5) : 1;
+    const golpe = fase === 'carrera' ? -0.75 * e : fase === 'vuelo' ? lerp(-0.75, 1, easeOut(t / 0.1)) * (1 - 0.8 * clamp((t - 0.16) / 0.4, 0, 1)) : 0.12;
+    const f = fase === 'fin' ? easeOut(t / 0.35) : 0, arriba = gol ? f : 0, pena = gol ? 0 : f;
+    const salto = arriba * Math.abs(Math.sin(t * 7.5)) * 0.2;
+    figura(cam, { x: lerp(-1.4, -0.8, easeOut(e)) + 0.1 * sigue, y: 0.9 + salto - 0.06 * (1 - e), z: zP - lerp(1.5, 0.32, e) + 0.6 * sigue,
+      brazos: [lerp(lerp(Math.PI * 0.95 - 0.35 * golpe, Math.PI * 1.36, arriba), Math.PI * 1.3, pena), lerp(lerp(Math.PI * 0.16 + 0.3 * golpe, -Math.PI * 0.36, arriba), -Math.PI * 0.3, pena)],
+      codos: [lerp(0.5 * (1 - arriba * 0.8), 2.1, pena), lerp(-0.5 * (1 - arriba * 0.8), -2.1, pena)],
+      piernas: [Math.PI / 2 + 0.22, Math.PI / 2 - 0.14 - 0.8 * Math.max(0, golpe) + 0.45 * Math.max(0, -golpe)],
+      rodillas: [-0.1, golpe < 0 ? -1.15 * golpe : -0.3 * golpe],
+      inclinacion: -0.15 * Math.max(0, golpe) + 0.1 * Math.max(0, -golpe) }, col, escala || 0.92);
+  }
+  // La repetición: mientras la pelota vuela se guarda dónde está cada cosa; después del gol se vuelve a pasar el final,
+  // lento, desde atrás del arco. No toca la suerte ni el resultado: es solo dibujo (y un poco más de espera).
+  const REP = 1.9, REP_T0 = 1.0;
+  function grabarRep(S, p, A) { if (S.rep && S.rep.length < 900) S.rep.push({ x: p.x, y: p.y, z: p.z, rot: p.rot, r: p.r, A }); }
+  function cerrarRep(S, zArco) { const L = S.rep || []; S.repCruce = L.length; let i = 0; while (i < L.length && L[i].z < zArco - 6.5) i++; S.repDesde = i; }
+  function cuadroRep(S) {
+    if (!(S.fase === 'fin-tiro' && S.repetir && S.t > REP_T0 && S.rep && S.rep.length > 12)) return null;
+    const k = clamp((S.t - REP_T0) / REP, 0, 1), n = S.rep.length - 1, i0 = Math.min(S.repDesde || 0, n), i = Math.min(n, i0 + Math.floor(k * (n - i0)));
+    const est = []; for (let j = Math.max(i0, i - 30); j <= i; j += 3) est.push(S.rep[j]);
+    return { k, c: S.rep[i], estela: est, red: i >= S.repCruce && S.red ? { k: clamp((i - S.repCruce) / 45, 0, 1), x: S.red.x, y: S.red.y } : null };
+  }
+  // la cinta de la repetición: las dos franjas de cine, el rótulo y el fundido de entrada y de salida
+  function cintaRep(ctx, k) {
+    ctx.save(); const e = easeOut(clamp(k / 0.12, 0, 1)) * clamp((1 - k) / 0.08, 0, 1);
+    ctx.fillStyle = '#05060C'; ctx.fillRect(0, 0, W, 34 * e); ctx.fillRect(0, H - 34 * e, W, 34 * e);
+    ctx.globalAlpha = e; ctx.fillStyle = 'rgba(10,12,28,.72)'; ctx.beginPath(); ctx.roundRect(14, 46, 124, 26, 13); ctx.fill();
+    ctx.fillStyle = '#FF5A4A'; ctx.globalAlpha = e * (0.55 + 0.45 * Math.sin(k * 40)); ctx.beginPath(); ctx.arc(29, 59, 4.5, 0, Math.PI * 2); ctx.fill();
+    ctx.globalAlpha = e; texto(ctx, 'REPETICIÓN', 40, 59.5, 11.5, '#fff', 800, 'left');
+    if (k < 0.1) { ctx.globalAlpha = 1 - k / 0.1; ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, W, H); }
+    if (k > 0.92) { ctx.globalAlpha = (k - 0.92) / 0.08; ctx.fillStyle = '#05081A'; ctx.fillRect(0, 0, W, H); }
+    ctx.restore();
   }
 
   /* ─── la pelota en vuelo (3D): posición, velocidad, gravedad, comba (Magnus) ─── */
@@ -467,15 +561,24 @@
   // Así el simulador sin pantalla juega exactamente lo mismo: solo cambia cuántas veces se llama a avanzar.
   function conLenta(S, factor, paso) { S.lentaAcum = (S.lentaAcum || 0) + factor; const n = Math.floor(S.lentaAcum); S.lentaAcum -= n; for (let i = 0; i < n; i++) paso(); }
   // la pantalla final compartida: fondo, título, número grande, detalle, la marca personal y la invitación
+  const BOT_OTRA = { x: 20, y: H * 0.66, w: 132, h: 46 }, BOT_RETAR = { x: 160, y: H * 0.66, w: 180, h: 46 };
+  const enBoton = (g, b) => g.x >= b.x - 6 && g.x <= b.x + b.w + 6 && g.y >= b.y - 8 && g.y <= b.y + b.h + 8;
+  // el toque en la pantalla final: un botón o el otro (tocar afuera no hace nada: no se pierde la tanda sin querer)
+  function toqueFinal(g, reiniciar) { if (!g.toque) return; if (enBoton(g, BOT_RETAR) && SEM != null) { if (G && G.retar) G.retar(); } else if (enBoton(g, BOT_OTRA)) reiniciar(); }
+  function retoFinal(juego, fin) { const v = veredicto(juego, fin); if (v == null) return null; const q = quienReta(); return { v, titulo: v > 0 ? '¡Superaste a ' + q + '!' : v === 0 ? 'Empate con ' + q : 'Quedó arriba ' + q, detalle: 'tú ' + textoReto(juego, resultadoDe(juego, fin), true) + ' · ' + q + ' ' + textoReto(juego, RETO.r, true) }; }
   function pantallaFinal(ctx, F) {
     ctx.save(); ctx.fillStyle = F.fondo || 'rgba(11,16,38,.86)'; ctx.fillRect(0, 0, W, H);
     const k = clamp(F.k == null ? 1 : F.k, 0, 1); const s = 1 + 0.25 * (1 - easeOut(k * 2));
-    ctx.save(); ctx.translate(W / 2, H * 0.3); ctx.scale(s, s); ctx.shadowColor = F.color; ctx.shadowBlur = 20; texto(ctx, F.titulo, 0, 0, 38, F.color, 800); ctx.restore();
-    texto(ctx, F.grande, W / 2, H * 0.43, 64, '#fff', 800);
-    texto(ctx, F.detalle, W / 2, H * 0.52, 14, 'rgba(255,255,255,.8)', 600);
-    if (F.marca) { ctx.fillStyle = F.nueva ? 'rgba(232,115,28,.25)' : 'rgba(255,255,255,.1)'; ctx.beginPath(); ctx.roundRect(W / 2 - 120, H * 0.57, 240, 30, 10); ctx.fill(); texto(ctx, F.nueva ? '¡NUEVA MARCA PERSONAL!' : 'Tu mejor: ' + F.marca, W / 2, H * 0.57 + 15, 13, F.nueva ? '#FFB36B' : 'rgba(255,255,255,.85)', 800); }
-    texto(ctx, 'Toca para jugar otra', W / 2, H * 0.68, 16, '#fff', 700);
-    texto(ctx, 'y mandale el resultado a un amigo con Compartir', W / 2, H * 0.72, 11.5, 'rgba(255,255,255,.6)', 600);
+    ctx.save(); ctx.translate(W / 2, H * 0.2); ctx.scale(s, s); ctx.shadowColor = F.color; ctx.shadowBlur = 20; texto(ctx, F.titulo, 0, 0, 38, F.color, 800); ctx.restore();
+    texto(ctx, F.grande, W / 2, H * 0.325, 64, '#fff', 800);
+    texto(ctx, F.detalle, W / 2, H * 0.415, 14, 'rgba(255,255,255,.8)', 600);
+    if (F.marca) { ctx.fillStyle = F.nueva ? 'rgba(232,115,28,.25)' : 'rgba(255,255,255,.1)'; ctx.beginPath(); ctx.roundRect(W / 2 - 120, H * 0.46, 240, 30, 10); ctx.fill(); texto(ctx, F.nueva ? '¡NUEVA MARCA PERSONAL!' : 'Tu mejor: ' + F.marca, W / 2, H * 0.46 + 15, 13, F.nueva ? '#FFB36B' : 'rgba(255,255,255,.85)', 800); }
+    if (F.reto) { const c = F.reto.v > 0 ? '#3ED17A' : F.reto.v === 0 ? '#E8E337' : '#FF8A7A'; ctx.fillStyle = 'rgba(255,255,255,.1)'; ctx.beginPath(); ctx.roundRect(W / 2 - 150, H * 0.535, 300, 46, 12); ctx.fill(); ctx.strokeStyle = c; ctx.lineWidth = 1.5; ctx.stroke(); texto(ctx, F.reto.titulo, W / 2, H * 0.535 + 15, 14, c, 800); texto(ctx, F.reto.detalle, W / 2, H * 0.535 + 33, 11.5, 'rgba(255,255,255,.8)', 600); }
+    // los dos botones: jugar otra, o retar (la misma tanda para el amigo). Se tocan adentro de la cancha.
+    const al = clamp((k - 0.25) * 3, 0, 1); ctx.globalAlpha = al;
+    { const b = BOT_OTRA; ctx.fillStyle = 'rgba(255,255,255,.1)'; ctx.beginPath(); ctx.roundRect(b.x, b.y, b.w, b.h, 14); ctx.fill(); ctx.strokeStyle = 'rgba(255,255,255,.45)'; ctx.lineWidth = 1.5; ctx.stroke(); texto(ctx, 'Jugar otra', b.x + b.w / 2, b.y + b.h / 2 + 0.5, 14, '#fff', 700); }
+    if (SEM != null) { const b = BOT_RETAR; ctx.fillStyle = '#DFF140'; ctx.beginPath(); ctx.roundRect(b.x, b.y, b.w, b.h, 14); ctx.fill(); texto(ctx, F.reto ? 'Mandar mi resultado' : 'Retar a un amigo', b.x + b.w / 2, b.y + b.h / 2 + 0.5, F.reto ? 13 : 14, '#14110F', 800); }
+    if (SEM != null && !F.reto) texto(ctx, 'tu amigo juega exactamente esta misma tanda', W / 2, BOT_OTRA.y + BOT_OTRA.h + 16, 11, 'rgba(255,255,255,.6)', 600);
     ctx.restore();
   }
 
@@ -488,12 +591,13 @@
     const S = { fase: 'guia', t: 0, serie: [], serieRival: [], turno: 0, tanda: 'yo', pelota: null, arquero: null, mensaje: null, red: null, sacudida: 0, fin: null, racha: 0, amago: null, estela: [], euforia: 0, confeti: null, lectura: null, muerteSubita: false, apunte: null, lenta: 1 };
     const COL_YO = { camiseta: '#E8E337', camisetaLuz: '#F4F07A', pantalon: '#1b1b1f', medias: '#E8E337', piel: '#C68642', guantes: '#E8731C', numero: '1' };
     const COL_RIVAL = { camiseta: '#C2542E', camisetaLuz: '#DD7A5A', pantalon: '#1b1b1f', medias: '#C2542E', piel: '#8D5524', numero: '1', numeroColor: 'rgba(255,255,255,.6)' };
+    const COL_YO_ESPALDAS = Object.assign({}, COL_YO, { deEspaldas: true });   // cuando atajo yo, me veo de atrás
     const COL_PATEADOR = { camiseta: '#F3EEE6', camisetaLuz: '#FFFFFF', pantalon: '#14110F', medias: '#F3EEE6', piel: '#8D5524', numero: '9', numeroColor: 'rgba(0,0,0,.45)' };
     const nombreRival = (O.rival && O.rival.nombre) || 'el modelo';
     function reiniciarPelota() { S.pelota = { x: 0, y: 0.11, z: Z_PELOTA, vx: 0, vy: 0, vz: 0, r: 0.11, rot: 0, comba: 0, quieta: true }; S.estela = []; }
     function reiniciarArquero() { S.arquero = { x: 0, y: 0.9, z: Z_ARCO - 0.3, vuelo: null }; }
     // el amago: antes de mi penal, el arquero se mece hacia un lado. La mayoría de las veces es engaño.
-    function amagar() { S.amago = { dir: azar() < 0.5 ? -1 : 1, engano: azar() < 0.65, k: 0 }; }
+    function amagar() { sembrar(1, S.serie.length); S.amago = { dir: azar() < 0.5 ? -1 : 1, engano: azar() < 0.65, k: 0 }; }
     reiniciarPelota(); reiniciarArquero(); amagar();
 
     // ── mi patada: arrastrás la pelota hasta el punto del arco donde querés que entre y soltás. El dedo rápido es
@@ -518,9 +622,10 @@
       const p = S.pelota; const a = camPateo.p(p.x, p.y, p.z), b = camPateo.p(tx, ty, Z_ARCO);
       const dx = b.x - a.x, dy = b.y - a.y; return { toque: false, x: a.x, y: a.y, dx, dy, largo: Math.hypot(dx, dy), vel: vel == null ? 1.6 : vel, comba: comba || 0, angulo: Math.atan2(dx, -dy) };
     }
-    function patear(g) {
-      if (!gestoValido(g)) return;
-      S.apunte = null;
+    // soltar el dedo larga la carrera; el golpe (y todo lo que decide el tiro) llega CARRERA segundos después
+    function patear(g) { if (!gestoValido(g)) return; S.apunte = null; S.carrera = g; S.fase = 'carrera'; S.t = 0; vibrar('toque'); }
+    function pegarle(g) {
+      S.rep = []; S.repetir = false; S.golpe = { e: 0 };
       const p = S.pelota; const o = objetivo(g); const pot = o.pot, tVuelo = o.tVuelo;
       const ang = clamp(Math.atan2(o.tx - p.x, DIST) * 1.8, -0.8, 0.8);     // lo que antes era el ángulo del gesto: centro vs. palo, para el arquero
       const alturaDeseada = o.ty;
@@ -544,6 +649,7 @@
     }
     // ── su patada: el rival patea y yo me tiro con el gesto (o un toque a un lado) ──
     function rivalPatea() {
+      sembrar(2, S.serieRival.length);
       const p = S.pelota; const dir = [-0.9, -0.5, 0.15, 0.5, 0.9][Math.floor(azar() * 5)]; const alto = azar() < 0.5 ? 0.3 : 0.75;
       const tVuelo = lerp(0.8, 0.5, azar()); p.vz = DIST / tVuelo; p.vx = (dir * ARCO.ancho * 0.44) / tVuelo; p.comba = 0;
       p.vy = (alto * ARCO.alto - p.y + 0.5 * 9.81 * tVuelo * tVuelo) / tVuelo; p.quieta = false;
@@ -560,7 +666,7 @@
     }
     function posArquero() {
       const a = S.arquero, v = a.vuelo;
-      if (!v || S.t < v.t0) { const q = poseArqueroQuieto(S.t, S.tanda === 'yo' && S.fase === 'listo' ? S.amago : null); return Object.assign({ x: a.x, alcance: 0, mio: S.tanda === 'el' }, q); }
+      if (!v || S.t < v.t0) { const q = poseArqueroQuieto(S.t, S.tanda === 'yo' && (S.fase === 'listo' || S.fase === 'carrera') ? S.amago : null); return Object.assign({ x: a.x, alcance: 0, mio: S.tanda === 'el' }, q); }
       const k = easeOut((S.t - v.t0) / v.dur);
       const x = a.x + v.dir * k * (v.dist || 2.9), y = 0.9 + (v.alto ? k * 0.9 : -k * 0.35);
       return Object.assign({ x, y, alcance: 1.05, mio: S.tanda === 'el' }, poseArqueroVuelo(v.dir, k, v.alto));
@@ -588,6 +694,8 @@
       const gol = res === 'gol' ? 1 : 0;
       (mio ? S.serie : S.serieRival).push(gol);
       if (mio) S.racha = gol ? S.racha + 1 : 0;
+      // la repetición: el gol al ángulo y el que define la tanda
+      if (mio) { cerrarRep(S, Z_ARCO); const gy = S.serie.reduce((a, b) => a + b, 0), ge = S.serieRival.reduce((a, b) => a + b, 0); S.repetir = !!gol && !reducido() && ((Math.abs(p.x) > ARCO.ancho / 2 - 1.0 && p.y > ARCO.alto - 0.9) || (terminado() && gy > ge)); } else S.repetir = false;
       S.mensaje = { t: mio ? (gol ? '¡GOL!' : res === 'atajada' ? 'ATAJÓ' : res === 'poste' ? '¡AL PALO!' : res === 'casi' ? '¡CASI!' : 'AFUERA') : (gol ? 'GOL DE ÉL' : res === 'atajada' ? '¡LA SACASTE!' : res === 'poste' ? 'PALO' : 'LA TIRÓ AFUERA'),
         sub: mio ? (gol ? (S.racha >= 3 ? S.racha + ' seguidos' : '') : res === 'atajada' ? 'más rápido el dedo, o más al ángulo' : res === 'casi' ? 'por centímetros' : res === 'afuera' ? 'suelta con la mira adentro del arco' : '') : '', color: (gol === 1) === mio ? '#3ED17A' : '#FF6B5B', k: 0 };
       // el reloj vuelve a cero: el vuelo del arquero sigue desde donde estaba (si no, volvía a tirarse después del gol)
@@ -617,10 +725,11 @@
       if (yo <= el) { S.tanda = 'yo'; S.fase = 'listo'; amagar(); } else { S.tanda = 'el'; S.fase = 'rival-prepara'; }
     }
     function soltar(g) {
+      if (S.fase === 'fin-tiro' && S.repetir && S.t > REP_T0) { S.t = 1.5 + REP; return; }
       if (S.fase === 'guia') { S.fase = 'listo'; }
       if (S.fase === 'listo' && S.tanda === 'yo') return patear(g);
       if (S.fase === 'vuelo-rival') return atajar(g);
-      if (S.fase === 'final') { if (g.toque) reiniciar(); }
+      if (S.fase === 'final') toqueFinal(g, reiniciar);
     }
     // la cámara lenta: cuando la pelota llega al arco y en el primer instante del resultado
     function factorLenta() {
@@ -629,23 +738,38 @@
       if (S.fase === 'fin-tiro') return S.t < 0.22 ? 0.38 : S.t < 0.5 ? lerp(0.38, 1, (S.t - 0.22) / 0.28) : 1;
       return 1;
     }
-    function reiniciar() { S.serie = []; S.serieRival = []; S.fin = null; S.racha = 0; S.tanda = 'yo'; S.fase = 'listo'; S.mensaje = null; S.red = null; S.confeti = null; S.muerteSubita = false; S.lectura = null; reiniciarPelota(); reiniciarArquero(); amagar(); }
+    function reiniciar() { otraTanda(); S.serie = []; S.serieRival = []; S.fin = null; S.racha = 0; S.repetir = false; S.golpe = null; S.tanda = 'yo'; S.fase = 'listo'; S.mensaje = null; S.red = null; S.confeti = null; S.muerteSubita = false; S.lectura = null; reiniciarPelota(); reiniciarArquero(); amagar(); }
     function avanzar(dt) { S.lenta = factorLenta(); conLenta(S, S.lenta, () => avanzarPaso(dt)); }
     function avanzarPaso(dt) {
       S.t += dt; S.sacudida = Math.max(0, S.sacudida - dt); S.euforia = Math.max(0, S.euforia - dt * 0.5);
       if (S.amago) S.amago.k = Math.min(1, S.amago.k + dt * 2.2);
       if (S.red) S.red.k = Math.min(1, S.red.k + dt * 1.6);
       if (S.mensaje) S.mensaje.k = Math.min(1, S.mensaje.k + dt * 0.55);
+      if (S.golpe) { S.golpe.e += dt / 0.4; if (S.golpe.e >= 1) S.golpe = null; }
+      if (S.fase === 'carrera' && S.t >= CARRERA) pegarle(S.carrera);
       if (S.fase === 'rival-prepara' && S.t > 1.1) rivalPatea();
       if (S.fase === 'vuelo-mio' || S.fase === 'vuelo-rival') {
-        const p = S.pelota; const antes = p.z; volar(p, dt); anotarEstela(S, p);
+        const p = S.pelota; const antes = p.z; volar(p, dt); anotarEstela(S, p); if (S.fase === 'vuelo-mio') grabarRep(S, p, posArquero());
         if (antes < Z_ARCO && p.z >= Z_ARCO) { p.z = Z_ARCO; cerrarTiro(cruzoLaLinea(), S.fase === 'vuelo-mio'); }
         else if (S.fase === 'vuelo-rival' && S.t > 2.5) cerrarTiro('afuera', false);
       }
-      if (S.fase === 'fin-tiro') { const p = S.pelota; p.pico = false; volar(p, dt); if (p.pico) son('pique'); if (S.t > 1.5) siguiente(); }
+      if (S.fase === 'fin-tiro') { const p = S.pelota; p.pico = false; volar(p, dt); if (p.pico) son('pique'); if (S.tanda === 'yo' && S.t < 0.4) grabarRep(S, p, posArquero()); if (S.t > 1.5 + (S.repetir ? REP : 0)) siguiente(); }
+    }
+    // el gol otra vez, lento, desde atrás del arco: se ve venir la pelota y cómo infla la red
+    function dibujarRepeticion(R) {
+      const ctx = CTX; const p = R.c; const cam = camara({ x0: clamp(p.x * 0.35, -1.2, 1.2), alt: 3.1, z0: Z_ARCO + 6.6, dir: -1, pitch: 0.25, foco: 300 * (1 + 0.14 * R.k), cy: 215 });
+      escenaFutbol(cam, Z_ARCO, S.t, { euforia: S.euforia });
+      miPateador(cam, Z_PELOTA, 'fin', S.t, true, COL_MIO_FRENTE, 1);
+      const pp = cam.p(p.x, p.y, p.z), sp = cam.p(p.x, 0, p.z), r = Math.max(3, p.r * pp.k * 1.9);
+      const pelota = () => { estela(ctx, cam, R.estela, p.r * 1.9, false); sombra(ctx, sp, r * (1 - clamp(p.y / 4, 0, 0.6)), 0.35 * (1 - clamp(p.y / 5, 0, 0.7))); pelotaFutbol(ctx, pp.x, pp.y, r, p.rot); };
+      if (p.z < Z_ARCO - 0.3) pelota();
+      figura(cam, Object.assign({ z: Z_ARCO - 0.3 }, p.A), Object.assign({}, COL_RIVAL, { deEspaldas: true }), 1);
+      if (p.z >= Z_ARCO - 0.3) pelota();
+      arco(cam, Z_ARCO, R.red); vineta(ctx); cintaRep(ctx, R.k);
     }
     function dibujar() {
       const ctx = CTX; ctx.setTransform(CV.width / W, 0, 0, CV.height / H, 0, 0); ctx.save();
+      { const R = cuadroRep(S); if (R) { dibujarRepeticion(R); ctx.restore(); return; } }
       if (S.sacudida > 0) ctx.translate(Math.sin(S.t * 91) * 4 * S.sacudida, Math.cos(S.t * 73) * 4 * S.sacudida);
       const vuela = S.fase === 'vuelo-mio' || S.fase === 'vuelo-rival';
       const push = vuela ? 0.1 * easeOut(S.t / 0.5) : S.fase === 'fin-tiro' ? 0.1 * (1 - easeOut(S.t / 0.7)) : 0;
@@ -653,7 +777,7 @@
       escenaFutbol(cam, Z_ARCO, S.t, { euforia: S.euforia });
       const p = S.pelota; const sp = cam.p(p.x, 0, p.z); const pp = cam.p(p.x, p.y, p.z); const r = Math.max(3, p.r * pp.k * mult);
       const dibujarPelota = () => { if (vuela) estela(ctx, cam, S.estela, p.r * mult, false); sombra(ctx, sp, r * (1 - clamp(p.y / 4, 0, 0.6)), 0.35 * (1 - clamp(p.y / 5, 0, 0.7))); pelotaFutbol(ctx, pp.x, pp.y, r, p.rot); };
-      const dibujarArquero = () => { const A = posArquero(); figura(cam, Object.assign({ z: Z_ARCO - 0.3 }, A), S.tanda === 'yo' ? COL_RIVAL : COL_YO, 1); };
+      const dibujarArquero = () => { const A = posArquero(); figura(cam, Object.assign({ z: Z_ARCO - 0.3 }, A), S.tanda === 'yo' ? COL_RIVAL : COL_YO_ESPALDAS, 1); };
       const dibujarPateador = () => { if (S.tanda === 'el' && S.fase !== 'final' && (S.fase === 'rival-prepara' || S.fase === 'vuelo-rival')) { const k = S.fase === 'rival-prepara' ? easeOut(S.t / 1.1) : 1; const ph = S.t * 14; const patea = S.fase === 'vuelo-rival' ? easeOut(S.t / 0.25) : 0; figura(cam, { x: -2.1 + k * 1.1, y: 0.9, z: Z_PELOTA + 2.4 - k * 1.4, brazos: [Math.PI * 0.95 - 0.5 * Math.sin(ph), Math.PI * 0.05 + 0.5 * Math.sin(ph)], codos: [0.6, -0.6], piernas: k < 1 ? [Math.PI / 2 + 0.45 * Math.sin(ph), Math.PI / 2 - 0.45 * Math.sin(ph)] : [Math.PI / 2 + 0.2, Math.PI / 2 - 1.1 * patea], rodillas: k < 1 ? [0.5 * Math.max(0, Math.sin(ph)), -0.5 * Math.max(0, -Math.sin(ph))] : [0, -0.4 * (1 - patea)], inclinacion: 0.12 * k }, COL_PATEADOR, 0.8); } };
       if (atras) {
         // desde atrás del arco: lejos el pateador y la pelota, después yo, y la red por delante de todo
@@ -666,6 +790,8 @@
         arco(cam, Z_ARCO, S.red);
       } else {
         arco(cam, Z_ARCO, S.red); dibujarArquero(); dibujarPateador(); dibujarPelota();
+        if (S.golpe) { const q = cam.p(0, 0.02, Z_PELOTA); impacto(ctx, q.x, q.y, S.golpe.e, 0.11 * q.k * mult); }
+        if (S.tanda === 'yo' && (S.fase === 'carrera' || S.fase === 'vuelo-mio' || S.fase === 'fin-tiro')) miPateador(cam, Z_PELOTA, S.fase === 'carrera' ? 'carrera' : S.fase === 'vuelo-mio' ? 'vuelo' : 'fin', S.t, S.serie[S.serie.length - 1] === 1, COL_MIO);
         if (S.apunte && S.fase === 'listo') mira(ctx, cam, S.apunte, Z_ARCO, S.apunte.adentro);
         else if (S.fase === 'guia' || (S.fase === 'listo' && S.tanda === 'yo' && S.serie.length === 0)) { const q = cam.p(-2.7, 1.9, Z_ARCO); flechaGuia(ctx, pp.x, pp.y - r - 6, S.t, q.x, q.y); }
       }
@@ -680,7 +806,7 @@
       if (S.confeti != null) confeti(ctx, S.t - S.confeti, ['#E8E337', '#3ED17A', '#fff', '#E8731C']);
       if (S.mensaje) cartel(ctx, S.mensaje.t, S.mensaje.sub, S.mensaje.color, S.mensaje.k);
       if (S.corte && S.t < 0.3 && (S.fase === 'listo' || S.fase === 'rival-prepara')) { ctx.save(); ctx.globalAlpha = 1 - S.t / 0.3; ctx.fillStyle = '#05081A'; ctx.fillRect(0, 0, W, H); ctx.restore(); }
-      if (S.fase === 'final') { const f = S.fin, gane = f.yo > f.el; const m = marcaDe('penales'); pantallaFinal(ctx, { k: S.t, titulo: gane ? '¡GANASTE!' : 'PERDISTE', color: gane ? '#3ED17A' : '#FF6B5B', grande: f.yo + ' – ' + f.el, detalle: 'tú · ' + nombreRival + (f.muerteSubita ? ' · muerte súbita' : ''), marca: m ? m.yo + ' – ' + m.el : null, nueva: f.nueva }); }
+      if (S.fase === 'final') { const f = S.fin, gane = f.yo > f.el; const m = marcaDe('penales'); pantallaFinal(ctx, { k: S.t, titulo: gane ? '¡GANASTE!' : 'PERDISTE', color: gane ? '#3ED17A' : '#FF6B5B', grande: f.yo + ' – ' + f.el, detalle: 'tú · ' + nombreRival + (f.muerteSubita ? ' · muerte súbita' : ''), marca: m ? m.yo + ' – ' + m.el : null, nueva: f.nueva, reto: retoFinal('penales', f) }); }
       ctx.restore();
     }
     return { avanzar, dibujar, soltar, mover, gestoHacia, estado: S, reiniciar };
@@ -692,11 +818,12 @@
     const Z_PELOTA = 3.2; let Z_ARCO = 24, DIST = Z_ARCO - Z_PELOTA; const Z_BARRERA = Z_PELOTA + 9.15;
     const S = { fase: 'guia', t: 0, serie: [], pelota: null, arquero: null, barrera: null, mensaje: null, red: null, sacudida: 0, fin: null, racha: 0, salto: 0, gx: 0, escuadras: 0, estela: [], euforia: 0, confeti: null, lectura: null, rival: 0, apunte: null, lenta: 1 };
     // lo que mete el modelo en su tanda de cinco: entre 2 y 4, para tener a quién ganarle
-    const rivalMete = () => 2 + (azar() < 0.55 ? 1 : 0) + (azar() < 0.3 ? 1 : 0);
+    const rivalMete = () => { sembrar(9, 0); return 2 + (azar() < 0.55 ? 1 : 0) + (azar() < 0.3 ? 1 : 0); };
     const COL_RIVAL = { camiseta: '#C2542E', camisetaLuz: '#DD7A5A', pantalon: '#1b1b1f', medias: '#C2542E', piel: '#8D5524', numeroColor: 'rgba(255,255,255,.6)' }, COL_ARQ = { camiseta: '#E8E337', camisetaLuz: '#F4F07A', pantalon: '#1b1b1f', medias: '#E8E337', piel: '#C68642', guantes: '#E8731C', numero: '1' };
     const nombreRival = (O.rival && O.rival.nombre) || 'el modelo';
     // cada tiro, un lugar distinto: el arco queda corrido (gx) y más o menos lejos; la barrera tapa el palo cercano, el arquero el otro
     function armar() {
+      sembrar(1, S.serie.length);
       S.pelota = { x: 0, y: 0.11, z: Z_PELOTA, vx: 0, vy: 0, vz: 0, r: 0.11, rot: 0, comba: 0 }; S.estela = [];
       const n = S.serie.length; const gxs = [0, 3.2, -3.8, 4.6, -2.6]; S.gx = gxs[n % gxs.length] + (azar() - 0.5) * 1.2;
       Z_ARCO = 21 + azar() * 7; DIST = Z_ARCO - Z_PELOTA;
@@ -705,7 +832,7 @@
       S.barrera = { x: palo * (9.15 / DIST), n: DIST < 23 ? 4 : 5, lado, salto: 0 };
       S.arquero = { x: S.gx - lado * 1.2, vuelo: null }; S.salto = 0; S.dist = DIST;
     }
-    armar(); S.rival = rivalMete();
+    S.rival = rivalMete(); armar();
     // ── el gesto: arrastrás la pelota hasta donde querés que entre; la curva del dedo es la comba (la pelota dobla
     //    por el costado de la barrera); el dedo rápido es potencia. La mira muestra por dónde va a pasar. ──
     const gestoValido = (g) => !g.toque && g.largo >= 25 && g.dy < -10;
@@ -733,9 +860,9 @@
       const p = S.pelota; const a = cam0.p(p.x, p.y, p.z), b = cam0.p(tx, ty, Z_ARCO);
       const dx = b.x - a.x, dy = b.y - a.y; return { toque: false, x: a.x, y: a.y, dx, dy, largo: Math.hypot(dx, dy), vel: vel == null ? 1.6 : vel, comba: comba || 0, angulo: Math.atan2(dx, -dy) };
     }
-    function patear(g) {
-      if (!gestoValido(g)) return;
-      S.apunte = null;
+    function patear(g) { if (!gestoValido(g)) return; S.apunte = null; S.carrera = g; S.fase = 'carrera'; S.t = 0; vibrar('toque'); }
+    function pegarle(g) {
+      S.rep = []; S.repetir = false; S.golpe = { e: 0 };
       const p = S.pelota; const o = objetivo(g); const pot = o.pot; const altura = o.ty;
       Object.assign(p, { vx: o.v.vx, vy: o.v.vy, vz: o.v.vz, comba: o.v.comba, freno: 0.22 });
       S.fase = 'vuelo'; S.t = 0; S.estela = []; S.lectura = null; vibrar('toque'); son('patada');
@@ -762,6 +889,7 @@
       if (res === 'poste') { p.vz = -4; p.vx = -Math.sign(p.x - S.gx) * 2; vibrar('set'); son('poste'); }
       if (res === 'afuera' || res === 'casi') son('ohh');
       const gol = res === 'gol' ? 1 : 0; S.serie.push(gol); S.racha = gol ? S.racha + 1 : 0;
+      cerrarRep(S, Z_ARCO); S.repetir = !!gol && !reducido();          // cada gol de tiro libre se vuelve a ver
       S.mensaje = { t: gol ? (escuadra ? '¡A LA ESCUADRA!' : '¡GOLAZO!') : res === 'barrera' ? 'BARRERA' : res === 'atajada' ? 'ATAJÓ' : res === 'poste' ? '¡AL PALO!' : res === 'casi' ? '¡CASI!' : 'AFUERA', sub: gol ? (S.racha >= 2 ? S.racha + ' seguidos' : '') : res === 'barrera' ? 'curva el dedo: la pelota dobla por el costado' : res === 'casi' ? 'por centímetros' : res === 'afuera' ? 'suelta con la mira adentro del arco' : res === 'atajada' ? 'más lejos del arquero, o más rápido' : '', color: gol ? '#3ED17A' : '#FF6B5B', k: 0 };
       if (S.arquero.vuelo) S.arquero.vuelo.t0 -= S.t;
       S.fase = 'fin-tiro'; S.t = 0;
@@ -771,16 +899,18 @@
       if (S.serie.length >= 5) { S.fase = 'final'; S.t = 0; S.fin = { goles: S.serie.reduce((a, b) => a + b, 0), escuadras: S.escuadras, rival: S.rival }; S.fin.nueva = anotarMarca('libre', { goles: S.fin.goles, escuadras: S.escuadras }, (n, v) => n.goles > v.goles || (n.goles === v.goles && n.escuadras > (v.escuadras || 0))); if (O.alTerminar) O.alTerminar({ juego: 'libre', goles: S.fin.goles, escuadras: S.escuadras }); son('silbato'); if (S.fin.nueva) son('marca'); return; }
       armar(); S.fase = 'listo';
     }
-    function reiniciar() { S.serie = []; S.fin = null; S.racha = 0; S.escuadras = 0; S.fase = 'listo'; S.mensaje = null; S.red = null; S.confeti = null; S.lectura = null; armar(); S.rival = rivalMete(); }
-    function soltar(g) { if (S.fase === 'guia') S.fase = 'listo'; if (S.fase === 'listo') return patear(g); if (S.fase === 'final' && g.toque) reiniciar(); }
+    function reiniciar() { otraTanda(); S.serie = []; S.fin = null; S.racha = 0; S.escuadras = 0; S.repetir = false; S.golpe = null; S.fase = 'listo'; S.mensaje = null; S.red = null; S.confeti = null; S.lectura = null; S.rival = rivalMete(); armar(); }
+    function soltar(g) { if (S.fase === 'fin-tiro' && S.repetir && S.t > REP_T0) { S.t = 1.6 + REP; return; } if (S.fase === 'guia') S.fase = 'listo'; if (S.fase === 'listo') return patear(g); if (S.fase === 'final') toqueFinal(g, reiniciar); }
     function factorLenta() { const p = S.pelota; if (S.fase === 'vuelo' && p.z > Z_ARCO - 3.2) return 0.38; if (S.fase === 'fin-tiro') return S.t < 0.22 ? 0.38 : S.t < 0.5 ? lerp(0.38, 1, (S.t - 0.22) / 0.28) : 1; return 1; }
     function avanzar(dt) { S.lenta = factorLenta(); conLenta(S, S.lenta, () => avanzarPaso(dt)); }
     function avanzarPaso(dt) {
       S.t += dt; S.sacudida = Math.max(0, S.sacudida - dt); S.euforia = Math.max(0, S.euforia - dt * 0.5);
       if (S.red) S.red.k = Math.min(1, S.red.k + dt * 1.6);
       if (S.mensaje) S.mensaje.k = Math.min(1, S.mensaje.k + dt * 0.55);
+      if (S.golpe) { S.golpe.e += dt / 0.4; if (S.golpe.e >= 1) S.golpe = null; }
+      if (S.fase === 'carrera' && S.t >= CARRERA) pegarle(S.carrera);
       if (S.fase === 'vuelo') {
-        const p = S.pelota; const antes = p.z; volar(p, dt); anotarEstela(S, p);
+        const p = S.pelota; const antes = p.z; volar(p, dt); anotarEstela(S, p); grabarRep(S, p, posArquero());
         const B = S.barrera; if (B.saltoT != null && S.t > B.saltoT) { const k = (S.t - B.saltoT) / 0.6; B.salto = k < 1 ? Math.sin(k * Math.PI) * 0.35 : 0; }
         if (antes < Z_BARRERA && p.z >= Z_BARRERA) { const topeBarrera = 1.8 + B.salto; const anchoB = B.n * 0.26; if (p.y < topeBarrera && Math.abs(p.x - B.x) < anchoB) { p.z = Z_BARRERA; return cerrar('barrera'); } }
         if (antes < Z_ARCO && p.z >= Z_ARCO) {
@@ -793,20 +923,37 @@
           cerrar(poste ? 'poste' : enArco && manos ? 'atajada' : enArco ? 'gol' : casi ? 'casi' : 'afuera', escuadra);
         } else if (p.piques > 0 && p.z < Z_ARCO) cerrar('afuera');
       }
-      if (S.fase === 'fin-tiro') { const p = S.pelota; p.pico = false; volar(p, dt); if (p.pico) son('pique'); if (S.t > 1.6) siguiente(); }
+      if (S.fase === 'fin-tiro') { const p = S.pelota; p.pico = false; volar(p, dt); if (p.pico) son('pique'); if (S.t < 0.4) grabarRep(S, p, posArquero()); if (S.t > 1.6 + (S.repetir ? REP : 0)) siguiente(); }
+    }
+    const figBarrera = (cam, col) => { const B = S.barrera; for (let i = 0; i < B.n; i++) { const x = B.x + (i - (B.n - 1) / 2) * 0.5; const s = B.salto; figura(cam, { x, y: 0.9 + s, z: Z_BARRERA, brazos: [Math.PI * 0.62, Math.PI * 0.38], codos: [-0.55, 0.55], piernas: [Math.PI / 2 + 0.1, Math.PI / 2 - 0.1], rodillas: [-s * 1.6, s * 1.6], inclinacion: 0 }, Object.assign({ numero: String(2 + i) }, col), 1); } };
+    // el gol otra vez, lento, desde atrás del arco: la pelota pasa la barrera y cae en la red
+    function dibujarRepeticion(R) {
+      const ctx = CTX; const p = R.c; const cam = camara({ x0: S.gx + clamp((p.x - S.gx) * 0.35, -1.2, 1.2), alt: 3.1, z0: Z_ARCO + 6.6, dir: -1, pitch: 0.25, foco: 300 * (1 + 0.14 * R.k), cy: 215 });
+      escenaFutbol(cam, Z_ARCO, S.t, { euforia: S.euforia, gx: S.gx });
+      miPateador(cam, Z_PELOTA, 'fin', S.t, true, COL_MIO_FRENTE, 1);
+      figBarrera(cam, Object.assign({}, COL_RIVAL, { deEspaldas: true }));
+      const pp = cam.p(p.x, p.y, p.z), sp = cam.p(p.x, 0, p.z), r = Math.max(3, p.r * pp.k * 1.9);
+      const pelota = () => { estela(ctx, cam, R.estela, p.r * 1.9, false); sombra(ctx, sp, r * (1 - clamp(p.y / 4, 0, 0.6)), 0.35 * (1 - clamp(p.y / 5, 0, 0.7))); pelotaFutbol(ctx, pp.x, pp.y, r, p.rot); };
+      if (p.z < Z_ARCO - 0.3) pelota();
+      figura(cam, Object.assign({ z: Z_ARCO - 0.3 }, p.A), Object.assign({}, COL_ARQ, { deEspaldas: true }), 1);
+      if (p.z >= Z_ARCO - 0.3) pelota();
+      arco(cam, Z_ARCO, R.red, S.gx); vineta(ctx); cintaRep(ctx, R.k);
     }
     function dibujar() {
       const ctx = CTX; ctx.setTransform(CV.width / W, 0, 0, CV.height / H, 0, 0); ctx.save();
+      { const R = cuadroRep(S); if (R) { dibujarRepeticion(R); ctx.restore(); return; } }
       if (S.sacudida > 0) ctx.translate(Math.sin(S.t * 91) * 4 * S.sacudida, Math.cos(S.t * 73) * 4 * S.sacudida);
       const push = S.fase === 'vuelo' ? 0.1 * easeOut(S.t / 0.6) : S.fase === 'fin-tiro' ? 0.1 * (1 - easeOut(S.t / 0.7)) : 0;
       const cam = cam0.cerca(push);
       escenaFutbol(cam, Z_ARCO, S.t, { euforia: S.euforia, gx: S.gx }); arco(cam, Z_ARCO, S.red, S.gx);
       const A = posArquero(); figura(cam, Object.assign({ z: Z_ARCO - 0.3 }, A), COL_ARQ, 1);
       // la barrera: saltan todos juntos, con las manos abajo
-      const B = S.barrera; for (let i = 0; i < B.n; i++) { const x = B.x + (i - (B.n - 1) / 2) * 0.5; const s = B.salto; figura(cam, { x, y: 0.9 + s, z: Z_BARRERA, brazos: [Math.PI * 0.62, Math.PI * 0.38], codos: [-0.55, 0.55], piernas: [Math.PI / 2 + 0.1, Math.PI / 2 - 0.1], rodillas: [-s * 1.6, s * 1.6], inclinacion: 0 }, Object.assign({ numero: String(2 + i) }, COL_RIVAL), 1); }
+      figBarrera(cam, COL_RIVAL);
       const p = S.pelota; const sp = cam.p(p.x, 0, p.z); const pp = cam.p(p.x, p.y, p.z); const r = Math.max(2.5, p.r * pp.k * 1.25);
       if (S.fase === 'vuelo') estela(ctx, cam, S.estela, p.r * 1.25, false);
       sombra(ctx, sp, r * (1 - clamp(p.y / 4, 0, 0.6)), 0.35 * (1 - clamp(p.y / 5, 0, 0.7))); pelotaFutbol(ctx, pp.x, pp.y, r, p.rot);
+      if (S.golpe) { const q = cam.p(0, 0.02, Z_PELOTA); impacto(ctx, q.x, q.y, S.golpe.e, 0.11 * q.k * 1.25); }
+      if (S.fase === 'carrera' || S.fase === 'vuelo' || S.fase === 'fin-tiro') miPateador(cam, Z_PELOTA, S.fase === 'carrera' ? 'carrera' : S.fase === 'vuelo' ? 'vuelo' : 'fin', S.t, S.serie[S.serie.length - 1] === 1, COL_MIO);
       if (S.apunte && S.fase === 'listo') mira(ctx, cam, S.apunte, Z_ARCO, S.apunte.adentro);
       else if (S.fase === 'guia' || (S.fase === 'listo' && S.serie.length === 0)) { const q = cam.p(S.gx - (S.barrera.lado) * 2.6, 1.9, Z_ARCO); flechaGuia(ctx, pp.x, pp.y - r - 6, S.t, q.x, q.y); }
       vineta(ctx);
@@ -816,7 +963,7 @@
       lecturaGesto(ctx, S.lectura, S.fase === 'vuelo' ? S.t : S.fase === 'fin-tiro' && S.lectura ? S.t + 1 : 9);
       if (S.confeti != null) confeti(ctx, S.t - S.confeti, ['#E8E337', '#3ED17A', '#fff', '#E8731C']);
       if (S.mensaje) cartel(ctx, S.mensaje.t, S.mensaje.sub, S.mensaje.color, S.mensaje.k);
-      if (S.fase === 'final') { const g = S.fin.goles, rv = S.fin.rival; const m = marcaDe('libre'); pantallaFinal(ctx, { k: S.t, titulo: g > rv ? '¡LE GANASTE!' : g === rv ? 'EMPATE' : 'GANÓ EL MODELO', color: g > rv ? '#3ED17A' : g === rv ? '#E8E337' : '#FF6B5B', grande: g + ' – ' + rv, detalle: 'tú · ' + nombreRival + ', de 5 cada uno' + (S.escuadras ? ' · ' + S.escuadras + ' a la escuadra' : ''), marca: m ? m.goles + ' de 5' : null, nueva: S.fin.nueva }); }
+      if (S.fase === 'final') { const g = S.fin.goles, rv = S.fin.rival; const m = marcaDe('libre'); pantallaFinal(ctx, { k: S.t, titulo: g > rv ? '¡LE GANASTE!' : g === rv ? 'EMPATE' : 'GANÓ EL MODELO', color: g > rv ? '#3ED17A' : g === rv ? '#E8E337' : '#FF6B5B', grande: g + ' – ' + rv, detalle: 'tú · ' + nombreRival + ', de 5 cada uno' + (S.escuadras ? ' · ' + S.escuadras + ' a la escuadra' : ''), marca: m ? m.goles + ' de 5' : null, nueva: S.fin.nueva, reto: retoFinal('libre', S.fin) }); }
       ctx.restore();
     }
     return { avanzar, dibujar, soltar, mover, gestoHacia, estado: S, reiniciar };
@@ -831,7 +978,7 @@
     const POR_PUESTO = 5;                                                     // cinco pelotas por puesto; la última es la dorada y vale doble
     const S = { fase: 'guia', t: 0, tiempo: 60, puntos: 0, tiros: 0, racha: 0, mejorRacha: 0, puesto: 0, enPuesto: 0, pelota: null, mensaje: null, red: null, fin: null, sacudida: 0, ultimo: null, estela: [], confeti: null, ticAnt: 99, flash: 0, rival: 0, apunte: null, lenta: 1 };
     // lo que hace el modelo en su minuto: entre 27 y 51 puntos, de a tres
-    const rivalHace = () => 27 + 3 * Math.floor(azar() * 9);
+    const rivalHace = () => { sembrar(9, 0); return 27 + 3 * Math.floor(azar() * 9); };
     function armar() { S.pelota = { x: 0, y: 1.8, z: 1.5, vx: 0, vy: 0, vz: 0, r: 0.12, rot: 0, comba: 0, toco: false, tablero: false }; S.estela = []; }
     armar(); S.rival = rivalHace();
     const nombreRival = (O.rival && O.rival.nombre) || 'el modelo';
@@ -857,7 +1004,7 @@
     }
     function lanzar(g) {
       if (!gestoValido(g)) return;
-      S.apunte = null;
+      S.apunte = null; sembrar(1, S.tiros);
       const p = S.pelota; const v = velocidades(g);
       Object.assign(p, { vx: v.vx, vy: v.vy, vz: v.vz, toco: false, tablero: false, rot: 0, dorada: dorada() });
       S.fase = 'vuelo'; S.t = 0; S.estela = []; S.tiros++; vibrar('toque'); son('pique');
@@ -875,8 +1022,8 @@
       if (S.tiempo <= 0) { S.fase = 'final'; S.t = 0; S.fin = { puntos: S.puntos, tiros: S.tiros, racha: S.mejorRacha, rival: S.rival }; S.fin.nueva = anotarMarca('triples', { puntos: S.puntos, tiros: S.tiros, racha: S.mejorRacha }, (n, v) => n.puntos > v.puntos); if (O.alTerminar) O.alTerminar({ juego: 'triples', puntos: S.puntos, tiros: S.tiros, racha: S.mejorRacha }); son('buzzer'); if (S.fin.nueva) son('marca'); return; }
       S.fase = 'listo';
     }
-    function reiniciar() { Object.assign(S, { tiempo: 60, puntos: 0, tiros: 0, racha: 0, mejorRacha: 0, puesto: 0, enPuesto: 0, fin: null, mensaje: null, red: null, confeti: null, fase: 'listo', ticAnt: 99, rival: rivalHace() }); armar(); }
-    function soltar(g) { if (S.fase === 'guia') S.fase = 'listo'; if (S.fase === 'listo') return lanzar(g); if (S.fase === 'final' && g.toque) reiniciar(); }
+    function reiniciar() { otraTanda(); Object.assign(S, { tiempo: 60, puntos: 0, tiros: 0, racha: 0, mejorRacha: 0, puesto: 0, enPuesto: 0, fin: null, mensaje: null, red: null, confeti: null, fase: 'listo', ticAnt: 99, rival: rivalHace() }); armar(); }
+    function soltar(g) { if (S.fase === 'guia') S.fase = 'listo'; if (S.fase === 'listo') return lanzar(g); if (S.fase === 'final') toqueFinal(g, reiniciar); }
     // la cámara lenta: cuando la pelota baja sobre el aro
     function factorLenta() { const p = S.pelota; if (S.fase === 'vuelo' && p.vy < 0 && p.y < ARO.y + 0.9 && p.y > ARO.y - 0.3 && Math.abs(p.z - ARO.z) < 1.2) return 0.4; if (S.fase === 'fin-tiro' && S.t < 0.18) return 0.45; return 1; }
     function avanzar(dt) { S.lenta = factorLenta(); conLenta(S, S.lenta, () => avanzarPaso(dt)); }
@@ -995,7 +1142,7 @@
       if (seg <= 10 && S.fase !== 'final' && S.fase !== 'guia') { ctx.save(); ctx.globalAlpha = 0.6 + 0.4 * Math.sin(S.t * 10); texto(ctx, String(seg), W / 2, 90, 44, '#FF6B5B', 800); ctx.restore(); }
       if (S.confeti != null) confeti(ctx, S.t - S.confeti, ['#FFD23F', '#F0862E', '#fff']);
       if (S.mensaje) cartel(ctx, S.mensaje.t, S.mensaje.sub, S.mensaje.color, S.mensaje.k);
-      if (S.fase === 'final') { const f = S.fin; const m = marcaDe('triples'); pantallaFinal(ctx, { k: S.t, fondo: 'rgba(11,10,20,.88)', titulo: f.puntos > f.rival ? (f.puntos >= 45 ? '¡EN LLAMAS!' : '¡LE GANASTE!') : f.puntos === f.rival ? 'EMPATE' : 'GANÓ EL MODELO', color: f.puntos > f.rival ? (f.puntos >= 45 ? '#FFD23F' : '#3ED17A') : f.puntos === f.rival ? '#E8E337' : '#FF6B5B', grande: f.puntos + ' – ' + f.rival, detalle: 'tú · ' + nombreRival + ' · ' + f.tiros + ' tiros · mejor racha ' + f.racha, marca: m ? m.puntos + ' pts' : null, nueva: f.nueva }); }
+      if (S.fase === 'final') { const f = S.fin; const m = marcaDe('triples'); pantallaFinal(ctx, { k: S.t, fondo: 'rgba(11,10,20,.88)', titulo: f.puntos > f.rival ? (f.puntos >= 45 ? '¡EN LLAMAS!' : '¡LE GANASTE!') : f.puntos === f.rival ? 'EMPATE' : 'GANÓ EL MODELO', color: f.puntos > f.rival ? (f.puntos >= 45 ? '#FFD23F' : '#3ED17A') : f.puntos === f.rival ? '#E8E337' : '#FF6B5B', grande: f.puntos + ' – ' + f.rival, detalle: 'tú · ' + nombreRival + ' · ' + f.tiros + ' tiros · mejor racha ' + f.racha, marca: m ? m.puntos + ' pts' : null, nueva: f.nueva, reto: retoFinal('triples', f) }); }
       ctx.restore();
     }
     return { avanzar, dibujar, soltar, mover, estado: S, reiniciar };
@@ -1010,23 +1157,63 @@
   };
   function montar(el, juego, opciones) {
     desmontar(); O = opciones || {}; RAIZ = el;
-    const f = FICHA[juego] || FICHA.penales;
+    if (!JUEGOS[juego]) juego = 'penales';
+    // la semilla de la tanda: la del reto si llegó uno para este juego; si no, una nueva
+    RETO = O.reto && O.reto.juego === juego && !O.azar ? O.reto : null; TANDA++;
+    SEM = O.azar ? null : (RETO ? RETO.semilla >>> 0 : nuevaSemilla()); RNG = null;
+    const f = FICHA[juego];
     el.innerHTML = `<div class="mam-juego"><div class="mam-seccion"><span>${esc(f.titulo)}</span><small>gratis siempre</small></div>
-      <p class="mam-nota">${esc(f.sub)}</p>
+      ${RETO || marcaDe(juego) ? `<details class="mam-como"><summary>Cómo se juega</summary><p class="mam-nota">${esc(f.sub)}</p></details>` : `<p class="mam-nota">${esc(f.sub)}</p>`}
+      <div class="mam-reto" data-reto hidden></div>
       <div class="mam-cancha-caja"><canvas class="mam-cancha" aria-label="${esc(f.titulo)}: desliza para jugar"></canvas></div>
-      <div class="mam-fila" style="justify-content:space-between"><button type="button" class="mam-boton secundario chico" data-juego-otra>Otra vez</button><button type="button" class="mam-boton secundario chico" data-juego-sonido aria-pressed="${Sonido.activo() ? 'true' : 'false'}">${Sonido.activo() ? 'Sonido: sí' : 'Sonido: no'}</button><button type="button" class="mam-boton secundario chico" data-juego-compartir>Compartir</button></div></div>`;
+      <div class="mam-fila" style="justify-content:space-between"><button type="button" class="mam-boton secundario chico" data-juego-otra>Otra vez</button><button type="button" class="mam-boton secundario chico" data-juego-sonido aria-pressed="${Sonido.activo() ? 'true' : 'false'}">${Sonido.activo() ? 'Sonido: sí' : 'Sonido: no'}</button></div>
+      <button type="button" class="mam-boton secundario mam-retar" data-juego-retar>Retar a un amigo</button>
+      <p class="mam-nota mam-retar-nota" data-juego-retar-nota role="status"></p></div>`;
     CV = el.querySelector('canvas'); CTX = prepararLienzo(CV);
-    G = JUEGOS[juego] ? JUEGOS[juego]() : Penales(); G.nombre = juego;
+    G = JUEGOS[juego](); G.nombre = juego;
     gesto = Gesto(CV, (g) => { if (G) G.soltar(g); }, (g) => { if (G && G.mover) G.mover(g); });
     CV.tabIndex = 0;
-    CV.addEventListener('keydown', (ev) => { if (!G) return; if (ev.key === ' ' || ev.key === 'Enter') { ev.preventDefault(); G.soltar({ toque: true, x: W / 2, y: H / 2, largo: 0, dx: 0, dy: 0, vel: 0, comba: 0, angulo: 0 }); } });
+    CV.addEventListener('keydown', (ev) => { if (!G) return; if (ev.key === ' ' || ev.key === 'Enter') { ev.preventDefault(); G.soltar({ toque: true, x: BOT_OTRA.x + BOT_OTRA.w / 2, y: BOT_OTRA.y + BOT_OTRA.h / 2, largo: 0, dx: 0, dy: 0, vel: 0, comba: 0, angulo: 0 }); } });
     el.querySelector('[data-juego-otra]').addEventListener('click', () => { if (G) G.reiniciar(); });
     const bs = el.querySelector('[data-juego-sonido]'); bs.addEventListener('click', () => { const on = Sonido.alternar(); bs.textContent = on ? 'Sonido: sí' : 'Sonido: no'; bs.setAttribute('aria-pressed', on ? 'true' : 'false'); });
-    el.querySelector('[data-juego-compartir]').addEventListener('click', () => { if (!G) return; const S = G.estado; const m = marcaDe(juego); const t = juego === 'penales' ? `Penales en Mano a mano: ${S.serie.reduce((a, b) => a + b, 0)}-${S.serieRival.reduce((a, b) => a + b, 0)} contra el modelo.` + (m ? ` Mi mejor: ${m.yo}-${m.el}.` : '') : juego === 'libre' ? `Tiros libres en Mano a mano: ${S.serie.reduce((a, b) => a + b, 0)}-${S.rival} contra el modelo` + (S.escuadras ? `, ${S.escuadras} a la escuadra.` : '.') : `Triples en Mano a mano: ${S.puntos}-${S.rival} contra el modelo en un minuto` + (m ? ` (mi mejor: ${m.puntos}).` : '.'); if (O.compartir) O.compartir(t + ' ¿Te animás?'); });
+    // ── el reto: el cartel de arriba, el botón de abajo, y cómo cambian cuando la tanda termina o se empieza otra ──
+    const cartelR = el.querySelector('[data-reto]'), botonR = el.querySelector('[data-juego-retar]'), notaR = el.querySelector('[data-juego-retar-nota]');
+    const hito = (n) => { try { O.hito && O.hito(n); } catch (e) {} };
+    let visto = null;
+    const refrescar = () => {
+      if (!G) return; const fin = G.estado.fase === 'final' ? G.estado.fin : null; const clave = TANDA + ':' + (fin ? 1 : 0); if (clave === visto) return; const antes = visto; visto = clave;
+      if (antes != null) notaR.textContent = '';
+      if (RETO) {
+        const q = quienReta(), v = veredicto(juego, fin);
+        cartelR.hidden = false; cartelR.className = 'mam-reto' + (v == null ? '' : v > 0 ? ' gane' : v < 0 ? ' perdi' : '');
+        cartelR.innerHTML = v == null ? `<b>Reto de ${esc(q)}</b><span>Hizo ${esc(textoReto(juego, RETO.r))} en esta misma tanda. Te toca.</span>`
+          : `<b>${v > 0 ? '¡Superaste a ' + esc(q) + '!' : v === 0 ? 'Empate con ' + esc(q) : 'Quedó arriba ' + esc(q)}</b><span>Tú ${esc(textoReto(juego, resultadoDe(juego, fin)))} · ${esc(q)} ${esc(textoReto(juego, RETO.r))}</span>`;
+        if (fin) hito('retojugo');
+      } else { cartelR.hidden = true; cartelR.innerHTML = ''; }
+      botonR.classList.toggle('secundario', !fin); botonR.classList.toggle('listo', !!fin);
+      botonR.textContent = fin ? (RETO ? 'Mandarle tu resultado a ' + quienReta() : 'Retar a un amigo con esta tanda') : 'Retar a un amigo';
+      if (fin) hito('jugo');
+    };
+    G.refrescar = refrescar; refrescar();
+    if (RETO) hito('retoabrio');
+    const retar = () => {
+      if (!G) return; const fin = G.estado.fase === 'final' ? G.estado.fin : null;
+      if (!fin || SEM == null) { notaR.textContent = 'Termina la tanda y reta a un amigo con tu resultado: juega exactamente la misma.'; return; }
+      const r = resultadoDe(juego, fin), de = apodoLimpio(O.apodo ? O.apodo() : '');
+      const url = String(O.base || 'https://armael11.com/app/') + hashReto(juego, SEM, r, de);
+      const texto = RETO ? `Jugué tu reto de ${NOMBRE_RETO[juego]} en Mano a mano: hice ${textoReto(juego, r)} y tú ${textoReto(juego, RETO.r)}. ¿Revancha? Es la misma tanda.`
+        : `Te reto a ${NOMBRE_RETO[juego]} de Mano a mano: hice ${textoReto(juego, r)}. Es la misma tanda para los dos, a ver si me superas.`;
+      hito('retoenvio');
+      const copiar = () => { try { return raiz.navigator.clipboard.writeText(texto + ' ' + url).then(() => true, () => false); } catch (e) { return Promise.resolve(false); } };
+      Promise.resolve(O.compartir ? O.compartir(texto, url) : false).then((ok) => ok || copiar().then((si) => { notaR.textContent = si ? 'Link copiado: pégalo en el chat de tu amigo.' : 'Copia este link y mándaselo: ' + url; })).catch(() => {});
+    };
+    botonR.addEventListener('click', retar); G.retar = retar;
     loop();
     return G;
   }
   function desmontar() { parar(); G = null; CV = null; CTX = null; gesto = null; Sonido.murmurar(false); if (RAIZ) { RAIZ.innerHTML = ''; RAIZ = null; } }
-  raiz.mamJuegos = { montar, desmontar, FICHA, _estado: () => G, _soltar: (g) => G && G.soltar(g), _W: W, _H: H, _sonido: Sonido,
-    _crear: (juego, opciones) => { O = opciones || {}; return (JUEGOS[juego] || Penales)(); }, _destino: destinoReal };
+  raiz.mamJuegos = { montar, desmontar, FICHA, leerReto, hashReto, _estado: () => G, _soltar: (g) => G && G.soltar(g), _W: W, _H: H, _sonido: Sonido,
+    _semilla: () => SEM, _reto: () => RETO,
+    // sin pantalla (simulador y pruebas): con `azar` propio juega como siempre; con `semilla`, la tanda de esa semilla
+    _crear: (juego, opciones) => { O = opciones || {}; RETO = null; TANDA++; SEM = O.azar ? null : (O.semilla != null ? O.semilla >>> 0 : nuevaSemilla()); RNG = null; return (JUEGOS[juego] || Penales)(); }, _destino: destinoReal };
 })(typeof window !== 'undefined' ? window : globalThis);

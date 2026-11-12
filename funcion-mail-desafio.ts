@@ -73,7 +73,7 @@ export function armarMail(d: any, racha: any, bajaUrl: string) {
   const partidos = (d.partidos || []).filter((p: any) => !p.empezo).slice(0, 6);
   const link = APP + "#desafio=" + d.codigo;
   const rachaTxt = racha && racha.desafios > 0 && racha.arriba > 0
-    ? `El modelo, en ${racha.desafios === 1 ? "el último desafío" : "los últimos " + racha.desafios + " desafíos"}: <b>${racha.modelo} de ${racha.jugados}</b>, ${racha.arriba === racha.desafios ? (racha.desafios === 1 ? "arriba de todos" : "arriba de todos las " + (racha.desafios === 2 ? "dos" : racha.desafios) + " veces") : "arriba de todos en " + racha.arriba + " de " + racha.desafios}.`
+    ? `El modelo, en ${racha.desafios === 1 ? "el último desafío" : "los últimos " + racha.desafios + " desafíos"}: <b>${racha.modelo} de ${racha.jugados}</b>${racha.arriba === racha.desafios ? ", " + (racha.desafios === 1 ? "arriba de todos" : "arriba de todos las " + (racha.desafios === 2 ? "dos" : racha.desafios) + " veces") : ""}.`
     : "";
   const filas = partidos.map((p: any) => `<tr><td style="padding:8px 10px;border-bottom:1px solid #2A2521;color:#F6F1EA;font-size:15px"><span style="color:#A39B93;font-size:11px;letter-spacing:.5px;text-transform:uppercase">${esc(p.rotulo || DEP[p.deporte] || "")}</span><br>${esc(p.local)} – ${esc(p.visita)}</td><td style="padding:8px 10px;border-bottom:1px solid #2A2521;color:#A39B93;font-size:12px;text-align:right;white-space:nowrap">${esc(cuando(p.empieza))}</td></tr>`).join("");
   const mas = (d.partidos || []).length - partidos.length;

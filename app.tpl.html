@@ -1289,8 +1289,9 @@ function diaDe(iso){
 let RACHA=null;
 function rachaTexto(){
   const r=RACHA; if(!r || !(r.desafios>0) || !(r.arriba>0)) return "";
-  const veces = r.arriba===r.desafios ? (r.desafios===1 ? "arriba de todos" : "arriba de todos las "+(r.desafios===2?"dos":r.desafios)+" veces") : "arriba de todos en "+r.arriba+" de "+r.desafios;
-  return (r.desafios===1 ? "Último desafío" : "Últimos "+r.desafios+" desafíos")+": "+r.modelo+" de "+r.jugados+", "+veces+".";
+  /* 11/11: "arriba de todos" solo si lo fue en todos; si no, el número solo (nunca se deja ver que alguien le ganó). */
+  const veces = r.arriba===r.desafios ? (r.desafios===1 ? "arriba de todos" : "arriba de todos las "+(r.desafios===2?"dos":r.desafios)+" veces") : "";
+  return (r.desafios===1 ? "Último desafío" : "Últimos "+r.desafios+" desafíos")+": "+r.modelo+" de "+r.jugados+(veces ? ", "+veces : "")+".";
 }
 function traerRacha(){
   const sb=(window.SITIO&&window.SITIO.supabase)||{}; if(!sb.url||!sb.anon||RACHA) return;
@@ -1308,10 +1309,10 @@ function heroPortada(){
       <p>Armas los dos equipos, mueves el planteo y el partido se juega <b>6.000 veces</b> con los goles reales de su liga.
         No tira un dado: está medido en <b>${esc(R.partidos||"13.345")} partidos</b> de ${esc(R.ligas||"trece")} ligas,
         y en ${esc(R.limpias||"1.783")} que el modelo nunca había visto.</p>
-      ${adentro ? "" : `<div class="botones"><a href="#" data-simular>Simular ahora</a><a class="gris" href="/app/#desafios">El desafío de la semana</a></div>`}
+      ${adentro ? "" : `<div class="botones"><a href="#" data-simular>Simular ahora</a><a class="gris" href="/app/#oficial">Jugar el desafío</a></div>`}
       <p class="chica">${PORTADA.gratis} simulaciones gratis por mes · app independiente · sin juego con dinero</p>
     </section>
-    ${adentro ? "" : `<a class="vidriera" href="/app/#desafios">
+    ${adentro ? "" : `<a class="vidriera" href="/app/#oficial">
       <span class="punto">M</span>
       <span><b>El modelo ya eligió. ¿Le vas en contra?</b><br><span class="sub">${esc(rachaTexto() || "El desafío de la semana, gratis, con tu apodo.")}</span></span>
       <span class="chev">›</span></a>`}
